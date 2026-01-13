@@ -1,0 +1,13 @@
+{
+  "tests": [
+    {
+      "description": "simple-omitSearchDocumentResults",
+      "json": {
+        "omitSearchDocumentResults": true
+      },
+      "bson": {
+        "omitSearchDocumentResults": true
+      }
+    }
+  ]
+}

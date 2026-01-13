@@ -1,0 +1,43 @@
+{
+  "valid": [
+    {
+      "description": "full definition",
+      "value": {
+        "name": "full definition",
+        "tokenizer": {
+          "type": "standard"
+        },
+        "tokenFilters": [
+          {
+            "type": "length",
+            "min": 2,
+            "max": 12
+          }
+        ],
+        "charFilters": [
+          {
+            "type": "htmlStrip",
+            "ignoredTags": []
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing name",
+      "value": {
+        "tokenizer": {
+          "type": "standard"
+        }
+      }
+    },
+    {
+      "description": "missing tokenizer",
+      "value": {
+        "name": "foo"
+      }
+    }
+  ]
+}
+

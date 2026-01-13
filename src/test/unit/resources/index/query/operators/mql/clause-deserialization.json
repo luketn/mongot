@@ -1,0 +1,526 @@
+{
+  "valid": [
+    {
+      "description": "simple $eq",
+      "value": {
+        "path.num": {
+          "$eq": 3
+        }
+      }
+    },
+    {
+      "description": "simple $eq null",
+      "value": {
+        "path.num": {
+          "$eq": null
+        }
+      }
+    },
+    {
+      "description": "simple multiple operators",
+      "value": {
+        "path.num": {
+          "$gt": 3,
+          "$lt": 5
+        }
+      }
+    },
+    {
+      "description": "and",
+      "value": {
+        "$and": [
+          {
+            "path.num": {
+              "$gt": 3,
+              "$lt": 5
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "or",
+      "value": {
+        "$or": [
+          {
+            "path.num": {
+              "$gt": 3,
+              "$lt": 5
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "nor",
+      "value": {
+        "$nor": [
+          {
+            "path.num": {
+              "$gt": 3,
+              "$lt": 5
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "nested compound",
+      "value": {
+        "$or": [
+          {
+            "$and": [
+              {
+                "path.num1": {
+                  "$gt": 3,
+                  "$lt": 5
+                }
+              },
+              {
+                "path.num2": {
+                  "$eq": 1
+                }
+              }
+            ]
+          },
+          {
+            "$and": [
+              {
+                "path.name1": {
+                  "$in": [
+                    "mongodb",
+                    "atlas",
+                    "search",
+                    "mongot"
+                  ]
+                }
+              },
+              {
+                "path.name2": {
+                  "$eq": "mongodb"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "description": "and or",
+      "value": {
+        "$and": [
+          {
+            "path.num": {
+              "$gt": 3,
+              "$lt": 5
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ],
+        "$or": [
+          {
+            "category": "tech"
+          },
+          {
+            "product": "database"
+          }
+        ]
+      }
+    },
+    {
+      "description": "and with empty filter",
+      "value": {
+        "$and": [
+          {
+            "path.num": {
+              "$gt": 3,
+              "$lt": 5
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          },
+          {}
+        ]
+      }
+    },
+    {
+      "description": "and with multi key",
+      "value": {
+        "$and": [
+          {
+            "path.num": {
+              "$gt": 3,
+              "$lt": 5
+            },
+            "path.city": "san jose"
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "or with empty filter",
+      "value": {
+        "$or": [
+          {
+            "path.num": {
+              "$gt": 3,
+              "$lt": 5
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          },
+          {}
+        ]
+      }
+    },
+    {
+      "description": "or with multi key",
+      "value": {
+        "$or": [
+          {
+            "path.num": {
+              "$gt": 3,
+              "$lt": 5
+            },
+            "path.city": "san jose"
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "nor with empty filter",
+      "value": {
+        "$nor": [
+          {
+            "path.num": {
+              "$gt": 3,
+              "$lt": 5
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          },
+          {}
+        ]
+      }
+    },
+    {
+      "description": "nor with multi key",
+      "value": {
+        "$nor": [
+          {
+            "path.num": {
+              "$gt": 3,
+              "$lt": 5
+            },
+            "path.city": "san jose"
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "gt",
+      "value": {
+        "path": {
+          "$gt": 3
+        }
+      }
+    },
+    {
+      "description": "gte",
+      "value": {
+        "path": {
+          "$gte": 3
+        }
+      }
+    },
+    {
+      "description": "lt",
+      "value": {
+        "path": {
+          "$lt": 3
+        }
+      }
+    },
+    {
+      "description": "lte",
+      "value": {
+        "path": {
+          "$lte": 3
+        }
+      }
+    },
+    {
+      "description": "eq",
+      "value": {
+        "path": {
+          "$eq": 3
+        }
+      }
+    },
+    {
+      "description": "ne",
+      "value": {
+        "path": {
+          "$ne": 3
+        }
+      }
+    },
+    {
+      "description": "in",
+      "value": {
+        "path": {
+          "$in": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      }
+    },
+    {
+      "description": "nin",
+      "value": {
+        "path": {
+          "$nin": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      }
+    },
+    {
+      "description": "multiple operators",
+      "value": {
+        "path": {
+          "$gt": 1,
+          "$nin": [
+            6,
+            3
+          ]
+        }
+      }
+    },
+    {
+      "description": "simple $not",
+      "value": {
+        "path.num" : {
+          "$not" : {
+            "$eq" : 3.0
+          }
+        }
+      }
+    },
+    {
+      "description": "nested $not",
+      "value": {
+        "path.num" : {
+          "$not" : {
+            "$not" : {
+              "$eq" : 3.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "eq ne $not",
+      "value": {
+        "path.num" : {
+          "$not" : {
+            "$eq" : 3.0,
+            "$ne" : 4.0
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid operator",
+      "value": {
+        "path.name": {
+          "invalid": [
+            1,
+            2,
+            3
+          ]
+        }
+      }
+    },
+    {
+      "description": "$in operator mixed types",
+      "value": {
+        "path.name": {
+          "$in": [
+            "1",
+            2,
+            3
+          ]
+        }
+      }
+    },
+    {
+      "description": "$nin operator mixed types",
+      "value": {
+        "path.name": {
+          "$nin": [
+            "1",
+            2,
+            3
+          ]
+        }
+      }
+    },
+    {
+      "description": "empty $and",
+      "value": {
+        "path.name": {
+          "$and": []
+        }
+      }
+    },
+    {
+      "description": "empty $or",
+      "value": {
+        "path.name": {
+          "$or": []
+        }
+      }
+    },
+    {
+      "description": "empty $nor",
+      "value": {
+        "path.name": {
+          "$nor": []
+        }
+      }
+    },
+    {
+      "description": "invalid inner and clause",
+      "value": {
+        "$and": [
+          {
+            "path": {
+              "$gt": [
+                1,
+                2,
+                3
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "or empty",
+      "value": {
+        "$or": []
+      }
+    },
+    {
+      "description": "invalid inner or clause",
+      "value": {
+        "$or": [
+          {
+            "path": {
+              "$gt": [
+                1,
+                2,
+                3
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "invalid operator",
+      "value": {
+        "path": {
+          "invalid": [
+            1,
+            2,
+            3
+          ]
+        }
+      }
+    },
+    {
+      "description": "invalid value for operator",
+      "value": {
+        "path": {
+          "$gt": [
+            1,
+            2,
+            3,
+            4
+          ]
+        }
+      }
+    },
+    {
+      "description": "invalid value for array operator",
+      "value": {
+        "path": {
+          "$in": 1
+        }
+      }
+    },
+    {
+      "description": "nested value",
+      "value": {
+        "path": {
+          "gt": {
+            "a": 2
+          }
+        }
+      }
+    }
+  ]
+}

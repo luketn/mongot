@@ -1,0 +1,25 @@
+{
+  "tests": [
+    {
+      "description": "euclidean",
+      "value": {
+        "similarity": "euclidean",
+        "dimensions": 100
+      }
+    },
+    {
+      "description": "dotProduct",
+      "value": {
+        "similarity": "dotProduct",
+        "dimensions": 200
+      }
+    },
+    {
+      "description": "cosine",
+      "value": {
+        "similarity": "cosine",
+        "dimensions": 300
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "tests": [
+    {
+      "description": "relevance",
+      "value": {
+        "score": "relevance"
+      }
+    }
+  ]
+}

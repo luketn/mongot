@@ -1,0 +1,112 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "path": "access",
+        "queries": [
+          {
+            "type": "BooleanQuery",
+            "args": {
+              "should": [
+                {
+                  "type": "TermQuery",
+                  "args": {
+                    "path": "access",
+                    "value": "full"
+                  }
+                },
+                {
+                  "type": "TermQuery",
+                  "args": {
+                    "path": "access",
+                    "value": "full"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "bson": {
+        "path": "access",
+        "queries": [
+          {
+            "type": "BooleanQuery",
+            "args": {
+              "should": [
+                {
+                  "type": "TermQuery",
+                  "args": {
+                    "path": "access",
+                    "value": "full"
+                  }
+                },
+                {
+                  "type": "TermQuery",
+                  "args": {
+                    "path": "access",
+                    "value": "full"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "missing-path",
+      "json": {
+        "queries": [
+          {
+            "type": "BooleanQuery",
+            "args": {
+              "should": [
+                {
+                  "type": "TermQuery",
+                  "args": {
+                    "path": "access",
+                    "value": "full"
+                  }
+                },
+                {
+                  "type": "TermQuery",
+                  "args": {
+                    "path": "access",
+                    "value": "full"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "bson": {
+        "queries": [
+          {
+            "type": "BooleanQuery",
+            "args": {
+              "should": [
+                {
+                  "type": "TermQuery",
+                  "args": {
+                    "path": "access",
+                    "value": "full"
+                  }
+                },
+                {
+                  "type": "TermQuery",
+                  "args": {
+                    "path": "access",
+                    "value": "full"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

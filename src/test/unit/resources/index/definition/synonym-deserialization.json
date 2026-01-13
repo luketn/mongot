@@ -1,0 +1,90 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "name": "simple-synonyms",
+        "source": {
+          "collection": "collection"
+        },
+        "analyzer": "lucene.standard"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing name",
+      "value": {
+        "source": {
+          "collection": "collection"
+        },
+        "analyzer": "lucene.standard"
+      }
+    },
+    {
+      "description": "missing source",
+      "value": {
+        "name": "simple-synonyms",
+        "analyzer": "lucene.standard"
+      }
+    },
+    {
+      "description": "other field in source",
+      "value": {
+        "name": "simple-synonyms",
+        "source": {
+          "collection": "collection",
+          "someOtherField": "asdf"
+        },
+        "analyzer": "lucene.standard"
+      }
+    },
+    {
+      "description": "source missing fields",
+      "value": {
+        "name": "simple-synonyms",
+        "source": {},
+        "analyzer": "lucene.standard"
+      }
+    },
+    {
+      "description": "missing analyzer",
+      "value": {
+        "name": "simple-synonyms",
+        "source": {
+          "collection": "collection"
+        }
+      }
+    },
+    {
+      "description": "empty name",
+      "value": {
+        "name": "",
+        "source": {
+          "collection": "collection"
+        },
+        "analyzer": "lucene.standard"
+      }
+    },
+    {
+      "description": "empty collection",
+      "value": {
+        "name": "synonyms",
+        "source": {
+          "collection": ""
+        },
+        "analyzer": "lucene.standard"
+      }
+    },
+    {
+      "description": "empty analyzer",
+      "value": {
+        "name": "synonyms",
+        "source": {
+          "collection": "collection"
+        },
+        "analyzer": ""
+      }
+    }
+  ]
+}

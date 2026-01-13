@@ -1,0 +1,578 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028"
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "healthCheck": {
+          "address": "localhost:8080"
+        },
+        "logging": {
+          "verbosity": "DEBUG",
+          "logPath": "/var/log/mongot"
+        },
+        "ftdc": {
+          "enabled": true,
+          "directorySizeMb": 100,
+          "fileSizeMb": 10,
+          "collectionPeriodMillis": 1000
+        }
+      }
+    },
+    {
+      "description": "full",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": [
+              "mongod1:27017",
+              "mongod2:27017"
+            ],
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd",
+            "authSource": "local",
+            "tls": true,
+            "readPreference": "primaryPreferred"
+          },
+          "router": {
+            "hostAndPort": [
+              "mongos1:27017",
+              "mongos2:27017"
+            ],
+            "username": "user",
+            "passwordFile": "/etc/mongot/router.passwd",
+            "authSource": "local",
+            "tls": false,
+            "readPreference": "primaryPreferred"
+          },
+          "caFile": "/etc/mongot/ca.pem"
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028",
+            "tls": {
+              "mode": "mTLS",
+              "certificateKeyFile": "/etc/ssl/common-cert.pem",
+              "caFile": "/etc/mongot-tls/ca.pem"
+            }
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "healthCheck": {
+          "address": "localhost:8080"
+        },
+        "logging": {
+          "verbosity": "DEBUG",
+          "logPath": "/var/log/mongot"
+        },
+        "ftdc": {
+          "enabled": false,
+          "directorySizeMb": 200,
+          "fileSizeMb": 20,
+          "collectionPeriodMillis": 3000
+        }
+      }
+    },
+    {
+      "description": "with default log verbosity",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028"
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "healthCheck": {
+          "address": "localhost:8080"
+        },
+        "logging": {
+          "logPath": "/var/log/mongot"
+        },
+        "ftdc": {
+          "enabled": true,
+          "directorySizeMb": 100,
+          "fileSizeMb": 10,
+          "collectionPeriodMillis": 1000
+        }
+      }
+    },
+    {
+      "description": "grpcDisabledTls",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028",
+            "tls": {
+              "mode": "DISABLED"
+            }
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "healthCheck": {
+          "address": "localhost:8080"
+        },
+        "logging": {
+          "verbosity": "DEBUG",
+          "logPath": "/var/log/mongot"
+        },
+        "ftdc": {
+          "enabled": true,
+          "directorySizeMb": 100,
+          "fileSizeMb": 10,
+          "collectionPeriodMillis": 1000
+        }
+      }
+    },
+    {
+      "description": "grpcTls",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028",
+            "tls": {
+              "mode": "TLS",
+              "certificateKeyFile": "/etc/ssl/common-cert.pem"
+            }
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "healthCheck": {
+          "address": "localhost:8080"
+        },
+        "logging": {
+          "verbosity": "DEBUG",
+          "logPath": "/var/log/mongot"
+        },
+        "ftdc": {
+          "enabled": true,
+          "directorySizeMb": 100,
+          "fileSizeMb": 10,
+          "collectionPeriodMillis": 1000
+        }
+      }
+    },
+    {
+      "description": "grpcMtls",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028",
+            "tls": {
+              "mode": "mTLS",
+              "certificateKeyFile": "/etc/ssl/common-cert.pem",
+              "caFile": "/etc/mongot-tls/ca.pem"
+            }
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "healthCheck": {
+          "address": "localhost:8080"
+        },
+        "logging": {
+          "verbosity": "DEBUG",
+          "logPath": "/var/log/mongot"
+        },
+        "ftdc": {
+          "enabled": true,
+          "directorySizeMb": 100,
+          "fileSizeMb": 10,
+          "collectionPeriodMillis": 1000
+        }
+      }
+    },
+    {
+      "description": "with embedding endpoint override",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028"
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "healthCheck": {
+          "address": "localhost:8080"
+        },
+        "logging": {
+          "verbosity": "DEBUG",
+          "logPath": "/var/log/mongot"
+        },
+        "embedding": {
+          "providerEndpoint": "https://custom-api.example.com/v1/embeddings"
+        },
+        "ftdc": {
+          "enabled": true,
+          "directorySizeMb": 100,
+          "fileSizeMb": 10,
+          "collectionPeriodMillis": 1000
+        }
+      }
+    },
+    {
+      "description": "override ftdc default configs",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028"
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "healthCheck": {
+          "address": "localhost:8080"
+        },
+        "logging": {
+          "verbosity": "DEBUG",
+          "logPath": "/var/log/mongot"
+        },
+        "ftdc": {
+          "enabled": false,
+          "directorySizeMb": 200,
+          "fileSizeMb": 20,
+          "collectionPeriodMillis": 3000
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing sync source replicaSet",
+      "value": {
+        "syncSource": {
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028"
+          }
+        }
+      }
+    },
+    {
+      "description": "invalid certificateKeyFile path",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "server": {
+            "grpc": {
+              "address": "localhost:27028",
+              "tls": {
+                "mode": "TLS",
+                "certificateKeyFile": "/path/\u0000/"
+              }
+            }
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "logging": {
+          "verbosity": "DEBUG"
+        }
+      }
+    },
+    {
+      "description": "missing grpc address",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "logging": {
+          "verbosity": "DEBUG"
+        }
+      }
+    },
+    {
+      "description": "missing grpc tls certificate file",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028",
+            "tls": {
+              "mode": "TLS"
+            }
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "logging": {
+          "verbosity": "DEBUG"
+        }
+      }
+    },
+    {
+      "description": "missing grpc mtls ca file",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028",
+            "tls": {
+              "mode": "MTLS",
+              "certificateKeyFile": "/etc/ssl/common-cert.pem"
+            }
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "logging": {
+          "verbosity": "DEBUG"
+        }
+      }
+    },
+    {
+      "description": "ftdc directorySizeMb too small",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028"
+          }
+        },
+        "ftdc": {
+          "enabled": true,
+          "directorySizeMb": 9,
+          "fileSizeMb": 2,
+          "collectionPeriodMillis": 3000
+        }
+      }
+    },
+    {
+      "description": "ftdc fileSizeMb too small",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028"
+          }
+        },
+        "ftdc": {
+          "enabled": true,
+          "directorySizeMb": 100,
+          "fileSizeMb": 0,
+          "collectionPeriodMillis": 3000
+        }
+      }
+    },
+    {
+      "description": "directorySizeMb not bigger than fileSizeMb",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028"
+          }
+        },
+        "ftdc": {
+          "enabled": true,
+          "directorySizeMb": 100,
+          "fileSizeMb": 100,
+          "collectionPeriodMillis": 3000
+        }
+      }
+    },
+    {
+      "description": "ftdc collectionPeriodMillis too small",
+      "value": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028"
+          }
+        },
+        "ftdc": {
+          "enabled": true,
+          "directorySizeMb": 100,
+          "fileSizeMb": 10,
+          "collectionPeriodMillis": 99
+        }
+      }
+    }
+  ]
+}

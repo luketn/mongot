@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "description": "multiply path score constant",
+      "value": {
+        "multiply": [
+          {
+            "path": {
+              "value": "rating",
+              "undefined": 6043.28
+            }
+          },
+          {
+            "constant": 8987.31
+          },
+          {
+            "score": "relevance"
+          }
+        ]
+      }
+    }
+  ]
+}

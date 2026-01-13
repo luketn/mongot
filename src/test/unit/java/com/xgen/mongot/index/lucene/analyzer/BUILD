@@ -1,0 +1,13 @@
+load("//bazel/java:test.bzl", "java_test_suite")
+
+java_test_suite(
+    name = "analyzer",
+    srcs = ["CustomAnalyzerTest.java"],
+    tags = ["unit"],
+    deps = [
+        "//src/main/java/com/xgen/mongot/index/lucene/analyzer",
+        "@maven//:junit_junit",
+        "@maven//:org_apache_lucene_lucene_core",
+        "@maven//:org_mockito_mockito_core",
+    ],
+)

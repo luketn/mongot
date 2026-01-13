@@ -1,0 +1,147 @@
+{
+  "valid": [
+    {
+      "description": "point",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "description": "line",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            10.0,
+            12.0
+          ],
+          [
+            11.0,
+            13.0
+          ]
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing type",
+      "value": {
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "description": "missing coordinates",
+      "value": {
+        "type": "Point"
+      }
+    },
+    {
+      "description": "point missing lat",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          10.0
+        ]
+      }
+    },
+    {
+      "description": "line missing lat",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            10.0,
+            12.0
+          ],
+          [
+            1.0
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon not a loop",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              10.0,
+              12.0
+            ],
+            [
+              10.1,
+              12.2
+            ],
+            [
+              10.3,
+              12.3
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon not enough brackets",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            10.0,
+            12.0
+          ],
+          [
+            10.1,
+            12.2
+          ],
+          [
+            10.3,
+            12.3
+          ]
+        ]
+      }
+    },
+    {
+      "description": "coordinates are null",
+      "value": {
+        "type": "Point",
+        "coordinates": null
+      }
+    },
+    {
+      "description": "coordinates are number",
+      "value": {
+        "type": "Point",
+        "coordinates": 3.0
+      }
+    },
+    {
+      "description": "coordinates contain null",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          3.0,
+          null
+        ]
+      }
+    },
+    {
+      "description": "type is null",
+      "value": {
+        "type": null,
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "description": "lowerBound",
+      "value": {
+        "lowerBound": 2147483648
+      }
+    },
+    {
+      "description": "total",
+      "value": {
+        "total": 2147483648
+      }
+    },
+    {
+      "description": "both",
+      "value": {
+        "lowerBound": 2147483648,
+        "total": 2147483648
+      }
+    }
+  ]
+}

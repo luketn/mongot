@@ -1,0 +1,122 @@
+package com.xgen.mongot.metrics.system;
+
+import com.google.common.flogger.FluentLogger;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.BaseUnits;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Stream;
+import oshi.SystemInfo;
+import oshi.hardware.GlobalMemory;
+import oshi.hardware.VirtualMemory;
+
+// TODO(CLOUDP-285787): investigate moving metrics (especially gauges) to MetricsFactory
+public class MemoryMetrics {
+  private static final FluentLogger FLOGGER = FluentLogger.forEnclosingClass();
+  private final GlobalMemory globalMemory;
+  private final VirtualMemory virtualMemory;
+  private final AtomicLong physicalInUse = new AtomicLong();
+  private final AtomicLong swapAvailable = new AtomicLong();
+  private final AtomicLong memoryMappings = new AtomicLong();
+
+  private MemoryMetrics(GlobalMemory globalMemory, VirtualMemory virtualMemory) {
+    this.globalMemory = globalMemory;
+    this.virtualMemory = virtualMemory;
+  }
+
+  static MemoryMetrics create(SystemInfo systemInfo, MeterRegistry meterRegistry) {
+    GlobalMemory globalMemory = systemInfo.getHardware().getMemory();
+    VirtualMemory virtualMemory = globalMemory.getVirtualMemory();
+    MemoryMetrics memoryMetrics = new MemoryMetrics(globalMemory, virtualMemory);
+
+    Gauge.builder("system.memory.memoryMappings", memoryMetrics.memoryMappings, AtomicLong::get)
+        .description("The number of memory mappings")
+        .baseUnit(BaseUnits.OBJECTS)
+        .register(meterRegistry);
+
+    // Physical memory metrics
+    Gauge.builder("system.memory.phys.total", globalMemory, GlobalMemory::getTotal)
+        .description("The amount of physical memory")
+        .baseUnit(BaseUnits.BYTES)
+        .register(meterRegistry);
+    Gauge.builder("system.memory.phys.available", globalMemory, GlobalMemory::getAvailable)
+        .description("The amount of physical memory available")
+        .baseUnit(BaseUnits.BYTES)
+        .register(meterRegistry);
+    Gauge.builder("system.memory.phys.inUse", memoryMetrics.physicalInUse, AtomicLong::get)
+        .description("The amount of physical memory in use")
+        .baseUnit(BaseUnits.BYTES)
+        .register(meterRegistry);
+    Gauge.builder("system.memory.pageSize", globalMemory, GlobalMemory::getPageSize)
+        .description("The system memory page size")
+        .baseUnit(BaseUnits.BYTES)
+        .register(meterRegistry);
+
+    // Virtual memory metrics
+    Gauge.builder("system.memory.virt.inUse", virtualMemory, VirtualMemory::getVirtualInUse)
+        .description("The total amount of physical and virtual memory in use")
+        .baseUnit(BaseUnits.BYTES)
+        .register(meterRegistry);
+    Gauge.builder("system.memory.virt.max", virtualMemory, VirtualMemory::getVirtualMax)
+        .description("The total combined physical and virtual memory capacity")
+        .baseUnit(BaseUnits.BYTES)
+        .register(meterRegistry);
+    Gauge.builder("system.memory.virt.swap.total", virtualMemory, VirtualMemory::getSwapTotal)
+        .description("The current swap file size")
+        .baseUnit(BaseUnits.BYTES)
+        .register(meterRegistry);
+    Gauge.builder("system.memory.virt.swap.available", memoryMetrics.swapAvailable, AtomicLong::get)
+        .description("The amount of unallocated swap memory available")
+        .baseUnit(BaseUnits.BYTES)
+        .register(meterRegistry);
+    Gauge.builder("system.memory.virt.swap.inUse", virtualMemory, VirtualMemory::getSwapUsed)
+        .description("The amount of allocated memory in the swap file")
+        .baseUnit(BaseUnits.BYTES)
+        .register(meterRegistry);
+    Gauge.builder("system.memory.virt.swap.pagesIn", virtualMemory, VirtualMemory::getSwapPagesIn)
+        .description("The amount of memory committed to the swap file")
+        .baseUnit(BaseUnits.OPERATIONS)
+        .register(meterRegistry);
+    Gauge.builder("system.memory.virt.swap.pagesOut", virtualMemory, VirtualMemory::getSwapPagesOut)
+        .description("The amount of memory committed to the swap file")
+        .baseUnit(BaseUnits.OPERATIONS)
+        .register(meterRegistry);
+
+    memoryMetrics.update(); // ensure computed fields are populated
+    return memoryMetrics;
+  }
+
+  private static Optional<Long> getMemoryMappings() {
+    // self resolves to the current pid
+    try {
+      Path path = Paths.get("/proc/self/maps");
+      // each line in /proc/pid/maps represents one memory mapping
+      long lineCount;
+      try (Stream<String> lines = Files.lines(path)) {
+        lineCount = lines.count();
+      }
+      return Optional.of(lineCount);
+    } catch (Throwable e) {
+      FLOGGER.atWarning().atMostEvery(1, TimeUnit.DAYS).log(
+          "Exception raised during retrieval of memory mappings count");
+    }
+    return Optional.empty();
+  }
+
+  public void update() {
+    var physicalInUse = this.globalMemory.getTotal() - this.globalMemory.getAvailable();
+    var swapAvailable = this.virtualMemory.getSwapTotal() - this.virtualMemory.getSwapUsed();
+
+    this.physicalInUse.set(physicalInUse);
+    this.swapAvailable.set(swapAvailable);
+
+    // update memory mappings - only updated every 5 seconds
+    var memoryMappings = getMemoryMappings();
+    memoryMappings.ifPresent(this.memoryMappings::set);
+  }
+}

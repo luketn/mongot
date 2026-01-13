@@ -1,0 +1,824 @@
+{
+  "valid": [
+    {
+      "description": "lowercase",
+      "value": {
+        "type": "lowercase"
+      }
+    },
+    {
+      "description": "length",
+      "value": {
+        "type": "length",
+        "min": 2,
+        "max": 12
+      }
+    },
+    {
+      "description": "length min max equal",
+      "value": {
+        "type": "length",
+        "min": 2,
+        "max": 2
+      }
+    },
+    {
+      "description": "length default min and max",
+      "value": {
+        "type": "length",
+        "min": 0,
+        "max": 255
+      }
+    },
+    {
+      "description": "regex all",
+      "value": {
+        "type": "regex",
+        "pattern": "a",
+        "replacement": "b",
+        "matches": "all"
+      }
+    },
+    {
+      "description": "regex first",
+      "value": {
+        "type": "regex",
+        "pattern": "a",
+        "replacement": "b",
+        "matches": "first"
+      }
+    },
+    {
+      "description": "regex empty pattern",
+      "value": {
+        "type": "regex",
+        "pattern": "",
+        "replacement": "b",
+        "matches": "all"
+      }
+    },
+    {
+      "description": "regex empty replacement",
+      "value": {
+        "type": "regex",
+        "pattern": "a",
+        "replacement": "",
+        "matches": "all"
+      }
+    },
+    {
+      "description": "icu folding",
+      "value": {
+        "type": "icuFolding"
+      }
+    },
+    {
+      "description": "icu normalizer",
+      "value": {
+        "type": "icuNormalizer"
+      }
+    },
+    {
+      "description": "icu normalizer null form",
+      "value": {
+        "type": "icuNormalizer",
+        "normalizationForm": null
+      }
+    },
+    {
+      "description": "icu normalizer nfc",
+      "value": {
+        "type": "icuNormalizer",
+        "normalizationForm": "nfc"
+      }
+    },
+    {
+      "description": "icu normalizer nfd",
+      "value": {
+        "type": "icuNormalizer",
+        "normalizationForm": "nfd"
+      }
+    },
+    {
+      "description": "icu normalizer nfkc",
+      "value": {
+        "type": "icuNormalizer",
+        "normalizationForm": "nfkc"
+      }
+    },
+    {
+      "description": "icu normalizer nfkd",
+      "value": {
+        "type": "icuNormalizer",
+        "normalizationForm": "nfkd"
+      }
+    },
+    {
+      "description": "kStemming",
+      "value": {
+        "type": "kStemming"
+      }
+    },
+    {
+      "description": "nGram",
+      "value": {
+        "type": "nGram",
+        "minGram": 1,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "nGram min max equal",
+      "value": {
+        "type": "nGram",
+        "minGram": 1,
+        "maxGram": 1
+      }
+    },
+    {
+      "description": "nGram include",
+      "value": {
+        "type": "nGram",
+        "minGram": 1,
+        "maxGram": 3,
+        "termNotInBounds": "include"
+      }
+    },
+    {
+      "description": "porterStemmingFilter",
+      "value": {
+        "type": "porterStemming"
+      }
+    },
+    {
+      "description": "edgeGram",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "edgeGram min max equal",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1,
+        "maxGram": 1
+      }
+    },
+    {
+      "description": "edgeGram include",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1,
+        "maxGram": 3,
+        "termNotInBounds": "include"
+      }
+    },
+    {
+      "description": "englishPossessive",
+      "value": {
+        "type": "englishPossessive"
+      }
+    },
+    {
+      "description": "flattenGraph",
+      "value": {
+        "type": "flattenGraph"
+      }
+    },
+    {
+      "description": "shingle",
+      "value": {
+        "type": "shingle",
+        "minShingleSize": 2,
+        "maxShingleSize": 3
+      }
+    },
+    {
+      "description": "shingle min max equal",
+      "value": {
+        "type": "shingle",
+        "minShingleSize": 2,
+        "maxShingleSize": 2
+      }
+    },
+    {
+      "description": "stopwordIgnoreCase",
+      "value": {
+        "type": "stopword",
+        "tokens": [
+          "is",
+          "the"
+        ],
+        "ignoreCase": false
+      }
+    },
+    {
+      "description": "stopwordSimple",
+      "value": {
+        "type": "stopword",
+        "tokens": [
+          "is",
+          "the"
+        ]
+      }
+    },
+    {
+      "description": "arabicSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "arabic"
+      }
+    },
+    {
+      "description": "armenianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "armenian"
+      }
+    },
+    {
+      "description": "basqueSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "basque"
+      }
+    },
+    {
+      "description": "catalanSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "catalan"
+      }
+    },
+    {
+      "description": "danishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "danish"
+      }
+    },
+    {
+      "description": "dutchSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "dutch"
+      }
+    },
+    {
+      "description": "englishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "english"
+      }
+    },
+    {
+      "description": "estonianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "estonian"
+      }
+    },
+    {
+      "description": "finnishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "finnish"
+      }
+    },
+    {
+      "description": "frenchSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "french"
+      }
+    },
+    {
+      "description": "germanSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "german"
+      }
+    },
+    {
+      "description": "german2Snowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "german2"
+      }
+    },
+    {
+      "description": "hungarianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "hungarian"
+      }
+    },
+    {
+      "description": "irishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "irish"
+      }
+    },
+    {
+      "description": "italianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "italian"
+      }
+    },
+    {
+      "description": "lithuanianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "lithuanian"
+      }
+    },
+    {
+      "description": "norwegianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "norwegian"
+      }
+    },
+    {
+      "description": "porterSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "porter"
+      }
+    },
+    {
+      "description": "portugueseSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "portuguese"
+      }
+    },
+    {
+      "description": "romanianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "romanian"
+      }
+    },
+    {
+      "description": "russianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "russian"
+      }
+    },
+    {
+      "description": "spanishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "spanish"
+      }
+    },
+    {
+      "description": "swedishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "swedish"
+      }
+    },
+    {
+      "description": "turkishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "turkish"
+      }
+    },
+    {
+      "description": "spanishPluralStemmingFilter",
+      "value": {
+        "type": "spanishPluralStemming"
+      }
+    },
+    {
+      "description": "stempel",
+      "value": {
+        "type": "stempel"
+      }
+    },
+    {
+      "description": "daitchMokotoffSoundex",
+      "value": {
+        "type": "daitchMokotoffSoundex",
+        "originalTokens": "omit"
+      }
+    },
+    {
+      "description": "trimFilter",
+      "value": {
+        "type": "trim"
+      }
+    },
+    {
+      "description": "asciiFolding",
+      "value": {
+        "type": "asciiFolding",
+        "originalTokens": "omit"
+      }
+    },
+    {
+      "description": "keywordRepeat",
+      "value": {
+        "type": "keywordRepeat"
+      }
+    },
+    {
+      "description": "removeDuplicates",
+      "value": {
+        "type": "removeDuplicates"
+      }
+    },
+    {
+      "description": "wordDelimiterGraph",
+      "value": {
+        "type": "wordDelimiterGraph",
+        "delimiterOptions": {
+          "generateNumberParts": true
+        },
+        "protectedWords": {
+          "words": [
+            "is",
+            "the"
+          ],
+          "ignoreCase": false
+        }
+      }
+    },
+    {
+      "description": "wordDelimiterGraph with default values",
+      "value": {
+        "type": "wordDelimiterGraph",
+        "delimiterOptions": {
+          "generateWordParts": true,
+          "generateNumberParts": true,
+          "concatenateWords": false,
+          "concatenateNumbers": false,
+          "concatenateAll": false,
+          "preserveOriginal": false,
+          "splitOnCaseChange": true,
+          "splitOnNumerics": true,
+          "stemEnglishPossessive": true,
+          "ignoreKeywords": false
+        },
+        "protectedWords": {
+          "words": [],
+          "ignoreCase": true
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "length max lt min",
+      "value": {
+        "type": "length",
+        "min": 3,
+        "max": 2
+      }
+    },
+    {
+      "description": "length min gt default",
+      "value": {
+        "type": "length",
+        "min": 256
+      }
+    },
+    {
+      "description": "regex invalid pattern",
+      "value": {
+        "type": "regex",
+        "pattern": "BOONM\\",
+        "replacement": "b",
+        "matches": "all"
+      }
+    },
+    {
+      "description": "regex invalid matches",
+      "value": {
+        "type": "regex",
+        "pattern": "a",
+        "replacement": "b",
+        "matches": "second"
+      }
+    },
+    {
+      "description": "regex no pattern",
+      "value": {
+        "type": "regex",
+        "replacement": "b",
+        "matches": "all"
+      }
+    },
+    {
+      "description": "regex no replacement",
+      "value": {
+        "type": "regex",
+        "pattern": "a",
+        "matches": "all"
+      }
+    },
+    {
+      "description": "regex no matches",
+      "value": {
+        "type": "regex",
+        "pattern": "a",
+        "replacement": "b"
+      }
+    },
+    {
+      "description": "regex null pattern",
+      "value": {
+        "type": "regex",
+        "pattern": null,
+        "replacement": "b",
+        "matches": "all"
+      }
+    },
+    {
+      "description": "regex null replacement",
+      "value": {
+        "type": "regex",
+        "pattern": "a",
+        "replacement": null,
+        "matches": "all"
+      }
+    },
+    {
+      "description": "regex null matches",
+      "value": {
+        "type": "regex",
+        "pattern": "a",
+        "replacement": "b",
+        "matches": null
+      }
+    },
+    {
+      "description": "icu folding bad arg",
+      "value": {
+        "type": "icuFolding",
+        "normalizationForm": "nfc"
+      }
+    },
+    {
+      "description": "icu normalizer invalid form",
+      "value": {
+        "type": "icuNormalizer",
+        "normalizationForm": "abc"
+      }
+    },
+    {
+      "description": "icu normalizer integer form",
+      "value": {
+        "type": "icuNormalizer",
+        "normalizationForm": 1
+      }
+    },
+    {
+      "description": "nGram max lt min",
+      "value": {
+        "type": "nGram",
+        "minGram": 2,
+        "maxGram": 1
+      }
+    },
+    {
+      "description": "nGram no min",
+      "value": {
+        "type": "nGram",
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "nGram no max",
+      "value": {
+        "type": "nGram",
+        "minGram": 1
+      }
+    },
+    {
+      "description": "nGram negative min",
+      "value": {
+        "type": "nGram",
+        "minGram": -1,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "nGram negative max",
+      "value": {
+        "type": "nGram",
+        "minGram": 1,
+        "maxGram": -1
+      }
+    },
+    {
+      "description": "nGram null min",
+      "value": {
+        "type": "nGram",
+        "minGram": null,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "nGram null max",
+      "value": {
+        "type": "nGram",
+        "minGram": 1,
+        "maxGram": null
+      }
+    },
+    {
+      "description": "nGram bad termNotInBounds",
+      "value": {
+        "type": "nGram",
+        "minGram": 1,
+        "maxGram": 3,
+        "termNotInBounds": "keep"
+      }
+    },
+    {
+      "description": "edgeGram max lt min",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 2,
+        "maxGram": 1
+      }
+    },
+    {
+      "description": "edgeGram no min",
+      "value": {
+        "type": "edgeGram",
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "edgeGram no max",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1
+      }
+    },
+    {
+      "description": "edgeGram negative min",
+      "value": {
+        "type": "edgeGram",
+        "minGram": -1,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "edgeGram negative max",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1,
+        "maxGram": -1
+      }
+    },
+    {
+      "description": "edgeGram null min",
+      "value": {
+        "type": "edgeGram",
+        "minGram": null,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "edgeGram null max",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1,
+        "maxGram": null
+      }
+    },
+    {
+      "description": "edgeGram bad termNotInBounds",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1,
+        "maxGram": 3,
+        "termNotInBounds": "keep"
+      }
+    },
+    {
+      "description": "shingle max lt min",
+      "value": {
+        "type": "shingle",
+        "minShingleSize": 4,
+        "maxShingleSize": 3
+      }
+    },
+    {
+      "description": "shingle no min",
+      "value": {
+        "type": "shingle",
+        "maxShingleSize": 3
+      }
+    },
+    {
+      "description": "shingle no max",
+      "value": {
+        "type": "shingle",
+        "minShingleSize": 2
+      }
+    },
+    {
+      "description": "shingle negative min",
+      "value": {
+        "type": "shingle",
+        "minShingleSize": -1,
+        "maxShingleSize": 3
+      }
+    },
+    {
+      "description": "shingle negative max",
+      "value": {
+        "type": "shingle",
+        "minShingleSize": 2,
+        "maxShingleSize": -1
+      }
+    },
+    {
+      "description": "shingle min lt 2",
+      "value": {
+        "type": "shingle",
+        "minShingleSize": 1,
+        "maxShingleSize": 3
+      }
+    },
+    {
+      "description": "shingle null min",
+      "value": {
+        "type": "shingle",
+        "minShingleSize": null,
+        "maxShingleSize": 3
+      }
+    },
+    {
+      "description": "shingle null max",
+      "value": {
+        "type": "shingle",
+        "minShingleSize": 2,
+        "maxShingleSize": null
+      }
+    },
+    {
+      "description": "shingle with unigramBehavior",
+      "value": {
+        "type": "shingle",
+        "minShingleSize": 1,
+        "maxShingleSize": 3,
+        "unigramBehvior": "include"
+      }
+    },
+    {
+      "description": "snowballStemming no stemmerName",
+      "value": {
+        "type": "snowballStemming"
+      }
+    },
+    {
+      "description": "snowballStemming invalid stemmerName",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "german3"
+      }
+    },
+    {
+      "description": "stopword empty list",
+      "value": {
+        "type": "stopword",
+        "tokens": []
+      }
+    },
+    {
+      "description": "wordDelimiterGraph protectedWords no words",
+      "value": {
+        "type": "wordDelimiterGraph",
+        "protectedWords": {
+          "ingoreCase": true
+        }
+      }
+    },
+    {
+      "description": "wordDelimiterGraph protectedWords blank word",
+      "value": {
+        "type": "wordDelimiterGraph",
+        "protectedWords": {
+          "words": [
+            "foo",
+            ""
+          ],
+          "ingoreCase": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "SEARCH_META": {
+          "count": {
+            "lowerBound": {
+              "$numberLong": "1000"
+            }
+          },
+          "facet": {
+            "myFacet": {
+              "buckets": [
+                {
+                  "_id": "category",
+                  "count": {
+                    "$numberLong": "2"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "noMeta",
+      "value": {}
+    }
+  ]
+}

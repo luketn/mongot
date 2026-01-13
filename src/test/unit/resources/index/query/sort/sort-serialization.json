@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "a": {
+          "order": -1.0,
+          "noData": "lowest"
+        },
+        "b": {
+          "order": 1.0,
+          "noData": "lowest"
+        }
+      }
+    }
+  ]
+}

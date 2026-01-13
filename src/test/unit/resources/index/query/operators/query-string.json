@@ -1,0 +1,61 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "query": "foo AND bar",
+        "defaultPath": "title"
+      }
+    },
+    {
+      "description": "empty default path",
+      "value": {
+        "query": "foo AND bar",
+        "defaultPath": ""
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "query": "foo AND bar",
+        "defaultPath": "title",
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing query",
+      "value": {
+        "defaultPath": "title"
+      }
+    },
+    {
+      "description": "missing defaultPath",
+      "value": {
+        "query": "foo AND bar"
+      }
+    },
+    {
+      "description": "empty query",
+      "value": {
+        "query": "",
+        "defaultPath": "title"
+      }
+    },
+    {
+      "description": "multi default path",
+      "value": {
+        "query": "foo AND bar",
+        "defaultPath": {
+          "path": "title",
+          "multi": "keyword"
+        }
+      }
+    }
+  ]
+}

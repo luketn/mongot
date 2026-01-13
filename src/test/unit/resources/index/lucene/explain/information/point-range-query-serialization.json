@@ -1,0 +1,40 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "path": "a",
+        "representation": "double",
+        "gte": 1.0,
+        "lte": 2.0
+      },
+      "bson": {
+        "path": "a",
+        "representation": "double",
+        "gte": {
+          "$numberDouble": "1.0"
+        },
+        "lte": {
+          "$numberDouble": "2.0"
+        }
+      }
+    },
+    {
+      "description": "missing-representation",
+      "json": {
+        "path": "a",
+        "gte": 1.0,
+        "lte": 2.0
+      },
+      "bson": {
+        "path": "a",
+        "gte": {
+          "$numberDouble": "1.0"
+        },
+        "lte": {
+          "$numberDouble": "2.0"
+        }
+      }
+    }
+  ]
+}

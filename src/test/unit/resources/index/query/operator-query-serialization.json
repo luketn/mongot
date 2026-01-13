@@ -1,0 +1,37 @@
+{
+  "tests": [
+    {
+      "description": "operator-query",
+      "value": {
+        "index": "my-index",
+        "count": {
+          "type": "total",
+          "threshold": 1000
+        },
+        "highlight": {
+          "path": "my-path",
+          "maxNumPassages": 5,
+          "maxCharsToExamine": 500000
+        },
+        "text": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "title",
+          "query": "godfather"
+        },
+        "returnStoredSource": true,
+        "concurrent": true,
+        "scoreDetails": true,
+        "tracking": {
+          "searchTerms": "bar"
+        },
+        "returnScope": {
+          "path": "my-scope"
+        }
+      }
+    }
+  ]
+}

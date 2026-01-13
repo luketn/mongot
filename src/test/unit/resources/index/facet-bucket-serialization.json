@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "_id": "category",
+        "count": 2147483648
+      }
+    },
+    {
+      "description": "numericId",
+      "value": {
+        "_id": 1,
+        "count": 2147483648
+      }
+    },
+    {
+      "description": "dateId",
+      "value": {
+        "_id": {
+          "$date": "2020-04-03T13:13:13Z"
+        },
+        "count": 2147483648
+      }
+    }
+  ]
+}

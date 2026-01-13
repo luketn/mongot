@@ -1,0 +1,130 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "movies.title",
+            "query": "Split"
+          }
+        }
+      }
+    },
+    {
+      "description": "withCompoundAndScoring",
+      "value": {
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "movies.title",
+                  "query": "Split"
+                }
+              }
+            ],
+            "should": [
+              {
+                "equals": {
+                  "path": "movies.year",
+                  "value": 1999
+                }
+              }
+            ]
+          }
+        },
+        "score": {
+          "function": {
+            "multiply": [
+              {
+                "score": "relevance"
+              },
+              {
+                "path": "movies.imdb.rating"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "withNestedEmbedded",
+      "value": {
+        "operator": {
+          "embeddedDocument": {
+            "path": "movies.reviews",
+            "operator": {
+              "hasAncestor": {
+                "ancestorPath": "movies",
+                "operator": {
+                  "embeddedDocument": {
+                    "path": "movies.reviews.comments",
+                    "operator": {
+                      "hasRoot": {
+                        "operator": {
+                          "compound": {
+                            "must": [
+                              {
+                                "text": {
+                                  "path": "movies.reviews.comments.author",
+                                  "query": "DJT"
+                                }
+                              }
+                            ],
+                            "should": [
+                              {
+                                "equals": {
+                                  "path": "movies.reviews.comments.year",
+                                  "value": 1999
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "nestedInvalidEmbedded",
+      "value": {
+        "operator": {
+          "embeddedOperator": {
+            "path": "movies.reviews",
+            "operator": {
+              "text": {
+                "path": "movies.name",
+                "value": "Split"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "nestedInvalidHasAncestor",
+      "value": {
+        "operator": {
+          "hasAncestor": {
+            "ancestorPath": "movies.reviews",
+            "operator": {
+              "text": {
+                "path": "movies.name",
+                "value": "Split"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

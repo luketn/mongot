@@ -1,0 +1,83 @@
+{
+  "valid": [
+    {
+      "description": "inner",
+      "value": {
+        "big": {
+          "term": {
+            "path": "title",
+            "query": "big"
+          }
+        },
+        "little": {
+          "term": {
+            "path": "title",
+            "query": "little"
+          }
+        },
+        "spanToReturn": "inner"
+      }
+    },
+    {
+      "description": "outer",
+      "value": {
+        "big": {
+          "term": {
+            "path": "title",
+            "query": "big"
+          }
+        },
+        "little": {
+          "term": {
+            "path": "title",
+            "query": "little"
+          }
+        },
+        "spanToReturn": "outer"
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "big": {
+          "term": {
+            "path": "title",
+            "query": "big"
+          }
+        },
+        "little": {
+          "term": {
+            "path": "title",
+            "query": "little"
+          }
+        },
+        "spanToReturn": "inner",
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid spanToReturn",
+      "value": {
+        "big": {
+          "term": {
+            "path": "title",
+            "query": "big"
+          }
+        },
+        "little": {
+          "term": {
+            "path": "title",
+            "query": "little"
+          }
+        },
+        "spanToReturn": "invalid"
+      }
+    }
+  ]
+}

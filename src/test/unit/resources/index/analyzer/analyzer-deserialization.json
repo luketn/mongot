@@ -1,0 +1,120 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar"
+      }
+    },
+    {
+      "description": "explicit ignoreCase",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar",
+        "ignoreCase": false
+      }
+    },
+    {
+      "description": "explicit maxTokenLength",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar",
+        "maxTokenLength": 13
+      }
+    },
+    {
+      "description": "explicit stopwords",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar",
+        "stopwords": [
+          "a",
+          "b"
+        ]
+      }
+    },
+    {
+      "description": "explicit stemExclusionSet",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar",
+        "stopwords": [
+          "a",
+          "b"
+        ],
+        "stemExclusionSet": [
+          "c",
+          "d"
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "empty analyzer name",
+      "value": {
+        "baseAnalyzer": "bar",
+        "name": ""
+      }
+    },
+    {
+      "description": "empty base analyzer name",
+      "value": {
+        "baseAnalyzer": "",
+        "name": "myAnalyzer"
+      }
+    },
+    {
+      "description": "missing name",
+      "value": {
+        "baseAnalyzer": "bar"
+      }
+    },
+    {
+      "description": "missing baseAnalyzer",
+      "value": {
+        "name": "foo"
+      }
+    },
+    {
+      "description": "zero maxTokenLength",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar",
+        "maxTokenLength": 0
+      }
+    },
+    {
+      "description": "negative maxTokenLength",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar",
+        "maxTokenLength": -1
+      }
+    },
+    {
+      "description": "stemExclusionSet without stopwords",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar",
+        "stemExclusionSet": [
+          "a",
+          "b"
+        ]
+      }
+    },
+    {
+      "description": "stemExclusionSet with empty stopwords",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar",
+        "stopwords": [],
+        "stemExclusionSet": [
+          "a",
+          "b"
+        ]
+      }
+    }
+  ]
+}

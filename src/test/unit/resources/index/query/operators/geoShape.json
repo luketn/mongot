@@ -1,0 +1,242 @@
+{
+  "valid": [
+    {
+      "description": "contains point",
+      "value": {
+        "path": "location",
+        "relation": "contains",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            10.0,
+            12.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "contains point integral positions",
+      "value": {
+        "path": "location",
+        "relation": "contains",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            10,
+            12
+          ]
+        }
+      }
+    },
+    {
+      "description": "within polygon",
+      "value": {
+        "path": "location",
+        "relation": "within",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                10.0,
+                12.0
+              ],
+              [
+                11.0,
+                12.0
+              ],
+              [
+                11.0,
+                11.0
+              ],
+              [
+                10.0,
+                12.0
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "description": "disjoint line",
+      "value": {
+        "path": "location",
+        "relation": "disjoint",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              10.0,
+              12.0
+            ],
+            [
+              11.0,
+              13.0
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "description": "intersects line in geo collection",
+      "value": {
+        "path": "location",
+        "relation": "intersects",
+        "geometry": {
+          "type": "GeometryCollection",
+          "geometries": [
+            {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  10.0,
+                  12.0
+                ],
+                [
+                  11.0,
+                  13.0
+                ]
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no relation",
+      "value": {
+        "path": "location",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            10.0,
+            12.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "relation unknown string",
+      "value": {
+        "path": "location",
+        "relation": "not a relation",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            10.0,
+            12.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "relation is null",
+      "value": {
+        "path": "location",
+        "relation": null,
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            10.0,
+            12.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "no geometry",
+      "value": {
+        "path": "location",
+        "relation": "within"
+      }
+    },
+    {
+      "description": "empty geometry collection",
+      "value": {
+        "path": "location",
+        "relation": "disjoint",
+        "geometry": {
+          "type": "GeometryCollection",
+          "geometries": [
+          ]
+        }
+      }
+    },
+    {
+      "description": "geometry is null",
+      "value": {
+        "path": "location",
+        "relation": "intersects",
+        "geometry": null
+      }
+    },
+    {
+      "description": "invalid type in geometry",
+      "value": {
+        "path": "location",
+        "relation": "intersects",
+        "geometry": {
+          "type": "not a geometry type",
+          "coordinates": [
+            10.0,
+            12.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "within point",
+      "value": {
+        "path": "location",
+        "relation": "within",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            10.0,
+            12.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "within line",
+      "value": {
+        "path": "location",
+        "relation": "within",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              10.0,
+              12.0
+            ],
+            [
+              11.0,
+              13.0
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "description": "multi path",
+      "value": {
+        "path": {
+          "value": "location",
+          "multi": "my-multi"
+        },
+        "relation": "contains",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            10.0,
+            12.0
+          ]
+        }
+      }
+    }
+  ]
+}

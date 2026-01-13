@@ -1,0 +1,33 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "count": 2,
+        "total": 2.0,
+        "max": 7.0,
+        "mean": 3.0,
+        "percentiles": {
+          "50th": 2.0,
+          "75th": 2.0,
+          "90th": 2.0,
+          "99th": 1.0
+        }
+      },
+      "bson": {
+        "count": {
+          "$numberLong": "2"
+        },
+        "total": 2.0,
+        "max": 7.0,
+        "mean": 3.0,
+        "percentiles": {
+          "50th": 2.0,
+          "75th": 2.0,
+          "90th": 2.0,
+          "99th": 1.0
+        }
+      }
+    }
+  ]
+}

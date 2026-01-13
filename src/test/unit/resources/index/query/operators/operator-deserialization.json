@@ -1,0 +1,185 @@
+{
+  "valid": [
+    {
+      "description": "compound",
+      "value": {
+        "compound": {
+          "filter": {
+            "text": {
+              "path": "title",
+              "query": "godfather"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "exists",
+      "value": {
+        "exists": {
+          "path": "title"
+        }
+      }
+    },
+    {
+      "description": "geoShape",
+      "value": {
+        "geoShape": {
+          "path": "location",
+          "relation": "contains",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              10.0,
+              12.0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "geoWithin",
+      "value": {
+        "geoWithin": {
+          "path": "location",
+          "circle": {
+            "center": {
+              "type": "Point",
+              "coordinates": [
+                1.0,
+                2.0
+              ]
+            },
+            "radius": 3
+          }
+        }
+      }
+    },
+    {
+      "description": "near",
+      "value": {
+        "near": {
+          "path": "point",
+          "origin": 13.0,
+          "pivot": 26
+        }
+      }
+    },
+    {
+      "description": "phrase",
+      "value": {
+        "phrase": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "queryString",
+      "value": {
+        "queryString": {
+          "query": "foo AND bar",
+          "defaultPath": "title"
+        }
+      }
+    },
+    {
+      "description": "range",
+      "value": {
+        "range": {
+          "path": "point",
+          "lt": 13.0
+        }
+      }
+    },
+    {
+      "description": "regex",
+      "value": {
+        "regex": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "search",
+      "value": {
+        "search": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "span",
+      "value": {
+        "span": {
+          "first": {
+            "operator": {
+              "term": {
+                "path": "title",
+                "query": "godfather"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "term",
+      "value": {
+        "term": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "text",
+      "value": {
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "wildcard",
+      "value": {
+        "wildcard": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    },
+    {
+      "description": "invalid operator",
+      "value": {
+        "invalid": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "multiple operators",
+      "value": {
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        },
+        "wildcard": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    }
+  ]
+}

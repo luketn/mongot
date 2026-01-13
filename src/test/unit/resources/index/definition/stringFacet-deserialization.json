@@ -1,0 +1,17 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "unexpected option",
+      "value": {
+        "unexpected-option": "value"
+      }
+    }
+  ]
+}

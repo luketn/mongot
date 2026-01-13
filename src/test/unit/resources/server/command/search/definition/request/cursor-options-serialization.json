@@ -1,0 +1,37 @@
+{
+  "tests": [
+    {
+      "description": "simpleDocsRequested",
+      "json": {
+        "docsRequested": 25,
+        "requiresSearchSequenceToken": false
+      },
+      "bson": {
+        "docsRequested": 25,
+        "requiresSearchSequenceToken": false
+      }
+    },
+    {
+      "description": "simpleBatchSize",
+      "json": {
+        "batchSize": 25,
+        "requiresSearchSequenceToken": false
+      },
+      "bson": {
+        "batchSize": 25,
+        "requiresSearchSequenceToken": false
+      }
+    },
+    {
+      "description": "tokens",
+      "json": {
+        "docsRequested": 25,
+        "requiresSearchSequenceToken": true
+      },
+      "bson": {
+        "docsRequested": 25,
+        "requiresSearchSequenceToken": true
+      }
+    }
+  ]
+}

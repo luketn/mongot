@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo "ISO_TIMESTAMP $(date -u +"%Y%m%dT%H%M%SZ")"
+echo "LOCAL_DEV_CONTAINER_VERSION $LOCAL_DEV_CONTAINER_VERSION"

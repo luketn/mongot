@@ -1,0 +1,309 @@
+package com.xgen.mongot.config.manager;
+
+import static com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration.isMaterializedViewBasedIndex;
+import static com.xgen.mongot.util.Check.checkState;
+
+import com.xgen.mongot.config.util.IndexDefinitions;
+import com.xgen.mongot.index.Index;
+import com.xgen.mongot.index.IndexGeneration;
+import com.xgen.mongot.index.IndexGenerationFactory;
+import com.xgen.mongot.index.analyzer.InvalidAnalyzerDefinitionException;
+import com.xgen.mongot.index.autoembedding.AutoEmbeddingIndexGenerationFactory;
+import com.xgen.mongot.index.definition.IndexDefinition;
+import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
+import com.xgen.mongot.index.version.GenerationId;
+import com.xgen.mongot.util.Check;
+import com.xgen.mongot.util.Crash;
+import com.xgen.mongot.util.FutureUtils;
+import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import org.bson.types.ObjectId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Only adds and removes indexes from ConfigState, never modifies the journal.
+ *
+ * <p>May throw runtime for invariant violations. Specifically: enforces that staged indexes have
+ * corresponding indexes in the catalog. These shouldn't happen as we would fail writing-ahead an
+ * invalid journal before calling IndexActions.
+ *
+ * <p>Failure atomicity isn't guaranteed here. For instance: say creating the 3rd index throws
+ * IOException, we still have 2 previously created indexes present. Since this type of error isn't
+ * recoverable, we don't attempt to revert any actions before the exception occurred.
+ */
+public class IndexActions {
+  private static final Logger LOG = LoggerFactory.getLogger(IndexActions.class);
+
+  private final boolean withReplication;
+  private final ConfigState configState;
+
+  private IndexActions(boolean withReplication, ConfigState configState) {
+    this.withReplication = withReplication;
+    this.configState = configState;
+  }
+
+  public static IndexActions withReplication(ConfigState configState) {
+    return new IndexActions(true, configState);
+  }
+
+  static IndexActions withoutReplication(ConfigState configState) {
+    return new IndexActions(false, configState);
+  }
+
+  public void addNewIndexes(List<IndexDefinitionGeneration> definitions)
+      throws IOException, InvalidAnalyzerDefinitionException {
+    for (IndexDefinitionGeneration definition : definitions) {
+      addIndex(definition);
+    }
+  }
+
+  private void addIndex(IndexDefinitionGeneration definitionGeneration)
+      throws IOException, InvalidAnalyzerDefinitionException {
+    GenerationId generationId = definitionGeneration.getGenerationId();
+    LOG.atInfo()
+        .addKeyValue("indexId", generationId.indexId)
+        .addKeyValue("generationId", generationId)
+        .log("adding live index");
+    checkState(
+        this.configState
+            .indexCatalog
+            .getIndexById(definitionGeneration.getIndexDefinition().getIndexId())
+            .isEmpty(),
+        "trying to insert an index to the catalog clobbering existing indexId: %s",
+        definitionGeneration.getGenerationId());
+    if (isMaterializedViewBasedIndex(definitionGeneration)
+        && this.configState.materializedViewIndexFactory.isEmpty()) {
+      LOG.atWarn()
+          .addKeyValue("indexId", generationId.indexId)
+          .addKeyValue("generationId", generationId)
+          .log(
+              "No MaterializedViewIndexFactory is provided, check your syncSource config. "
+                  + "Skips addNewIndex for this definition at this time.");
+      return;
+    }
+    IndexGeneration indexGeneration = getIndexGenerationByDefinitionType(definitionGeneration);
+    this.configState.indexCatalog.addIndex(indexGeneration);
+
+    if (this.withReplication) {
+      this.configState.getLifecycleManager().add(indexGeneration);
+    }
+  }
+
+  void addStagedIndexes(List<IndexDefinitionGeneration> definitions)
+      throws IOException, InvalidAnalyzerDefinitionException {
+    for (IndexDefinitionGeneration definition : definitions) {
+      addStagedIndex(definition);
+    }
+  }
+
+  /** Add a new staged index. */
+  public void addStagedIndex(IndexDefinitionGeneration definitionGeneration)
+      throws IOException, InvalidAnalyzerDefinitionException {
+    GenerationId generationId = definitionGeneration.getGenerationId();
+    LOG.atInfo()
+        .addKeyValue("indexId", generationId.indexId)
+        .addKeyValue("generationId", generationId)
+        .log("adding staged index");
+    checkState(
+        this.configState
+            .indexCatalog
+            .getIndexById(definitionGeneration.getIndexDefinition().getIndexId())
+            .isPresent(),
+        "can not stage an index without corresponding index in catalog: %s",
+        definitionGeneration.getGenerationId());
+    if (isMaterializedViewBasedIndex(definitionGeneration)
+        && this.configState.materializedViewIndexFactory.isEmpty()) {
+      LOG.atWarn()
+          .addKeyValue("indexId", generationId.indexId)
+          .addKeyValue("generationId", generationId)
+          .log(
+              "No MaterializedViewIndexFactory is provided, check your syncSource config. "
+                  + "Skips addStagedIndex for this definition at this time.");
+      return;
+    }
+    // staged won't let us clobber an index with the same indexId, we don't need to validate for it
+    IndexGeneration indexGeneration = getIndexGenerationByDefinitionType(definitionGeneration);
+    this.configState.staged.addIndex(indexGeneration);
+    if (this.withReplication) {
+      this.configState.getLifecycleManager().add(indexGeneration);
+    }
+  }
+
+  void dropFromCatalog(List<IndexGeneration> indexes) {
+    if (indexes.isEmpty()) {
+      return;
+    }
+
+    logIds(indexes, "dropping index from catalog");
+
+    validateAllInCatalogAndNoPendingSwaps(indexes);
+
+    // First remove the indexes from the IndexCatalog. This stops new cursors from being opened.
+    indexes.stream()
+        .map(IndexGeneration::getDefinition)
+        .map(IndexDefinition::getIndexId)
+        .forEach(this.configState.indexCatalog::removeIndex);
+
+    dropAllOrFail(indexes);
+  }
+
+  void dropFromStaged(List<IndexGeneration> indexes) {
+    if (indexes.isEmpty()) {
+      return;
+    }
+
+    logIds(indexes, "dropping index from staged");
+
+    validateAllInStaged(indexes);
+    indexes.forEach(this.configState.staged::removeIndex);
+
+    dropAllOrFail(indexes);
+  }
+
+  void dropFromPhasingOut(List<IndexGeneration> indexes) {
+    if (indexes.isEmpty()) {
+      return;
+    }
+
+    logIds(indexes, "dropping index from phasingOut");
+
+    validateAllInPhasingOut(indexes);
+    indexes.forEach(this.configState.phasingOut::removeIndex);
+
+    dropAllOrFail(indexes);
+  }
+
+  private void dropAllOrFail(List<IndexGeneration> indexes) {
+    List<CompletableFuture<?>> dropFutures =
+        indexes.stream().map(this::dropIndex).collect(Collectors.toList());
+
+    CompletableFuture<Void> allDrops = FutureUtils.allOf(dropFutures);
+
+    Crash.because("failed to drop indexes").ifThrows(() -> allDrops.get());
+  }
+
+  private CompletableFuture<Void> dropIndex(IndexGeneration indexGeneration) {
+    GenerationId generationId = indexGeneration.getGenerationId();
+    LOG.atInfo()
+        .addKeyValue("indexId", generationId.indexId)
+        .addKeyValue("generationId", generationId)
+        .log("dropping index");
+    var initializedIndex = this.configState.initializedIndexCatalog.removeIndex(generationId);
+
+    Index index = indexGeneration.getIndex();
+    // Stop replication to the Index, then close the Index and drop it.
+    CompletableFuture<Void> replicationDropFuture;
+    if (this.withReplication) {
+      replicationDropFuture = this.configState.getLifecycleManager().dropIndex(generationId);
+    } else {
+      replicationDropFuture = CompletableFuture.completedFuture(null);
+    }
+    return replicationDropFuture.thenRun(
+        () ->
+            Crash.because("failed to close and drop index")
+                .ifThrows(
+                    () -> {
+                      try {
+                        if (initializedIndex.isPresent()) {
+                          initializedIndex.get().close();
+                        }
+                      } catch (Exception e) {
+                        // TODO(CLOUDP-231027): In rare cases, index could be dropped
+                        //  asynchronously as part of LifecycleManager::dropIndex. Can revisit
+                        //  drop logic after separating out ReplicationManager from
+                        //  LifecycleManager.
+                        LOG.atError()
+                            .addKeyValue("indexId", generationId.indexId)
+                            .addKeyValue("generationId", generationId)
+                            .addKeyValue("exceptionMessage", e.getMessage())
+                            .log("Exception while closing index");
+                      }
+                      index.close();
+                      index.drop();
+                    }));
+  }
+
+  private void validateAllInCatalogAndNoPendingSwaps(List<IndexGeneration> indexes) {
+    for (IndexGeneration indexGeneration : indexes) {
+      // verify index is in the catalog
+      ObjectId indexId = indexGeneration.getDefinition().getIndexId();
+      Optional<IndexGeneration> optionalIndex = this.configState.indexCatalog.getIndexById(indexId);
+      checkState(
+          optionalIndex.isPresent() && optionalIndex.get() == indexGeneration,
+          "attempting to remove index not present in catalog: id=%s, dropping=%s, existing=%s",
+          indexGeneration.getGenerationId(),
+          indexGeneration,
+          optionalIndex);
+
+      // if we drop an index from the catalog that has a staged index, we "orphan" the staged one.
+      Optional<IndexGeneration> existingStaged = this.configState.staged.getIndex(indexId);
+      checkState(
+          existingStaged.isEmpty(),
+          "attempting to remove index from catalog with a present staged index: id=%s, staged=%s",
+          indexId,
+          existingStaged
+              .map(IndexGeneration::getDefinitionGeneration)
+              .map(IndexDefinitionGeneration::getGenerationId)
+              .map(GenerationId::uniqueString));
+    }
+  }
+
+  private void validateAllInStaged(List<IndexGeneration> indexes) {
+    for (IndexGeneration index : indexes) {
+      ObjectId indexId = index.getDefinition().getIndexId();
+      Optional<IndexGeneration> optionalIndex = this.configState.staged.getIndex(indexId);
+      checkState(
+          optionalIndex.isPresent() && optionalIndex.get() == index,
+          "attempting to remove index not present in staged: id=%s, dropping=%s, existing=%s",
+          index.getGenerationId(),
+          index,
+          optionalIndex);
+    }
+  }
+
+  private void validateAllInPhasingOut(List<IndexGeneration> indexes) {
+    List<IndexGeneration> existingIndexes = this.configState.phasingOut.getIndexes();
+    for (IndexGeneration index : indexes) {
+      checkState(
+          existingIndexes.contains(index),
+          "attempting to remove index not present in phasingOut: id=%s, phasingOut=%s",
+          index.getGenerationId(),
+          getGenerationIds(existingIndexes));
+    }
+  }
+
+  private static List<String> getGenerationIds(List<IndexGeneration> indexes) {
+    return IndexDefinitions.indexesGenerationIds(indexes).stream()
+        .map(GenerationId::uniqueString)
+        .collect(Collectors.toList());
+  }
+
+  private static void logIds(List<IndexGeneration> indexes, String message) {
+    IndexDefinitions.indexesGenerationIds(indexes)
+        .forEach(
+            e ->
+                LOG.atInfo()
+                    .addKeyValue("indexId", e.indexId)
+                    .addKeyValue("generationId", e)
+                    .log(message));
+  }
+
+  private IndexGeneration getIndexGenerationByDefinitionType(
+      IndexDefinitionGeneration definitionGeneration)
+      throws IOException, InvalidAnalyzerDefinitionException {
+    if (isMaterializedViewBasedIndex(definitionGeneration)) {
+      return AutoEmbeddingIndexGenerationFactory.getAutoEmbeddingIndexGeneration(
+          this.configState.indexFactory,
+          Check.isPresent(
+              this.configState.materializedViewIndexFactory, "materializedViewIndexFactory"),
+          definitionGeneration.asVector());
+    } else {
+      return IndexGenerationFactory.getIndexGeneration(
+          this.configState.indexFactory, definitionGeneration);
+    }
+  }
+}

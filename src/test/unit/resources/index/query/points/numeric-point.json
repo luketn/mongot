@@ -1,0 +1,28 @@
+{
+  "valid": [
+    {
+      "description": "int32 value",
+      "value": {
+        "$numberInt": "13"
+      }
+    },
+    {
+      "description": "int64 value",
+      "value": {
+        "$numberLong": "13"
+      }
+    },
+    {
+      "description": "double value",
+      "value": 13.0
+    }
+  ],
+  "invalid": [
+    {
+      "description": "non-numeric value",
+      "value": {
+        "$date": "2020-04-03T13:13:13Z"
+      }
+    }
+  ]
+}

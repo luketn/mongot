@@ -1,0 +1,54 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "a",
+        "coordinates": [
+          [
+            [
+              2.0,
+              1.0
+            ],
+            [
+              6.0,
+              5.0
+            ],
+            [
+              11.0,
+              10.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "missing-path",
+      "value": {
+        "coordinates": [
+          [
+            [
+              2.0,
+              1.0
+            ],
+            [
+              6.0,
+              5.0
+            ],
+            [
+              11.0,
+              10.0
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "missing-coordinates",
+      "value": {
+        "path": "a"
+      }
+    }
+  ],
+  "invalid": []
+}

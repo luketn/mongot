@@ -1,0 +1,100 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "queryVector": [
+          2.0,
+          2.0,
+          2.0
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "emptyIndex",
+      "value": {
+        "index": " ",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "queryVector": [
+          2.0,
+          2.0,
+          2.0
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "with-filter",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "queryVector": [
+          2.0,
+          2.0,
+          2.0
+        ],
+        "filter": {
+          "my-field": {
+            "$nin": [
+              "one",
+              "two",
+              "three"
+            ]
+          }
+        },
+        "exact": false,
+        "numCandidates": 10,
+        "limit": 10,
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "simple-auto-embedding-query",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "query": "test query",
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "simple-auto-embedding-query-multimodal",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "query": {
+          "text": "test query"
+        },
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "auto-embedding-query-with-model",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "query": "test query",
+        "model": "voyage-3-large",
+        "returnStoredSource": false
+      }
+    }
+  ]
+}

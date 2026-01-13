@@ -1,0 +1,34 @@
+{
+  "tests": [
+    {
+      "description": "htmlStrip",
+      "value": {
+        "type": "htmlStrip",
+        "ignoredTags": [
+          "a"
+        ]
+      }
+    },
+    {
+      "description": "icuNormalize",
+      "value": {
+        "type": "icuNormalize"
+      }
+    },
+    {
+      "description": "mapping",
+      "value": {
+        "type": "mapping",
+        "mappings": {
+          "a": "b"
+        }
+      }
+    },
+    {
+      "description": "persian",
+      "value": {
+        "type": "persian"
+      }
+    }
+  ]
+}

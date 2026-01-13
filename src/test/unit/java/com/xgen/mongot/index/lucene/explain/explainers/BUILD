@@ -1,0 +1,34 @@
+load("//bazel/java:test.bzl", "java_test_suite")
+
+java_test_suite(
+    name = "explainers",
+    srcs = [
+        "CollectorTimingFeatureExplainerTest.java",
+        "DynamicFeatureFlagFeatureExplainerTest.java",
+        "HighlightFeatureExplainerTest.java",
+        "ResultMaterializationFeatureExplainerTest.java",
+        "SortFeatureExplainerTest.java",
+    ],
+    tags = ["unit"],
+    deps = [
+        "//src/main/java/com/xgen/mongot/featureflag/dynamic",
+        "//src/main/java/com/xgen/mongot/index/lucene/explain/explainers",
+        "//src/main/java/com/xgen/mongot/index/lucene/explain/information",
+        "//src/main/java/com/xgen/mongot/index/lucene/explain/profiler",
+        "//src/main/java/com/xgen/mongot/index/lucene/explain/timing",
+        "//src/main/java/com/xgen/mongot/index/lucene/explain/tracing",
+        "//src/main/java/com/xgen/mongot/index/lucene/field",
+        "//src/main/java/com/xgen/mongot/index/query/highlights",
+        "//src/main/java/com/xgen/mongot/index/query/sort",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/testing/mongot/index/lucene/explain/timing",
+        "//src/main/java/com/xgen/testing/mongot/index/query/sort",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_guava_guava_testlib",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_apache_lucene_lucene_core",
+        "@maven//:org_apache_lucene_lucene_highlighter",
+        "@maven//:org_mongodb_bson",
+    ],
+)

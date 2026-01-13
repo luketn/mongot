@@ -1,0 +1,75 @@
+{
+  "valid": [
+    {
+      "description": "htmlStrip",
+      "value": {
+        "type": "htmlStrip",
+        "ignoredTags": [
+          "a"
+        ]
+      }
+    },
+    {
+      "description": "htmlStrip empty ignoredTags",
+      "value": {
+        "type": "htmlStrip",
+        "ignoredTags": []
+      }
+    },
+    {
+      "description": "htmlStrip no ignoredTags",
+      "value": {
+        "type": "htmlStrip"
+      }
+    },
+    {
+      "description": "icuNormalize",
+      "value": {
+        "type": "icuNormalize"
+      }
+    },
+    {
+      "description": "mapping",
+      "value": {
+        "type": "mapping",
+        "mappings": {
+          "a": "b"
+        }
+      }
+    },
+    {
+      "description": "persian",
+      "value": {
+        "type": "persian"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "htmlStrip duplicate ignoredTags",
+      "value": {
+        "type": "htmlStrip",
+        "ignoredTags": [
+          "a",
+          "a"
+        ]
+      }
+    },
+    {
+      "description": "mapping empty mappings",
+      "value": {
+        "type": "mapping",
+        "mappings": {}
+      }
+    },
+    {
+      "description": "mapping empty string key",
+      "value": {
+        "type": "mapping",
+        "mappings": {
+          "": "asdf"
+        }
+      }
+    }
+  ]
+}

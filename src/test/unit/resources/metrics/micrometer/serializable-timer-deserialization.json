@@ -1,0 +1,20 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "timeUnit": "seconds",
+        "count": 2,
+        "totalTimeSeconds": 10.0,
+        "maxTimeSeconds": 7.0,
+        "meanTimeSeconds": 3.0,
+        "percentiles": {
+          "50th": 2.0,
+          "75th": 2.0,
+          "90th": 2.0,
+          "99th": 1.0
+        }
+      }
+    }
+  ]
+}

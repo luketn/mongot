@@ -1,0 +1,43 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "title",
+        "query": "godfather"
+      }
+    },
+    {
+      "description": "multi path",
+      "value": {
+        "path": {
+          "value": "title",
+          "multi": "my-multi"
+        },
+        "query": "godfather"
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "allowAnalyzedField true",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "allowAnalyzedField": true
+      }
+    }
+  ],
+  "invalid": [
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "name": "simple",
+        "source": {
+          "collection": "collection"
+        },
+        "analyzer": "lucene.english"
+      }
+    }
+  ]
+}

@@ -1,0 +1,409 @@
+package com.xgen.mongot.index.query.collectors;
+
+import static com.google.common.truth.Truth.assertThat;
+import static com.xgen.testing.BsonDeserializationTestSuite.fromDocument;
+
+import com.xgen.mongot.index.query.operators.AllDocumentsOperator;
+import com.xgen.mongot.index.query.operators.Operator;
+import com.xgen.mongot.index.query.points.LongPoint;
+import com.xgen.mongot.util.bson.parser.BsonDocumentParser;
+import com.xgen.mongot.util.bson.parser.BsonParseException;
+import com.xgen.testing.BsonDeserializationTestSuite;
+import com.xgen.testing.TestUtils;
+import com.xgen.testing.mongot.index.query.collectors.CollectorBuilder;
+import com.xgen.testing.mongot.index.query.collectors.FacetDefinitionBuilder;
+import com.xgen.testing.mongot.index.query.operators.OperatorBuilder;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.TimeZone;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+import org.bson.BsonDateTime;
+import org.bson.BsonDouble;
+import org.bson.BsonInt32;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Suite;
+
+@RunWith(Suite.class)
+@Suite.SuiteClasses(
+    value = {FacetCollectorTest.ParameterizedSuite.class, FacetCollectorTest.RegularSuite.class})
+public class FacetCollectorTest {
+
+  @RunWith(Parameterized.class)
+  public static class ParameterizedSuite {
+    private static final String SUITE_NAME = "facet";
+    private static final BsonDeserializationTestSuite<FacetCollector> TEST_SUITE =
+        fromDocument(
+            "src/test/unit/resources/index/query/collectors/",
+            SUITE_NAME,
+            FacetCollector::fromBson);
+
+    private final BsonDeserializationTestSuite.TestSpecWrapper<FacetCollector> testSpec;
+
+    public ParameterizedSuite(
+        BsonDeserializationTestSuite.TestSpecWrapper<FacetCollector> testSpec) {
+      this.testSpec = testSpec;
+    }
+
+    /** Test data. */
+    @Parameterized.Parameters(name = "{0}")
+    public static Iterable<BsonDeserializationTestSuite.TestSpecWrapper<FacetCollector>> data() {
+      return TEST_SUITE.withExamples(
+          simpleStringFacet(),
+          stringFacetWithNumBuckets(),
+          simpleNumericFacet(),
+          numericFacetWithDefaultBucket(),
+          simpleDateFacet(),
+          dateFacetWithDefaultBucket(),
+          multipleDefinitions(),
+          noOperator());
+    }
+
+    @Test
+    public void runTest() throws Exception {
+      TEST_SUITE.runTest(this.testSpec);
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<FacetCollector> simpleStringFacet() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "simple string facet",
+          CollectorBuilder.facet()
+              .operator(OperatorBuilder.text().path("review").query("good").build())
+              .facetDefinitions(
+                  Map.of("directorFacet", FacetDefinitionBuilder.string().path("director").build()))
+              .build());
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<FacetCollector>
+        stringFacetWithNumBuckets() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "string facet with numBuckets",
+          CollectorBuilder.facet()
+              .operator(OperatorBuilder.text().path("review").query("good").build())
+              .facetDefinitions(
+                  Map.of(
+                      "directorFacet",
+                      FacetDefinitionBuilder.string().numBuckets(1000).path("director").build()))
+              .build());
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<FacetCollector> simpleNumericFacet() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "simple numeric facet",
+          CollectorBuilder.facet()
+              .operator(OperatorBuilder.text().path("review").query("good").build())
+              .facetDefinitions(
+                  Map.of(
+                      "ratingFacet",
+                      FacetDefinitionBuilder.numeric()
+                          .boundaries(List.of(new BsonInt32(1), new BsonInt32(2)))
+                          .path("rating")
+                          .build()))
+              .build());
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<FacetCollector>
+        numericFacetWithDefaultBucket() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "numeric facet with default bucket",
+          CollectorBuilder.facet()
+              .operator(OperatorBuilder.text().path("review").query("good").build())
+              .facetDefinitions(
+                  Map.of(
+                      "ratingFacet",
+                      FacetDefinitionBuilder.numeric()
+                          .defaultBucketName("other")
+                          .boundaries(List.of(new BsonInt32(1), new BsonInt32(2)))
+                          .path("rating")
+                          .build()))
+              .build());
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<FacetCollector> simpleDateFacet() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "simple date facet",
+          CollectorBuilder.facet()
+              .operator(OperatorBuilder.text().path("review").query("good").build())
+              .facetDefinitions(
+                  Map.of(
+                      "eventFacet",
+                      FacetDefinitionBuilder.date()
+                          .boundaries(
+                              List.of(
+                                  new BsonDateTime(
+                                      new Calendar.Builder()
+                                          .setDate(2020, Calendar.MAY, 8)
+                                          .setTimeOfDay(12, 11, 0, 0)
+                                          .setTimeZone(TimeZone.getTimeZone("UTC"))
+                                          .build()
+                                          .getTimeInMillis()),
+                                  new BsonDateTime(
+                                      new Calendar.Builder()
+                                          .setDate(2021, Calendar.MAY, 8)
+                                          .setTimeOfDay(12, 11, 0, 0)
+                                          .setTimeZone(TimeZone.getTimeZone("UTC"))
+                                          .build()
+                                          .getTimeInMillis())))
+                          .path("start")
+                          .build()))
+              .build());
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<FacetCollector>
+        dateFacetWithDefaultBucket() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "date facet with default bucket",
+          CollectorBuilder.facet()
+              .operator(OperatorBuilder.text().path("review").query("good").build())
+              .facetDefinitions(
+                  Map.of(
+                      "eventFacet",
+                      FacetDefinitionBuilder.date()
+                          .defaultBucketName("other")
+                          .boundaries(
+                              List.of(
+                                  new BsonDateTime(
+                                      new Calendar.Builder()
+                                          .setDate(2020, Calendar.MAY, 8)
+                                          .setTimeOfDay(12, 11, 0, 0)
+                                          .setTimeZone(TimeZone.getTimeZone("UTC"))
+                                          .build()
+                                          .getTimeInMillis()),
+                                  new BsonDateTime(
+                                      new Calendar.Builder()
+                                          .setDate(2021, Calendar.MAY, 8)
+                                          .setTimeOfDay(12, 11, 0, 0)
+                                          .setTimeZone(TimeZone.getTimeZone("UTC"))
+                                          .build()
+                                          .getTimeInMillis())))
+                          .path("start")
+                          .build()))
+              .build());
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<FacetCollector> multipleDefinitions() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "multiple definitions",
+          CollectorBuilder.facet()
+              .operator(OperatorBuilder.text().path("review").query("good").build())
+              .facetDefinitions(
+                  Map.of(
+                      "directorFacet",
+                      FacetDefinitionBuilder.string().path("director").build(),
+                      "ratingFacet",
+                      FacetDefinitionBuilder.numeric()
+                          .defaultBucketName("other")
+                          .boundaries(List.of(new BsonInt32(1), new BsonInt32(2)))
+                          .path("rating")
+                          .build(),
+                      "eventFacet",
+                      FacetDefinitionBuilder.date()
+                          .defaultBucketName("other")
+                          .boundaries(
+                              List.of(
+                                  new BsonDateTime(
+                                      new Calendar.Builder()
+                                          .setDate(2020, Calendar.MAY, 8)
+                                          .setTimeOfDay(12, 11, 0, 0)
+                                          .setTimeZone(TimeZone.getTimeZone("UTC"))
+                                          .build()
+                                          .getTimeInMillis()),
+                                  new BsonDateTime(
+                                      new Calendar.Builder()
+                                          .setDate(2021, Calendar.MAY, 8)
+                                          .setTimeOfDay(12, 11, 0, 0)
+                                          .setTimeZone(TimeZone.getTimeZone("UTC"))
+                                          .build()
+                                          .getTimeInMillis())))
+                          .path("start")
+                          .build()))
+              .build());
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<FacetCollector> noOperator() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "no operator",
+          CollectorBuilder.facet()
+              .operator(AllDocumentsOperator.INSTANCE)
+              .facetDefinitions(
+                  Map.of("directorFacet", FacetDefinitionBuilder.string().path("director").build()))
+              .build());
+    }
+  }
+
+  public static class RegularSuite {
+    @Test
+    public void containsDoesNotAffect_whenOperatorWithDoesNotAffectDefined_returnsTrue() {
+      var equalsOperator = OperatorBuilder.equals()
+          .path("field1")
+          .value("value")
+          .doesNotAffect("facet1")
+          .build();
+
+      var inOperator = OperatorBuilder.in()
+          .path("field2")
+          .strings(Arrays.asList("value1", "value2", "value3"))
+          .doesNotAffect("facet2")
+          .build();
+
+      var rangeOperator = OperatorBuilder.range()
+          .path("field3")
+          .numericBounds(Optional.of(new LongPoint(10)), Optional.of(new LongPoint(20)),
+              true, false)
+          .doesNotAffect("facet3")
+          .build();
+
+      assertThat(FacetCollector.containsDoesNotAffect(equalsOperator)).isTrue();
+      assertThat(FacetCollector.containsDoesNotAffect(inOperator)).isTrue();
+      assertThat(FacetCollector.containsDoesNotAffect(rangeOperator)).isTrue();
+    }
+
+    @Test
+    public void containsDoesNotAffect_whenOperatorWithoutDoesNotAffect_returnsFalse() {
+      // Create operators without `doesNotAffect`
+      var equalsOperator = OperatorBuilder.equals()
+          .path("field4")
+          .value("value")
+          .build();
+
+      var inOperator = OperatorBuilder.in()
+          .path("field5")
+          .strings(Arrays.asList("value1", "value2", "value3"))
+          .build();
+
+      var rangeOperator = OperatorBuilder.range()
+          .path("field3")
+          .numericBounds(Optional.of(new LongPoint(10)), Optional.of(new LongPoint(20)),
+              true, false)
+          .build();
+
+      assertThat(FacetCollector.containsDoesNotAffect(equalsOperator)).isFalse();
+      assertThat(FacetCollector.containsDoesNotAffect(inOperator)).isFalse();
+      assertThat(FacetCollector.containsDoesNotAffect(rangeOperator)).isFalse();
+    }
+
+    @Test
+    public void containsDoesNotAffect_whenCompoundOrEmbeddedReturnsTrue() {
+      // Create compound and embedded operators
+      var compoundOperator = OperatorBuilder.compound()
+          .should(
+              OperatorBuilder.equals()
+                  .path("field1")
+                  .value("value")
+                  .build()
+          )
+          .build();
+
+      var embeddedOperator = OperatorBuilder.embeddedDocument()
+          .path("field2")
+          .operator(
+              OperatorBuilder.range()
+                  .path("field3")
+                  .numericBounds(Optional.of(new LongPoint(1)),
+                      Optional.of(new LongPoint(3)), true, false)
+                  .build()
+          )
+          .build();
+
+      // Verify that these operators always return true
+      assertThat(FacetCollector.containsDoesNotAffect(compoundOperator)).isTrue();
+      assertThat(FacetCollector.containsDoesNotAffect(embeddedOperator)).isTrue();
+    }
+
+    @Test
+    public void containsDoesNotAffect_whenAutocompleteReturnsFalse() {
+      var autocompleteOperator = OperatorBuilder.autocomplete()
+          .path("description")
+          .query("pizza")
+          .build();
+
+      assertThat(FacetCollector.containsDoesNotAffect(autocompleteOperator)).isFalse();
+    }
+
+    @Test
+    public void buildDrillSidewaysInfo_operatorDoesNotContainDoesNotAffect_returnsEmptyOptional() {
+      long value = 1;
+      Operator operator = OperatorBuilder.equals()
+          .path("color")
+          .value(value)
+          .build();
+
+      Map<String, FacetDefinition> facetDefinitions = getFacetDefinitions();
+
+      Optional<DrillSidewaysInfoBuilder.DrillSidewaysInfo> result =
+          FacetCollector.buildDrillSidewaysInfo(operator, facetDefinitions);
+
+      assertThat(result).isEmpty();
+    }
+
+    private static Map<String, FacetDefinition> getFacetDefinitions() {
+      Map<String, FacetDefinition> facetDefinitions = new HashMap<>();
+      // Add color facet definition
+      facetDefinitions.put(
+          "colors",
+          new FacetDefinition.NumericFacetDefinition(
+              "color",
+              Optional.empty(),
+              List.of(
+                  new BsonDouble(1.0),
+                  new BsonDouble(2.0),
+                  new BsonDouble(3.0),
+                  new BsonDouble(4.0))));
+
+      // Add size facet definition
+      facetDefinitions.put(
+          "sizes",
+          new FacetDefinition.NumericFacetDefinition(
+              "size",
+              Optional.empty(),
+              List.of(
+                  new BsonDouble(5.0),
+                  new BsonDouble(6.0),
+                  new BsonDouble(7.0),
+                  new BsonDouble(8.0))));
+      return facetDefinitions;
+    }
+
+    @Test
+    public void numericBoundarySizeExceedingLimit() {
+      var definition =
+          FacetDefinitionBuilder.numeric()
+              .boundaries(
+                  IntStream.range(0, 2000).mapToObj(BsonInt32::new).collect(Collectors.toList()))
+              .path("rating")
+              .build();
+
+      var parser = BsonDocumentParser.fromRoot(definition.toBson().asDocument()).build();
+      TestUtils.assertThrows(
+          "size must be within bounds",
+          BsonParseException.class,
+          () -> FacetDefinition.fromBson(parser));
+    }
+
+    @Test
+    public void dateBoundarySizeExceedingLimit() {
+      var definition =
+          FacetDefinitionBuilder.date()
+              .boundaries(
+                  LongStream.range(0, 2000)
+                      .mapToObj(v -> new BsonDateTime(new Date(v).getTime()))
+                      .collect(Collectors.toList()))
+              .path("rating")
+              .build();
+
+      var parser = BsonDocumentParser.fromRoot(definition.toBson().asDocument()).build();
+      TestUtils.assertThrows(
+          "size must be within bounds",
+          BsonParseException.class,
+          () -> FacetDefinition.fromBson(parser));
+    }
+  }
+}

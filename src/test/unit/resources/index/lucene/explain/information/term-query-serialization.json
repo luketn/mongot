@@ -1,0 +1,15 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "path": "a",
+        "value": "hello"
+      },
+      "bson": {
+        "path": "a",
+        "value": "hello"
+      }
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "generation": {
+          "userVersion": 1,
+          "formatVersion": 2
+        },
+        "index": {
+          "indexID": "507f191e810c19729de860ea",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "mappings": {
+            "dynamic": true
+          }
+        },
+        "analyzers": []
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing generation",
+      "value": {
+        "index": {
+          "indexID": "507f191e810c19729de860ea",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "mappings": {
+            "dynamic": true
+          },
+          "analyzer": "my-analyzer"
+        },
+        "analyzers": [
+          {
+            "baseAnalyzer": "lucene.standard",
+            "name": "my-analyzer"
+          }
+        ]
+      }
+    },
+    {
+      "description": "missing index definition",
+      "value": {
+        "generation": {
+          "userVersion": 1,
+          "formatVersion": 2
+        },
+        "analyzers": []
+      }
+    }
+  ]
+}

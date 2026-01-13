@@ -1,0 +1,37 @@
+{
+  "valid": [
+    {
+      "description": "positive value",
+      "value": {
+        "value": 13
+      }
+    },
+    {
+      "description": "zero value",
+      "value": {
+        "value": 0
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no value",
+      "value": {
+      }
+    },
+    {
+      "description": "negative value",
+      "value": {
+        "value": -1
+      }
+    },
+    {
+      "description": "NaN value",
+      "value": {
+        "value": {
+          "$numberDouble": "NaN"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "valid": [
+    {
+      "description": "path score constant",
+      "value": [
+        {
+          "path": {
+            "value": "rating",
+            "undefined": 6043.28
+          }
+        },
+        {
+          "constant": 8987.31
+        },
+        {
+          "score": "relevance"
+        }
+      ]
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no value",
+      "value": {}
+    },
+    {
+      "description": "integer-typed",
+      "value": 1
+    },
+    {
+      "description": "empty list",
+      "value": []
+    },
+    {
+      "description": "only one argument",
+      "value": [
+        {
+          "path": {
+            "value": "rating",
+            "undefined": 6043.28
+          }
+        }
+      ]
+    }
+  ]
+}

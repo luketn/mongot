@@ -1,0 +1,142 @@
+{
+  "valid": [
+    {
+      "description": "simple asc",
+      "value": 1
+    },
+    {
+      "description": "simple desc",
+      "value": -1
+    },
+    {
+      "description": "searchScore asc",
+      "value": {
+        "order": 1,
+        "$meta": "searchScore"
+      }
+    },
+    {
+      "description": "searchScore desc",
+      "value": {
+        "$meta": "searchScore",
+        "order": -1
+      }
+    },
+    {
+      "description": "searchScore default",
+      "value": {
+        "$meta": "searchScore"
+      }
+    },
+    {
+      "description": "noData lowest order asc",
+      "value": {
+        "order": 1,
+        "noData": "lowest"
+      }
+    },
+    {
+      "description": "noData highest order asc",
+      "value": {
+        "order": 1,
+        "noData": "highest"
+      }
+    },
+    {
+      "description": "noData lowest order desc",
+      "value": {
+        "order": -1,
+        "noData": "lowest"
+      }
+    },
+    {
+      "description": "noData highest order desc",
+      "value": {
+        "order": -1,
+        "noData": "highest"
+      }
+    },
+    {
+      "description": "order-without-meta-or-noData",
+      "value": {
+        "order": -1
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "empty",
+      "value": {}
+    },
+    {
+      "description": "non-document",
+      "value": 5
+    },
+    {
+      "description": "incorrect order",
+      "value": {
+        "order": 3
+      }
+    },
+    {
+      "description": "invalid key",
+      "value": {
+        "invalid": 1
+      }
+    },
+    {
+      "description": "noData-without-order",
+      "value": {
+        "noData": "highest"
+      },
+      "errorMessageContains": "\"order\" is required"
+    },
+    {
+      "description": "noData-lowest-with-meta",
+      "value": {
+        "$meta": "searchScore",
+        "noData": "lowest"
+      },
+      "errorMessageContains": "at most one of [$meta, noData] may be present"
+    },
+    {
+      "description": "noData-highest-with-meta",
+      "value": {
+        "$meta": "searchScore",
+        "noData": "highest"
+      },
+      "errorMessageContains": "at most one of [$meta, noData] may be present"
+    },
+    {
+      "description": "all-3-fields-noData-lowest",
+      "value": {
+        "$meta": "searchScore",
+        "order": 1,
+        "noData": "lowest"
+      },
+      "errorMessageContains": "at most one of [$meta, noData] may be present"
+    },
+    {
+      "description": "all-3-fields-noData-highest",
+      "value": {
+        "$meta": "searchScore",
+        "order": 1,
+        "noData": "highest"
+      },
+      "errorMessageContains": "at most one of [$meta, noData] may be present"
+    },
+    {
+      "description": "noData default specified",
+      "value": {
+        "order": 1,
+        "noData": "default"
+      },
+      "errorMessageContains": "\"noData\" must be one of [highest, lowest]"
+    },
+    {
+      "description": "empty-document",
+      "value": {},
+      "errorMessageContains": "\"order\" is required"
+    }
+  ]
+}

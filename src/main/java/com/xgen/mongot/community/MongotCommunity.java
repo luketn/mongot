@@ -1,0 +1,71 @@
+package com.xgen.mongot.community;
+
+import com.google.common.net.HostAndPort;
+import com.xgen.mongot.config.provider.community.CommunityMongotBootstrapper;
+import com.xgen.mongot.logging.Logging;
+import com.xgen.mongot.util.Crash;
+import com.xgen.mongot.util.MongotVersionResolver;
+import com.xgen.mongot.util.security.Security;
+import java.nio.file.Path;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import picocli.CommandLine;
+import picocli.CommandLine.IVersionProvider;
+
+/** Entrypoint for the mongot community server. */
+@CommandLine.Command(
+    name = "mongot_community",
+    mixinStandardHelpOptions = true,
+    versionProvider = MongotCommunity.class)
+public class MongotCommunity implements Runnable, IVersionProvider {
+  private static final Logger LOG = LoggerFactory.getLogger(MongotCommunity.class);
+
+  @CommandLine.Option(names = "--config", description = "Path to the mongot YAML config file")
+  public Path configPath;
+
+  @CommandLine.Option(
+      names = "--internalListAllIndexesForTesting",
+      hidden = true,
+      description =
+          "Configure Community to return extended $listSearchIndexes response data,"
+              + " used for internal e2e testing",
+      defaultValue = "false")
+  public boolean internalListAllIndexesForTesting;
+
+  @Override
+  public void run() {
+    LOG.atInfo().addKeyValue("mongotVersion", getVersion()[0]).log("[Starting Mongot]");
+
+    // Enable translation of java.util.logging logs from third part libraries to SLF4J.
+    Logging.bridgeJulToSlf4j();
+
+    // Set the default uncaught exception handler, so if any thread terminates
+    // due to an uncaught exception, mongot will fail.
+    Crash.setDefaultUncaughtExceptionHandler();
+
+    // install security providers used by mongot's modules
+    Security.installFipsSecurityProvider();
+
+    // Verify Java version
+    if (Runtime.version().feature() != 21) {
+      Crash.because("should be running Java 21").now();
+    }
+
+    Crash.because("failed to bootstrap")
+        .ifThrows(
+            () ->
+                CommunityMongotBootstrapper.bootstrap(
+                    this.configPath, this.internalListAllIndexesForTesting));
+  }
+
+  public static void main(String[] args) {
+    new CommandLine(new MongotCommunity())
+        .registerConverter(HostAndPort.class, HostAndPort::fromString)
+        .execute(args);
+  }
+
+  @Override
+  public String[] getVersion() {
+    return new String[] {MongotVersionResolver.create().getVersion()};
+  }
+}

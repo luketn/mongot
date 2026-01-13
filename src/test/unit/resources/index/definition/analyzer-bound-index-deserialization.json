@@ -1,0 +1,127 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "index": {
+          "indexID": "507f191e810c19729de860ea",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "mappings": {
+            "dynamic": true
+          }
+        },
+        "analyzers": []
+      }
+    },
+    {
+      "description": "with analyzer",
+      "value": {
+        "index": {
+          "indexID": "507f191e810c19729de860ea",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "mappings": {
+            "dynamic": true
+          },
+          "analyzer": "my-analyzer"
+        },
+        "analyzers": [
+          {
+            "baseAnalyzer": "lucene.standard",
+            "name": "my-analyzer"
+          }
+        ]
+      }
+    },
+    {
+      "description": "superfluous custom analyzer",
+      "value": {
+        "index": {
+          "indexID": "507f191e810c19729de860ea",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "mappings": {
+            "dynamic": true
+          },
+          "analyzers": [
+            {
+              "name": "unreferencedCustomAnalyzerName",
+              "tokenizer": {
+                "type": "standard"
+              },
+              "tokenFilters": [
+                {
+                  "type": "length",
+                  "min": 2,
+                  "max": 12
+                }
+              ],
+              "charFilters": [
+                {
+                  "type": "htmlStrip",
+                  "ignoredTags": []
+                }
+              ]
+            }
+          ]
+        },
+        "analyzers": []
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing index",
+      "value": {
+        "analyzers": [
+        ]
+      }
+    },
+    {
+      "description": "missing referenced analyzer",
+      "value": {
+        "index": {
+          "indexID": "507f191e810c19729de860ea",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "mappings": {
+            "dynamic": true
+          },
+          "analyzer": "my-analyzer"
+        },
+        "analyzers": [
+        ]
+      }
+    },
+    {
+      "description": "superfluous analyzer",
+      "value": {
+        "index": {
+          "indexID": "507f191e810c19729de860ea",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "mappings": {
+            "dynamic": true
+          }
+        },
+        "analyzers": [
+          {
+            "baseAnalyzer": "lucene.standard",
+            "name": "my-analyzer"
+          }
+        ]
+      }
+    }
+  ]
+}

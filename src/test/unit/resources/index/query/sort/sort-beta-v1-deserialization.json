@@ -1,0 +1,47 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "a": -1,
+        "b": 1
+      }
+    },
+    {
+      "description": "mixed numerical values",
+      "value": {
+        "a": -1.0,
+        "b": 1,
+        "c": {
+          "$numberLong": "1"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "non-document",
+      "value": 5
+    },
+    {
+      "description": "incorrect values",
+      "value": {
+        "a": 3
+      }
+    },
+    {
+      "description": "non-numerical values",
+      "value": {
+        "a": "descending"
+      }
+    },
+    {
+      "description": "sort meta",
+      "value": {
+        "a": {
+          "$meta": "searchScore"
+        }
+      }
+    }
+  ]
+}

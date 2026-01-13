@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "description": "add path score constant",
+      "value": {
+        "add": [
+          {
+            "path": {
+              "value": "rating",
+              "undefined": 6043.28
+            }
+          },
+          {
+            "constant": 8987.31
+          },
+          {
+            "score": "relevance"
+          }
+        ]
+      }
+    }
+  ]
+}

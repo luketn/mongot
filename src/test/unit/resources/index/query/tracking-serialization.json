@@ -1,0 +1,10 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "searchTerms": "abcd"
+      }
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+load("//bazel/java:test.bzl", "java_test_suite")
+
+java_test_suite(
+    name = "community",
+    srcs = [
+        "CommunityConfigTest.java",
+        "CommunityConfigUpdaterTest.java",
+        "CommunityMongotBootstrapperTest.java",
+    ],
+    data = [
+        "//src/main/resources/config/community:embedding-service-configs",
+        "//src/test/unit/resources/config/provider/community:srcs",
+    ],
+    tags = ["unit"],
+    deps = [
+        "//src/main/java/com/xgen/mongot/catalogservice",
+        "//src/main/java/com/xgen/mongot/config/manager",
+        "//src/main/java/com/xgen/mongot/config/provider",
+        "//src/main/java/com/xgen/mongot/config/provider/community",
+        "//src/main/java/com/xgen/mongot/config/provider/community/embedding",
+        "//src/main/java/com/xgen/mongot/config/util",
+        "//src/main/java/com/xgen/mongot/embedding/providers",
+        "//src/main/java/com/xgen/mongot/embedding/providers/configs",
+        "//src/main/java/com/xgen/mongot/featureflag",
+        "//src/main/java/com/xgen/mongot/index",
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/status",
+        "//src/main/java/com/xgen/mongot/index/version",
+        "//src/main/java/com/xgen/mongot/util/bson/parser",
+        "//src/main/java/com/xgen/mongot/util/mongodb",
+        "//src/main/java/com/xgen/mongot/util/mongodb/serialization",
+        "//src/main/java/com/xgen/testing",
+        "//src/main/java/com/xgen/testing/mongot/index/definition",
+        "//src/main/java/com/xgen/testing/mongot/mock/index",
+        "@maven//:com_google_guava_guava",
+        "@maven//:io_micrometer_micrometer_core",
+        "@maven//:junit_junit",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mongodb_bson",
+        "@maven//:org_mongodb_mongodb_driver_core",
+    ],
+)

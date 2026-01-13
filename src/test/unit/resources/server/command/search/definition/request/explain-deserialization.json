@@ -1,0 +1,18 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "verbosity": "executionStats"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid-verbosity",
+      "value": {
+        "verbosity": "invalid"
+      }
+    }
+  ]
+}

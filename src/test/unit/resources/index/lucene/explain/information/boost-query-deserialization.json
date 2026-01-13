@@ -1,0 +1,19 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "query": {
+          "type": "TermQuery",
+          "args": {
+            "value": "whopper",
+            "path": "q"
+          }
+        },
+        "boost": 2.5
+      }
+    }
+  ],
+  "invalid": [
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "vectorSearch": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "description",
+          "limit": 5,
+          "exact": false,
+          "numCandidates": 10,
+          "queryVector": [
+            2.0,
+            2.0,
+            2.0
+          ],
+          "returnStoredSource": false
+        }
+      }
+    },
+    {
+      "description": "filter",
+      "value": {
+        "vectorSearch": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "description",
+          "limit": 5,
+          "exact": false,
+          "numCandidates": 10,
+          "queryVector": [
+            5.0,
+            5.0,
+            5.0
+          ],
+          "filter": {
+            "equals": {
+              "score": {
+                "boost": {
+                  "value": 1.0
+                }
+              },
+              "path": "flag",
+              "value": true
+            }
+          },
+          "returnStoredSource": false
+        }
+      }
+    }
+  ]
+}

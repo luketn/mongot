@@ -1,0 +1,125 @@
+{
+  "valid": [
+    {
+      "description": "bufferless with default",
+      "value": {
+        "bufferless": {
+          "collectionScanTimeMs": 300000,
+          "changeStreamCatchupTimeoutMs": 300000,
+          "changeStreamLagTimeMs": 60000,
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": false,
+          "avoidNaturalOrderScanSyncSourceChangeResync": false
+        }
+      }
+    },
+    {
+      "description": "bufferless with collection scan time",
+      "value": {
+        "bufferless": {
+          "collectionScanTimeMs": 600,
+          "changeStreamCatchupTimeoutMs": 300000,
+          "changeStreamLagTimeMs": 60000,
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": false,
+          "avoidNaturalOrderScanSyncSourceChangeResync": false
+        }
+      }
+    },
+    {
+      "description": "bufferless with change stream catchup time",
+      "value": {
+        "bufferless": {
+          "collectionScanTimeMs": 300000,
+          "changeStreamCatchupTimeoutMs": 600,
+          "changeStreamLagTimeMs": 60000,
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": false,
+          "avoidNaturalOrderScanSyncSourceChangeResync": false
+        }
+      }
+    },
+    {
+      "description": "bufferless with change stream lag time",
+      "value": {
+        "bufferless": {
+          "collectionScanTimeMs": 300000,
+          "changeStreamCatchupTimeoutMs": 300000,
+          "changeStreamLagTimeMs": 600,
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": false,
+          "avoidNaturalOrderScanSyncSourceChangeResync": false
+        }
+      }
+    },
+    {
+      "description": "bufferless with enable natural order scan",
+      "value": {
+        "bufferless": {
+          "collectionScanTimeMs": 300000,
+          "changeStreamCatchupTimeoutMs": 300000,
+          "changeStreamLagTimeMs": 60000,
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": true,
+          "avoidNaturalOrderScanSyncSourceChangeResync": true
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "non-positive collection scan time",
+      "value": {
+        "bufferless": {
+          "collectionScanTimeMs": 0,
+          "changeStreamCatchupTimeoutMs": 300000,
+          "changeStreamLagTimeMs": 60000
+        }
+      }
+    },
+    {
+      "description": "buffered with collection scan time",
+      "value": {
+        "buffered": {
+          "collectionScanTimeMs": 300
+        }
+      }
+    },
+    {
+      "description": "non-positive change stream catchup time",
+      "value": {
+        "bufferless": {
+          "collectionScanTimeMs": 300000,
+          "changeStreamCatchupTimeoutMs": -300,
+          "changeStreamLagTimeMs": 60000
+        }
+      }
+    },
+    {
+      "description": "buffered with change stream catchup time",
+      "value": {
+        "buffered": {
+          "changeStreamCatchupTimeoutMs": 300
+        }
+      }
+    },
+    {
+      "description": "non-positive change stream lag time",
+      "value": {
+        "bufferless": {
+          "collectionScanTimeMs": 300000,
+          "changeStreamCatchupTimeoutMs": 300000,
+          "changeStreamLagTimeMs": 0
+        }
+      }
+    },
+    {
+      "description": "buffered with change stream lag time",
+      "value": {
+        "buffered": {
+          "changeStreamLagTimeMs": 300
+        }
+      }
+    }
+  ]
+}

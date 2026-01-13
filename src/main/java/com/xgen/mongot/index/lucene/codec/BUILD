@@ -1,0 +1,20 @@
+load("//bazel/java:package.bzl", "java_library")
+
+java_library(
+    name = "codec",
+    srcs = [
+        "LuceneCodec.java",
+        "LuceneStoredFieldsFormat.java",
+    ],
+    visibility = ["//visibility:public"],
+    exports = ["@maven//:org_apache_lucene_lucene_core"],
+    deps = [
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/lucene/codec/flat",
+        "//src/main/java/com/xgen/mongot/index/lucene/field",
+        "//src/main/java/com/xgen/mongot/index/lucene/quantization",
+        "//src/main/java/com/xgen/mongot/util",
+        "@maven//:com_google_flogger_flogger",
+        "@maven//:org_apache_lucene_lucene_core",
+    ],
+)

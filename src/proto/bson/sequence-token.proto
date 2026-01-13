@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.xgen.mongot.proto.bson";
+
+package com.xgen.mongot.proto.bson;
+
+import "src/proto/bson/types.proto";
+
+// A protobuf representation of com.xgen.mongot.index.query.sort.SequenceToken
+message ProtoSequenceToken {
+  // A lucene doc ID. (non-negative)
+  int32 doc_id = 1;
+
+  // A non-negative relevance score.
+  // If the query is sorted, the score may be missing.
+  float score = 2;
+
+  // A list of sort values corresponding to this doc ID.
+  // The values have a length and order corresponding to the SortSpec of the
+  // Query. This list is empty for relevance queries using the default sort
+  // order.
+  repeated ProtoValue fields = 3;
+
+  // Document meta _id (identical to the _id in MongoDB)
+  // Marked as "optional" to maintain compatibility with the previous token format
+  optional ProtoValue id = 4;
+}

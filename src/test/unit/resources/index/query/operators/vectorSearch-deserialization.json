@@ -1,0 +1,175 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "score": {
+          "boost": {
+            "value": 1.0
+          }
+        },
+        "path": "description",
+        "limit": 5,
+        "exact": false,
+        "numCandidates": 10,
+        "queryVector": [
+          2.0,
+          2.0,
+          2.0
+        ]
+      }
+    },
+    {
+      "description": "filter",
+      "value": {
+        "score": {
+          "boost": {
+            "value": 1.0
+          }
+        },
+        "path": "description",
+        "limit": 5,
+        "exact": false,
+        "numCandidates": 10,
+        "queryVector": [
+          5.0,
+          5.0,
+          5.0
+        ],
+        "filter": {
+          "equals": {
+            "score": {
+              "boost": {
+                "value": 1.0
+              }
+            },
+            "path": "flag",
+            "value": true
+          }
+        }
+      }
+    },
+    {
+      "description": "exact",
+      "value": {
+        "score": {
+          "boost": {
+            "value": 1.0
+          }
+        },
+        "path": "description",
+        "limit": 5,
+        "exact": true,
+        "queryVector": [
+          5.0,
+          5.0,
+          5.0
+        ],
+        "filter": {
+          "equals": {
+            "score": {
+              "boost": {
+                "value": 1.0
+              }
+            },
+            "path": "flag",
+            "value": true
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing vector",
+      "value": {
+        "path": "description",
+        "limit": 5,
+        "exact": false,
+        "numCandidates": 10
+      }
+    },
+    {
+      "description": "missing numCandidates for approximate",
+      "value": {
+        "path": "description",
+        "limit": 5,
+        "exact": false,
+        "queryVector": [
+          2.0,
+          2.0,
+          2.0
+        ]
+      }
+    },
+    {
+      "description": "negative numCandidates",
+      "value": {
+        "path": "description",
+        "limit": 5,
+        "exact": false,
+        "numCandidates": -110,
+        "queryVector": [
+          2.0,
+          2.0,
+          2.0
+        ]
+      }
+    },
+    {
+      "description": "zero numCandidates",
+      "value": {
+        "path": "description",
+        "limit": 5,
+        "exact": false,
+        "numCandidates": 0,
+        "queryVector": [
+          2.0,
+          2.0,
+          2.0
+        ]
+      }
+    },
+    {
+      "description": "invalid vector",
+      "value": {
+        "path": "description",
+        "limit": 5,
+        "exact": false,
+        "numCandidates": 10,
+        "queryVector": [
+          2.0,
+          "2.0",
+          2.0
+        ]
+      }
+    },
+    {
+      "description": "filter contains vectorSearch operator",
+      "value": {
+        "path": "description",
+        "limit": 5,
+        "exact": false,
+        "numCandidates": 10,
+        "filter": {
+          "vectorSearch": {
+            "path": "description",
+            "limit": 5,
+            "exact": false,
+            "numCandidates": 10,
+            "queryVector": [
+              2.0,
+              "2.0",
+              2.0
+            ]
+          }
+        },
+        "queryVector": [
+          2.0,
+          2.0,
+          2.0
+        ]
+      }
+    }
+  ]
+}

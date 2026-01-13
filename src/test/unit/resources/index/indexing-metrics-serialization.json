@@ -1,0 +1,161 @@
+{
+  "tests": [
+    {
+      "description": "indexingMetricsSerialization",
+      "json": {
+        "replicationOpTime": {
+          "$timestamp": {
+            "t": 20,
+            "i": 0
+          }
+        },
+        "replicationLagMs": 20,
+        "totalBytesProcessed": 10.0,
+        "numDocs": 23,
+        "numLuceneMaxDocs": 24,
+        "maxLuceneMaxDocs": 19,
+        "numMongoDbDocs": 25,
+        "indexSizeBytes": 2,
+        "vectorFieldSizeBytes": 0,
+        "requiredMemoryBytes": 500000000,
+        "numFields": 30,
+        "numFieldsPerDatatype": {
+          "autocomplete": 0.0,
+          "boolean": 0.0,
+          "date": 0.0,
+          "dateV2": 0.0,
+          "dateMultiple": 0.0,
+          "dateFacet": 0.0,
+          "geoPoint": 0.0,
+          "geoShape": 0.0,
+          "knnVector": 0.0,
+          "knnByte": 0.0,
+          "knnBit": 0.0,
+          "knnF32Q7": 0.0,
+          "knnF32Q1": 0.0,
+          "null": 0.0,
+          "numberDouble": 0.0,
+          "numberDoubleV2": 0.0,
+          "numberDoubleMultiple": 0.0,
+          "numberDoubleFacet": 0.0,
+          "numberInt64": 0.0,
+          "numberInt64V2": 0.0,
+          "numberInt64Multiple": 0.0,
+          "numberInt64Facet": 0.0,
+          "objectId": 0.0,
+          "sortableDateBetaV1": 0.0,
+          "sortableNumberBetaV1": 0.0,
+          "sortableStringBetaV1": 0.0,
+          "string": 0.0,
+          "token": 0.0,
+          "uuid": 0.0
+        },
+        "appliedDocumentEventTypeCount": {
+          "insert": 50.0,
+          "update": 0.0,
+          "delete": 0.0
+        },
+        "initialSyncExceptionCount": 1.0,
+        "steadyStateExceptionCount": 2.0,
+        "batchIndexingTimer": {
+          "timeUnit": "nanoseconds",
+          "count": 2,
+          "totalTimeSeconds": 150.0,
+          "maxTimeSeconds": 100.0,
+          "meanTimeSeconds": 75.0,
+          "percentiles": {
+            "50th": 75.0,
+            "75th": 100.0,
+            "90th": 100.0,
+            "99th": 100.0
+          }
+        }
+      },
+      "bson": {
+        "replicationOpTime": {
+          "$timestamp": {
+            "t": 20,
+            "i": 0
+          }
+        },
+        "replicationLagMs": {
+          "$numberLong": "20"
+        },
+        "totalBytesProcessed": 10.0,
+        "numDocs": {
+          "$numberLong": "23"
+        },
+        "numLuceneMaxDocs": {
+          "$numberLong": "24"
+        },
+        "maxLuceneMaxDocs": 19,
+        "numMongoDbDocs": {
+          "$numberLong": "25"
+        },
+        "indexSizeBytes": {
+          "$numberLong": "2"
+        },
+        "vectorFieldSizeBytes": {
+          "$numberLong": "0"
+        },
+        "requiredMemoryBytes": {
+          "$numberLong": "500000000"
+        },
+        "numFields": 30,
+        "numFieldsPerDatatype": {
+          "autocomplete": 0.0,
+          "boolean": 0.0,
+          "date": 0.0,
+          "dateV2": 0.0,
+          "dateMultiple": 0.0,
+          "dateFacet": 0.0,
+          "geoPoint": 0.0,
+          "geoShape": 0.0,
+          "knnVector": 0.0,
+          "knnByte": 0.0,
+          "knnBit": 0.0,
+          "knnF32Q7": 0.0,
+          "knnF32Q1": 0.0,
+          "null": 0.0,
+          "numberDouble": 0.0,
+          "numberDoubleV2": 0.0,
+          "numberDoubleMultiple": 0.0,
+          "numberDoubleFacet": 0.0,
+          "numberInt64": 0.0,
+          "numberInt64V2": 0.0,
+          "numberInt64Multiple": 0.0,
+          "numberInt64Facet": 0.0,
+          "objectId": 0.0,
+          "sortableDateBetaV1": 0.0,
+          "sortableNumberBetaV1": 0.0,
+          "sortableStringBetaV1": 0.0,
+          "string": 0.0,
+          "token": 0.0,
+          "uuid": 0.0
+        },
+        "appliedDocumentEventTypeCount": {
+          "insert": 50.0,
+          "update": 0.0,
+          "delete": 0.0
+        },
+        "initialSyncExceptionCount": 1.0,
+        "steadyStateExceptionCount": 2.0,
+        "batchIndexingTimer": {
+          "timeUnit": "nanoseconds",
+          "count": {
+            "$numberLong": "2"
+          },
+          "totalTimeSeconds": 150.0,
+          "maxTimeSeconds": 100.0,
+          "meanTimeSeconds": 75.0,
+          "percentiles": {
+            "50th": 75.0,
+            "75th": 100.0,
+            "90th": 100.0,
+            "99th": 100.0
+          }
+        }
+      }
+    }
+  ]
+}

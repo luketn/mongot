@@ -1,0 +1,49 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar",
+        "ignoreCase": true
+      }
+    },
+    {
+      "description": "explicit maxTokenLength",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar",
+        "ignoreCase": true,
+        "maxTokenLength": 13
+      }
+    },
+    {
+      "description": "explicit stopwords",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar",
+        "ignoreCase": true,
+        "stopwords": [
+          "a",
+          "b"
+        ]
+      }
+    },
+    {
+      "description": "explicit stemExclusionSet",
+      "value": {
+        "name": "foo",
+        "baseAnalyzer": "bar",
+        "ignoreCase": true,
+        "stopwords": [
+          "a",
+          "b"
+        ],
+        "stemExclusionSet": [
+          "c",
+          "d"
+        ]
+      }
+    }
+  ]
+}

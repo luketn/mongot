@@ -1,0 +1,156 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "ok": 1,
+        "cursor": {
+          "id": {
+            "$numberLong": "1"
+          },
+          "ns": "foo.bar",
+          "nextBatch": [
+            {
+              "_id": 0,
+              "$searchScore": 0.0
+            },
+            {
+              "_id": 1,
+              "$searchScore": 1.0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "withMeta",
+      "value": {
+        "ok": 1,
+        "cursor": {
+          "id": {
+            "$numberLong": "1"
+          },
+          "ns": "foo.bar",
+          "nextBatch": [
+            {
+              "_id": 0,
+              "$searchScore": 0.0
+            },
+            {
+              "_id": 1,
+              "$searchScore": 1.0
+            }
+          ]
+        },
+        "vars": {
+          "SEARCH_META": {
+            "count": {
+              "lowerBound": {
+                "$numberLong": "1000"
+              }
+            },
+            "facet": {
+              "myFacet": {
+                "buckets": [
+                  {
+                    "_id": "category",
+                    "count": {
+                      "$numberLong": "2"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "noOk",
+      "value": {
+        "cursor": {
+          "id": {
+            "$numberLong": "1"
+          },
+          "ns": "foo.bar",
+          "nextBatch": [
+            {
+              "_id": 0,
+              "$searchScore": 0.0
+            },
+            {
+              "_id": 1,
+              "$searchScore": 1.0
+            }
+          ]
+        },
+        "vars": {
+          "SEARCH_META": {
+            "count": {
+              "lowerBound": {
+                "$numberLong": "1000"
+              }
+            },
+            "facet": {
+              "myFacet": {
+                "buckets": [
+                  {
+                    "_id": "category",
+                    "count": {
+                      "$numberLong": "2"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "badOk",
+      "value": {
+        "ok": 5,
+        "cursor": {
+          "id": {
+            "$numberLong": "1"
+          },
+          "ns": "foo.bar",
+          "nextBatch": [
+            {
+              "_id": 0,
+              "$searchScore": 0.0
+            },
+            {
+              "_id": 1,
+              "$searchScore": 1.0
+            }
+          ]
+        },
+        "vars": {
+          "SEARCH_META": {
+            "count": {
+              "lowerBound": {
+                "$numberLong": "1000"
+              }
+            },
+            "facet": {
+              "myFacet": {
+                "buckets": [
+                  {
+                    "_id": "category",
+                    "count": {
+                      "$numberLong": "2"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

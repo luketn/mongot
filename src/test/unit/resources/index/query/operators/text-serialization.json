@@ -1,0 +1,40 @@
+{
+  "tests": [
+    {
+      "description": "explicit fuzzy options",
+      "value": {
+        "text": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "title",
+          "query": "godfather",
+          "fuzzy": {
+            "maxEdits": 1,
+            "maxExpansions": 2,
+            "prefixLength": 3
+          },
+          "matchCriteria": "any"
+        }
+      }
+    },
+    {
+      "description": "synonyms",
+      "value": {
+        "text": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "title",
+          "query": "godfather",
+          "synonyms": "english_synonyms",
+          "matchCriteria": "all"
+        }
+      }
+    }
+  ]
+}

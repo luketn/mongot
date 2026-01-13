@@ -1,0 +1,15 @@
+{
+  "tests": [
+    {
+      "description": "log1p of path with undefined",
+      "value": {
+        "log1p": {
+          "path": {
+            "value": "rating",
+            "undefined": 6043.28
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,151 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "_id": 0,
+        "$searchScore": 0.0
+      }
+    },
+    {
+      "description": "with highlights",
+      "value": {
+        "_id": 0,
+        "$searchScore": 0.0,
+        "$searchHighlights": [
+          {
+            "score": 1234.0,
+            "path": "testPath",
+            "texts": [
+              {
+                "value": "firstText",
+                "type": "text"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "description": "with stored source",
+      "value": {
+        "$searchScore": 0.0,
+        "storedSource": {
+          "_id": 0,
+          "myNumber": 1.2345,
+          "myString": "pizza",
+          "myDocument": {
+            "key": "pasta"
+          }
+        }
+      }
+    },
+    {
+      "description": "with score details",
+      "value": {
+        "_id": 0,
+        "$searchScore": 0.0,
+        "$searchScoreDetails": {
+          "value": 0.0,
+          "description": "description",
+          "details": [
+            {
+              "value": 1.0,
+              "description": "weight",
+              "details": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "with searchSortValues",
+      "value": {
+        "_id": 0,
+        "$searchScore": 0.0,
+        "$searchSortValues": {
+          "_0": 6.0,
+          "_1": "foo",
+          "_2": {
+            "$uuid": "00000000-1111-2222-3333-444444444444"
+          },
+          "_3": {
+            "$oid": "507f1f77bcf86cd799439011"
+          },
+          "_4": false
+        }
+      }
+    },
+    {
+      "description": "with sequence token",
+      "value": {
+        "_id": 0,
+        "$searchScore": 0.0,
+        "$searchSequenceToken": "CAEVAAAAQCIGOgR0ZXN0"
+      }
+    },
+    {
+      "description": "with stored source and root id",
+      "value": {
+        "$searchScore": 0.0,
+        "storedSource": {
+          "_id": 0,
+          "myNumber": 1.2345,
+          "myString": "pizza",
+          "myDocument": {
+            "key": "pasta"
+          }
+        },
+        "$searchRootDocumentId": 0
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing id and stored source",
+      "value": {
+        "$searchScore": 0.0,
+        "$searchHighlights": [
+          {
+            "score": 1234.0,
+            "path": "testPath",
+            "texts": [
+              {
+                "value": "firstText",
+                "type": "text"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "description": "missing score",
+      "value": {
+        "_id": 0,
+        "$searchHighlights": [
+          {
+            "score": 1234.0,
+            "path": "testPath",
+            "texts": [
+              {
+                "value": "firstText",
+                "type": "text"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "description": "invalid searchSortValues key",
+      "value": {
+        "_id": 0,
+        "$searchSortValues": {
+          "-0": 6.0,
+          "_1": "foo"
+        }
+      }
+    }
+  ]
+}

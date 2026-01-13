@@ -1,0 +1,96 @@
+{
+  "data": [
+    {
+      "traceID": "b76d8015ee13cbb155297b50800f7e69",
+      "spans": [
+        {
+          "traceID": "b76d8015ee13cbb155297b50800f7e69",
+          "spanID": "96786ac7f8170a7f",
+          "duration": 49742,
+          "references": [
+            {
+              "spanID": "8afa9852fa486b1e",
+              "refType": "CHILD_OF"
+            }
+          ],
+          "processID": "",
+          "operationName": "Query.fromBson",
+          "startTime": 1691606799532939,
+          "parentSpanId": "8afa9852fa486b1e",
+          "tags": []
+        },
+        {
+          "traceID": "b76d8015ee13cbb155297b50800f7e69",
+          "spanID": "241850e9f9f0dd03",
+          "duration": 182,
+          "references": [
+            {
+              "spanID": "8afa9852fa486b1e",
+              "refType": "CHILD_OF"
+            }
+          ],
+          "processID": "",
+          "operationName": "MongotCursor.getNextBatch1",
+          "startTime": 1691606799595235,
+          "parentSpanId": "8afa9852fa486b1e",
+          "tags": [
+            {
+              "type": "int",
+              "value": "1000438901506320780",
+              "key": "cursorId"
+            }
+          ]
+        },
+        {
+          "traceID": "b76d8015ee13cbb155297b50800f7e69",
+          "spanID": "8afa9852fa486b1e",
+          "duration": 63553,
+          "references": [
+            {
+              "spanID": "",
+              "refType": "CHILD_OF"
+            }
+          ],
+          "processID": "",
+          "operationName": "SearchCommand.run",
+          "startTime": 1691606799531904,
+          "parentSpanId": "",
+          "tags": [
+            {
+              "type": "bool",
+              "value": "true",
+              "key": "toggleTrace"
+            }
+          ]
+        }
+      ],
+      "processes": {
+        "": {
+          "serviceName": "mongot",
+          "tags": [
+            {
+              "type": "string",
+              "value": "mongot",
+              "key": "service.name"
+            },
+            {
+              "type": "string",
+              "value": "java",
+              "key": "telemetry.sdk.language"
+            },
+            {
+              "type": "string",
+              "value": "opentelemetry",
+              "key": "telemetry.sdk.name"
+            },
+            {
+              "type": "string",
+              "value": "1.28.0",
+              "key": "telemetry.sdk.version"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

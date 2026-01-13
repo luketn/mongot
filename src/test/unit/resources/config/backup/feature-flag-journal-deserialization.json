@@ -1,0 +1,66 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {
+        "dynamicFeatureFlags": []
+      }
+    },
+    {
+      "description": "multiple values",
+      "value": {
+        "dynamicFeatureFlags": [
+          {
+            "featureFlagName": "test-feature-flag-name",
+            "phase": "UNSPECIFIED",
+            "allowedList": [],
+            "blockedList": [],
+            "rolloutPercentage": 0,
+            "scope": "UNSPECIFIED"
+          },
+          {
+            "featureFlagName": "test-feature-flag-name2",
+            "phase": "CONTROLLED",
+            "allowedList": ["507f1f77bcf86cd799439011"],
+            "blockedList": ["507f1f77bcf86cd799439012"],
+            "rolloutPercentage": 100,
+            "scope": "MONGOT_CLUSTER"
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid object id",
+      "value": {
+        "dynamicFeatureFlags": [
+          {
+            "featureFlagName": "test-feature-flag-name",
+            "phase": "CONTROLLED",
+            "allowedList": ["507f1f77bcf8"],
+            "blockedList": ["507f1f7"],
+            "rolloutPercentage": 100,
+            "scope": "MONGOT_CLUSTER"
+          }
+        ]
+      }
+    },
+    {
+      "description": "invalid phase",
+      "value": {
+        "dynamicFeatureFlags": [
+          {
+            "featureFlagName": "test-feature-flag-name",
+            "phase": "NA",
+            "allowedList": ["507f1f77bcf8"],
+            "blockedList": ["507f1f7"],
+            "rolloutPercentage": 100,
+            "scope": "MONGOT_CLUSTER"
+          }
+        ]
+      }
+    }
+  ]
+}
+

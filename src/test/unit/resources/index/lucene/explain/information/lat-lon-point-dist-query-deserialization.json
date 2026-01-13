@@ -1,0 +1,43 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "a",
+        "center": [
+          2.0,
+          1.0
+        ],
+        "radius": 3.0
+      }
+    },
+    {
+      "description": "missing-path",
+      "value": {
+        "center": [
+          2.0,
+          1.0
+        ],
+        "radius": 3.0
+      }
+    },
+    {
+      "description": "missing-center",
+      "value": {
+        "path": "a",
+        "radius": 3.0
+      }
+    },
+    {
+      "description": "missing-radius",
+      "value": {
+        "path": "a",
+        "center": [
+          2.0,
+          1.0
+        ]
+      }
+    }
+  ],
+  "invalid": []
+}

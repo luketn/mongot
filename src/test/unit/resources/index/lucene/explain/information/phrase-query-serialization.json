@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "path": "a",
+        "query": "hello",
+        "slop": 1
+      },
+      "bson": {
+        "path": "a",
+        "query": "hello",
+        "slop": 1
+      }
+    }
+  ]
+}

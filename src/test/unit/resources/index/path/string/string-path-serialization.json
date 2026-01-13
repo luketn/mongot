@@ -1,0 +1,15 @@
+{
+  "tests": [
+    {
+      "description": "field",
+      "value": "my-path"
+    },
+    {
+      "description": "multi",
+      "value": {
+        "value": "my-path",
+        "multi": "my-multi"
+      }
+    }
+  ]
+}

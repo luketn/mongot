@@ -1,0 +1,115 @@
+{
+  "valid": [
+    {
+      "description": "string",
+      "value": {
+        "type": "facet",
+        "tag": "myFacet",
+        "bucket": "myBucket",
+        "count": {
+          "$numberLong": "1"
+        }
+      }
+    },
+    {
+      "description": "number",
+      "value": {
+        "type": "facet",
+        "tag": "myFacet",
+        "bucket": 0,
+        "count": {
+          "$numberLong": "1"
+        }
+      }
+    },
+    {
+      "description": "numberLong",
+      "value": {
+        "type": "facet",
+        "tag": "myFacet",
+        "bucket": {
+          "$numberLong": "0"
+        },
+        "count": {
+          "$numberLong": "1"
+        }
+      }
+    },
+    {
+      "description": "numberDouble",
+      "value": {
+        "type": "facet",
+        "tag": "myFacet",
+        "bucket": {
+          "$numberDouble": "0.0"
+        },
+        "count": {
+          "$numberLong": "1"
+        }
+      }
+    },
+    {
+      "description": "date",
+      "value": {
+        "type": "facet",
+        "tag": "myFacet",
+        "bucket": {
+          "$date": "2020-04-03T13:13:13Z"
+        },
+        "count": {
+          "$numberLong": "1"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "noType",
+      "value": {
+        "tag": "myFacet",
+        "bucket": "myBucket",
+        "count": {
+          "$numberLong": "1"
+        }
+      }
+    },
+    {
+      "description": "noTag",
+      "value": {
+        "type": "facet",
+        "bucket": "myBucket",
+        "count": {
+          "$numberLong": "1"
+        }
+      }
+    },
+    {
+      "description": "noPath",
+      "value": {
+        "type": "facet",
+        "bucket": "myBucket",
+        "count": {
+          "$numberLong": "1"
+        }
+      }
+    },
+    {
+      "description": "noBucket",
+      "value": {
+        "type": "facet",
+        "tag": "myFacet",
+        "count": {
+          "$numberLong": "1"
+        }
+      }
+    },
+    {
+      "description": "noCount",
+      "value": {
+        "type": "facet",
+        "tag": "myFacet",
+        "bucket": "myBucket"
+      }
+    }
+  ]
+}

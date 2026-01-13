@@ -1,0 +1,29 @@
+{
+  "valid": [
+    {
+      "description": "cursorId",
+      "value": {
+        "getMore": 123
+      }
+    },
+    {
+      "description": "cursor-options",
+      "value": {
+        "getMore": 123,
+        "cursorOptions": {
+          "docsRequested": 25
+        }
+      }
+    },
+    {
+      "description": "cursor-options-unknown-field",
+      "value": {
+        "getMore": 123,
+        "cursorOptions": {
+          "docsRequested": 25,
+          "unknownField": "string"
+        }
+      }
+    }
+  ]
+}

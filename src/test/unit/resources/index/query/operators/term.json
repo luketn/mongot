@@ -1,0 +1,210 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "title",
+        "query": "godfather"
+      }
+    },
+    {
+      "description": "multi path",
+      "value": {
+        "path": {
+          "value": "title",
+          "multi": "my-multi"
+        },
+        "query": "godfather"
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "default fuzzy",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {}
+      }
+    },
+    {
+      "description": "explicit fuzzy options",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "maxEdits": 1,
+          "maxExpansions": 2,
+          "prefixLength": 3
+        }
+      }
+    },
+    {
+      "description": "fuzzy null is off",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": null
+      }
+    },
+    {
+      "description": "prefix true",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "prefix": true
+      }
+    },
+    {
+      "description": "regex true",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "regex": true
+      }
+    },
+    {
+      "description": "wildcard true",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "wildcard": true
+      }
+    },
+    {
+      "description": "fuzzy and explicit false options not mutually exclusive",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {},
+        "prefix": false,
+        "regex": false,
+        "wildcard": false
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "fuzzy true not allowed",
+      "value": {
+        "path": "a",
+        "query": "a",
+        "fuzzy": true
+      }
+    },
+    {
+      "description": "fuzzy maxEdits less than 0",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "maxEdits": -1
+        }
+      }
+    },
+    {
+      "description": "fuzzy maxEdits greater than 2",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "maxEdits": 3
+        }
+      }
+    },
+    {
+      "description": "negative fuzzy maxExpansions",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "maxExpansions": -1
+        }
+      }
+    },
+    {
+      "description": "zero fuzzy maxExpansions",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "maxExpansions": 0
+        }
+      }
+    },
+    {
+      "description": "negative fuzzy prefixLength",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "prefixLength": -1
+        }
+      }
+    },
+    {
+      "description": "fuzzy and prefix mutually exclusive",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {},
+        "prefix": true
+      }
+    },
+    {
+      "description": "fuzzy and regex mutually exclusive",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {},
+        "regex": true
+      }
+    },
+    {
+      "description": "fuzzy and wildcard mutually exclusive",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {},
+        "wildcard": true
+      }
+    },
+    {
+      "description": "prefix and regex mutually exclusive",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "prefix": true,
+        "regex": true
+      }
+    },
+    {
+      "description": "prefix and wildcard mutually exclusive",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "prefix": true,
+        "wildcard": true
+      }
+    },
+    {
+      "description": "regex and wildcard mutually exclusive",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "regex": true,
+        "wildcard": true
+      }
+    }
+  ]
+}

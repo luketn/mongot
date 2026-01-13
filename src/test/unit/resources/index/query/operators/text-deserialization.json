@@ -1,0 +1,252 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "title",
+        "query": "godfather"
+      }
+    },
+    {
+      "description": "multi path",
+      "value": {
+        "path": {
+          "value": "title",
+          "multi": "my-multi"
+        },
+        "query": "godfather"
+      }
+    },
+    {
+      "description": "matchCriteria any",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "matchCriteria": "any"
+      }
+    },
+    {
+      "description": "matchCriteria all",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "matchCriteria": "all"
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "with function score",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "score": {
+          "function": {
+            "path": "rating"
+          }
+        }
+      }
+    },
+    {
+      "description": "matchCriteria with score",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        },
+        "matchCriteria": "all"
+      }
+    },
+    {
+      "description": "default fuzzy",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {}
+      }
+    },
+    {
+      "description": "explicit fuzzy options",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "maxEdits": 1,
+          "maxExpansions": 2,
+          "prefixLength": 3
+        }
+      }
+    },
+    {
+      "description": "matchCriteria with fuzzy",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "maxEdits": 1,
+          "maxExpansions": 2,
+          "prefixLength": 3
+        },
+        "matchCriteria": "all"
+      }
+    },
+    {
+      "description": "fuzzy null is off",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": null
+      }
+    },
+    {
+      "description": "synonyms",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "synonyms": "english_synonyms"
+      }
+    },
+    {
+      "description": "matchCriteria with synonyms",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "synonyms": "english_synonyms",
+        "matchCriteria": "any"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "fuzzy true not allowed",
+      "value": {
+        "path": "a",
+        "query": "a",
+        "fuzzy": true
+      }
+    },
+    {
+      "description": "maxEdits less than 0",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "maxEdits": -1
+        }
+      }
+    },
+    {
+      "description": "maxEdits greater than 2",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "maxEdits": 3
+        }
+      }
+    },
+    {
+      "description": "negative maxExpansions",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "maxExpansions": -1
+        }
+      }
+    },
+    {
+      "description": "zero maxExpansions",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "maxExpansions": 0
+        }
+      }
+    },
+    {
+      "description": "maxExpansions greater than 1000",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "maxExpansions": 1001
+        }
+      }
+    },
+    {
+      "description": "negative prefixLength",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "prefixLength": -1
+        }
+      }
+    },
+    {
+      "description": "synonyms empty string",
+      "value": {
+        "path": "a",
+        "query": "a",
+        "synonyms": ""
+      }
+    },
+    {
+      "description": "synonyms and fuzzy",
+      "value": {
+        "path": "a",
+        "query": "a",
+        "fuzzy": {},
+        "synonyms": "french_synonyms"
+      }
+    },
+    {
+      "description": "synonyms with matchCriteria: phraseSlop0",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "synonyms": "english_synonyms",
+        "matchCriteria": "phraseSlop0"
+      }
+    },
+    {
+      "description": "invalid matchCriteria",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "synonyms": "english_synonyms",
+        "matchCriteria": "something wrong"
+      }
+    },
+    {
+      "description": "dismax score type",
+      "errorMessageContains": "one of [boost, constant, function] must be present",
+      "value": {
+        "path": "title",
+        "score": {
+          "dismax": {
+            "tieBreakerScore": 0.3
+          }
+        },
+        "query": "godfather",
+        "synonyms": "english_synonyms",
+        "matchCriteria": "something wrong"
+      }
+    }
+  ]
+}

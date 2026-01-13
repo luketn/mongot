@@ -1,0 +1,27 @@
+# This is a sample configuration file. Please modify to match your mongod configuration and
+# environment.
+syncSource:
+  replicaSet:
+    hostAndPort: "localhost:27017" # Replace with the mongod host and port.
+    username: mongotUser # Replace with mongod username enabled with "searchCoordinator" role.
+    passwordFile: "/etc/mongot/secrets/passwordFile" # Replace with path to password file for the above user.
+    tls: false
+storage:
+  dataPath: "/var/lib/mongot"  # Replace with the path where you want mongot to store search data.
+server:
+  grpc:
+    address: "localhost:27028" # Replace with the address and port for mongot listen server
+    tls:
+      mode: "disabled"
+metrics:
+  enabled: true
+  address: "localhost:9946"
+healthCheck:
+  address: "localhost:8080"
+logging:
+  verbosity: INFO
+
+#embedding: # Optional Auto-embedding configuration for Voyage AI
+#  queryKeyFile: /etc/mongot/voyage-api-query-key
+#  indexingKeyFile: /etc/mongot/voyage-api-indexing-key
+#  providerEndpoint: https://ai.mongodb.com/v1/embeddings

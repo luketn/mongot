@@ -1,0 +1,92 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "analyzer": "lucene.standard",
+        "type": "TermQuery",
+        "args": {
+          "value": "quie",
+          "path": "name"
+        },
+        "stats": {
+          "context": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "match": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "score": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          }
+        }
+      }
+    },
+    {
+      "description": "compound-operator",
+      "value": {
+        "type": "BooleanQuery",
+        "args": {
+          "must": [
+            {
+              "path": "must[0]",
+              "type": "TermQuery",
+              "args": {
+                "value": "whopper",
+                "path": "q"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing-args",
+      "value": {
+        "type": "TermQuery",
+        "stats": {
+          "context": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "match": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "score": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          }
+        }
+      }
+    },
+    {
+      "description": "missing-type",
+      "value": {
+        "args": {
+          "value": "quie",
+          "path": "name"
+        },
+        "stats": {
+          "context": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "match": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "score": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          }
+        }
+      }
+    }
+  ]
+}

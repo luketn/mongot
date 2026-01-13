@@ -1,0 +1,109 @@
+{
+  "valid": [
+    {
+      "description": "collection",
+      "value": {
+        "name": "testDatabaseWithCollectionAndView",
+        "type": "collection",
+        "options": {},
+        "info": {
+          "readOnly": false,
+          "uuid": "0eaa56f3-7cd1-4321-8b06-e47ef68503b9"
+        },
+        "idIndex": {
+          "v": 2,
+          "key": {
+            "_id": 1
+          },
+          "name": "_id_"
+        }
+      }
+    },
+    {
+      "description": "view",
+      "value": {
+        "name": "testDatabaseWithCollectionAndView-view",
+        "type": "view",
+        "options": {
+          "viewOn": "testDatabaseWithCollectionAndView",
+          "pipeline": [
+            {
+              "$set": {
+                "cats": 20
+              }
+            }
+          ]
+        },
+        "info": {
+          "readOnly": true
+        }
+      }
+    },
+    {
+      "description": "collection-with-invalid-uuid",
+      "value": {
+        "name": "testDatabaseWithCollectionAndView",
+        "type": "collection",
+        "options": {},
+        "info": {
+          "uuid": 94
+        }
+      }
+    },
+    {
+      "description": "collection-with-no-uuid",
+      "value": {
+        "name": "testDatabaseWithCollectionAndView",
+        "type": "collection",
+        "info": {
+          "readOnly": false
+        }
+      }
+    },
+    {
+      "description": "view-with-no-pipeline",
+      "value": {
+        "name": "testDatabaseWithCollectionAndView-view",
+        "type": "view",
+        "options": {
+          "viewOn": "testDatabaseWithCollectionAndView"
+        }
+      }
+    },
+    {
+      "description": "view-with-no-viewOn",
+      "value": {
+        "name": "testDatabaseWithCollectionAndView-view",
+        "type": "view",
+        "options": {
+          "pipeline": [
+            {
+              "$set": {
+                "cats": 20
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "timeseries",
+      "value": {
+        "name": "sales",
+        "type": "timeseries",
+        "options": {
+          "timeseries": {
+            "timeField": "timestamp",
+            "metaField": "metadata",
+            "granularity": "hours",
+            "bucketMaxSpanSeconds": 2592000
+          }
+        },
+        "info": {
+          "readOnly": false
+        }
+      }
+    }
+  ],
+  "invalid": []
+}

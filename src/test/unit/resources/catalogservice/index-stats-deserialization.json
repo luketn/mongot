@@ -1,0 +1,276 @@
+{
+  "valid": [
+    {
+      "description": "simple search index",
+      "value": {
+        "_id": {
+          "serverId": "695301d3bb11192ef11c42f6",
+          "indexId": "695301d3bb11192ef11c42f7"
+        },
+        "type": "SEARCH",
+        "mainIndex": {
+          "status": {
+            "statusCode": "STEADY"
+          },
+          "definition": {
+            "indexID": "695301d3bb11192ef11c42f7",
+            "name": "index",
+            "database": "database",
+            "lastObservedCollectionName": "collection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "indexFeatureVersion": 0,
+            "numPartitions": 1,
+            "mappings": {
+              "dynamic": true,
+              "fields": {}
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "simple search index with synonym",
+      "value": {
+        "_id": {
+          "serverId": "695301d3bb11192ef11c42f6",
+          "indexId": "695301d3bb11192ef11c42f7"
+        },
+        "type": "SEARCH",
+        "mainIndex": {
+          "status": {
+            "statusCode": "STEADY"
+          },
+          "definition": {
+            "indexID": "695301d3bb11192ef11c42f7",
+            "name": "index",
+            "database": "database",
+            "lastObservedCollectionName": "collection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "numPartitions": 1,
+            "mappings": {
+              "dynamic": true,
+              "fields": {}
+            },
+            "indexFeatureVersion": 0
+          },
+          "synonymStatus": "READY",
+          "synonymDetailedStatusMap": {
+            "index1": {
+              "statusCode": "INITIAL_SYNC",
+              "message": "Syncing"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "simple search index with staged index",
+      "value": {
+        "_id": {
+          "serverId": "695301d3bb11192ef11c42f6",
+          "indexId": "695301d3bb11192ef11c42f7"
+        },
+        "type": "SEARCH",
+        "mainIndex": {
+          "status": {
+            "statusCode": "STEADY"
+          },
+          "definition": {
+            "indexID": "695301d3bb11192ef11c42f7",
+            "name": "index",
+            "database": "database",
+            "lastObservedCollectionName": "collection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "numPartitions": 1,
+            "mappings": {
+              "dynamic": true,
+              "fields": {}
+            },
+            "indexFeatureVersion": 0
+          }
+        },
+        "stagedIndex": {
+          "status": {
+            "statusCode": "INITIAL_SYNC"
+          },
+          "definition": {
+            "indexID": "695301d3bb11192ef11c42f7",
+            "name": "index",
+            "database": "database",
+            "lastObservedCollectionName": "collection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "numPartitions": 1,
+            "mappings": {
+              "dynamic": true,
+              "fields": {}
+            },
+            "indexFeatureVersion": 0
+          }
+        }
+      }
+    },
+    {
+      "description": "simple search index with synonyms and staged index",
+      "value": {
+        "_id": {
+          "serverId": "695301d3bb11192ef11c42f6",
+          "indexId": "695301d3bb11192ef11c42f7"
+        },
+        "type": "SEARCH",
+        "mainIndex": {
+          "status": {
+            "statusCode": "STEADY"
+          },
+          "definition": {
+            "indexID": "695301d3bb11192ef11c42f7",
+            "name": "index",
+            "database": "database",
+            "lastObservedCollectionName": "collection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "numPartitions": 1,
+            "mappings": {
+              "dynamic": true,
+              "fields": {}
+            },
+            "indexFeatureVersion": 0
+          },
+          "synonymStatus": "READY",
+          "synonymDetailedStatusMap": {
+            "index1": {
+              "statusCode": "INITIAL_SYNC",
+              "message": "Syncing"
+            }
+          }
+        },
+        "stagedIndex": {
+          "status": {
+            "statusCode": "INITIAL_SYNC"
+          },
+          "definition": {
+            "indexID": "695301d3bb11192ef11c42f7",
+            "name": "index",
+            "database": "database",
+            "lastObservedCollectionName": "collection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "numPartitions": 1,
+            "mappings": {
+              "dynamic": true,
+              "fields": {}
+            },
+            "indexFeatureVersion": 0
+          },
+          "synonymStatus": "READY",
+          "synonymDetailedStatusMap": {
+            "index1": {
+              "statusCode": "INITIAL_SYNC",
+              "message": "Syncing"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "simple vector index",
+      "value": {
+        "_id": {
+          "serverId": "695301d3bb11192ef11c42f6",
+          "indexId": "695301d3bb11192ef11c42f7"
+        },
+        "type": "VECTOR_SEARCH",
+        "mainIndex": {
+          "status": {
+            "statusCode": "STEADY"
+          },
+          "definition": {
+            "type": "vectorSearch",
+            "indexID": "695301d3bb11192ef11c42f7",
+            "name": "index",
+            "database": "database",
+            "lastObservedCollectionName": "collection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "numPartitions": 1,
+            "fields": [
+              {
+                "type": "vector",
+                "path": "my.vector.field",
+                "numDimensions": 1,
+                "similarity": "cosine"
+              },
+              {
+                "type": "filter",
+                "path": "my.filter.field"
+              }
+            ],
+            "indexFeatureVersion": 3
+          }
+        }
+      }
+    },
+    {
+      "description": "simple vector index with staged index",
+      "value": {
+        "_id": {
+          "serverId": "695301d3bb11192ef11c42f6",
+          "indexId": "695301d3bb11192ef11c42f7"
+        },
+        "type": "VECTOR_SEARCH",
+        "mainIndex": {
+          "status": {
+            "statusCode": "STEADY"
+          },
+          "definition": {
+            "type": "vectorSearch",
+            "indexID": "695301d3bb11192ef11c42f7",
+            "name": "index",
+            "database": "database",
+            "lastObservedCollectionName": "collection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "numPartitions": 1,
+            "fields": [
+              {
+                "type": "vector",
+                "path": "my.vector.field",
+                "numDimensions": 1,
+                "similarity": "cosine"
+              },
+              {
+                "type": "filter",
+                "path": "my.filter.field"
+              }
+            ],
+            "indexFeatureVersion": 3
+          }
+        },
+        "stagedIndex": {
+          "status": {
+            "statusCode": "INITIAL_SYNC"
+          },
+          "definition": {
+            "type": "vectorSearch",
+            "indexID": "695301d3bb11192ef11c42f7",
+            "name": "index",
+            "database": "database",
+            "lastObservedCollectionName": "collection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "numPartitions": 1,
+            "fields": [
+              {
+                "type": "vector",
+                "path": "my.vector.field",
+                "numDimensions": 1,
+                "similarity": "cosine"
+              },
+              {
+                "type": "filter",
+                "path": "my.filter.field"
+              }
+            ],
+            "indexFeatureVersion": 3
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+  ]
+}

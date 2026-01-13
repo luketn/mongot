@@ -1,0 +1,18 @@
+{
+  "tests": [
+    {
+      "description": "lowerBound count",
+      "value": {
+        "type": "lowerBound",
+        "threshold": 5000
+      }
+    },
+    {
+      "description": "total count",
+      "value": {
+        "type": "total",
+        "threshold": 10
+      }
+    }
+  ]
+}

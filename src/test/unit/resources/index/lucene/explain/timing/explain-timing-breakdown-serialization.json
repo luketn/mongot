@@ -1,0 +1,71 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "context": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {
+            "first": 1,
+            "second": 2
+          }
+        },
+        "match": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {
+            "first": 1,
+            "second": 2
+          }
+        },
+        "score": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {
+            "first": 1,
+            "second": 2
+          }
+        }
+      },
+      "bson": {
+        "context": {
+          "millisElapsed": {
+            "$numberDouble": "1e-5"
+          },
+          "invocationCounts": {
+            "first": {
+              "$numberLong": "1"
+            },
+            "second": {
+              "$numberLong": "2"
+            }
+          }
+        },
+        "match": {
+          "millisElapsed": {
+            "$numberDouble": "1e-5"
+          },
+          "invocationCounts": {
+            "first": {
+              "$numberLong": "1"
+            },
+            "second": {
+              "$numberLong": "2"
+            }
+          }
+        },
+        "score": {
+          "millisElapsed": {
+            "$numberDouble": "1e-5"
+          },
+          "invocationCounts": {
+            "first": {
+              "$numberLong": "1"
+            },
+            "second": {
+              "$numberLong": "2"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

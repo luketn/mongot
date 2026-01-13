@@ -1,0 +1,470 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "teachers",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "teachers.first",
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "nested embeddedDocument operators",
+      "value": {
+        "path": "teachers",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "teachers.first",
+                  "query": "John"
+                }
+              },
+              {
+                "embeddedDocument": {
+                  "path": "teachers.classes",
+                  "operator": {
+                    "compound": {
+                      "must": [
+                        {
+                          "text": {
+                            "path": "teachers.classes.name",
+                            "query": "art"
+                          }
+                        },
+                        {
+                          "text": {
+                            "path": "teachers.classes.grade",
+                            "query": "11th"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "with embedded score",
+      "value": {
+        "path": "teachers.classes",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "teachers.classes.name",
+                  "query": "art"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.classes.grade",
+                  "query": "11th"
+                }
+              }
+            ]
+          }
+        },
+        "score": {
+          "embedded": {
+            "aggregate": "maximum",
+            "outerScore": {
+              "function": {
+                "multiply": [
+                  {
+                    "path": "overallSchoolRating"
+                  },
+                  {
+                    "score": "relevance"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "wildcard path in operator",
+      "value": {
+        "path": "teachers",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "teachers.first.*",
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last.*",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "multi path in operator",
+      "value": {
+        "path": "teachers",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": {
+                    "value": "teachers.first",
+                    "multi": "my-multi"
+                  },
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last.*",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "with constant score",
+      "value": {
+        "path": "teachers.classes",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "teachers.classes.name",
+                  "query": "art"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.classes.grade",
+                  "query": "11th"
+                }
+              }
+            ]
+          }
+        },
+        "score": {
+          "constant": {
+            "value": 1
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "empty",
+      "value": {}
+    },
+    {
+      "description": "path array",
+      "value": {
+        "path": [
+          "foo",
+          "bar"
+        ],
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "teachers.first",
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "multi path",
+      "value": {
+        "path": {
+          "value": "title",
+          "multi": "my-multi"
+        },
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "teachers.first",
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "missing operator",
+      "value": {
+        "path": "teachers"
+      }
+    },
+    {
+      "description": "missing path",
+      "value": {
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "teachers.first",
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "operator path not subfield of embedded path",
+      "value": {
+        "path": "teachers",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "professors.first",
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "operator path = embedded path",
+      "value": {
+        "path": "teachers",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "teachers",
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "invalid wildcard path in operator",
+      "value": {
+        "path": "teachers",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "professors.*",
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "invalid multi path in operator",
+      "value": {
+        "path": "teachers",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": [
+                    "teachers",
+                    "teachers.first"
+                  ],
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "wildcard path as embedded path",
+      "value": {
+        "path": "*",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "teachers.first",
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "multi path as embedded path",
+      "value": {
+        "path": {
+          "value": "title",
+          "multi": "my-multi"
+        },
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "teachers.first",
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "blank path in operator",
+      "value": {
+        "path": "",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "professors.first",
+                  "query": "John"
+                }
+              },
+              {
+                "text": {
+                  "path": "teachers.last",
+                  "query": "Smith"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "contains knn operator",
+      "value": {
+        "path": "teachers",
+        "operator": {
+          "knnBeta": {
+            "path": "description",
+            "k": 3,
+            "vector": [
+              9,
+              9,
+              9
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

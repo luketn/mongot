@@ -1,0 +1,42 @@
+{
+  "tests": [
+    {
+      "description": "one doc",
+      "value": {
+        "moreLikeThis": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "like": {
+            "title": "C++",
+            "author": "Bjarne Stroustrup"
+          }
+        }
+      }
+    },
+    {
+      "description": "two docs",
+      "value": {
+        "moreLikeThis": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "like": [
+            {
+              "title": "C++",
+              "author": "Bjarne Stroustrup"
+            },
+            {
+              "title": "Java",
+              "author": "James Gosling"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

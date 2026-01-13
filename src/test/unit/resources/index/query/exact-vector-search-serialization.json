@@ -1,0 +1,79 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "limit": 5,
+        "exact": true,
+        "queryVector": [
+          2.0,
+          2.0,
+          2.0
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "with-filter",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "queryVector": [
+          2.0,
+          2.0,
+          2.0
+        ],
+        "filter": {
+          "my-field": {
+            "$nin": [
+              "one",
+              "two",
+              "three"
+            ]
+          }
+        },
+        "limit": 10,
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "simple-auto-embedding-query",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "limit": 5,
+        "exact": true,
+        "query": "test query",
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "simple-auto-embedding-query-multimodal",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "query": {
+          "text": "test query"
+        },
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "auto-embedding-query-with-model",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "query": "test query",
+        "model": "voyage-3-large",
+        "returnStoredSource": false
+      }
+    }
+  ]
+}

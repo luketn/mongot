@@ -1,0 +1,69 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "access",
+        "queries": [
+          {
+            "type": "BooleanQuery",
+            "args": {
+              "should": [
+                {
+                  "type": "TermQuery",
+                  "args": {
+                    "path": "access",
+                    "value": "full"
+                  }
+                },
+                {
+                  "type": "TermQuery",
+                  "args": {
+                    "path": "access",
+                    "value": "full"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "missing-path",
+      "value": {
+        "queries": [
+          {
+            "type": "BooleanQuery",
+            "args": {
+              "should": [
+                {
+                  "type": "TermQuery",
+                  "args": {
+                    "path": "access",
+                    "value": "full"
+                  }
+                },
+                {
+                  "type": "TermQuery",
+                  "args": {
+                    "path": "access",
+                    "value": "full"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing-queries",
+      "value": {
+        "path": "access"
+      }
+    }
+  ]
+}

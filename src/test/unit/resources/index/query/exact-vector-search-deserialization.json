@@ -1,0 +1,325 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "with-filter",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 10,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "filter": {
+          "my-field": {
+            "$nin": [
+              1,
+              2,
+              3
+            ]
+          }
+        },
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "bson-float32-query-vector",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "queryVector": {
+          "$binary": {
+            "base64": "JwAAAABAAAAAQAAAAEA=",
+            "subType": "09"
+          }
+        },
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "bson-int8-query-vector",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "queryVector": {
+          "$binary": {
+            "base64": "AwACAgI=",
+            "subType": "09"
+          }
+        },
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "simple-auto-embedding-query",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "limit": 5,
+        "exact": true,
+        "query": "test query",
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "simple-auto-embedding-query-multimodal",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "query": {
+          "text": "test query"
+        },
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "with-searchNodePreference",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "searchNodePreference": {
+          "key": "primary"
+        }
+      }
+    },
+    {
+      "description": "auto-embedding-query-with-model",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "query": "test query",
+        "model": "voyage-3-large",
+        "returnStoredSource": false
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing index",
+      "value": {
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "missing queryVector",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "missing limit",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "numCandidates specified",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "numCandidates": 14,
+        "exact": true,
+        "limit": 10,
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "negative limit",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "exact": true,
+        "limit": -5,
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "zero limit",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "exact": true,
+        "limit": 0,
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "invalid queryVector",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 10,
+        "queryVector": [
+          2,
+          "2",
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "exact: false",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": false,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "exact omitted",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "non-finite queryVector",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 10,
+        "queryVector": [
+          2,
+          {
+            "$numberDouble": "Infinity"
+          },
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "contains both query and queryVector",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "query": "test text",
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "with-searchNodePreference-empty-key",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "searchNodePreference": {
+          "key": ""
+        }
+      }
+    },
+    {
+      "description": "model-with-queryVector-not-allowed",
+      "errorMessageContains": "model can only be specified when using 'query' for auto-embedding",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "exact": true,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "model": "voyage-3-large",
+        "returnStoredSource": false
+      }
+    }
+  ]
+}

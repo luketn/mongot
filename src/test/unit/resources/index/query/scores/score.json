@@ -1,0 +1,96 @@
+{
+  "valid": [
+    {
+      "description": "value boost",
+      "value": {
+        "boost": {
+          "value": 1
+        }
+      }
+    },
+    {
+      "description": "path boost",
+      "value": {
+        "boost": {
+          "path": "popularity",
+          "undefined": 3456
+        }
+      }
+    },
+    {
+      "description": "constant",
+      "value": {
+        "constant": {
+          "value": 1
+        }
+      }
+    },
+    {
+      "description": "dismax",
+      "value": {
+        "dismax": {
+          "tieBreakerScore": 1
+        }
+      }
+    },
+    {
+      "description": "function",
+      "value": {
+        "function": {
+          "path": {
+            "value": "popularity"
+          }
+        }
+      }
+    },
+    {
+      "description": "embedded",
+      "value": {
+        "embedded": {
+          "aggregate": "minimum",
+          "outerScore": {
+            "constant": {
+              "value": 1.0
+            }
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no score type",
+      "value": {
+      }
+    },
+    {
+      "description": "multiple score types",
+      "value": {
+        "boost": {
+          "value": 1
+        },
+        "constant": {
+          "value": 1
+        }
+      }
+    },
+    {
+      "description": "boost value and path specified",
+      "value": {
+        "boost": {
+          "value": 1566,
+          "path": "popularity"
+        }
+      }
+    },
+    {
+      "description": "boost value and undefined specified",
+      "value": {
+        "boost": {
+          "value": 680,
+          "undefined": 4898
+        }
+      }
+    }
+  ]
+}

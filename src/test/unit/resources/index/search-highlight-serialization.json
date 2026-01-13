@@ -1,0 +1,33 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "score": 1234.0,
+        "path": "testPath",
+        "texts": [
+          {
+            "value": "firstText",
+            "type": "text"
+          },
+          {
+            "value": "12Hit",
+            "type": "hit"
+          },
+          {
+            "value": "secondText",
+            "type": "text"
+          },
+          {
+            "value": "23Hit",
+            "type": "hit"
+          },
+          {
+            "value": "thirdText",
+            "type": "text"
+          }
+        ]
+      }
+    }
+  ]
+}

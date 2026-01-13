@@ -1,0 +1,202 @@
+{
+  "valid": [
+    {
+      "description": "equivalent",
+      "value": {
+        "mappingType": "equivalent",
+        "synonyms": [
+          "car",
+          "truck"
+        ]
+      }
+    },
+    {
+      "description": "explicit",
+      "value": {
+        "mappingType": "explicit",
+        "input": [
+          "vehicle"
+        ],
+        "synonyms": [
+          "car",
+          "truck"
+        ]
+      }
+    },
+    {
+      "description": "equivalent has unvalidated input field",
+      "value": {
+        "mappingType": "equivalent",
+        "input": 123,
+        "synonyms": [
+          "car",
+          "truck"
+        ]
+      }
+    },
+    {
+      "description": "explicit allows other fields",
+      "value": {
+        "mappingType": "explicit",
+        "input": [
+          "vehicle",
+          "jalopy"
+        ],
+        "synonyms": [
+          "car",
+          "truck"
+        ],
+        "_trackingRef": 37459211,
+        "lastUpdatedAt": {
+          "$date": "2021-07-13T09:01:00.000Z"
+        }
+      }
+    },
+    {
+      "description": "equivalent with numeric docId",
+      "value": {
+        "_id": 12345,
+        "mappingType": "equivalent",
+        "synonyms": [
+          "car",
+          "truck"
+        ]
+      }
+    },
+    {
+      "description": "equivalent with string docId",
+      "value": {
+        "_id": "12345",
+        "mappingType": "equivalent",
+        "synonyms": [
+          "car",
+          "truck"
+        ]
+      }
+    },
+    {
+      "description": "equivalent with objectId docId",
+      "value": {
+        "_id": "507f191e810c19729de860ea",
+        "mappingType": "equivalent",
+        "synonyms": [
+          "car",
+          "truck"
+        ]
+      }
+    },
+    {
+      "description": "equivalent with uuid docId",
+      "value": {
+        "_id": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappingType": "equivalent",
+        "synonyms": [
+          "car",
+          "truck"
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    },
+    {
+      "description": "explicit must have input",
+      "value": {
+        "mappingType": "explicit",
+        "synonyms": [
+          "car",
+          "truck"
+        ]
+      }
+    },
+    {
+      "description": "explicit must have synonyms",
+      "value": {
+        "mappingType": "explicit",
+        "input": [
+          "car",
+          "truck"
+        ]
+      }
+    },
+    {
+      "description": "equivalent must have synonyms",
+      "value": {
+        "mappingType": "explicit",
+        "superSynonymField": "not right"
+      }
+    },
+    {
+      "description": "synonyms must have values",
+      "value": {
+        "mappingType": "equivalent",
+        "synonyms": []
+      }
+    },
+    {
+      "description": "synonyms values may not be empty string",
+      "value": {
+        "mappingType": "equivalent",
+        "synonyms": [
+          "awesomeSynonym",
+          ""
+        ]
+      }
+    },
+    {
+      "description": "synonyms values may not be blank string",
+      "value": {
+        "mappingType": "equivalent",
+        "synonyms": [
+          "awesomeSynonym",
+          " "
+        ]
+      }
+    },
+    {
+      "description": "input must have values",
+      "value": {
+        "mappingType": "explicit",
+        "input": [],
+        "synonyms": [
+          "truck",
+          "peddle"
+        ]
+      }
+    },
+    {
+      "description": "input values may not be blank string",
+      "value": {
+        "mappingType": "explicit",
+        "input": [
+          "sell",
+          "",
+          "hock"
+        ],
+        "synonyms": [
+          "truck",
+          "peddle"
+        ]
+      }
+    },
+    {
+      "description": "input values may not be empty string",
+      "value": {
+        "mappingType": "explicit",
+        "input": [
+          "sell",
+          " ",
+          "hock"
+        ],
+        "synonyms": [
+          "truck",
+          "peddle"
+        ]
+      }
+    }
+  ]
+}

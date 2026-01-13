@@ -1,0 +1,22 @@
+{
+  "tests": [
+    {
+      "description": "negative constant",
+      "value": {
+        "constant": -3378.99
+      }
+    },
+    {
+      "description": "zero-valued constant",
+      "value": {
+        "constant": 0.0
+      }
+    },
+    {
+      "description": "positive constant",
+      "value": {
+        "constant": 4567.32
+      }
+    }
+  ]
+}

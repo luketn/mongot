@@ -1,0 +1,25 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "query": {
+          "type": "TermQuery",
+          "args": {
+            "path": "host.host_identity_verified",
+            "value": "true"
+          }
+        }
+      },
+      "bson": {
+        "query": {
+          "type": "TermQuery",
+          "args": {
+            "path": "host.host_identity_verified",
+            "value": "true"
+          }
+        }
+      }
+    }
+  ]
+}

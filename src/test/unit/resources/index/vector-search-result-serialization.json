@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "_id": 0,
+        "$vectorSearchScore": 0.0
+      }
+    }
+  ]
+}

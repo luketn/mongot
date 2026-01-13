@@ -1,0 +1,48 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "buckets": [
+          {
+            "_id": "category",
+            "count": {
+              "$numberLong": "2"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "multipleBuckets",
+      "value": {
+        "buckets": [
+          {
+            "_id": "category1",
+            "count": {
+              "$numberLong": "2"
+            }
+          },
+          {
+            "_id": "category2",
+            "count": {
+              "$numberLong": "2"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "emptyBuckets",
+      "value": {
+        "buckets": []
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "empty",
+      "value": {}
+    }
+  ]
+}

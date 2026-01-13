@@ -1,0 +1,22 @@
+{
+  "tests": [
+    {
+      "description": "simpleDocsRequested",
+      "json": {
+        "docsRequested": 25
+      },
+      "bson": {
+        "docsRequested": 25
+      }
+    },
+    {
+      "description": "simpleBatchSize",
+      "json": {
+        "batchSize": 25
+      },
+      "bson": {
+        "batchSize": 25
+      }
+    }
+  ]
+}

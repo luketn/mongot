@@ -1,0 +1,63 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "bson": {
+        "name": "myView",
+        "effectivePipeline": [
+          {
+            "$set": {
+              "cats": 20
+            }
+          },
+          {
+            "$set": {
+              "dogs": 40
+            }
+          }
+        ],
+        "exists": true
+      },
+      "json": {
+        "name": "myView",
+        "effectivePipeline": [
+          {
+            "$set": {
+              "cats": 20
+            }
+          },
+          {
+            "$set": {
+              "dogs": 40
+            }
+          }
+        ],
+        "exists": true
+      }
+    },
+    {
+      "description": "empty pipeline",
+      "bson": {
+        "name": "myView",
+        "effectivePipeline": [],
+        "exists": true
+      },
+      "json": {
+        "name": "myView",
+        "effectivePipeline": [],
+        "exists": true
+      }
+    },
+    {
+      "description": "non existent view",
+      "bson": {
+        "name": "myView",
+        "exists": false
+      },
+      "json": {
+        "name": "myView",
+        "exists": false
+      }
+    }
+  ]
+}

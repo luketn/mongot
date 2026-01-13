@@ -1,0 +1,432 @@
+{
+  "tests": [
+    {
+      "description": "asciiFolding",
+      "value": {
+        "type": "asciiFolding",
+        "originalTokens": "omit"
+      }
+    },
+    {
+      "description": "daitchMokotoffSoundex",
+      "value": {
+        "type": "daitchMokotoffSoundex",
+        "originalTokens": "include"
+      }
+    },
+    {
+      "description": "lowercase",
+      "value": {
+        "type": "lowercase"
+      }
+    },
+    {
+      "description": "keywordRepeat",
+      "value": {
+        "type": "keywordRepeat"
+      }
+    },
+    {
+      "description": "removeDuplicates",
+      "value": {
+        "type": "removeDuplicates"
+      }
+    },
+    {
+      "description": "length",
+      "value": {
+        "type": "length",
+        "min": 3,
+        "max": 10
+      }
+    },
+    {
+      "description": "length serializes defaults",
+      "value": {
+        "type": "length",
+        "min": 0,
+        "max": 255
+      }
+    },
+    {
+      "description": "length only min",
+      "value": {
+        "type": "length",
+        "min": 3,
+        "max": 255
+      }
+    },
+    {
+      "description": "length only max",
+      "value": {
+        "type": "length",
+        "min": 0,
+        "max": 10
+      }
+    },
+    {
+      "description": "regex all",
+      "value": {
+        "type": "regex",
+        "pattern": "a",
+        "replacement": "b",
+        "matches": "all"
+      }
+    },
+    {
+      "description": "regex first",
+      "value": {
+        "type": "regex",
+        "pattern": "a",
+        "replacement": "b",
+        "matches": "first"
+      }
+    },
+    {
+      "description": "icu folding",
+      "value": {
+        "type": "icuFolding"
+      }
+    },
+    {
+      "description": "icu normalizer nfc",
+      "value": {
+        "type": "icuNormalizer",
+        "normalizationForm": "nfc"
+      }
+    },
+    {
+      "description": "icu normalizer nfd",
+      "value": {
+        "type": "icuNormalizer",
+        "normalizationForm": "nfd"
+      }
+    },
+    {
+      "description": "icu normalizer nfkc",
+      "value": {
+        "type": "icuNormalizer",
+        "normalizationForm": "nfkc"
+      }
+    },
+    {
+      "description": "icu normalizer nfkd",
+      "value": {
+        "type": "icuNormalizer",
+        "normalizationForm": "nfkd"
+      }
+    },
+    {
+      "description": "kStemming",
+      "value": {
+        "type": "kStemming"
+      }
+    },
+    {
+      "description": "ngram",
+      "value": {
+        "type": "nGram",
+        "minGram": 1,
+        "maxGram": 3,
+        "termNotInBounds": "omit"
+      }
+    },
+    {
+      "description": "ngram include",
+      "value": {
+        "type": "nGram",
+        "minGram": 1,
+        "maxGram": 3,
+        "termNotInBounds": "include"
+      }
+    },
+    {
+      "description": "porterStemming",
+      "value": {
+        "type": "porterStemming"
+      }
+    },
+    {
+      "description": "edgeGram",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1,
+        "maxGram": 3,
+        "termNotInBounds": "omit"
+      }
+    },
+    {
+      "description": "edgeGram include",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1,
+        "maxGram": 3,
+        "termNotInBounds": "include"
+      }
+    },
+    {
+      "description": "englishPossessive",
+      "value": {
+        "type": "englishPossessive"
+      }
+    },
+    {
+      "description": "flattenGraph",
+      "value": {
+        "type": "flattenGraph"
+      }
+    },
+    {
+      "description": "shingle",
+      "value": {
+        "type": "shingle",
+        "minShingleSize": 2,
+        "maxShingleSize": 3
+      }
+    },
+    {
+      "description": "spanishPluralStemming",
+      "value": {
+        "type": "spanishPluralStemming"
+      }
+    },
+    {
+      "description": "stempel",
+      "value": {
+        "type": "stempel"
+      }
+    },
+    {
+      "description": "stopword",
+      "value": {
+        "type": "stopword",
+        "tokens": [
+          "is",
+          "the"
+        ],
+        "ignoreCase": true
+      }
+    },
+    {
+      "description": "arabicSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "arabic"
+      }
+    },
+    {
+      "description": "armenianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "armenian"
+      }
+    },
+    {
+      "description": "basqueSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "basque"
+      }
+    },
+    {
+      "description": "catalanSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "catalan"
+      }
+    },
+    {
+      "description": "danishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "danish"
+      }
+    },
+    {
+      "description": "dutchSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "dutch"
+      }
+    },
+    {
+      "description": "englishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "english"
+      }
+    },
+    {
+      "description": "estonianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "estonian"
+      }
+    },
+    {
+      "description": "finnishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "finnish"
+      }
+    },
+    {
+      "description": "frenchSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "french"
+      }
+    },
+    {
+      "description": "germanSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "german"
+      }
+    },
+    {
+      "description": "german2Snowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "german2"
+      }
+    },
+    {
+      "description": "hungarianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "hungarian"
+      }
+    },
+    {
+      "description": "irishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "irish"
+      }
+    },
+    {
+      "description": "italianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "italian"
+      }
+    },
+    {
+      "description": "lithuanianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "lithuanian"
+      }
+    },
+    {
+      "description": "norwegianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "norwegian"
+      }
+    },
+    {
+      "description": "porterSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "porter"
+      }
+    },
+    {
+      "description": "portugueseSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "portuguese"
+      }
+    },
+    {
+      "description": "romanianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "romanian"
+      }
+    },
+    {
+      "description": "russianSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "russian"
+      }
+    },
+    {
+      "description": "spanishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "spanish"
+      }
+    },
+    {
+      "description": "swedishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "swedish"
+      }
+    },
+    {
+      "description": "turkishSnowball",
+      "value": {
+        "type": "snowballStemming",
+        "stemmerName": "turkish"
+      }
+    },
+    {
+      "description": "trim",
+      "value": {
+        "type": "trim"
+      }
+    },
+    {
+      "description": "wordDelimiterGraph",
+      "value": {
+        "type": "wordDelimiterGraph",
+        "delimiterOptions": {
+          "generateWordParts": true,
+          "generateNumberParts": true,
+          "concatenateWords": false,
+          "concatenateNumbers": false,
+          "concatenateAll": false,
+          "preserveOriginal": false,
+          "splitOnCaseChange": true,
+          "splitOnNumerics": true,
+          "stemEnglishPossessive": true,
+          "ignoreKeywords": false
+        },
+        "protectedWords": {
+          "words": [
+            "is",
+            "the"
+          ],
+          "ignoreCase": true
+        }
+      }
+    },
+    {
+      "description": "wordDelimiterGraph with default values",
+      "value": {
+        "type": "wordDelimiterGraph",
+        "delimiterOptions": {
+          "generateWordParts": true,
+          "generateNumberParts": true,
+          "concatenateWords": false,
+          "concatenateNumbers": false,
+          "concatenateAll": false,
+          "preserveOriginal": false,
+          "splitOnCaseChange": true,
+          "splitOnNumerics": true,
+          "stemEnglishPossessive": true,
+          "ignoreKeywords": false
+        },
+        "protectedWords": {
+          "words": [],
+          "ignoreCase": true
+        }
+      }
+    }
+  ]
+}

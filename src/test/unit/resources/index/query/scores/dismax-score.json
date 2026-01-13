@@ -1,0 +1,51 @@
+{
+  "valid": [
+    {
+      "description": "zero tieBreakerScore",
+      "value": {
+        "tieBreakerScore": 0
+      }
+    },
+    {
+      "description": "one tieBreakerScore",
+      "value": {
+        "tieBreakerScore": 1
+      }
+    },
+    {
+      "description": "between zero and one tieBreakerScore",
+      "value": {
+        "tieBreakerScore": 0.5
+      }
+    },
+    {
+      "description": "default tieBreakerScore",
+      "value": {
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "negative tieBreakerScore",
+      "errorMessageContains": "\"tieBreakerScore\" must be within bounds [0.0..1.0]",
+      "value": {
+        "tieBreakerScore": -1
+      }
+    },
+    {
+      "description": "greater than 1 tieBreakerScore",
+      "value": {
+        "tieBreakerScore": 2
+      }
+    },
+    {
+      "description": "NaN tieBreakerScore",
+      "value": {
+        "tieBreakerScore": {
+          "$numberDouble": "NaN"
+        }
+      }
+    }
+  ]
+}
+

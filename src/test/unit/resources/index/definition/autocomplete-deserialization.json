@@ -1,0 +1,110 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    },
+    {
+      "description": "explicit edgeGram tokenizationStrategy",
+      "value": {
+        "tokenization": "edgeGram"
+      }
+    },
+    {
+      "description": "explicit nGram tokenizationStrategy",
+      "value": {
+        "tokenization": "nGram"
+      }
+    },
+    {
+      "description": "explicit rightEdgeGram tokenizationStrategy",
+      "value": {
+        "tokenization": "rightEdgeGram"
+      }
+    },
+    {
+      "description": "explicit minGrams",
+      "value": {
+        "minGrams": 12
+      }
+    },
+    {
+      "description": "explicit maxGrams",
+      "value": {
+        "maxGrams": 19
+      }
+    },
+    {
+      "description": "maxGrams gt minGrams",
+      "value": {
+        "minGrams": 12,
+        "maxGrams": 13
+      }
+    },
+    {
+      "description": "maxGrams equal to minGrams",
+      "value": {
+        "minGrams": 13,
+        "maxGrams": 13
+      }
+    },
+    {
+      "description": "explicit foldDiacritics",
+      "value": {
+        "foldDiacritics": false
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid tokenizationStrategy",
+      "value": {
+        "tokenization": "invalid"
+      }
+    },
+    {
+      "description": "negative minGrams",
+      "value": {
+        "minGrams": -1
+      }
+    },
+    {
+      "description": "zero minGrams",
+      "value": {
+        "minGrams": 0
+      }
+    },
+    {
+      "description": "negative maxGrams",
+      "value": {
+        "maxGrams": -1
+      }
+    },
+    {
+      "description": "zero maxGrams",
+      "value": {
+        "maxGrams": 0
+      }
+    },
+    {
+      "description": "minGrams gt maxGrams",
+      "value": {
+        "minGrams": 10,
+        "maxGrams": 9
+      }
+    },
+    {
+      "description": "minGrams gt default maxGrams",
+      "value": {
+        "minGrams": 16
+      }
+    },
+    {
+      "description": "maxGrams lt default minGrams",
+      "value": {
+        "maxGrams": 1
+      }
+    }
+  ]
+}

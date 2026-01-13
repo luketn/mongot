@@ -1,0 +1,37 @@
+syncSource:
+  replicaSet:
+    hostAndPort:
+      - "mongod1:27017"
+      - "mongod2:27017"
+    username: user
+    passwordFile: "replicaSet.passwd"
+    tls: true
+    readPreference: primaryPreferred
+  router:
+    hostAndPort: "mongos:27017"
+    username: user
+    passwordFile: "router.passwd"
+    tls: false
+  caFile: "/etc/mongot/ca.pem"
+storage:
+  dataPath: "data/mongot"
+server:
+  grpc:
+    address: "localhost:27028"
+    tls:
+      mode: "mtls"
+      certificateKeyFile: "/etc/ssl/common-cert.pem"
+      caFile: "/etc/mongot-tls/ca.pem"
+metrics:
+  enabled: true
+  address: "localhost:9946"
+healthCheck:
+  address: "localhost:8080"
+logging:
+  verbosity: WARNING
+  logPath: "/var/log/mongot"
+ftdc:
+  enabled: false
+  directorySizeMb: 200
+  fileSizeMb: 20
+  collectionPeriodMillis: 3000

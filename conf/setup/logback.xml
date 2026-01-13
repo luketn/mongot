@@ -1,0 +1,45 @@
+<configuration>
+    <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator"/>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <jsonGeneratorDecorator class="com.xgen.mongot.logging.OmitEmptyFieldJsonDecorator"/>
+            <providers>
+                <timestamp>
+                    <fieldName>t</fieldName>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSZ</pattern>
+                </timestamp>
+                <logLevel>
+                    <fieldName>s</fieldName>
+                </logLevel>
+                <pattern>
+                    <pattern>
+                        { "svc": "SETUP" }
+                    </pattern>
+                </pattern>
+                <threadName>
+                    <fieldName>ctx</fieldName>
+                </threadName>
+                <loggerName>
+                    <fieldName>n</fieldName>
+                </loggerName>
+                <message>
+                    <fieldName>msg</fieldName>
+                </message>
+                <nestedField>
+                    <fieldName>attr</fieldName>
+                    <providers>
+                        <provider class="com.xgen.mongot.logging.SafeKeyValuePairsJsonProvider"/>
+                        <stackTrace/>
+                    </providers>
+                </nestedField>
+            </providers>
+        </encoder>
+    </appender>
+
+
+    <logger name="org.mongodb" level="ERROR"/>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>

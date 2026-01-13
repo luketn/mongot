@@ -1,0 +1,13 @@
+{
+  "tests": [
+    {
+      "description": "path with undefined",
+      "value": {
+        "boost": {
+          "path": "popularity",
+          "undefined": 8891.43
+        }
+      }
+    }
+  ]
+}

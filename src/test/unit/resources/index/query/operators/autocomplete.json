@@ -1,0 +1,165 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "description",
+        "query": "steakh"
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "default fuzzy",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "fuzzy": {}
+      }
+    },
+    {
+      "description": "explicit fuzzy options",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "fuzzy": {
+          "maxEdits": 1,
+          "maxExpansions": 2,
+          "prefixLength": 3
+        }
+      }
+    },
+    {
+      "description": "fuzzy null is off",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "fuzzy": null
+      }
+    },
+    {
+      "description": "tokenOrder any",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "tokenOrder": "any"
+      }
+    },
+    {
+      "description": "tokenOrder sequential",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "tokenOrder": "sequential"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "fuzzy true not allowed",
+      "value": {
+        "path": "a",
+        "query": "a",
+        "fuzzy": true
+      }
+    },
+    {
+      "description": "maxEdits less than 0",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "fuzzy": {
+          "maxEdits": -1
+        }
+      }
+    },
+    {
+      "description": "maxEdits greater than 2",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "fuzzy": {
+          "maxEdits": 3
+        }
+      }
+    },
+    {
+      "description": "negative maxExpansions",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "fuzzy": {
+          "maxExpansions": -1
+        }
+      }
+    },
+    {
+      "description": "zero maxExpansions",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "fuzzy": {
+          "maxExpansions": 0
+        }
+      }
+    },
+    {
+      "description": "maxExpansions greater than 1000",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "fuzzy": {
+          "maxExpansions": 1001
+        }
+      }
+    },
+    {
+      "description": "negative prefixLength",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "fuzzy": {
+          "prefixLength": -1
+        }
+      }
+    },
+    {
+      "description": "invalid tokenOrder",
+      "value": {
+        "path": "description",
+        "query": "steakh",
+        "tokenOrder": "specialOrder"
+      }
+    },
+    {
+      "description": "multiple paths",
+      "value": {
+        "path": [
+          "description",
+          "other-path"
+        ],
+        "query": "steakh"
+      }
+    },
+    {
+      "description": "multi path",
+      "value": {
+        "path": {
+          "value": "description",
+          "multi": "my-multi"
+        },
+        "query": "steakh"
+      }
+    }
+  ]
+}

@@ -1,0 +1,473 @@
+{
+  "valid": [
+    {
+      "description": "create",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "view": {
+          "name": "testView",
+          "effectivePipeline": [
+            {
+              "$addFields": {
+                "name": "value"
+              }
+            }
+          ]
+        },
+        "userCommand": {
+          "createSearchIndexes": "myCollection",
+          "indexes": [
+            {
+              "name": "myIndex",
+              "definition": {
+                "mappings": {
+                  "dynamic": true
+                }
+              }
+            }
+          ]
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "create vector",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "view": {
+          "name": "testView",
+          "effectivePipeline": [
+            {
+              "$addFields": {
+                "name": "value"
+              }
+            }
+          ]
+        },
+        "userCommand": {
+          "createSearchIndexes": "myCollection",
+          "indexes": [
+            {
+              "name": "myVectorIndex",
+              "type": "vectorSearch",
+              "definition": {
+                "fields": [
+                  {
+                    "type": "vector",
+                    "path": "my.vector.field",
+                    "numDimensions": 2048,
+                    "similarity": "cosine",
+                    "quantization": "none"
+                  },
+                  {
+                    "type": "filter",
+                    "path": "my.filter.field"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "drop",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "view": {
+          "name": "testView"
+        },
+        "userCommand": {
+          "dropSearchIndex": "myCollection",
+          "name": "myIndex"
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "list command",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "view": {
+          "name": "testView"
+        },
+        "userCommand": {
+          "listSearchIndexes": "myCollection"
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "list aggregation",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "view": {
+          "name": "testView"
+        },
+        "userCommand": {
+          "$listSearchIndexes": {}
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "update",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "view": {
+          "name": "testView"
+        },
+        "userCommand": {
+          "updateSearchIndex": "myCollection",
+          "name": "myIndex",
+          "type": "search",
+          "definition": {
+            "mappings": {
+              "dynamic": true,
+              "fields": {}
+            }
+          }
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "update vector by name",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "view": {
+          "name": "testView",
+          "effectivePipeline": [
+            {
+              "$addFields": {
+                "name": "value"
+              }
+            }
+          ]
+        },
+        "userCommand": {
+          "updateSearchIndex": "myCollection",
+          "name": "myNewVectorIndex",
+          "type": "vectorSearch",
+          "definition": {
+            "fields": [
+              {
+                "type": "vector",
+                "path": "my.vector.field",
+                "numDimensions": 2048,
+                "similarity": "cosine"
+              },
+              {
+                "type": "filter",
+                "path": "my.filter.field"
+              }
+            ]
+          }
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "update vector by id",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "view": {
+          "name": "testView"
+        },
+        "userCommand": {
+          "updateSearchIndex": "myCollection",
+          "id": "000000000000000000000000",
+          "type": "vectorSearch",
+          "definition": {
+            "fields": [
+              {
+                "type": "vector",
+                "path": "my.vector.field",
+                "numDimensions": 2048,
+                "similarity": "cosine"
+              },
+              {
+                "type": "filter",
+                "path": "my.filter.field"
+              }
+            ]
+          }
+        },
+        "$db": "myDatabase"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "noCommands",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "userCommand": {
+          "indexes": [
+            {
+              "name": "myIndex",
+              "definition": {
+                "mappings": {
+                  "dynamic": true
+                }
+              }
+            }
+          ]
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "twoCommands",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "userCommand": {
+          "createSearchIndexes": "myCollection",
+          "dropSearchIndex": "myCollection",
+          "indexes": [
+            {
+              "name": "myIndex",
+              "definition": {
+                "mappings": {
+                  "dynamic": true
+                }
+              }
+            }
+          ]
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "update with both name and id",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "userCommand": {
+          "updateSearchIndex": "myCollection",
+          "name": "myNewIndex",
+          "id": "000000000000000000000000",
+          "type": "vectorSearch",
+          "definition": {
+            "fields": [
+              {
+                "type": "vector",
+                "path": "my.vector.field",
+                "numDimensions": 2048,
+                "similarity": "cosine"
+              },
+              {
+                "type": "filter",
+                "path": "my.filter.field"
+              }
+            ]
+          }
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "update with neither name nor id",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "userCommand": {
+          "updateSearchIndex": "myCollection",
+          "type": "vectorSearch",
+          "definition": {
+            "fields": [
+              {
+                "type": "vector",
+                "path": "my.vector.field",
+                "numDimensions": 2048,
+                "similarity": "cosine"
+              },
+              {
+                "type": "filter",
+                "path": "my.filter.field"
+              }
+            ]
+          }
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "create vector index with duplicate paths",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "userCommand": {
+          "createSearchIndexes": "myCollection",
+          "indexes": [
+            {
+              "name": "myVectorIndex",
+              "type": "vectorSearch",
+              "definition": {
+                "fields": [
+                  {
+                    "type": "vector",
+                    "path": "my.field",
+                    "numDimensions": 2048,
+                    "similarity": "cosine"
+                  },
+                  {
+                    "type": "filter",
+                    "path": "my.field"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "create with view but empty effectivePipeline",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "view": {
+          "name": "testView"
+        },
+        "userCommand": {
+          "createSearchIndexes": "myCollection",
+          "indexes": [
+            {
+              "name": "myIndex",
+              "definition": {
+                "mappings": {
+                  "dynamic": true
+                }
+              }
+            }
+          ]
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "custom analyzers with same name",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "vs7/zGbuQzmQkhFHB1x2Ag==",
+            "subType": "04"
+          }
+        },
+        "userCommand": {
+          "createSearchIndexes": "myCollection",
+          "indexes": [
+            {
+              "name": "myIndex",
+              "definition": {
+                "mappings": {
+                  "dynamic": true
+                },
+                "analyzers": [
+                  {
+                    "name": "my analyzer",
+                    "tokenizer": {
+                      "type": "standard"
+                    }
+                  },
+                  {
+                    "name": "my analyzer",
+                    "tokenizer": {
+                      "type": "whitespace"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "$db": "myDatabase"
+      },
+      "errorMessageContains": "cannot contain elements with the same name"
+    }
+  ]
+}

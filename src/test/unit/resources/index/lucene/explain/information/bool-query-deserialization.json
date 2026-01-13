@@ -1,0 +1,22 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "must": [
+          {
+            "path": "must[0]",
+            "type": "TermQuery",
+            "args": {
+              "value": "whopper",
+              "path": "q"
+            }
+          }
+        ],
+        "minimumShouldMatch": 1
+      }
+    }
+  ],
+  "invalid": [
+  ]
+}

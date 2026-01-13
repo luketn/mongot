@@ -1,0 +1,87 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "indexOptions": "offsets",
+        "store": true,
+        "norms": "include"
+      }
+    },
+    {
+      "description": "with analyzer",
+      "value": {
+        "analyzer": "my-analyzer",
+        "indexOptions": "offsets",
+        "store": true,
+        "norms": "include"
+      }
+    },
+    {
+      "description": "with searchAnalyzer",
+      "value": {
+        "searchAnalyzer": "my-search-analyzer",
+        "indexOptions": "offsets",
+        "store": true,
+        "norms": "include"
+      }
+    },
+    {
+      "description": "with ignoreAbove",
+      "value": {
+        "ignoreAbove": 13,
+        "indexOptions": "offsets",
+        "store": true,
+        "norms": "include"
+      }
+    },
+    {
+      "description": "with non-default indexOptions",
+      "value": {
+        "indexOptions": "docs",
+        "store": true,
+        "norms": "include"
+      }
+    },
+    {
+      "description": "with multi",
+      "value": {
+        "indexOptions": "offsets",
+        "store": true,
+        "norms": "include",
+        "multi": {
+          "a": {
+            "type": "string",
+            "analyzer": "my-multi-analyzer",
+            "indexOptions": "offsets",
+            "store": true,
+            "norms": "include",
+            "similarity": {
+              "type": "stableTfl"
+            }
+          },
+          "b": {
+            "type": "string",
+            "analyzer": "my-other-multi-analyzer",
+            "indexOptions": "offsets",
+            "store": true,
+            "norms": "include",
+            "similarity": {
+              "type": "boolean"
+            }
+          },
+          "c": {
+            "type": "string",
+            "analyzer": "my-other-multi-analyzer",
+            "indexOptions": "offsets",
+            "store": true,
+            "norms": "include",
+            "similarity": {
+              "type": "bm25"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

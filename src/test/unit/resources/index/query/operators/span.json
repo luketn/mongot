@@ -1,0 +1,120 @@
+{
+  "valid": [
+    {
+      "description": "contains",
+      "value": {
+        "contains": {
+          "big": {
+            "term": {
+              "path": "title",
+              "query": "big"
+            }
+          },
+          "little": {
+            "term": {
+              "path": "title",
+              "query": "little"
+            }
+          },
+          "spanToReturn": "inner"
+        }
+      }
+    },
+    {
+      "description": "first",
+      "value": {
+        "first": {
+          "operator": {
+            "term": {
+              "path": "title",
+              "query": "godfather"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "near",
+      "value": {
+        "near": {
+          "clauses": [
+            {
+              "term": {
+                "path": "title",
+                "query": "godfather"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "or",
+      "value": {
+        "or": {
+          "clauses": [
+            {
+              "term": {
+                "path": "title",
+                "query": "godfather"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "term",
+      "value": {
+        "term": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "with boost score",
+      "value": {
+        "term": {
+          "path": "title",
+          "query": "godfather"
+        },
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "multiple types",
+      "value": {
+        "contains": {
+          "big": {
+            "term": {
+              "path": "title",
+              "query": "big"
+            }
+          },
+          "little": {
+            "term": {
+              "path": "title",
+              "query": "little"
+            }
+          },
+          "spanToReturn": "inner"
+        },
+        "first": {
+          "operator": {
+            "term": {
+              "path": "title",
+              "query": "godfather"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

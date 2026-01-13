@@ -1,0 +1,52 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "bson": {
+        "id": {
+          "$numberLong": "1"
+        },
+        "nextBatch": [
+          {
+            "_id": 0,
+            "$searchScore": 0.0
+          },
+          {
+            "_id": 1,
+            "$searchScore": 1.0
+          }
+        ],
+        "ns": "foo.bar"
+      },
+      "json": {
+        "id": 1,
+        "nextBatch": [
+          {
+            "_id": 0,
+            "$searchScore": 0.0
+          },
+          {
+            "_id": 1,
+            "$searchScore": 1.0
+          }
+        ],
+        "ns": "foo.bar"
+      }
+    },
+    {
+      "description": "emptyBatch",
+      "bson": {
+        "id": {
+          "$numberLong": "1"
+        },
+        "nextBatch": [],
+        "ns": "foo.bar"
+      },
+      "json": {
+        "id": 1,
+        "nextBatch": [],
+        "ns": "foo.bar"
+      }
+    }
+  ]
+}

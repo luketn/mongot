@@ -1,0 +1,87 @@
+{
+  "valid": [
+    {
+      "description": "gt",
+      "value": {
+        "$gt": 1
+      }
+    },
+    {
+      "description": "gte",
+      "value": {
+        "$gte": 1
+      }
+    },
+    {
+      "description": "lt",
+      "value": {
+        "$lt": 1
+      }
+    },
+    {
+      "description": "lte",
+      "value": {
+        "$lte": 1
+      }
+    },
+    {
+      "description": "eq",
+      "value": {
+        "$eq": 1
+      }
+    },
+    {
+      "description": "eq-null",
+      "value": {
+        "$eq": null
+      }
+    },
+    {
+      "description": "ne",
+      "value": {
+        "$ne": 1
+      }
+    },
+    {
+      "description": "in",
+      "value": {
+        "$in": [
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    },
+    {
+      "description": "nin",
+      "value": {
+        "$nin": [
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid value for array operator",
+      "value": {
+        "$in": 1
+      }
+    },
+    {
+      "description": "invalid value for single-value operator",
+      "value": {
+        "$ne": [
+          1,
+          2,
+          3,
+          4
+        ]
+      }
+    }
+  ]
+}

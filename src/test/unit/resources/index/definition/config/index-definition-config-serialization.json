@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "description": "empty",
+      "value": {}
+    },
+    {
+      "description": "with value",
+      "value": {
+        "maxEmbeddedDocumentsNestingLevel": 2
+      }
+    },
+    {
+      "description": "with zero value",
+      "value": {
+        "maxEmbeddedDocumentsNestingLevel": 0
+      }
+    }
+  ]
+}

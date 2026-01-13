@@ -1,0 +1,105 @@
+{
+  "valid": [
+    {
+      "description": "date origin",
+      "value": {
+        "path": "point",
+        "origin": {
+          "$date": "2020-04-03T13:13:13Z"
+        },
+        "pivot": 13
+      }
+    },
+    {
+      "description": "long origin",
+      "value": {
+        "path": "point",
+        "origin": {
+          "$numberLong": "13"
+        },
+        "pivot": 26
+      }
+    },
+    {
+      "description": "double origin",
+      "value": {
+        "path": "point",
+        "origin": 13.0,
+        "pivot": 26
+      }
+    },
+    {
+      "description": "GeoJSON origin",
+      "value": {
+        "path": "point",
+        "origin": {
+          "type": "Point",
+          "coordinates": [
+            10.0,
+            12.0
+          ]
+        },
+        "pivot": 13
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "path": "point",
+        "origin": 13.0,
+        "pivot": 26,
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing origin",
+      "value": {
+        "path": "point",
+        "pivot": 13
+      }
+    },
+    {
+      "description": "missing pivot",
+      "value": {
+        "path": "point",
+        "origin": 13
+      }
+    },
+    {
+      "description": "multi path",
+      "value": {
+        "path": {
+          "value": "point",
+          "multi": "my-multi"
+        },
+        "origin": {
+          "$date": "2020-04-03T13:13:13Z"
+        },
+        "pivot": 13
+      }
+    },
+    {
+      "description": "boolean origin",
+      "value": {
+        "path": "point",
+        "origin": true,
+        "pivot": 5
+      }
+    },
+    {
+      "description": "string origin",
+      "value": {
+        "path": "point",
+        "origin": "here",
+        "pivot": 5
+      }
+    }
+
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "queryType": "unknownQuery"
+      },
+      "bson": {
+        "queryType": "unknownQuery"
+      }
+    }
+  ]
+}

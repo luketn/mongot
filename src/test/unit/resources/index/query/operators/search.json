@@ -1,0 +1,165 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "title",
+        "query": "godfather"
+      }
+    },
+    {
+      "description": "multi path",
+      "value": {
+        "path": {
+          "value": "title",
+          "multi": "my-multi"
+        },
+        "query": "godfather"
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "default phrase",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "phrase": {}
+      }
+    },
+    {
+      "description": "explicit phrase options",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "phrase": {
+          "maxExpansions": 1,
+          "prefix": true,
+          "slop": 3
+        }
+      }
+    },
+    {
+      "description": "phrase null is off",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "phrase": null
+      }
+    },
+    {
+      "description": "maxExpansions 0",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "phrase": {
+          "maxExpansions": 0,
+          "prefix": true
+        }
+      }
+    },
+    {
+      "description": "maxExpansions 1000",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "phrase": {
+          "maxExpansions": 1000,
+          "prefix": true
+        }
+      }
+    },
+    {
+      "description": "slop 0",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "phrase": {
+          "slop": 0
+        }
+      }
+    },
+    {
+      "description": "slop 100",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "phrase": {
+          "slop": 100
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "phrase true not allowed",
+      "value": {
+        "path": "a",
+        "query": "a",
+        "phrase": true
+      }
+    },
+    {
+      "description": "maxExpansions without prefix true",
+      "value": {
+        "path": "a",
+        "query": "a",
+        "phrase": {
+          "maxExpansions": 5
+        }
+      }
+    },
+    {
+      "description": "maxExpansions less than 0",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "prefix": true,
+          "maxExpansions": -1
+        }
+      }
+    },
+    {
+      "description": "maxExpansions greater than 1000",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "prefix": true,
+          "maxExpansions": 1001
+        }
+      }
+    },
+    {
+      "description": "slop less than 0",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "slop": -1
+        }
+      }
+    },
+    {
+      "description": "slop greater than 100",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "fuzzy": {
+          "slop": 101
+        }
+      }
+    }
+  ]
+}

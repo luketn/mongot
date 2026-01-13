@@ -1,0 +1,60 @@
+{
+  "valid": [
+    {
+      "description": "path as string",
+      "value": "popularity"
+    },
+    {
+      "description": "path as object with default undefined",
+      "value": {
+        "value": "popularity"
+      }
+    },
+    {
+      "description": "path as object with positive undefined",
+      "value": {
+        "value": "popularity",
+        "undefined": 5.431
+      }
+    },
+    {
+      "description": "path as object with zero undefined",
+      "value": {
+        "value": "popularity",
+        "undefined": 0
+      }
+    },
+    {
+      "description": "path as object with negative undefined",
+      "value": {
+        "value": "popularity",
+        "undefined": -7644.813
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no value",
+      "value": {}
+    },
+    {
+      "description": "integer-typed path",
+      "value": {
+        "value": 1
+      }
+    },
+    {
+      "description": "only undefined specified",
+      "value": {
+        "undefined": 2.3
+      }
+    },
+    {
+      "description": "NaN value",
+      "value": {
+        "value": "popularity",
+        "undefined": "NaN"
+      }
+    }
+  ]
+}

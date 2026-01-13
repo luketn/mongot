@@ -1,0 +1,58 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "_id": {
+          "$oid": "000003e8464f5e2393000000"
+        },
+        "serverName": "server",
+        "lastHeartbeatTs": {
+          "$date": "2025-12-29T10:00:00Z"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing server name",
+      "value": {
+        "_id": {
+          "$oid": "000003e8464f5e2393000000"
+        },
+        "lastHeartbeatTs": {
+          "$date": "2025-12-29T10:00:00Z"
+        }
+      }
+    },
+    {
+      "description": "missing heartbeat ts",
+      "value": {
+        "_id": {
+          "$oid": "000003e8464f5e2393000000"
+        },
+        "serverName": "server"
+      }
+    },
+    {
+      "description": "invalid server id",
+      "value": {
+        "_id": "abc",
+        "serverName": "server",
+        "lastHeartbeatTs": {
+          "$date": "2025-12-29T10:00:00Z"
+        }
+      }
+    },
+    {
+      "description": "invalid heartbeat type",
+      "value": {
+        "_id": {
+          "$oid": "000003e8464f5e2393000000"
+        },
+        "serverName": "server",
+        "lastHeartbeatTs": 123456
+      }
+    }
+  ]
+}

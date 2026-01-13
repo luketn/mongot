@@ -1,0 +1,20 @@
+---
+nestedDoc:
+  number: 42
+  string: foo
+  boolean: false
+  booleanLiteral: yes # this is deserialized to `true` of type boolean
+  nullLiteral: null
+  numberWithUnderscores: 42_000
+int64: 36028797018963968 # 2^55
+theNaturalLogarithm: 2.718281828459045
+multiLineString: |
+  hello
+  world
+unicodeString: 1'; DROP TABLE users-- 1 (｡◕ ∀ ◕｡) 👩‍👧‍👦١٢٣
+arrayOfNumberAndString:
+  - 42
+  - foo
+arrayOfOneEmptyObject:
+  - {}
+

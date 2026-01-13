@@ -1,0 +1,90 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    },
+    {
+      "description": "collection scan resume info",
+      "value": {
+        "collectionScan": {
+          "bufferStartOperationTime": {
+            "$numberLong": "1234567890"
+          },
+          "lastScannedId": "a"
+        }
+      }
+    },
+    {
+      "description": "change stream application resume info",
+      "value": {
+        "changeStreamApplication": {
+          "bufferStartOperationTime": {
+            "$numberLong": "1234567890"
+          },
+          "bufferEndOperationTime": {
+            "$numberLong": "12345678900"
+          },
+          "lastAppliedBatchResumeToken": {
+            "data": "foo"
+          }
+        }
+      }
+    },
+    {
+      "description": "change stream application without batch resume token",
+      "value": {
+        "changeStreamApplication": {
+          "bufferStartOperationTime": {
+            "$numberLong": "1234567890"
+          },
+          "bufferEndOperationTime": {
+            "$numberLong": "12345678900"
+          }
+        }
+      }
+    },
+    {
+      "description": "bufferless",
+      "value": {
+        "bufferlessInitialSync": {
+          "highWaterMark": {
+            "$numberLong": "1234567890"
+          },
+          "lastScannedId": "a"
+        }
+      }
+    },
+    {
+      "description": "bufferlessNaturalOrder",
+      "value": {
+        "bufferlessNaturalOrderInitialSync": {
+          "highWaterMark": {
+            "$numberLong": "1234567890"
+          },
+          "postBatchResumeToken": {
+            "$recordId": {
+              "$numberLong": "1"
+            },
+            "$initialSyncId": {
+              "$binary": {
+                "base64": "OQpgSkl5TRCfTz0lUiJK7g==",
+                "subType": "04"
+              }
+            }
+          },
+          "syncSourceHost": "testHost"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid field",
+      "value": {
+        "newInitialSyncStage": {}
+      }
+    }
+  ]
+}

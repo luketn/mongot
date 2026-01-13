@@ -1,0 +1,48 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "a",
+        "origin": 1.0,
+        "pivotDistance": 2.0,
+        "representation": "double"
+      }
+    },
+    {
+      "description": "missing-origin",
+      "value": {
+        "path": "a",
+        "pivotDistance": 2.0,
+        "representation": "double"
+      }
+    },
+    {
+      "description": "missing-pivotDistance",
+      "value": {
+        "path": "a",
+        "origin": 1.0,
+        "representation": "double"
+      }
+    },
+    {
+      "description": "missing-representation",
+      "value": {
+        "path": "a",
+        "origin": 1.0,
+        "pivotDistance": 2.0
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid-representation",
+      "value": {
+        "path": "a",
+        "origin": 1.0,
+        "pivotDistance": 2.0,
+        "representation": "invalid"
+      }
+    }
+  ]
+}

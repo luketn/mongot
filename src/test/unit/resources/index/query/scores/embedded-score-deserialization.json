@@ -1,0 +1,73 @@
+{
+  "valid": [
+    {
+      "description": "empty default",
+      "value": {}
+    },
+    {
+      "description": "no aggregate constant score",
+      "value": {
+        "outerScore": {
+          "constant": {
+            "value": 1.0
+          }
+        }
+      }
+    },
+    {
+      "description": "no outerScore maximum aggregate",
+      "value": {
+        "aggregate": "maximum"
+      }
+    },
+    {
+      "description": "minimum with constant outerScore",
+      "value": {
+        "aggregate": "minimum",
+        "outerScore": {
+          "constant": {
+            "value": 1.0
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid aggregate",
+      "value": {
+        "aggregate": "blah blah blah"
+      }
+    },
+    {
+      "description": "invalid score",
+      "value": {
+        "outerScore": "blah blah blah"
+      }
+    },
+    {
+      "description": "embedded score in embedded score",
+      "value": {
+        "aggregate": "minimum",
+        "outerScore": {
+          "embedded": {
+            "aggregate": "minimum",
+            "outerScore": {
+              "constant": {
+                "value": 1.0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "non-embedded score",
+      "value": {
+        "constant": {
+          "value": 1.0
+        }
+      }
+    }
+  ]
+}

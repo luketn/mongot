@@ -1,0 +1,22 @@
+{
+  "valid": [
+    {
+      "description": "simple-omitSearchDocumentResults",
+      "value": {
+        "omitSearchDocumentResults": true
+      }
+    },
+    {
+      "description": "missing-all-parameters",
+      "value": {}
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid-omitSearchDocumentResults",
+      "value": {
+        "omitSearchDocumentResults": "string"
+      }
+    }
+  ]
+}

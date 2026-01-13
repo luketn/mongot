@@ -1,0 +1,77 @@
+{
+  "valid": [
+    {
+      "description": "Complete config with all fields",
+      "value": {
+        "featureFlagName": "test-feature",
+        "phase": "CONTROLLED",
+        "allowedList": [
+          "507f1f77bcf86cd799439011",
+          "507f1f77bcf86cd799439012"
+        ],
+        "blockedList": [
+          "507f1f77bcf86cd799439013"
+        ],
+        "rolloutPercentage": 50,
+        "scope": "GROUP"
+      }
+    },
+    {
+      "description": "Minimal config with only name and phase",
+      "value": {
+        "featureFlagName": "minimal-feature",
+        "phase": "DISABLED"
+      }
+    },
+    {
+      "description": "Config with empty lists",
+      "value": {
+        "featureFlagName": "empty-lists",
+        "phase": "ENABLED",
+        "allowedList": [],
+        "blockedList": [],
+        "rolloutPercentage": 100
+      }
+    },
+    {
+      "description": "Invalid phase value",
+      "value": {
+        "featureFlagName": "invalid-phase",
+        "phase": "PARTIAL"
+      }
+    },
+    {
+      "description": "Invalid scope value",
+      "value": {
+        "featureFlagName": "invalid-scope",
+        "phase": "ENABLED",
+        "scope": "UNKNOWN"
+      }
+    },
+    {
+      "description": "Invalid rollout percentage (negative)",
+      "value": {
+        "featureFlagName": "negative-rollout",
+        "phase": "CONTROLLED",
+        "rolloutPercentage": -10
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "Completely empty config",
+      "value": {}
+    },
+    {
+      "description": "Invalid ObjectId in allowedList",
+      "value": {
+        "featureFlagName": "invalid-objectid",
+        "phase": "CONTROLLED",
+        "allowedList": [
+          "invalid-id",
+          "507f1f77bcf86cd799439011"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "valid": [
+    {
+      "description": "full",
+      "value": {
+        "stats": {
+          "prunedResultIterator": {
+            "millisElapsed": 1.0E-5,
+            "invocationCounts": {}
+          },
+          "comparator": {
+            "millisElapsed": 1.0E-5,
+            "invocationCounts": {}
+          }
+        },
+        "fieldInfos": {
+          "foo": [
+            "date",
+            "token"
+          ]
+        }
+      }
+    },
+    {
+      "description": "full-with-can-benefit-from-index-sort",
+      "value": {
+        "stats": {
+          "prunedResultIterator": {
+            "millisElapsed": 1.0E-5,
+            "invocationCounts": {}
+          },
+          "comparator": {
+            "millisElapsed": 1.0E-5,
+            "invocationCounts": {}
+          }
+        },
+        "fieldInfos": {
+          "foo": [
+            "date",
+            "token"
+          ]
+        },
+        "canBenefitFromIndexSort": true
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid field type",
+      "value": {
+        "description": "full",
+        "value": {
+          "stats": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "fieldInfos": {
+            "foo": [
+              "bar"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

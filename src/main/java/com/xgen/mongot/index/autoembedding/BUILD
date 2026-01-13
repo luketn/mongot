@@ -1,0 +1,39 @@
+load("//bazel/java:package.bzl", "java_library")
+
+java_library(
+    name = "autoembedding",
+    srcs = [
+        "AutoEmbeddingCompositeIndex.java",
+        "AutoEmbeddingIndexGeneration.java",
+        "AutoEmbeddingIndexGenerationFactory.java",
+        "InitializedMaterializedViewIndex.java",
+        "MaterializedViewIndexFactory.java",
+        "MaterializedViewIndexGeneration.java",
+    ],
+    visibility = ["//:__subpackages__"],
+    exports = [
+        "//src/main/java/com/xgen/mongot/index",
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/status",
+        "//src/main/java/com/xgen/mongot/index/version",
+        "@maven//:org_mongodb_bson",
+    ],
+    deps = [
+        "//src/main/java/com/xgen/mongot/embedding/exceptions",
+        "//src/main/java/com/xgen/mongot/embedding/mongodb/leasing",
+        "//src/main/java/com/xgen/mongot/embedding/utils",
+        "//src/main/java/com/xgen/mongot/featureflag",
+        "//src/main/java/com/xgen/mongot/index",
+        "//src/main/java/com/xgen/mongot/index/analyzer",
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/mongodb",
+        "//src/main/java/com/xgen/mongot/index/query",
+        "//src/main/java/com/xgen/mongot/index/status",
+        "//src/main/java/com/xgen/mongot/index/version",
+        "//src/main/java/com/xgen/mongot/metrics",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/mongot/util/mongodb",
+        "@maven//:org_mongodb_bson",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)

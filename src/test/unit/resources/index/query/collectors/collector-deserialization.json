@@ -1,0 +1,64 @@
+{
+  "valid": [
+    {
+      "description": "facets",
+      "value": {
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director"
+            },
+            "ratingFacet": {
+              "type": "number",
+              "path": "rating",
+              "boundaries": [
+                1.12,
+                2.64
+              ]
+            },
+            "eventFacet": {
+              "type": "date",
+              "path": "start",
+              "boundaries": [
+                {
+                  "$date": "2020-05-08T12:11:00Z"
+                },
+                {
+                  "$date": "2021-05-08T12:11:00Z"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid collector",
+      "value": {
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "unknown": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

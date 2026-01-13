@@ -1,0 +1,39 @@
+load("//bazel/java:package.bzl", "java_library")
+
+java_library(
+    name = "util",
+    srcs = [
+        "BooleanComposer.java",
+        "LucenePath.java",
+        "MappingCompatibilityValidator.java",
+        "MetaIdRetriever.java",
+        "Rescoring.java",
+        "SafeQueryBuilder.java",
+        "SafeTermAutomatonQueryWrapper.java",
+        "SynonymQueryUtil.java",
+        "WrappedToChildBlockJoinQuery.java",
+        "WrappedToParentBlockJoinQuery.java",
+    ],
+    visibility = ["//visibility:public"],
+    exports = [
+        "//src/main/java/com/xgen/mongot/index/path/string",
+        "@maven//:org_apache_lucene_lucene_core",
+        "@maven//:org_mongodb_bson",
+    ],
+    deps = [
+        "//src/main/java/com/xgen/mongot/index/lucene/field",
+        "//src/main/java/com/xgen/mongot/index/lucene/util",
+        "//src/main/java/com/xgen/mongot/index/path/string",
+        "//src/main/java/com/xgen/mongot/index/query",
+        "//src/main/java/com/xgen/mongot/index/query/operators/type",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/mongot/util/functionalinterfaces",
+        "@maven//:com_google_guava_guava",
+        "@maven//:org_apache_lucene_lucene_core",
+        "@maven//:org_apache_lucene_lucene_expressions",
+        "@maven//:org_apache_lucene_lucene_join",
+        "@maven//:org_apache_lucene_lucene_queries",
+        "@maven//:org_apache_lucene_lucene_sandbox",
+        "@maven//:org_mongodb_bson",
+    ],
+)

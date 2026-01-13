@@ -1,0 +1,41 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "searchTerms": "simple"
+      }
+    },
+    {
+      "description": "empty string value",
+      "value": {
+        "searchTerms": ""
+      }
+    },
+    {
+      "description": "blank string value",
+      "value": {
+        "searchTerms": "  "
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "non-string query",
+      "value": {
+        "searchTerms": 1
+      }
+    },
+    {
+      "description": "unknown fields",
+      "value": {
+        "searchTerms": "foo",
+        "other": "bar"
+      }
+    },
+    {
+      "description": "missing query",
+      "value": {}
+    }
+  ]
+}

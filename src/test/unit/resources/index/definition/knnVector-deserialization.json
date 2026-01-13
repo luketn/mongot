@@ -1,0 +1,67 @@
+{
+  "valid": [
+    {
+      "description": "euclidean",
+      "value": {
+        "similarity": "euclidean",
+        "dimensions": 100
+      }
+    },
+    {
+      "description": "dotProduct",
+      "value": {
+        "similarity": "dotProduct",
+        "dimensions": 200
+      }
+    },
+    {
+      "description": "cosine",
+      "value": {
+        "similarity": "cosine",
+        "dimensions": 300
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "unsupported similarity",
+      "value": {
+        "similarity": "Chebyshev",
+        "dimensions": 400
+      }
+    },
+    {
+      "description": "zero dimensions",
+      "value": {
+        "similarity": "cosine",
+        "dimensions": 0
+      }
+    },
+    {
+      "description": "negative dimensions",
+      "value": {
+        "similarity": "cosine",
+        "dimensions": -123
+      }
+    },
+    {
+      "description": "too many dimensions",
+      "value": {
+        "similarity": "cosine",
+        "dimensions": 8193
+      }
+    },
+    {
+      "description": "similarity unspecified",
+      "value": {
+        "dimensions": 100
+      }
+    },
+    {
+      "description": "dimensions unspecified",
+      "value": {
+        "similarity": "cosine"
+      }
+    }
+  ]
+}

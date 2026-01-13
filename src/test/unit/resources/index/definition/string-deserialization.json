@@ -1,0 +1,161 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    },
+    {
+      "description": "with analyzer",
+      "value": {
+        "analyzer": "my-analyzer"
+      }
+    },
+    {
+      "description": "with searchAnalyzer",
+      "value": {
+        "searchAnalyzer": "my-search-analyzer"
+      }
+    },
+    {
+      "description": "with ignoreAbove",
+      "value": {
+        "ignoreAbove": 13
+      }
+    },
+    {
+      "description": "explicit docs indexOptions",
+      "value": {
+        "indexOptions": "docs"
+      }
+    },
+    {
+      "description": "explicit freqs indexOptions",
+      "value": {
+        "indexOptions": "freqs"
+      }
+    },
+    {
+      "description": "explicit positions indexOptions",
+      "value": {
+        "indexOptions": "positions"
+      }
+    },
+    {
+      "description": "explicit offsets indexOptions",
+      "value": {
+        "indexOptions": "offsets"
+      }
+    },
+    {
+      "description": "explicit store",
+      "value": {
+        "store": false
+      }
+    },
+    {
+      "description": "explicit norms",
+      "value": {
+        "norms": "omit"
+      }
+    },
+    {
+      "description": "with multi",
+      "value": {
+        "multi": {
+          "a": {
+            "type": "string",
+            "analyzer": "my-multi-analyzer",
+            "similarity": {
+              "type": "stableTfl"
+            }
+          },
+          "b": {
+            "type": "string",
+            "analyzer": "my-other-multi-analyzer",
+            "similarity": {
+              "type": "boolean"
+            }
+          },
+          "c": {
+            "type": "string",
+            "analyzer": "my-other-multi-analyzer",
+            "similarity": {
+              "type": "bm25"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "empty similarity",
+      "value": {
+        "similarity": {
+
+        }
+      }
+    },
+    {
+      "description": "unsupported similarity",
+      "value": {
+        "similarity": {
+          "type": "unsupported"
+        }
+      }
+    },
+    {
+      "description": "invalid indexOptions",
+      "value": {
+        "indexOptions": "foo"
+      }
+    },
+    {
+      "description": "multi without type",
+      "value": {
+        "multi": {
+          "a": {
+            "analyzer": "my-multi-analyzer"
+          }
+        }
+      }
+    },
+    {
+      "description": "multi wrong type",
+      "value": {
+        "multi": {
+          "a": {
+            "type": "date"
+          }
+        }
+      }
+    },
+    {
+      "description": "multi field with dot",
+      "value": {
+        "multi": {
+          "a.b": {
+            "type": "string",
+            "analyzer": "my-multi-analyzer"
+          }
+        }
+      }
+    },
+    {
+      "description": "doubly nested multi",
+      "value": {
+        "multi": {
+          "a": {
+            "type": "string",
+            "multi": {
+              "b": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,385 @@
+{
+  "tests": [
+    {
+      "description": "simple $eq",
+      "value": {
+        "path.num": {
+          "$eq": 3.0
+        }
+      }
+    },
+    {
+      "description": "simple double",
+      "value": {
+        "path.num": {
+          "$gt": 3.0,
+          "$lt": 5.0
+        }
+      }
+    },
+    {
+      "description": "and",
+      "value": {
+        "$and": [
+          {
+            "path.num": {
+              "$gt": 3.0,
+              "$lt": 5.0
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "or",
+      "value": {
+        "$or": [
+          {
+            "path.num": {
+              "$gt": 3.0,
+              "$lt": 5.0
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "nor",
+      "value": {
+        "$nor": [
+          {
+            "path.num": {
+              "$gt": 3.0,
+              "$lt": 5.0
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "nested compound",
+      "value": {
+        "$or": [
+          {
+            "$and": [
+              {
+                "path.num1": {
+                  "$gt": 3.0,
+                  "$lt": 5.0
+                }
+              },
+              {
+                "path.num2": {
+                  "$eq": 1.0
+                }
+              }
+            ]
+          },
+          {
+            "$and": [
+              {
+                "path.name1": {
+                  "$in": [
+                    "mongodb",
+                    "atlas",
+                    "search",
+                    "mongot"
+                  ]
+                }
+              },
+              {
+                "path.name2": {
+                  "$eq": "mongodb"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "description": "and or",
+      "value": {
+        "$and": [
+          {
+            "path.num": {
+              "$gt": 3.0,
+              "$lt": 5.0
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ],
+        "$or": [
+          {
+            "category": {
+              "$eq": "tech"
+            }
+          },
+          {
+            "product": {
+              "$eq": "database"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "and with empty filter",
+      "value": {
+        "$and": [
+          {
+            "path.num": {
+              "$gt": 3.0,
+              "$lt": 5.0
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          },
+          {}
+        ]
+      }
+    },
+    {
+      "description": "and with multi key",
+      "value": {
+        "$and": [
+          {
+            "path.num": {
+              "$gt": 3.0,
+              "$lt": 5.0
+            },
+            "path.city": {
+              "$eq": "san jose"
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "or with empty filter",
+      "value": {
+        "$or": [
+          {
+            "path.num": {
+              "$gt": 3.0,
+              "$lt": 5.0
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          },
+          {}
+        ]
+      }
+    },
+    {
+      "description": "or with multi key",
+      "value": {
+        "$or": [
+          {
+            "path.num": {
+              "$gt": 3.0,
+              "$lt": 5.0
+            },
+            "path.city": {
+              "$eq": "san jose"
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "nor with empty filter",
+      "value": {
+        "$nor": [
+          {
+            "path.num": {
+              "$gt": 3.0,
+              "$lt": 5.0
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          },
+          {}
+        ]
+      }
+    },
+    {
+      "description": "nor with multi key",
+      "value": {
+        "$nor": [
+          {
+            "path.num": {
+              "$gt": 3.0,
+              "$lt": 5.0
+            },
+            "path.city": {
+              "$eq": "san jose"
+            }
+          },
+          {
+            "path.name": {
+              "$eq": "mongodb"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "gt",
+      "value": {
+        "path": {
+          "$gt": 3.0
+        }
+      }
+    },
+    {
+      "description": "gte",
+      "value": {
+        "path": {
+          "$gte": 3.0
+        }
+      }
+    },
+    {
+      "description": "lt",
+      "value": {
+        "path": {
+          "$lt": 3.0
+        }
+      }
+    },
+    {
+      "description": "lte",
+      "value": {
+        "path": {
+          "$lte": 3.0
+        }
+      }
+    },
+    {
+      "description": "eq",
+      "value": {
+        "path": {
+          "$eq": 3.0
+        }
+      }
+    },
+    {
+      "description": "ne",
+      "value": {
+        "path": {
+          "$ne": 3.0
+        }
+      }
+    },
+    {
+      "description": "in",
+      "value": {
+        "path": {
+          "$in": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "nin",
+      "value": {
+        "path": {
+          "$nin": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "multiple operators",
+      "value": {
+        "path": {
+          "$gt": 1.0,
+          "$nin": [
+            6.0,
+            3.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "simple $not",
+      "value": {
+        "path.num" : {
+          "$not" : {
+            "$eq" : 3.0
+          }
+        }
+      }
+    },
+    {
+      "description": "nested $not",
+      "value": {
+        "path.num" : {
+          "$not" : {
+            "$not" : {
+              "$eq" : 3.0
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "eq ne $not",
+      "value": {
+        "path.num" : {
+          "$not" : {
+            "$eq" : 3.0,
+            "$ne" : 4.0
+          }
+        }
+      }
+    }
+  ]
+}

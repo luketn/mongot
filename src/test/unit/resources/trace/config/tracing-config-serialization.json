@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "sampler": {
+          "rate": 0.0
+        }
+      },
+      "bson": {
+        "sampler": {
+          "rate": 0.0
+        }
+      }
+    }
+  ]
+}

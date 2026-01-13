@@ -1,0 +1,34 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "field": "a",
+        "similarityFunction": "euclidean"
+      }
+    },
+    {
+      "description": "filtered",
+      "value": {
+        "field": "a",
+        "similarityFunction": "euclidean",
+        "filter": {
+          "path": "a",
+          "type": "BooleanQuery",
+          "args": {
+            "must": [
+              {
+                "path": "must[0]",
+                "type": "TermQuery",
+                "args": {
+                  "path": "q",
+                  "value": "whopper"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

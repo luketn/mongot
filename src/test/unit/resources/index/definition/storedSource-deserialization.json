@@ -1,0 +1,151 @@
+{
+  "valid": [
+    {
+      "description": "exclude all",
+      "value": false
+    },
+    {
+      "description": "include all",
+      "value": true
+    },
+    {
+      "description": "include paths",
+      "value": {
+        "include": [
+          "_id",
+          "a",
+          "b.c",
+          "b.d",
+          "x.y.z"
+        ]
+      }
+    },
+    {
+      "description": "exclude paths",
+      "value": {
+        "exclude": [
+          "a",
+          "b.c",
+          "b.d",
+          "x.y.z"
+        ]
+      }
+    },
+    {
+      "description": "duplicated paths",
+      "value": {
+        "exclude": [
+          "k",
+          "l",
+          "l",
+          "m"
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "both include and exclude present",
+      "value": {
+        "include": [
+          "a",
+          "b.c"
+        ],
+        "exclude": [
+          "z"
+        ]
+      },
+      "errorMessageContains": "only one of [include, exclude] may be present"
+    },
+    {
+      "description": "neither include nor exclude is present",
+      "value": {},
+      "errorMessageContains": "one of [include, exclude] must be present"
+    },
+    {
+      "description": "invalid type",
+      "value": "true",
+      "errorMessageContains": "boolean or document"
+    },
+    {
+      "description": "include is empty",
+      "value": {
+        "include": []
+      },
+      "errorMessageContains": "cannot be empty"
+    },
+    {
+      "description": "exclude is empty",
+      "value": {
+        "exclude": []
+      },
+      "errorMessageContains": "cannot be empty"
+    },
+    {
+      "description": "include contains non-string values",
+      "value": {
+        "exclude": [
+          "a.b",
+          true,
+          94
+        ]
+      },
+      "errorMessageContains": "must be a string"
+    },
+    {
+      "description": "exclude contains non-string values",
+      "value": {
+        "exclude": [
+          "a.b",
+          true,
+          94
+        ]
+      },
+      "errorMessageContains": "must be a string"
+    },
+    {
+      "description": "include is not an array",
+      "value": {
+        "include": "a.b"
+      },
+      "errorMessageContains": "must be a array"
+    },
+    {
+      "description": "exclude is not an array",
+      "value": {
+        "exclude": "a.b"
+      },
+      "errorMessageContains": "must be a array"
+    },
+    {
+      "description": "empty path",
+      "value": {
+        "exclude": [
+          "",
+          "a.b"
+        ]
+      },
+      "errorMessageContains": "cannot be blank"
+    },
+    {
+      "description": "forward path collision",
+      "value": {
+        "include": [
+          "a.b",
+          "a.b.c"
+        ]
+      },
+      "errorMessageContains": "path collision is not allowed"
+    },
+    {
+      "description": "backward path collision",
+      "value": {
+        "include": [
+          "a.b.c",
+          "a.b"
+        ]
+      },
+      "errorMessageContains": "path collision is not allowed"
+    }
+  ]
+}

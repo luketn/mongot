@@ -1,0 +1,35 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "a",
+        "query": "hello",
+        "slop": 1
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing-path",
+      "value": {
+        "query": "hello",
+        "slop": 1
+      }
+    },
+    {
+      "description": "missing-query",
+      "value": {
+        "path": "a",
+        "slop": 1
+      }
+    },
+    {
+      "description": "missing-slop",
+      "value": {
+        "path": "a",
+        "query": "hello"
+      }
+    }
+  ]
+}

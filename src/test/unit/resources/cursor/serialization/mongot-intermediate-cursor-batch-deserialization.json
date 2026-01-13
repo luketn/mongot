@@ -1,0 +1,393 @@
+{
+  "valid": [
+    {
+      "description": "full",
+      "value": {
+        "ok": 1,
+        "cursors": [
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "meta",
+              "id": {
+                "$numberLong": "1"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 0,
+                  "count": {
+                    "$numberLong": "0"
+                  }
+                },
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 1,
+                  "count": {
+                    "$numberLong": "1"
+                  }
+                }
+              ]
+            },
+            "explain": {
+              "query": {
+                "analyzer": "lucene.standard",
+                "type": "TermQuery",
+                "args": {
+                  "value": "quie",
+                  "path": "name"
+                },
+                "stats": {
+                  "context": {
+                    "millisElapsed": 1e-5,
+                    "invocationCounts": {}
+                  },
+                  "match": {
+                    "millisElapsed": 1e-5,
+                    "invocationCounts": {}
+                  },
+                  "score": {
+                    "millisElapsed": 1e-5,
+                    "invocationCounts": {}
+                  }
+                }
+              },
+              "collectors": {
+                "allCollectorStats": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                }
+              },
+              "resourceUsage": {
+                "majorFaults": 1,
+                "minorFaults": 2,
+                "userTimeMs": 3,
+                "systemTimeMs": 4,
+                "maxReportingThreads": 1,
+                "numBatches": 1
+              }
+            }
+          },
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "results",
+              "id": {
+                "$numberLong": "2"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "_id": 0,
+                  "$searchScore": 0.0
+                },
+                {
+                  "_id": 1,
+                  "$searchScore": 1.0
+                }
+              ]
+            },
+            "explain": {
+              "query": {
+                "analyzer": "lucene.standard",
+                "type": "TermQuery",
+                "args": {
+                  "value": "quie",
+                  "path": "name"
+                },
+                "stats": {
+                  "context": {
+                    "millisElapsed": 1e-5,
+                    "invocationCounts": {}
+                  },
+                  "match": {
+                    "millisElapsed": 1e-5,
+                    "invocationCounts": {}
+                  },
+                  "score": {
+                    "millisElapsed": 1e-5,
+                    "invocationCounts": {}
+                  }
+                }
+              },
+              "collectors": {
+                "allCollectorStats": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                }
+              },
+              "resourceUsage": {
+                "majorFaults": 1,
+                "minorFaults": 2,
+                "userTimeMs": 3,
+                "systemTimeMs": 4,
+                "maxReportingThreads": 1,
+                "numBatches": 1
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "noCursors",
+      "value": {
+        "ok": 1
+      }
+    },
+    {
+      "description": "wrongOrder",
+      "value": {
+        "cursors": [
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "results",
+              "id": {
+                "$numberLong": "1"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "_id": 0,
+                  "$searchScore": 0.0
+                },
+                {
+                  "_id": 1,
+                  "$searchScore": 1.0
+                }
+              ]
+            }
+          },
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "meta",
+              "id": {
+                "$numberLong": "2"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 0,
+                  "count": {
+                    "$numberLong": "0"
+                  }
+                },
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 1,
+                  "count": {
+                    "$numberLong": "1"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "extraCursor",
+      "value": {
+        "cursors": [
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "meta",
+              "id": {
+                "$numberLong": "2"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 0,
+                  "count": {
+                    "$numberLong": "0"
+                  }
+                },
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 1,
+                  "count": {
+                    "$numberLong": "1"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "results",
+              "id": {
+                "$numberLong": "1"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "_id": 0,
+                  "$searchScore": 0.0
+                },
+                {
+                  "_id": 1,
+                  "$searchScore": 1.0
+                }
+              ]
+            }
+          },
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "meta",
+              "id": {
+                "$numberLong": "3"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 0,
+                  "count": {
+                    "$numberLong": "0"
+                  }
+                },
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 1,
+                  "count": {
+                    "$numberLong": "1"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "noOk",
+      "value": {
+        "cursors": [
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "results",
+              "id": {
+                "$numberLong": "1"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "_id": 0,
+                  "$searchScore": 0.0
+                },
+                {
+                  "_id": 1,
+                  "$searchScore": 1.0
+                }
+              ]
+            }
+          },
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "meta",
+              "id": {
+                "$numberLong": "2"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 0,
+                  "count": {
+                    "$numberLong": "0"
+                  }
+                },
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 1,
+                  "count": {
+                    "$numberLong": "1"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "badOk",
+      "value": {
+        "ok": 5,
+        "cursors": [
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "results",
+              "id": {
+                "$numberLong": "1"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "_id": 0,
+                  "$searchScore": 0.0
+                },
+                {
+                  "_id": 1,
+                  "$searchScore": 1.0
+                }
+              ]
+            }
+          },
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "meta",
+              "id": {
+                "$numberLong": "2"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 0,
+                  "count": {
+                    "$numberLong": "0"
+                  }
+                },
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 1,
+                  "count": {
+                    "$numberLong": "1"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

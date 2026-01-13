@@ -1,0 +1,9 @@
+{
+  "tests": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Runs mongot
+# This script parses `--jvm-flags`.
+# Additional args if provided will be passed through to the MongotCommunity entry point.
+
+set -eu
+
+JVM_FLAGS=""
+PASS_THROUGH_ARGS=()
+
+# Iterate through the args, pulling the ones we need and building a list of the rest to be passed to MongotCli
+# Since a flag and its argument are separate tokens but are handled at the same time, we shift ahead by 2
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --jvm-flags)
+            JVM_FLAGS="$2"
+            shift 2
+            ;;
+        *)
+           PASS_THROUGH_ARGS+=("$1")
+           shift
+           ;;
+    esac
+done
+
+# Note that we expect this script to be deployed in the same directory as the bundled JDK.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ $OSTYPE == "darwin"* ]]; then
+  export JAVA_HOME="${DIR}/bin/jdk/Contents/Home"
+else
+  export JAVA_HOME="${DIR}/bin/jdk"
+fi
+
+# Wrapper for running mongot
+run_mongot() {
+    # Specifying lib/* first in the classpath ensures that
+    # the fips libraries are loaded from there
+    # even if they exist in `mongot_community_deploy.jar`
+    # JVM_FLAGS and PASS_THROUGH_ARGS purposefully unquoted so they expand
+    exec "${JAVA_HOME}/bin/java" \
+    -XX:+ExitOnOutOfMemoryError \
+    '-Djava.security.egd=file:/dev/urandom' \
+    '--add-modules=jdk.incubator.vector' \
+    '--enable-preview' \
+    '--enable-native-access=ALL-UNNAMED' \
+    ${JVM_FLAGS} \
+    -cp "${DIR}/lib/*:${DIR}/bin/mongot_community_deploy.jar" \
+    "com.xgen.mongot.community.MongotCommunity" \
+    "${PASS_THROUGH_ARGS[@]:-}"
+}
+
+# Run mongot
+run_mongot

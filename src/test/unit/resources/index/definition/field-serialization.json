@@ -1,0 +1,145 @@
+{
+  "tests": [
+    {
+      "description": "autocomplete",
+      "value": {
+        "type": "autocomplete",
+        "tokenization": "edgeGram",
+        "minGrams": 12,
+        "maxGrams": 19,
+        "foldDiacritics": true
+      }
+    },
+    {
+      "description": "boolean",
+      "value": {
+        "type": "boolean"
+      }
+    },
+    {
+      "description": "date",
+      "value": {
+        "type": "date"
+      }
+    },
+    {
+      "description": "dateFacet",
+      "value": {
+        "type": "dateFacet"
+      }
+    },
+    {
+      "description": "document",
+      "value": {
+        "type": "document",
+        "dynamic": false,
+        "fields": {}
+      }
+    },
+    {
+      "description": "geo",
+      "value": {
+        "type": "geo",
+        "indexShapes": false
+      }
+    },
+    {
+      "description": "knnVector",
+      "value": {
+        "type": "knnVector",
+        "dimensions": 1000,
+        "similarity": "dotProduct"
+      }
+    },
+    {
+      "description": "number",
+      "value": {
+        "type": "number",
+        "representation": "int64",
+        "indexDoubles": true,
+        "indexIntegers": true
+      }
+    },
+    {
+      "description": "numberFacet",
+      "value": {
+        "type": "numberFacet",
+        "representation": "int64",
+        "indexDoubles": true,
+        "indexIntegers": true
+      }
+    },
+    {
+      "description": "objectId",
+      "value": {
+        "type": "objectId"
+      }
+    },
+    {
+      "description": "sortableDateBetaV1",
+      "value": {
+        "type": "sortableDateBetaV1"
+      }
+    },
+    {
+      "description": "sortableNumberBetaV1",
+      "value": {
+        "type": "sortableNumberBetaV1"
+      }
+    },
+    {
+      "description": "sortableStringBetaV1",
+      "value": {
+        "type": "sortableStringBetaV1"
+      }
+    },
+    {
+      "description": "string",
+      "value": {
+        "type": "string",
+        "indexOptions": "offsets",
+        "store": false,
+        "norms": "include"
+      }
+    },
+    {
+      "description": "stringFacet",
+      "value": {
+        "type": "stringFacet"
+      }
+    },
+    {
+      "description": "token",
+      "value": {
+        "type": "token"
+      }
+    },
+    {
+      "description": "uuid",
+      "value": {
+        "type": "uuid"
+      }
+    },
+    {
+      "description": "multiple definitions",
+      "value": [
+        {
+          "type": "autocomplete",
+          "tokenization": "edgeGram",
+          "minGrams": 12,
+          "maxGrams": 19,
+          "foldDiacritics": true,
+          "analyzer": "myAnalyzer"
+        },
+        {
+          "type": "date"
+        },
+        {
+          "type": "document",
+          "dynamic": false,
+          "fields": {}
+        }
+      ]
+    }
+  ]
+}

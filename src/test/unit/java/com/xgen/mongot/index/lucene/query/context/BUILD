@@ -1,0 +1,27 @@
+load("//bazel/java:test.bzl", "java_test_suite")
+
+java_test_suite(
+    name = "context",
+    srcs = ["SearchQueryFactoryContextTest.java"],
+    tags = ["unit"],
+    deps = [
+        "//src/main/java/com/xgen/mongot/index/analyzer",
+        "//src/main/java/com/xgen/mongot/index/analyzer/wrapper",
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/lucene/query/context",
+        "//src/main/java/com/xgen/mongot/index/lucene/synonym",
+        "//src/main/java/com/xgen/mongot/index/path/string",
+        "//src/main/java/com/xgen/mongot/index/query",
+        "//src/main/java/com/xgen/mongot/index/synonym",
+        "//src/main/java/com/xgen/mongot/index/version",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/testing/mongot/index/analyzer",
+        "//src/main/java/com/xgen/testing/mongot/index/definition",
+        "//src/main/java/com/xgen/testing/mongot/index/lucene/synonym",
+        "//src/main/java/com/xgen/testing/mongot/index/path/string",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
+        "@maven//:org_apache_lucene_lucene_core",
+        "@maven//:org_mongodb_bson",
+    ],
+)

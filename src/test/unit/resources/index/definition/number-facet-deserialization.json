@@ -1,0 +1,48 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    },
+    {
+      "description": "explicit double representation",
+      "value": {
+        "representation": "double"
+      }
+    },
+    {
+      "description": "explicit int64 representation",
+      "value": {
+        "representation": "int64"
+      }
+    },
+    {
+      "description": "explicit indexDoubles",
+      "value": {
+        "indexDoubles": false
+      }
+    },
+    {
+      "description": "explicit indexIntegers",
+      "value": {
+        "indexIntegers": false
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid representation",
+      "value": {
+        "representation": "invalid"
+      }
+    },
+    {
+      "description": "indexDoubles and indexIntegers false",
+      "value": {
+        "indexDoubles": false,
+        "indexIntegers": false
+      }
+    }
+  ]
+}

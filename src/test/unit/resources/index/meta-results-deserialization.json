@@ -1,0 +1,55 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "count": {
+          "lowerBound": {
+            "$numberLong": "1000"
+          }
+        }
+      }
+    },
+    {
+      "description": "withFacet",
+      "value": {
+        "count": {
+          "lowerBound": {
+            "$numberLong": "1000"
+          }
+        },
+        "facet": {
+          "myFacet": {
+            "buckets": [
+              {
+                "_id": "category",
+                "count": {
+                  "$numberLong": "2"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "noCount",
+      "value": {
+        "facet": {
+          "myFacet": {
+            "buckets": [
+              {
+                "_id": "category",
+                "count": {
+                  "$numberLong": "2"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

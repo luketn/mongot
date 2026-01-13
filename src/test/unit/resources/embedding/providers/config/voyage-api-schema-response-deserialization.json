@@ -1,0 +1,121 @@
+{
+  "valid": [
+    {
+      "description": "voyage-3-large response",
+      "value": {
+        "object": "list",
+        "data": [
+          {
+            "object": "embedding",
+            "embedding": "AACAPwAAAEAAAEBA",
+            "index": 0
+          },
+          {
+            "object": "embedding",
+            "embedding": "AACAPwAAAEAAAEBA",
+            "index": 1
+          },
+          {
+            "object": "embedding",
+            "embedding": "AACAPwAAAEAAAEBA",
+            "index": 2
+          }
+        ],
+        "model": "voyage-large-3",
+        "usage": {
+          "total_tokens": 100
+        }
+      }
+    },
+    {
+      "description": "partial response without model",
+      "value": {
+        "object": "list",
+        "data": [
+          {
+            "object": "embedding",
+            "embedding": "AACAQAAAoEAAAMBA",
+            "index": 0
+          },
+          {
+            "object": "embedding",
+            "embedding": "AACAQAAAoEAAAMBA",
+            "index": 1
+          },
+          {
+            "object": "embedding",
+            "embedding": "AACAQAAAoEAAAMBA",
+            "index": 2
+          }
+        ],
+        "usage": {
+          "total_tokens": 200
+        }
+      }
+    },
+    {
+      "description": "response with empty vectors",
+      "value": {
+        "object": "list",
+        "data": [],
+        "usage": {
+          "total_tokens": 0
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing data",
+      "value": {
+        "object": "list",
+        "usage": {
+          "total_tokens": 0
+        }
+      }
+    },
+    {
+      "description": "missing usage",
+      "value": {
+        "object": "list",
+        "data": [
+          {
+            "object": "embedding",
+            "embedding": "AACAQAAAoEAAAMBA",
+            "index": 0
+          }
+        ]
+      }
+    },
+    {
+      "description": "raw embedding list",
+      "value": {
+        "object": "list",
+        "data": [
+          {
+            "object": "embedding",
+            "embedding": [
+              1,
+              2,
+              3
+            ],
+            "index": 0
+          }
+        ]
+      }
+    },
+    {
+      "description": "corrupted encoded data",
+      "value": {
+        "object": "list",
+        "data": [
+          {
+            "object": "embedding",
+            "embedding": "AACAPwAAAEAAAE",
+            "index": 0
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    },
+    {
+      "description": "explicit dynamic",
+      "value": {
+        "dynamic": false
+      }
+    },
+    {
+      "description": "explicit empty fields",
+      "value": {
+        "fields": {}
+      }
+    },
+    {
+      "description": "explicit populated fields",
+      "value": {
+        "fields": {
+          "a": {
+            "type": "string"
+          },
+          "b": [
+            {
+              "type": "date"
+            },
+            {
+              "type": "geo"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "explicit field mapped to empty array",
+      "value": {
+        "fields": {
+          "a": []
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "explicit null mapping",
+      "value": {
+        "fields": {
+          "a": null
+        }
+      },
+      "errorMessageContains": "cannot be null"
+    },
+    {
+      "description": "explicit nested null mapping",
+      "value": {
+        "fields": {
+          "foo": {
+            "type": "document",
+            "fields": {
+              "a": null
+            }
+          }
+        }
+      },
+      "errorMessageContains": "cannot be null"
+    }
+  ]
+}

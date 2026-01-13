@@ -1,0 +1,12 @@
+{
+  "tests": [
+    {
+      "description": "value",
+      "value": {
+        "boost": {
+          "value": 56.0
+        }
+      }
+    }
+  ]
+}

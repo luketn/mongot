@@ -1,0 +1,33 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "featureFlagName": "test-feature",
+        "phase": "CONTROLLED",
+        "allowedList": [
+          "507f1f77bcf86cd799439011",
+          "507f1f77bcf86cd799439012"
+        ],
+        "blockedList": [
+          "507f1f77bcf86cd799439013"
+        ],
+        "rolloutPercentage": 50,
+        "scope": "GROUP"
+      },
+      "bson": {
+        "featureFlagName": "test-feature",
+        "phase": "CONTROLLED",
+        "allowedList": [
+          {"$oid": "507f1f77bcf86cd799439011"},
+          {"$oid": "507f1f77bcf86cd799439012"}
+        ],
+        "blockedList": [
+          {"$oid": "507f1f77bcf86cd799439013"}
+        ],
+        "rolloutPercentage": 50,
+        "scope": "GROUP"
+      }
+    }
+  ]
+}

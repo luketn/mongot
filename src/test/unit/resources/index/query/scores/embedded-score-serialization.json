@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "description": "minimum with constant outerScore",
+      "value": {
+        "embedded": {
+          "aggregate": "minimum",
+          "outerScore": {
+            "constant": {
+              "value": 1.0
+            }
+          }
+        }
+      }
+    }
+  ]
+}

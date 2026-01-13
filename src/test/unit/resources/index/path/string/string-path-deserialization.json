@@ -1,0 +1,55 @@
+{
+  "valid": [
+    {
+      "description": "string value",
+      "value": "my-path"
+    },
+    {
+      "description": "empty string value",
+      "value": ""
+    },
+    {
+      "description": "document value no multi",
+      "value": {
+        "value": "my-path"
+      }
+    },
+    {
+      "description": "document empty value no multi",
+      "value": {
+        "value": ""
+      }
+    },
+    {
+      "description": "document value with multi",
+      "value": {
+        "value": "my-path",
+        "multi": "my-multi"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "wrong type",
+      "value": true
+    },
+    {
+      "description": "no value",
+      "value": {
+      }
+    },
+    {
+      "description": "multi with .",
+      "value": {
+        "value": "my-path",
+        "multi": "my.multi"
+      }
+    },
+    {
+      "description": "document wildcard",
+      "value": {
+        "wildcard": "some-path-*"
+      }
+    }
+  ]
+}

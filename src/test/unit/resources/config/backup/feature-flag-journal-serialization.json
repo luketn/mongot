@@ -1,0 +1,66 @@
+{
+  "tests": [
+    {
+      "description": "empty",
+      "value": {
+        "dynamicFeatureFlags": []
+      }
+    },
+    {
+      "description": "multiple values",
+      "json": {
+        "dynamicFeatureFlags": [
+          {
+            "featureFlagName": "test-feature-flag-name",
+            "phase": "UNSPECIFIED",
+            "allowedList": [],
+            "blockedList": [],
+            "rolloutPercentage": 0,
+            "scope": "UNSPECIFIED"
+          },
+          {
+            "featureFlagName": "test-feature-flag-name2",
+            "phase": "CONTROLLED",
+            "allowedList": [
+              "507f1f77bcf86cd799439011"
+            ],
+            "blockedList": [
+              "507f1f77bcf86cd799439012"
+            ],
+            "rolloutPercentage": 100,
+            "scope": "MONGOT_CLUSTER"
+          }
+        ]
+      },
+      "bson": {
+        "dynamicFeatureFlags": [
+          {
+            "featureFlagName": "test-feature-flag-name",
+            "phase": "UNSPECIFIED",
+            "allowedList": [],
+            "blockedList": [],
+            "rolloutPercentage": 0,
+            "scope": "UNSPECIFIED"
+          },
+          {
+            "featureFlagName": "test-feature-flag-name2",
+            "phase": "CONTROLLED",
+            "allowedList": [
+              {
+                "$oid": "507f1f77bcf86cd799439011"
+              }
+            ],
+            "blockedList": [
+              {
+                "$oid": "507f1f77bcf86cd799439012"
+              }
+            ],
+            "rolloutPercentage": 100,
+            "scope": "MONGOT_CLUSTER"
+          }
+        ]
+      }
+    }
+  ]
+}
+

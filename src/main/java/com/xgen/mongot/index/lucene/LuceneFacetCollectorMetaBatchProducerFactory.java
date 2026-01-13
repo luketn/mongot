@@ -1,0 +1,261 @@
+package com.xgen.mongot.index.lucene;
+
+import static com.xgen.mongot.util.Check.checkState;
+
+import com.xgen.mongot.index.definition.FieldTypeDefinition;
+import com.xgen.mongot.index.lucene.explain.explainers.FacetFeatureExplainer;
+import com.xgen.mongot.index.lucene.explain.timing.ExplainTimings;
+import com.xgen.mongot.index.lucene.explain.tracing.Explain;
+import com.xgen.mongot.index.lucene.field.FieldName;
+import com.xgen.mongot.index.lucene.searcher.LuceneIndexSearcher;
+import com.xgen.mongot.index.query.CollectorQuery;
+import com.xgen.mongot.index.query.InvalidQueryException;
+import com.xgen.mongot.index.query.ReturnScope;
+import com.xgen.mongot.index.query.collectors.FacetCollector;
+import com.xgen.mongot.index.query.collectors.FacetDefinition;
+import com.xgen.mongot.util.FieldPath;
+import com.xgen.mongot.util.concurrent.NamedExecutorService;
+import com.xgen.mongot.util.timers.InvocationCountingTimer;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Queue;
+import org.apache.lucene.facet.FacetResult;
+import org.apache.lucene.facet.Facets;
+import org.apache.lucene.facet.FacetsCollector;
+import org.apache.lucene.facet.sortedset.ConcurrentSortedSetDocValuesFacetCounts;
+import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetCounts;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TotalHits;
+
+public class LuceneFacetCollectorMetaBatchProducerFactory {
+
+  static LuceneFacetCollectorMetaBatchProducer create(
+      CollectorQuery collectorQuery,
+      LuceneFacetContext facetContext,
+      LuceneIndexSearcherReference searcherReference,
+      TopDocs topDocs,
+      FacetsCollector facetsCollector,
+      Optional<NamedExecutorService> concurrentSearchExecutor)
+      throws IOException, InterruptedException, InvalidQueryException {
+    // Ensure that we have an exact count.
+    checkState(
+        topDocs.totalHits.relation == TotalHits.Relation.EQUAL_TO,
+        "LuceneFacetCollectorMetaBatchProducer requires an exact count.");
+    var returnScopePath = collectorQuery.returnScope().map(ReturnScope::path);
+    switch (collectorQuery.collector()) {
+      case FacetCollector facetCollector:
+        Map<FacetDefinition.Type, Map<String, FacetDefinition>> typeToFacetToDefinition =
+            facetCollector.getFacetDefinitionsByType();
+
+        Queue<LuceneMetaBucketProducer> bucketProducers = new LinkedList<>();
+        // Add bucket producers for number, date, and string facets.
+        bucketProducers.addAll(
+            getBoundaryBucketProducers(
+                typeToFacetToDefinition.get(FacetDefinition.Type.NUMBER),
+                facetContext,
+                facetsCollector,
+                topDocs.totalHits.value,
+                returnScopePath));
+
+        bucketProducers.addAll(
+            getBoundaryBucketProducers(
+                typeToFacetToDefinition.get(FacetDefinition.Type.DATE),
+                facetContext,
+                facetsCollector,
+                topDocs.totalHits.value,
+                returnScopePath));
+
+        bucketProducers.addAll(
+            getStringBucketProducers(
+                typeToFacetToDefinition.get(FacetDefinition.Type.STRING),
+                facetContext,
+                searcherReference,
+                facetsCollector,
+                returnScopePath,
+                concurrentSearchExecutor));
+
+        return new LuceneFacetCollectorMetaBatchProducer(
+            topDocs.totalHits.value, bucketProducers, facetCollector);
+    }
+  }
+
+  private static List<LuceneMetaBucketProducer> getBoundaryBucketProducers(
+      Map<String, FacetDefinition> definitions,
+      LuceneFacetContext facetContext,
+      FacetsCollector facetsCollector,
+      long totalHits,
+      Optional<FieldPath> returnScope)
+      throws IOException, InvalidQueryException {
+    List<LuceneMetaBucketProducer> results = new ArrayList<>();
+
+    for (Map.Entry<String, FacetDefinition> entry : definitions.entrySet()) {
+      var facetDefinition = (FacetDefinition.BoundaryFacetDefinition<?>) entry.getValue();
+
+      FacetResult facetResult =
+          LuceneFacetResultUtil.getBoundaryFacetResult(
+              facetDefinition, facetContext, facetsCollector, returnScope);
+
+      LuceneBoundaryFacetMetaBucketProducer producer =
+          LuceneBoundaryFacetMetaBucketProducer.create(
+              facetResult, entry.getKey(), facetDefinition, totalHits);
+
+      results.add(producer);
+    }
+    return results;
+  }
+
+  private static List<LuceneMetaBucketProducer> getStringBucketProducers(
+      Map<String, FacetDefinition> definitions,
+      LuceneFacetContext facetContext,
+      LuceneIndexSearcherReference searcherReference,
+      FacetsCollector collector,
+      Optional<FieldPath> returnScope,
+      Optional<NamedExecutorService> concurrentSearchExecutor)
+      throws IOException, InterruptedException, InvalidQueryException {
+    var searcher = searcherReference.getIndexSearcher();
+    if (definitions.isEmpty()) {
+      return List.of();
+    }
+
+    Optional<FacetFeatureExplainer> facetFeatureExplainer =
+        Explain.getQueryInfo()
+            .map(
+                queryInfo ->
+                    queryInfo.getFeatureExplainer(
+                        FacetFeatureExplainer.class, FacetFeatureExplainer::new));
+
+    Map<FieldTypeDefinition.Type, Map<String, FacetDefinition.StringFacetDefinition>>
+        facetableStringTypeToNameToDefinition =
+            LuceneFacetResultUtil.groupFacetableStringDefinitions(
+                facetContext, definitions, returnScope);
+
+    List<LuceneMetaBucketProducer> stringFacetBucketProducers =
+        getStringFacetFieldBucketProducers(
+            facetableStringTypeToNameToDefinition.get(FieldTypeDefinition.Type.STRING_FACET),
+            searcher,
+            collector,
+            facetFeatureExplainer,
+            concurrentSearchExecutor);
+
+    List<LuceneMetaBucketProducer> tokenFacetBucketProducers =
+        getTokenFieldBucketProducers(
+            facetFeatureExplainer,
+            facetableStringTypeToNameToDefinition.get(FieldTypeDefinition.Type.TOKEN),
+            searcher,
+            collector,
+            returnScope,
+            concurrentSearchExecutor);
+
+    List<LuceneMetaBucketProducer> result = new ArrayList<>(stringFacetBucketProducers);
+    result.addAll(tokenFacetBucketProducers);
+    return result;
+  }
+
+  private static List<LuceneMetaBucketProducer> getStringFacetFieldBucketProducers(
+      Map<String, FacetDefinition.StringFacetDefinition> definitions,
+      LuceneIndexSearcher searcher,
+      FacetsCollector collector,
+      Optional<FacetFeatureExplainer> facetFeatureExplainer,
+      Optional<NamedExecutorService> concurrentSearchExecutor)
+      throws IOException, InterruptedException {
+
+    List<LuceneMetaBucketProducer> result = new ArrayList<>();
+    if (definitions.isEmpty() || searcher.getFacetsState().isEmpty()) {
+      return result;
+    }
+    var facetsState = searcher.getFacetsState().get();
+
+    Optional<ExplainTimings> facetTimings =
+        facetFeatureExplainer.map(FacetFeatureExplainer::getCreateCountTimings);
+
+    Facets counts;
+    try (var unused =
+        new InvocationCountingTimer.AutocloseableOptional<>(
+            facetTimings.map(t -> t.split(ExplainTimings.Type.GENERATE_FACET_COUNTS)))) {
+      counts =
+          concurrentSearchExecutor.isPresent()
+              ? new ConcurrentSortedSetDocValuesFacetCounts(
+                  facetsState, collector, concurrentSearchExecutor.get())
+              : new SortedSetDocValuesFacetCounts(facetsState, collector);
+    }
+
+    for (var entry : definitions.entrySet()) {
+      facetFeatureExplainer.ifPresent(
+          explainer ->
+              explainer.addTotalStringFacetCardinalities(
+                  entry.getKey(),
+                  Optional.ofNullable(facetsState.getOrdRange(entry.getValue().path()))));
+
+      Optional<FacetResult> facetResult =
+          Optional.ofNullable(counts.getAllChildren(entry.getValue().path()));
+
+      if (facetResult.isPresent()) {
+        result.add(LuceneStringFacetMetaBucketProducer.create(facetResult.get(), entry.getKey()));
+      }
+    }
+    return result;
+  }
+
+  private static List<LuceneMetaBucketProducer> getTokenFieldBucketProducers(
+      Optional<FacetFeatureExplainer> facetFeatureExplainer,
+      Map<String, FacetDefinition.StringFacetDefinition> facetDefinitions,
+      LuceneIndexSearcher searcher,
+      FacetsCollector collector,
+      Optional<FieldPath> returnScope,
+      Optional<NamedExecutorService> concurrentSearchExecutor)
+      throws IOException, InterruptedException, InvalidQueryException {
+    List<LuceneMetaBucketProducer> result = new ArrayList<>();
+    Optional<ExplainTimings> facetTimings =
+        facetFeatureExplainer.map(FacetFeatureExplainer::getCreateCountTimings);
+
+    if (facetDefinitions.isEmpty()) {
+      return result;
+    }
+    // If cache optional is empty, then FF enabling token facets is not enabled
+    if (searcher.getTokenFacetsStateCache().isEmpty()) {
+      throw new InvalidQueryException(
+          String.format(
+              "Faceting over token fields is not enabled. Facets %s are indexed as tokens. "
+                  + "Please remove them from this query, or index the fields as stringFacet",
+              facetDefinitions.keySet()));
+    }
+
+    var tokenFacetsStateCache = searcher.getTokenFacetsStateCache().get();
+
+    for (var entry : facetDefinitions.entrySet()) {
+      var lucenePath =
+          FieldName.TypeField.TOKEN.getLuceneFieldName(
+              FieldPath.parse(entry.getValue().path()), returnScope);
+      var fieldState = tokenFacetsStateCache.get(lucenePath);
+      facetFeatureExplainer.ifPresent(
+          explainer ->
+              explainer.addTotalStringFacetCardinalities(
+                  entry.getKey(), fieldState.map(state -> state.getOrdRange(lucenePath))));
+      if (fieldState.isEmpty()) {
+        continue;
+      }
+      Facets counts;
+      try (var unused =
+          new InvocationCountingTimer.AutocloseableOptional<>(
+              facetTimings.map(t -> t.split(ExplainTimings.Type.GENERATE_FACET_COUNTS)))) {
+        counts =
+            concurrentSearchExecutor.isPresent()
+                ? new com.xgen.mongot.index.lucene.facet.ConcurrentSortedSetDocValuesFacetCounts(
+                    fieldState.get(), collector, concurrentSearchExecutor.get())
+                : new com.xgen.mongot.index.lucene.facet.SortedSetDocValuesFacetCounts(
+                    fieldState.get(), collector);
+      }
+
+      Optional<FacetResult> facetResult = Optional.ofNullable(counts.getAllChildren(lucenePath));
+
+      if (facetResult.isPresent()) {
+        result.add(LuceneStringFacetMetaBucketProducer.create(facetResult.get(), entry.getKey()));
+      }
+    }
+    return result;
+  }
+}

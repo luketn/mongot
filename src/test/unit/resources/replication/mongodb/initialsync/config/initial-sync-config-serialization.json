@@ -1,0 +1,158 @@
+{
+  "tests": [
+    {
+      "description": "buffered",
+      "json": {
+        "buffered": {}
+      },
+      "bson": {
+        "buffered": {}
+      }
+    },
+    {
+      "description": "bufferless with default",
+      "json": {
+        "bufferless": {
+          "collectionScanTimeMs": 300000,
+          "changeStreamCatchupTimeoutMs": 300000,
+          "changeStreamLagTimeMs": 60000,
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": false,
+          "avoidNaturalOrderScanSyncSourceChangeResync": false
+        }
+      },
+      "bson": {
+        "bufferless": {
+          "collectionScanTimeMs": {
+            "$numberLong": "300000"
+          },
+          "changeStreamCatchupTimeoutMs": {
+            "$numberLong": "300000"
+          },
+          "changeStreamLagTimeMs": {
+            "$numberLong": "60000"
+          },
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": false,
+          "avoidNaturalOrderScanSyncSourceChangeResync": false
+        }
+      }
+    },
+    {
+      "description": "bufferless with collection scan time",
+      "json": {
+        "bufferless": {
+          "collectionScanTimeMs": 600,
+          "changeStreamCatchupTimeoutMs": 300000,
+          "changeStreamLagTimeMs": 60000,
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": false,
+          "avoidNaturalOrderScanSyncSourceChangeResync": false
+        }
+      },
+      "bson": {
+        "bufferless": {
+          "collectionScanTimeMs": {
+            "$numberLong": "600"
+          },
+          "changeStreamCatchupTimeoutMs": {
+            "$numberLong": "300000"
+          },
+          "changeStreamLagTimeMs": {
+            "$numberLong": "60000"
+          },
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": false,
+          "avoidNaturalOrderScanSyncSourceChangeResync": false
+        }
+      }
+    },
+    {
+      "description": "bufferless with change stream catchup time",
+      "json": {
+        "bufferless": {
+          "collectionScanTimeMs": 300000,
+          "changeStreamCatchupTimeoutMs": 600,
+          "changeStreamLagTimeMs": 60000,
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": false,
+          "avoidNaturalOrderScanSyncSourceChangeResync": false
+        }
+      },
+      "bson": {
+        "bufferless": {
+          "collectionScanTimeMs": {
+            "$numberLong": "300000"
+          },
+          "changeStreamCatchupTimeoutMs": {
+            "$numberLong": "600"
+          },
+          "changeStreamLagTimeMs": {
+            "$numberLong": "60000"
+          },
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": false,
+          "avoidNaturalOrderScanSyncSourceChangeResync": false
+        }
+      }
+    },
+    {
+      "description": "bufferless with change stream lag time",
+      "json": {
+        "bufferless": {
+          "collectionScanTimeMs": 300000,
+          "changeStreamCatchupTimeoutMs": 300000,
+          "changeStreamLagTimeMs": 600,
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": false,
+          "avoidNaturalOrderScanSyncSourceChangeResync": false
+        }
+      },
+      "bson": {
+        "bufferless": {
+          "collectionScanTimeMs": {
+            "$numberLong": "300000"
+          },
+          "changeStreamCatchupTimeoutMs": {
+            "$numberLong": "300000"
+          },
+          "changeStreamLagTimeMs": {
+            "$numberLong": "600"
+          },
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": false,
+          "avoidNaturalOrderScanSyncSourceChangeResync": false
+        }
+      }
+    },
+    {
+      "description": "bufferless with enable natural order scan",
+      "json": {
+        "bufferless": {
+          "collectionScanTimeMs": 300000,
+          "changeStreamCatchupTimeoutMs": 300000,
+          "changeStreamLagTimeMs": 60000,
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": true,
+          "avoidNaturalOrderScanSyncSourceChangeResync": true
+        }
+      },
+      "bson": {
+        "bufferless": {
+          "collectionScanTimeMs": {
+            "$numberLong": "300000"
+          },
+          "changeStreamCatchupTimeoutMs": {
+            "$numberLong": "300000"
+          },
+          "changeStreamLagTimeMs": {
+            "$numberLong": "60000"
+          },
+          "useAggregateCommand": true,
+          "enableNaturalOrderScan": true,
+          "avoidNaturalOrderScanSyncSourceChangeResync": true
+        }
+      }
+    }
+  ]
+}

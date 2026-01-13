@@ -1,0 +1,94 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "statusCode": "INITIAL_SYNC"
+      },
+      "bson": {
+        "statusCode": "INITIAL_SYNC"
+      }
+    },
+    {
+      "description": "initial sync with message",
+      "json": {
+        "statusCode": "INITIAL_SYNC",
+        "message": "foo-bar"
+      },
+      "bson": {
+        "statusCode": "INITIAL_SYNC",
+        "message": "foo-bar"
+      }
+    },
+    {
+      "description": "stale index",
+      "json": {
+        "statusCode": "STALE",
+        "message": "foo-bar",
+        "optime": {
+          "$timestamp": {
+            "t": 0,
+            "i": 1000
+          }
+        }
+      },
+      "bson": {
+        "statusCode": "STALE",
+        "message": "foo-bar",
+        "optime": {
+          "$timestamp": {
+            "t": 0,
+            "i": 1000
+          }
+        }
+      }
+    },
+    {
+      "description": "recovering non transient",
+      "json": {
+        "statusCode": "RECOVERING_NON_TRANSIENT",
+        "message": "Recovering: The index has encountered an issue and is attempting automatic recovery.",
+        "optime": {
+          "$timestamp": {
+            "t": 0,
+            "i": 1000
+          }
+        }
+      },
+      "bson": {
+        "statusCode": "RECOVERING_NON_TRANSIENT",
+        "message": "Recovering: The index has encountered an issue and is attempting automatic recovery.",
+        "optime": {
+          "$timestamp": {
+            "t": 0,
+            "i": 1000
+          }
+        }
+      }
+    },
+    {
+      "description": "recovering transient",
+      "json": {
+        "statusCode": "RECOVERING_TRANSIENT",
+        "message": "recovering"
+      },
+      "bson": {
+        "statusCode": "RECOVERING_TRANSIENT",
+        "message": "recovering"
+      }
+    },
+    {
+      "description": "failed",
+      "json": {
+        "statusCode": "FAILED",
+        "message": "recovering",
+        "reason": "INITIAL_SYNC_REPLICATION_FAILED"
+      },
+      "bson": {
+        "statusCode": "FAILED",
+        "message": "recovering",
+        "reason": "INITIAL_SYNC_REPLICATION_FAILED"
+      }
+    }
+  ]
+}

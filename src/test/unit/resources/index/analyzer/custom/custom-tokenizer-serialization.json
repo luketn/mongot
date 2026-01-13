@@ -1,0 +1,73 @@
+{
+  "tests": [
+    {
+      "description": "edgeGram",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "nGram",
+      "value": {
+        "type": "nGram",
+        "minGram": 1,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "standard",
+      "value": {
+        "type": "standard"
+      }
+    },
+    {
+      "description": "standard max token length",
+      "value": {
+        "type": "standard",
+        "maxTokenLength": 123
+      }
+    },
+    {
+      "description": "whitespace",
+      "value": {
+        "type": "whitespace"
+      }
+    },
+    {
+      "description": "whitespace max token length",
+      "value": {
+        "type": "whitespace",
+        "maxTokenLength": 123
+      }
+    },
+    {
+      "description": "regexSplit",
+      "value": {
+        "type": "regexSplit",
+        "pattern": "\"^\\\\b\\\\d{3}[-.]?\\\\d{3}[-.]?\\\\d{4}\\\\b$\""
+      }
+    },
+    {
+      "description": "regexCaptureGroup",
+      "value": {
+        "type": "regexCaptureGroup",
+        "pattern": "\"^\\\\b\\\\d{3}[-.]?\\\\d{3}[-.]?\\\\d{4}\\\\b$\"",
+        "group": 0
+      }
+    },
+    {
+      "description": "keyword tokenizer",
+      "value": {
+        "type": "keyword"
+      }
+    },
+    {
+      "description": "uaxUrlEmail",
+      "value": {
+        "type": "uaxUrlEmail"
+      }
+    }
+  ]
+}

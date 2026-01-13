@@ -1,0 +1,189 @@
+{
+  "tests": [
+    {
+      "description": "createSearch",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": "beceffcc-66ee-4339-9092-1147075c7602",
+        "view": {
+          "name": "testView",
+          "effectivePipeline": [
+            {
+              "$addFields": {
+                "name": "value"
+              }
+            }
+          ]
+        },
+        "userCommand": {
+          "createSearchIndexes": "myCollection",
+          "indexes": [
+            {
+              "name": "myIndex",
+              "type": "search",
+              "definition": {
+                "mappings": {
+                  "dynamic": true,
+                  "fields": {}
+                }
+              }
+            }
+          ]
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "createVector",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": "beceffcc-66ee-4339-9092-1147075c7602",
+        "view": {
+          "name": "testView",
+          "effectivePipeline": [
+            {
+              "$addFields": {
+                "name": "value"
+              }
+            }
+          ]
+        },
+        "userCommand": {
+          "createSearchIndexes": "myCollection",
+          "indexes": [
+            {
+              "name": "myVectorIndex",
+              "type": "vectorSearch",
+              "definition": {
+                "fields": [
+                  {
+                    "type": "vector",
+                    "path": "my.vector",
+                    "numDimensions": 1000,
+                    "similarity": "cosine"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "createSearchPartitioned",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": "beceffcc-66ee-4339-9092-1147075c7602",
+        "view": {
+          "name": "testView",
+          "effectivePipeline": [
+            {
+              "$addFields": {
+                "name": "value"
+              }
+            }
+          ]
+        },
+        "userCommand": {
+          "createSearchIndexes": "myCollection",
+          "indexes": [
+            {
+              "name": "myIndex",
+              "type": "search",
+              "definition": {
+                "mappings": {
+                  "dynamic": true,
+                  "fields": {}
+                },
+                "numPartitions": 4
+              }
+            }
+          ]
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "updateSearch",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": "beceffcc-66ee-4339-9092-1147075c7602",
+        "view": {
+          "name": "testView"
+        },
+        "userCommand": {
+          "updateSearchIndex": "myCollection",
+          "name": "myIndex",
+          "type": "search",
+          "definition": {
+            "mappings": {
+              "dynamic": true,
+              "fields": {}
+            }
+          }
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "updateVector",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": "beceffcc-66ee-4339-9092-1147075c7602",
+        "view": {
+          "name": "testView"
+        },
+        "userCommand": {
+          "updateSearchIndex": "myCollection",
+          "id": "000000000000000000000000",
+          "type": "vectorSearch",
+          "definition": {
+            "fields": [
+              {
+                "type": "vector",
+                "path": "my.vector.field",
+                "numDimensions": 2048,
+                "similarity": "cosine"
+              },
+              {
+                "type": "filter",
+                "path": "my.filter.field"
+              }
+            ]
+          }
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "drop",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": "beceffcc-66ee-4339-9092-1147075c7602",
+        "view": {
+          "name": "testView"
+        },
+        "userCommand": {
+          "dropSearchIndex": "myCollection",
+          "name": "myIndex"
+        },
+        "$db": "myDatabase"
+      }
+    },
+    {
+      "description": "list",
+      "value": {
+        "manageSearchIndex": "myCollection",
+        "collectionUUID": "beceffcc-66ee-4339-9092-1147075c7602",
+        "view": {
+          "name": "testView"
+        },
+        "userCommand": {
+          "$listSearchIndexes": {}
+        },
+        "$db": "myDatabase"
+      }
+    }
+  ]
+}

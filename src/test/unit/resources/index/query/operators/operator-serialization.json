@@ -1,0 +1,288 @@
+{
+  "tests": [
+    {
+      "description": "compound",
+      "value": {
+        "compound": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "filter": {
+            "text": {
+              "score": {
+                "boost": {
+                  "value": 1.0
+                }
+              },
+              "path": "title",
+              "query": "filter"
+            }
+          },
+          "must": {
+            "text": {
+              "score": {
+                "boost": {
+                  "value": 1.0
+                }
+              },
+              "path": "title",
+              "query": "must"
+            }
+          },
+          "mustNot": {
+            "text": {
+              "score": {
+                "boost": {
+                  "value": 1.0
+                }
+              },
+              "path": "title",
+              "query": "mustNot"
+            }
+          },
+          "should": {
+            "text": {
+              "score": {
+                "boost": {
+                  "value": 1.0
+                }
+              },
+              "path": "title",
+              "query": "should"
+            }
+          },
+          "minimumShouldMatch": 13
+        }
+      }
+    },
+    {
+      "description": "equals",
+      "value": {
+        "equals": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "hasPaid",
+          "value": true
+        }
+      }
+    },
+    {
+      "description": "exists",
+      "value": {
+        "exists": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "title"
+        }
+      }
+    },
+    {
+      "description": "geoShape",
+      "value": {
+        "geoShape": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "location",
+          "relation": "contains",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              10.0,
+              12.0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "geoWithin",
+      "value": {
+        "geoWithin": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "location",
+          "circle": {
+            "center": {
+              "type": "Point",
+              "coordinates": [
+                1.0,
+                2.0
+              ]
+            },
+            "radius": 3.0
+          }
+        }
+      }
+    },
+    {
+      "description": "near",
+      "value": {
+        "near": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "point",
+          "origin": 13.0,
+          "pivot": 26.0
+        }
+      }
+    },
+    {
+      "description": "phrase",
+      "value": {
+        "phrase": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "title",
+          "query": "godfather",
+          "slop": 13
+        }
+      }
+    },
+    {
+      "description": "queryString",
+      "value": {
+        "queryString": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "query": "foo AND bar",
+          "defaultPath": "title"
+        }
+      }
+    },
+    {
+      "description": "range",
+      "value": {
+        "range": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "point",
+          "lt": 13.0
+        }
+      }
+    },
+    {
+      "description": "regex",
+      "value": {
+        "regex": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "title",
+          "query": "godfather",
+          "allowAnalyzedField": false
+        }
+      }
+    },
+    {
+      "description": "search",
+      "value": {
+        "search": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "span",
+      "value": {
+        "span": {
+          "first": {
+            "score": {
+              "boost": {
+                "value": 1.0
+              }
+            },
+            "operator": {
+              "term": {
+                "score": {
+                  "boost": {
+                    "value": 1.0
+                  }
+                },
+                "path": "title",
+                "query": "godfather"
+              }
+            },
+            "endPositionLte": 3
+          }
+        }
+      }
+    },
+    {
+      "description": "term",
+      "value": {
+        "term": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "text",
+      "value": {
+        "text": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "wildcard",
+      "value": {
+        "wildcard": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "title",
+          "query": "godfather",
+          "allowAnalyzedField": false
+        }
+      }
+    }
+  ]
+}

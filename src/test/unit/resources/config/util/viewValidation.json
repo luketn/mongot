@@ -1,0 +1,489 @@
+{
+  "tests": [
+    {
+      "name": "valid $addFields and $set",
+      "viewPipeline": [
+        {
+          "$addFields": {
+            "original": {
+              "$concatArrays": [
+                "$original",
+                [
+                  7
+                ]
+              ]
+            },
+            "normalized": {
+              "$map": {
+                "input": "$original",
+                "as": "originalValues",
+                "in": {
+                  "$add": [
+                    {
+                      "$multiply": [
+                        "$$originalValues",
+                        2
+                      ]
+                    },
+                    16
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "$set": {
+            "score": {
+              "$multiply": [
+                "$extraCredit",
+                {
+                  "$max": "$original"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": true
+      }
+    },
+    {
+      "name": "empty pipeline",
+      "viewPipeline": [
+      ],
+      "result": {
+        "valid": true
+      }
+    },
+    {
+      "name": "CURRENT variable override",
+      "viewPipeline": [
+        {
+          "$set": {
+            "foo": {
+              "$let": {
+                "vars": {
+                  "total": {
+                    "add": [
+                      "$price",
+                      "$tax"
+                    ]
+                  },
+                  "CURRENT": "$fullDocument"
+                },
+                "in": {
+                  "$sum": [
+                    "$a",
+                    "$b"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "overriding the CURRENT variable is not allowed"
+      }
+    },
+    {
+      "name": "USER_ROLES variable override",
+      "viewPipeline": [
+        {
+          "$set": {
+            "creditCard": {
+              "$cond": {
+                "if": {
+                  "$in": [
+                    "Billing",
+                    "$$USER_ROLES.role"
+                  ]
+                },
+                "then": "$creditCard",
+                "else": "$$REMOVE"
+              }
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "using variables like $$NOW, $$CLUSTER_TIME or $$USER_ROLES is not allowed"
+      }
+    },
+    {
+      "name": "CURRENT variable override in nested document",
+      "viewPipeline": [
+        {
+          "$set": {
+            "foo": {
+              "$let": {
+                "vars": {
+                  "total": {
+                    "add": [
+                      "$price",
+                      "$tax"
+                    ]
+                  },
+                  "myVar": 5
+                },
+                "in": {
+                  "$let": {
+                    "vars": {
+                      "total": {
+                        "add": [
+                          "$price",
+                          "$tax"
+                        ]
+                      },
+                      "CURRENT": "$fullDocument"
+                    },
+                    "in": {
+                      "$sum": [
+                        "$a",
+                        "$b"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "overriding the CURRENT variable is not allowed"
+      }
+    },
+    {
+      "name": "CURRENT variable override in array in $match",
+      "viewPipeline": [
+        {
+          "$match": {
+            "$expr": {
+              "$gt": [
+                100.0,
+                {
+                  "$sum": [
+                    1,
+                    2,
+                    {
+                      "$let": {
+                        "vars": {
+                          "total": {
+                            "add": [
+                              "$price",
+                              "$tax"
+                            ]
+                          },
+                          "CURRENT": "$fullDocument"
+                        },
+                        "in": {
+                          "$sum": [
+                            "$total",
+                            2
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "overriding the CURRENT variable is not allowed"
+      }
+    },
+    {
+      "name": "incompatible aggregation stage",
+      "viewPipeline": [
+        {
+          "$project": {
+            "a": 1
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "$project stage is not supported"
+      }
+    },
+    {
+      "name": "malformed $addFields stage",
+      "viewPipeline": [
+        {
+          "$addFields": {
+            "a": 1
+          },
+          "$a": {
+            "b": 2
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "single stage contains multiple keys"
+      }
+    },
+    {
+      "name": "empty $match",
+      "viewPipeline": [
+        {
+          "$match": {}
+        }
+      ],
+      "result": {
+        "valid": true
+      }
+    },
+    {
+      "name": "empty $expr in $match",
+      "viewPipeline": [
+        {
+          "$match": {
+            "$expr": {}
+          }
+        }
+      ],
+      "result": {
+        "valid": true
+      }
+    },
+    {
+      "name": "valid $match",
+      "viewPipeline": [
+        {
+          "$match": {
+            "$expr": {
+              "$gt": [
+                "$a",
+                "$b"
+              ]
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": true
+      }
+    },
+    {
+      "name": "$match without $expr",
+      "viewPipeline": [
+        {
+          "$match": {
+            "key": {
+              "$gt": 1
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "$match stage may only contain $expr"
+      }
+    },
+    {
+      "name": "malformed $match",
+      "viewPipeline": [
+        {
+          "$match": {
+            "$expr": {},
+            "key": {
+              "$lt": 1
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "$match stage may only contain $expr"
+      }
+    },
+    {
+      "name": "usage of time variables in arrays",
+      "viewPipeline": [
+        {
+          "$match": {
+            "$expr": {
+              "$gte": [
+                "$createDate",
+                "$$NOW"
+              ]
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "using variables like $$NOW, $$CLUSTER_TIME or $$USER_ROLES is not allowed"
+      }
+    },
+    {
+      "name": "usage of time variables in nested arrays",
+      "viewPipeline": [
+        {
+          "$addFields": {
+            "a": [
+              [
+                [
+                  "1",
+                  "$$NOW"
+                ]
+              ],
+              [
+                [
+                  "2"
+                ]
+              ],
+              [
+                "3"
+              ]
+            ]
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "using variables like $$NOW, $$CLUSTER_TIME or $$USER_ROLES is not allowed"
+      }
+    },
+    {
+      "name": "usage of time variables in documents",
+      "viewPipeline": [
+        {
+          "$addFields": {
+            "myTimestamp": "$$CLUSTER_TIME"
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "using variables like $$NOW, $$CLUSTER_TIME or $$USER_ROLES is not allowed"
+      }
+    },
+    {
+      "name": "usage of disallowed operators in documents",
+      "viewPipeline": [
+        {
+          "$addFields": {
+            "message": {
+              "$function": {
+                "body": "function(name, scores) {let total = Array.sum(scores); return `Hello ${name}.  Your total score is ${total}.`}",
+                "args": [
+                  "$name",
+                  "$scores"
+                ],
+                "lang": "js"
+              }
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "$function is not allowed"
+      }
+    },
+    {
+      "name": "usage of disallowed operators in arrays",
+      "viewPipeline": [
+        {
+          "$set": {
+            "amount": {
+              "$multiply": [
+                {
+                  "$rand": {}
+                },
+                100
+              ]
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "$rand is not allowed"
+      }
+    },
+    {
+      "name": "usage of disallowed operators in nested arrays",
+      "viewPipeline": [
+        {
+          "$set": {
+            "amount": {
+              "$concatArrays": [
+                [
+                  {
+                    "$rand": {}
+                  },
+                  50
+                ],
+                [
+                  100,
+                  200
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "$rand is not allowed"
+      }
+    },
+    {
+      "name": "usage of _id in $set",
+      "viewPipeline": [
+        {
+          "$set": {
+            "score": {
+              "$multiply": [
+                "$extraCredit",
+                {
+                  "$max": "$original"
+                }
+              ]
+            },
+            "_id": "0"
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "modifying _id field is not allowed"
+      }
+    },
+    {
+      "name": "usage of _id in $addFields",
+      "viewPipeline": [
+        {
+          "$addFields": {
+            "_id": "0",
+            "score": {
+              "$multiply": [
+                "$extraCredit",
+                {
+                  "$max": "$original"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "result": {
+        "valid": false,
+        "errorMessageContains": "modifying _id field is not allowed"
+      }
+    }
+  ]
+}

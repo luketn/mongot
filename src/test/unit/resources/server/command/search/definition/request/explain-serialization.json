@@ -1,0 +1,13 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "verbosity": "queryPlanner"
+      },
+      "bson": {
+        "verbosity": "queryPlanner"
+      }
+    }
+  ]
+}

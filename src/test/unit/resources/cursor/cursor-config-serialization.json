@@ -1,0 +1,33 @@
+{
+  "tests": [
+    {
+      "description": "full config",
+      "json": {
+        "idleCursorHandlingRateMs": 100,
+        "cursorIdleTimeMs": 60000,
+        "messageSizeLimitBytes": 256,
+        "bsonSizeSoftLimitBytes": 512,
+        "bsonSizeHardLimitBytes": 1024,
+        "idRange": {
+          "min": 13,
+          "max": 30
+        }
+      },
+      "bson": {
+        "idleCursorHandlingRateMs": 100,
+        "cursorIdleTimeMs": 60000,
+        "messageSizeLimitBytes": 256,
+        "bsonSizeSoftLimitBytes": 512,
+        "bsonSizeHardLimitBytes": 1024,
+        "idRange": {
+          "min": {
+            "$numberLong": "13"
+          },
+          "max": {
+            "$numberLong": "30"
+          }
+        }
+      }
+    }
+  ]
+}

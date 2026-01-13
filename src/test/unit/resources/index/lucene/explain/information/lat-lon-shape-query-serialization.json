@@ -1,0 +1,57 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "path": "a",
+        "coordinates": [
+          [
+            [
+              2.0,
+              1.0
+            ],
+            [
+              6.0,
+              5.0
+            ],
+            [
+              11.0,
+              10.0
+            ]
+          ]
+        ]
+      },
+      "bson": {
+        "path": "a",
+        "coordinates": [
+          [
+            [
+              {
+                "$numberDouble": "2.0"
+              },
+              {
+                "$numberDouble": "1.0"
+              }
+            ],
+            [
+              {
+                "$numberDouble": "6.0"
+              },
+              {
+                "$numberDouble": "5.0"
+              }
+            ],
+            [
+              {
+                "$numberDouble": "11.0"
+              },
+              {
+                "$numberDouble": "10.0"
+              }
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

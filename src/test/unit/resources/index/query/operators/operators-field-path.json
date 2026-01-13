@@ -1,0 +1,44 @@
+{
+  "valid": [
+    {
+      "description": "single value",
+      "value": {
+        "path": "my-path"
+      }
+    },
+    {
+      "description": "array of values",
+      "value": {
+        "path": [
+          "my-path",
+          {
+            "value": "my-other-path"
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "with multi",
+      "value": {
+        "path": {
+          "value": "my-path",
+          "multi": "my-multi"
+        }
+      }
+    },
+    {
+      "description": "missing value",
+      "value": {
+        "path": null
+      }
+    },
+    {
+      "description": "wrong field name",
+      "value": {
+        "foo": "my-path"
+      }
+    }
+  ]
+}

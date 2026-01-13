@@ -1,0 +1,192 @@
+{
+  "valid": [
+    {
+      "description": "oneHitOnly",
+      "value": [
+        {
+          "path": "testPath",
+          "texts": [
+            {
+              "value": "single",
+              "type": "hit"
+            }
+          ],
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "description": "oneTextOneHitAtBegin",
+      "value": [
+        {
+          "path": "testPath",
+          "texts": [
+            {
+              "value": "Imagine",
+              "type": "hit"
+            },
+            {
+              "value": " all the people living life in peace.",
+              "type": "text"
+            }
+          ],
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "description": "oneTextOneHitAtEnd",
+      "value": [
+        {
+          "path": "testPath",
+          "texts": [
+            {
+              "value": "Imagine all the people living life in ",
+              "type": "text"
+            },
+            {
+              "value": "peace",
+              "type": "hit"
+            },
+            {
+              "value": ".",
+              "type": "text"
+            }
+          ],
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "description": "twoTextsOneHit",
+      "value": [
+        {
+          "path": "testPath",
+          "texts": [
+            {
+              "value": "Imagine all the ",
+              "type": "text"
+            },
+            {
+              "value": "people",
+              "type": "hit"
+            },
+            {
+              "value": " living life in peace.",
+              "type": "text"
+            }
+          ],
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "description": "twoTextsTwoHitsOneAtBegin",
+      "value": [
+        {
+          "path": "testPath",
+          "texts": [
+            {
+              "value": "Imagine",
+              "type": "hit"
+            },
+            {
+              "value": " all the ",
+              "type": "text"
+            },
+            {
+              "value": "people",
+              "type": "hit"
+            },
+            {
+              "value": " living life in peace.",
+              "type": "text"
+            }
+          ],
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "description": "twoTextsTwoHitsOneAtEnd",
+      "value": [
+        {
+          "path": "testPath",
+          "texts": [
+            {
+              "value": "Imagine all the ",
+              "type": "text"
+            },
+            {
+              "value": "people",
+              "type": "hit"
+            },
+            {
+              "value": " living life in ",
+              "type": "text"
+            },
+            {
+              "value": "peace",
+              "type": "hit"
+            },
+            {
+              "value": ".",
+              "type": "text"
+            }
+          ],
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "description": "threeHitsTwoTexts",
+      "value": [
+        {
+          "path": "testPath",
+          "texts": [
+            {
+              "value": "Imagine",
+              "type": "hit"
+            },
+            {
+              "value": " all the ",
+              "type": "text"
+            },
+            {
+              "value": "people",
+              "type": "hit"
+            },
+            {
+              "value": " living life in ",
+              "type": "text"
+            },
+            {
+              "value": "peace",
+              "type": "hit"
+            },
+            {
+              "value": ".",
+              "type": "text"
+            }
+          ],
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "description": "noHits",
+      "value": []
+    }
+  ],
+  "invalid": [
+  ]
+}
+
+
+
+
+
+
+
+
+

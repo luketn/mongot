@@ -1,0 +1,37 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "mappings": {
+          "dynamic": false,
+          "fields": {}
+        },
+        "typeSets": [
+          {
+            "name": "foo",
+            "types": [
+              {
+                "type": "number",
+                "representation": "double",
+                "indexDoubles": true,
+                "indexIntegers": true
+              }
+            ]
+          },
+          {
+            "name": "bar",
+            "types": [
+              {
+                "type": "string",
+                "indexOptions": "offsets",
+                "store": true,
+                "norms": "include"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

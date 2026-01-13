@@ -1,0 +1,357 @@
+{
+  "tests": [
+    {
+      "description": "empty",
+      "bson": {
+        "cursor": {
+          "id": {
+            "$numberLong": "0"
+          },
+          "nextBatch": [],
+          "ns": "foo.bar"
+        },
+        "vars": {
+          "SEARCH_META": {
+            "count": {
+              "lowerBound": {
+                "$numberLong": "0"
+              }
+            }
+          }
+        },
+        "ok": 1
+      },
+      "json": {
+        "cursor": {
+          "id": 0,
+          "nextBatch": [],
+          "ns": "foo.bar"
+        },
+        "vars": {
+          "SEARCH_META": {
+            "count": {
+              "lowerBound": 0
+            }
+          }
+        },
+        "ok": 1
+      }
+    },
+    {
+      "description": "full",
+      "bson": {
+        "cursor": {
+          "id": {
+            "$numberLong": "1"
+          },
+          "nextBatch": [
+            {
+              "_id": 0,
+              "$searchScore": 0.0
+            },
+            {
+              "_id": 1,
+              "$searchScore": 1.0
+            },
+            {
+              "_id": 2,
+              "$searchScore": 2.0
+            },
+            {
+              "_id": 3,
+              "$searchScore": 3.0
+            }
+          ],
+          "ns": "foo.bar"
+        },
+        "explain": {
+          "query": {
+            "analyzer": "lucene.standard",
+            "type": "TermQuery",
+            "args": {
+              "value": "quie",
+              "path": "name"
+            },
+            "stats": {
+              "context": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              },
+              "match": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              },
+              "score": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              }
+            }
+          },
+          "collectors": {
+            "allCollectorStats": {
+              "millisElapsed": {
+                "$numberDouble": "1e-5"
+              },
+              "invocationCounts": {}
+            }
+          },
+          "resourceUsage": {
+            "majorFaults": {
+              "$numberLong": "1"
+            },
+            "minorFaults": {
+              "$numberLong": "2"
+            },
+            "userTimeMs": {
+              "$numberLong": "3"
+            },
+            "systemTimeMs": {
+              "$numberLong": "4"
+            },
+            "maxReportingThreads": 1,
+            "numBatches": 1
+          }
+        },
+        "vars": {
+          "SEARCH_META": {
+            "count": {
+              "lowerBound": {
+                "$numberLong": "4"
+              }
+            }
+          }
+        },
+        "ok": 1
+      },
+      "json": {
+        "cursor": {
+          "id": 1,
+          "nextBatch": [
+            {
+              "_id": 0,
+              "$searchScore": 0.0
+            },
+            {
+              "_id": 1,
+              "$searchScore": 1.0
+            },
+            {
+              "_id": 2,
+              "$searchScore": 2.0
+            },
+            {
+              "_id": 3,
+              "$searchScore": 3.0
+            }
+          ],
+          "ns": "foo.bar"
+        },
+        "explain": {
+          "query": {
+            "analyzer": "lucene.standard",
+            "type": "TermQuery",
+            "args": {
+              "value": "quie",
+              "path": "name"
+            },
+            "stats": {
+              "context": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              },
+              "match": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              },
+              "score": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              }
+            }
+          },
+          "collectors": {
+            "allCollectorStats": {
+              "millisElapsed": 1.0E-5,
+              "invocationCounts": {}
+            }
+          },
+          "resourceUsage": {
+            "majorFaults": 1,
+            "minorFaults": 2,
+            "userTimeMs": 3,
+            "systemTimeMs": 4,
+            "maxReportingThreads": 1,
+            "numBatches": 1
+          }
+        },
+        "vars": {
+          "SEARCH_META": {
+            "count": {
+              "lowerBound": 4
+            }
+          }
+        },
+        "ok": 1
+      }
+    },
+    {
+      "description": "last",
+      "bson": {
+        "cursor": {
+          "id": {
+            "$numberLong": "0"
+          },
+          "nextBatch": [
+            {
+              "_id": 0,
+              "$searchScore": 0.0
+            },
+            {
+              "_id": 1,
+              "$searchScore": 1.0
+            }
+          ],
+          "ns": "foo.bar"
+        },
+        "vars": {
+          "SEARCH_META": {
+            "count": {
+              "lowerBound": {
+                "$numberLong": "6"
+              }
+            }
+          }
+        },
+        "ok": 1
+      },
+      "json": {
+        "cursor": {
+          "id": 0,
+          "nextBatch": [
+            {
+              "_id": 0,
+              "$searchScore": 0.0
+            },
+            {
+              "_id": 1,
+              "$searchScore": 1.0
+            }
+          ],
+          "ns": "foo.bar"
+        },
+        "vars": {
+          "SEARCH_META": {
+            "count": {
+              "lowerBound": 6
+            }
+          }
+        },
+        "ok": 1
+      }
+    },
+    {
+      "description": "noMeta",
+      "bson": {
+        "cursor": {
+          "id": {
+            "$numberLong": "0"
+          },
+          "nextBatch": [],
+          "ns": "foo.bar"
+        },
+        "ok": 1
+      },
+      "json": {
+        "cursor": {
+          "id": 0,
+          "nextBatch": [],
+          "ns": "foo.bar"
+        },
+        "ok": 1
+      }
+    },
+    {
+      "description": "facet",
+      "bson": {
+        "cursor": {
+          "id": {
+            "$numberLong": "0"
+          },
+          "nextBatch": [
+            {
+              "_id": 0,
+              "$searchScore": 0.0
+            },
+            {
+              "_id": 1,
+              "$searchScore": 1.0
+            }
+          ],
+          "ns": "foo.bar"
+        },
+        "vars": {
+          "SEARCH_META": {
+            "count": {
+              "lowerBound": {
+                "$numberLong": "6"
+              }
+            },
+            "facet": {
+              "myFacet": {
+                "buckets": [
+                  {
+                    "_id": "category",
+                    "count": {
+                      "$numberLong": "2"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "ok": 1
+      },
+      "json": {
+        "cursor": {
+          "id": 0,
+          "nextBatch": [
+            {
+              "_id": 0,
+              "$searchScore": 0.0
+            },
+            {
+              "_id": 1,
+              "$searchScore": 1.0
+            }
+          ],
+          "ns": "foo.bar"
+        },
+        "vars": {
+          "SEARCH_META": {
+            "count": {
+              "lowerBound": 6
+            },
+            "facet": {
+              "myFacet": {
+                "buckets": [
+                  {
+                    "_id": "category",
+                    "count": 2
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "ok": 1
+      }
+    }
+  ]
+}

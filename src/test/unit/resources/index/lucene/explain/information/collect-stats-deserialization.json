@@ -1,0 +1,51 @@
+{
+  "valid": [
+    {
+      "description": "full",
+      "value": {
+        "allCollectorStats": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {}
+        },
+        "sort": {
+          "stats": {
+            "prunedResultIterator": {
+              "millisElapsed": 1.0E-5,
+              "invocationCounts": {}
+            },
+            "comparator": {
+              "millisElapsed": 1.0E-5,
+              "invocationCounts": {}
+            }
+          },
+          "fieldInfos": {
+            "foo": [
+              "date",
+              "token"
+            ]
+          }
+        },
+        "facet": {
+          "collectorStats": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "createCountsStats": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "stringFacetCardinalities": {
+            "foo": {
+              "queried": 5,
+              "total": 10
+            },
+            "bar": {
+              "queried": 3,
+              "total": 6
+            }
+          }
+        }
+      }
+    }
+  ]
+}

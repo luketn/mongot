@@ -1,0 +1,22 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "a",
+        "values": [
+          "angry",
+          "furious"
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing-values",
+      "value": {
+        "path": "a"
+      }
+    }
+  ]
+}

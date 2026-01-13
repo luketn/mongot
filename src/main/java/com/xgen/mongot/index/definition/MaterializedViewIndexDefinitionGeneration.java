@@ -1,0 +1,80 @@
+package com.xgen.mongot.index.definition;
+
+import com.xgen.mongot.index.version.MaterializedViewGeneration;
+import com.xgen.mongot.index.version.MaterializedViewGenerationId;
+import com.xgen.mongot.util.bson.parser.BsonDocumentBuilder;
+import com.xgen.mongot.util.bson.parser.BsonParseException;
+import com.xgen.mongot.util.bson.parser.DocumentParser;
+import org.bson.BsonDocument;
+import org.bson.types.ObjectId;
+
+public record MaterializedViewIndexDefinitionGeneration(
+    VectorIndexDefinition definition, MaterializedViewGeneration generation)
+    implements IndexDefinitionGeneration {
+
+  /**
+   * The minimum version {@link VectorIndexDefinition#getParsedAutoEmbeddingFeatureVersion} to
+   * support Materialized View based auto-embedding feature.
+   */
+  public static final int MIN_VERSION_FOR_MATERIALIZED_VIEW_EMBEDDING = 2;
+
+  public static MaterializedViewIndexDefinitionGeneration fromBson(DocumentParser parser)
+      throws BsonParseException {
+    VectorIndexDefinition definition = VectorIndexDefinition.fromBson(parser);
+    return new MaterializedViewIndexDefinitionGeneration(
+        definition, new MaterializedViewGeneration(parser.getField(Fields.GENERATION).unwrap()));
+  }
+
+  @Override
+  public MaterializedViewIndexDefinitionGeneration upgradeToCurrentFormatVersion() {
+    throw new UnsupportedOperationException("upgradeToCurrentFormatVersion is not supported");
+  }
+
+  @Override
+  public MaterializedViewIndexDefinitionGeneration incrementAttempt() {
+    MaterializedViewGeneration generation = this.generation.nextAttempt();
+    return new MaterializedViewIndexDefinitionGeneration(this.definition, generation);
+  }
+
+  public MaterializedViewIndexDefinitionGeneration incrementUser() {
+    MaterializedViewGeneration generation = this.generation.incrementUser();
+    return new MaterializedViewIndexDefinitionGeneration(this.definition, generation);
+  }
+
+  @Override
+  public VectorIndexDefinition getIndexDefinition() {
+    return this.definition;
+  }
+
+  @Override
+  public ObjectId getIndexId() {
+    return this.definition.getIndexId();
+  }
+
+  @Override
+  public MaterializedViewGenerationId getGenerationId() {
+    return generation().generationId(getIndexId());
+  }
+
+  @Override
+  public BsonDocument toBson() {
+    var doc = this.definition.toBson();
+    doc.putAll(BsonDocumentBuilder.builder().field(Fields.GENERATION, this.generation).build());
+    return doc;
+  }
+
+  @Override
+  public Type getType() {
+    return Type.AUTO_EMBEDDING;
+  }
+
+  public static boolean isMaterializedViewBasedIndex(
+      IndexDefinitionGeneration definitionGeneration) {
+    return definitionGeneration.getIndexDefinition().isAutoEmbeddingIndex()
+        && definitionGeneration
+                .getIndexDefinition()
+                .asVectorDefinition()
+                .getParsedAutoEmbeddingFeatureVersion()
+            >= MIN_VERSION_FOR_MATERIALIZED_VIEW_EMBEDDING;
+  }
+}

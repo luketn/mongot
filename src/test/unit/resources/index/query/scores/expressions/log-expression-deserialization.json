@@ -1,0 +1,56 @@
+{
+  "valid": [
+    {
+      "description": "log of path as string",
+      "value": {
+        "path": "popularity"
+      }
+    },
+    {
+      "description": "log of path as object with default undefined",
+      "value": {
+        "path": {
+          "value": "popularity"
+        }
+      }
+    },
+    {
+      "description": "log of path with undefined",
+      "value": {
+        "path": {
+          "value": "popularity",
+          "undefined": 532.31
+        }
+      }
+    },
+    {
+      "description": "log of log of path",
+      "value": {
+        "log": {
+          "path": {
+            "value": "popularity",
+            "undefined": 2905.33
+          }
+        }
+      }
+    },
+    {
+      "description": "log of constant",
+      "value": {
+        "constant": 340
+      }
+    },
+    {
+      "description": "log of score",
+      "value": {
+        "score": "relevance"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no value",
+      "value": {}
+    }
+  ]
+}

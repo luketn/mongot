@@ -1,0 +1,41 @@
+{
+  "tests": [
+    {
+      "description": "simple no details",
+      "value": {
+        "value": 0.0,
+        "description": "description",
+        "details": []
+      }
+    },
+    {
+      "description": "near query",
+      "value": {
+        "value": 5.0,
+        "description": "Distance score, computed as weight * pivotDistance / (pivotDistance + abs(value - origin)) from:",
+        "details": [
+          {
+            "value": 1.0,
+            "description": "weight",
+            "details": []
+          },
+          {
+            "value": 2.0,
+            "description": "pivotDistance",
+            "details": []
+          },
+          {
+            "value": 3.0,
+            "description": "origin",
+            "details": []
+          },
+          {
+            "value": 4.0,
+            "description": "current value",
+            "details": []
+          }
+        ]
+      }
+    }
+  ]
+}

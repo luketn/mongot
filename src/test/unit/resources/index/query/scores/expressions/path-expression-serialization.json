@@ -1,0 +1,13 @@
+{
+  "tests": [
+    {
+      "description": "as-object-with-undefined",
+      "value": {
+        "path": {
+          "value": "rating",
+          "undefined": 6043.28
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,306 @@
+package com.xgen.mongot.index.lucene;
+
+import static com.xgen.mongot.index.definition.IndexDefinitionGeneration.Type;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.xgen.mongot.featureflag.Feature;
+import com.xgen.mongot.featureflag.FeatureFlags;
+import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlagRegistry;
+import com.xgen.mongot.index.Index;
+import com.xgen.mongot.index.IndexFactory;
+import com.xgen.mongot.index.IndexMetricsUpdater;
+import com.xgen.mongot.index.InitializedIndex;
+import com.xgen.mongot.index.analyzer.AnalyzerRegistry;
+import com.xgen.mongot.index.analyzer.AnalyzerRegistryFactory;
+import com.xgen.mongot.index.analyzer.InvalidAnalyzerDefinitionException;
+import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
+import com.xgen.mongot.index.definition.IndexSortValidator;
+import com.xgen.mongot.index.definition.SearchIndexDefinition;
+import com.xgen.mongot.index.lucene.blobstore.LuceneIndexSnapshotter;
+import com.xgen.mongot.index.lucene.blobstore.LuceneIndexSnapshotterManager;
+import com.xgen.mongot.index.lucene.config.LuceneConfig;
+import com.xgen.mongot.index.lucene.directory.ByteReadCollector;
+import com.xgen.mongot.index.lucene.directory.EnvironmentVariantPerfConfig;
+import com.xgen.mongot.index.lucene.directory.IndexDirectoryFactory;
+import com.xgen.mongot.index.lucene.directory.IndexDirectoryHelper;
+import com.xgen.mongot.index.lucene.searcher.QueryCacheProvider;
+import com.xgen.mongot.metrics.MeterAndFtdcRegistry;
+import com.xgen.mongot.metrics.MetricsFactory;
+import com.xgen.mongot.metrics.PerIndexMetricsFactory;
+import com.xgen.mongot.monitor.DiskMonitor;
+import com.xgen.mongot.monitor.Gate;
+import com.xgen.mongot.util.AtomicDirectoryRemover;
+import com.xgen.mongot.util.Check;
+import com.xgen.mongot.util.CollectionUtils;
+import com.xgen.mongot.util.Crash;
+import com.xgen.mongot.util.FileUtils;
+import com.xgen.mongot.util.concurrent.Executors;
+import com.xgen.mongot.util.concurrent.MeteredCallerRunsPolicy;
+import com.xgen.mongot.util.concurrent.NamedExecutorService;
+import com.xgen.mongot.util.concurrent.NamedScheduledExecutorService;
+import java.io.IOException;
+import java.util.Optional;
+import org.apache.lucene.index.MergePolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class LuceneIndexFactory implements IndexFactory {
+  private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexFactory.class);
+
+  private final LuceneConfig config;
+  private final AtomicDirectoryRemover indexRemover;
+  private final AnalyzerRegistryFactory analyzerRegistryFactory;
+  private final InstrumentedConcurrentMergeScheduler mergeScheduler;
+  private final MergePolicy mergePolicy;
+  private final Optional<MergePolicy> vectorMergePolicy;
+  private final QueryCacheProvider queryCacheProvider;
+  private final NamedScheduledExecutorService refreshExecutor;
+  private final Optional<NamedExecutorService> concurrentSearchExecutor;
+  private final Optional<NamedExecutorService> concurrentVectorRescoringExecutor;
+  private final Optional<LuceneIndexSnapshotterManager> luceneIndexSnapshotterManager;
+  private final Optional<ByteReadCollector> byteReadCollector;
+
+  protected final MeterAndFtdcRegistry meterAndFtdcRegistry;
+  private final MetricsFactory metricsFactory;
+  private final IndexDirectoryHelper indexDirectoryHelper;
+  private final FeatureFlags featureFlags;
+  private final DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry;
+  private final EnvironmentVariantPerfConfig environmentVariantPerfConfig;
+
+  @VisibleForTesting
+  LuceneIndexFactory(
+      LuceneConfig config,
+      AtomicDirectoryRemover indexRemover,
+      AnalyzerRegistryFactory analyzerRegistryFactory,
+      InstrumentedConcurrentMergeScheduler mergeScheduler,
+      MergePolicy mergePolicy,
+      Optional<MergePolicy> vectorMergePolicy,
+      QueryCacheProvider queryCacheProvider,
+      NamedScheduledExecutorService refreshExecutor,
+      Optional<NamedExecutorService> concurrentSearchExecutor,
+      Optional<NamedExecutorService> concurrentVectorRescoringExecutor,
+      Optional<LuceneIndexSnapshotterManager> luceneSnapshotterManager,
+      MeterAndFtdcRegistry meterAndFtdcRegistry,
+      MetricsFactory metricsFactory,
+      IndexDirectoryHelper indexDirectoryHelper,
+      FeatureFlags featureFlags,
+      DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry,
+      EnvironmentVariantPerfConfig environmentVariantPerfConfig) {
+    this.config = config;
+    this.indexRemover = indexRemover;
+    this.analyzerRegistryFactory = analyzerRegistryFactory;
+    this.mergeScheduler = mergeScheduler;
+    this.mergePolicy = mergePolicy;
+    this.vectorMergePolicy = vectorMergePolicy;
+    this.queryCacheProvider = queryCacheProvider;
+    this.refreshExecutor = refreshExecutor;
+    this.concurrentSearchExecutor = concurrentSearchExecutor;
+    this.concurrentVectorRescoringExecutor = concurrentVectorRescoringExecutor;
+    this.luceneIndexSnapshotterManager = luceneSnapshotterManager;
+    this.meterAndFtdcRegistry = meterAndFtdcRegistry;
+    this.metricsFactory = metricsFactory;
+    this.indexDirectoryHelper = indexDirectoryHelper;
+    this.featureFlags = featureFlags;
+    this.dynamicFeatureFlagRegistry = dynamicFeatureFlagRegistry;
+    this.environmentVariantPerfConfig = environmentVariantPerfConfig;
+    if (this.environmentVariantPerfConfig.isByteReadInstrumentationEnabled()) {
+      this.byteReadCollector = Optional.of(new ByteReadCollector(metricsFactory));
+    } else {
+      this.byteReadCollector = Optional.empty();
+    }
+  }
+
+  /** Creates LuceneIndexFactory. */
+  public static LuceneIndexFactory fromConfig(
+      LuceneConfig config,
+      FeatureFlags featureFlags,
+      DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry,
+      EnvironmentVariantPerfConfig environmentVariantPerfConfig,
+      MeterAndFtdcRegistry meterAndFtdcRegistry,
+      Optional<LuceneIndexSnapshotterManager> snapshotterManager,
+      AnalyzerRegistryFactory analyzerRegistryFactory,
+      DiskMonitor diskMonitor)
+      throws IOException {
+    var meterRegistry = meterAndFtdcRegistry.meterRegistry();
+
+    InstrumentedConcurrentMergeScheduler mergeScheduler =
+        new InstrumentedConcurrentMergeScheduler(meterRegistry);
+    mergeScheduler.setMaxMergesAndThreads(config.numMaxMerges(), config.numMaxMergeThreads());
+
+    Gate mergeGate = DiskUtilizationAwareMergePolicy.createMergeGate(config, diskMonitor);
+    MergePolicy mergePolicy =
+        MergePolicyFactory.createMergePolicy(config, mergeGate, meterRegistry);
+    QueryCacheProvider queryCacheProvider =
+        featureFlags.isEnabled(Feature.INSTRUMENTED_QUERY_CACHE)
+            ? new QueryCacheProvider.MeteredQueryCacheProvider(meterRegistry)
+            : new QueryCacheProvider.DefaultQueryCacheProvider();
+
+    Optional<MergePolicy> vectorMergePolicy =
+        MergePolicyFactory.createVectorMergePolicy(config, featureFlags, mergeGate, meterRegistry);
+
+    NamedScheduledExecutorService refreshExecutor =
+        Executors.fixedSizeThreadScheduledExecutor(
+            "index-refresh", config.refreshExecutorThreads(), meterRegistry);
+
+    Optional<NamedExecutorService> concurrentSearchExecutor =
+        config.enableConcurrentSearch()
+            ? Optional.of(
+                Executors.fixedSizeThreadPool(
+                    "concurrent-search",
+                    config.concurrentSearchExecutorThreads(),
+                    config.concurrentSearchExecutorQueueSize(),
+                    new MeteredCallerRunsPolicy(
+                        meterRegistry.counter("rejectedConcurrentSearchExecutionCount")),
+                    meterRegistry))
+            : Optional.empty();
+
+    Optional<NamedExecutorService> concurrentVectorRescoringExecutor =
+        config.enableConcurrentSearch()
+            ? Optional.of(
+                Executors.fixedSizeThreadPool(
+                    "concurrent-vector-rescoring",
+                    config.concurrentVectorRescoringExecutorThreads(),
+                    config.concurrentVectorRescoringExecutorQueueSize(),
+                    new MeteredCallerRunsPolicy(
+                        meterRegistry.counter("rejectedConcurrentVectorRescoringExecutionCount")),
+                    meterRegistry))
+            : Optional.empty();
+
+    MetricsFactory metricsFactory = new MetricsFactory("indexFactory", meterRegistry);
+    var indexDirectoryHelper = IndexDirectoryHelper.create(config.dataPath(), metricsFactory);
+    return new LuceneIndexFactory(
+        config,
+        indexDirectoryHelper.getIndexRemover(),
+        analyzerRegistryFactory,
+        mergeScheduler,
+        mergePolicy,
+        vectorMergePolicy,
+        queryCacheProvider,
+        refreshExecutor,
+        concurrentSearchExecutor,
+        concurrentVectorRescoringExecutor,
+        snapshotterManager,
+        meterAndFtdcRegistry,
+        metricsFactory,
+        indexDirectoryHelper,
+        featureFlags,
+        dynamicFeatureFlagRegistry,
+        environmentVariantPerfConfig);
+  }
+
+  /** Must be called after all associated indexes are closed. */
+  @Override
+  public void close() {
+    LOG.info("Shutting down.");
+    Executors.shutdownOrFail(this.refreshExecutor);
+    this.concurrentSearchExecutor.ifPresent(Executors::shutdownOrFail);
+    Crash.because("failed to close merge scheduler").ifThrows(() -> this.mergeScheduler.close());
+    this.metricsFactory.close();
+  }
+
+  @Override
+  public Index getIndex(IndexDefinitionGeneration definitionGeneration)
+      throws InvalidAnalyzerDefinitionException, IOException {
+
+    LOG.atInfo()
+        .addKeyValue("indexId", definitionGeneration.getGenerationId().indexId)
+        .addKeyValue("generationId", definitionGeneration.getGenerationId())
+        .log("creating index");
+
+    var metricsFactory =
+        new PerIndexMetricsFactory(
+            IndexMetricsUpdater.NAMESPACE,
+            this.meterAndFtdcRegistry,
+            definitionGeneration.getGenerationId());
+
+    if (definitionGeneration.getType() == Type.VECTOR) {
+      return LuceneVectorIndex.createDiskBacked(
+          this.indexDirectoryHelper.getIndexDirectoryPath(definitionGeneration),
+          this.indexDirectoryHelper.getIndexMetadataPath(definitionGeneration),
+          this.config,
+          this.featureFlags,
+          this.mergeScheduler,
+          this.vectorMergePolicy.orElse(this.mergePolicy),
+          this.queryCacheProvider,
+          this.refreshExecutor,
+          this.concurrentSearchExecutor,
+          this.concurrentVectorRescoringExecutor,
+          definitionGeneration.getIndexDefinition().asVectorDefinition(),
+          definitionGeneration.generation().indexFormatVersion,
+          this.indexRemover,
+          metricsFactory);
+    }
+
+    SearchIndexDefinition searchDefinition =
+        definitionGeneration.getIndexDefinition().asSearchDefinition();
+    if (searchDefinition.getSort().isPresent()) {
+      IndexSortValidator.checkSortedIndexEnabled(searchDefinition, this.featureFlags);
+    }
+    AnalyzerRegistry analyzerRegistry =
+        this.analyzerRegistryFactory.create(
+            CollectionUtils.concat(
+                definitionGeneration.asSearch().definition().analyzerDefinitions(),
+                searchDefinition.getAnalyzers()),
+            this.featureFlags.isEnabled(Feature.TRUNCATE_AUTOCOMPLETE_TOKENS));
+
+    boolean hasVectorField =
+        searchDefinition.getMappings().fields().values().stream()
+            .anyMatch(field -> field.vectorFieldSpecification().isPresent());
+    return LuceneSearchIndex.createDiskBacked(
+        this.indexDirectoryHelper.getIndexDirectoryPath(definitionGeneration),
+        this.indexDirectoryHelper.getIndexMetadataPath(definitionGeneration),
+        this.config,
+        this.featureFlags,
+        this.mergeScheduler,
+        hasVectorField ? this.vectorMergePolicy.orElse(this.mergePolicy) : this.mergePolicy,
+        this.queryCacheProvider,
+        this.refreshExecutor,
+        this.concurrentSearchExecutor,
+        this.concurrentVectorRescoringExecutor,
+        searchDefinition,
+        definitionGeneration.generation().indexFormatVersion,
+        analyzerRegistry,
+        this.indexRemover,
+        metricsFactory);
+  }
+
+  @Override
+  public InitializedIndex getInitializedIndex(
+      Index index, IndexDefinitionGeneration definitionGeneration) throws IOException {
+    try {
+      FileUtils.mkdirIfNotExist(
+          this.indexDirectoryHelper.getIndexMetadataPath(definitionGeneration));
+      FileUtils.mkdirIfNotExist(
+          this.indexDirectoryHelper.getIndexDirectoryPath(definitionGeneration));
+    } catch (IOException e) {
+      throw new IllegalStateException(e.getMessage());
+    }
+
+    Optional<LuceneIndexSnapshotter> luceneIndexSnapshotter =
+        this.luceneIndexSnapshotterManager.flatMap(
+            manager -> manager.get(definitionGeneration.getGenerationId()));
+    var directoryFactory =
+        new IndexDirectoryFactory(
+            this.indexDirectoryHelper, definitionGeneration, this.config, this.byteReadCollector);
+    if (definitionGeneration.getType() == Type.VECTOR) {
+      var luceneVectorIndex = Check.instanceOf(index, LuceneVectorIndex.class);
+      return InitializedLuceneVectorIndex.create(
+          luceneVectorIndex,
+          definitionGeneration.getGenerationId(),
+          directoryFactory,
+          this.indexDirectoryHelper,
+          luceneIndexSnapshotter,
+          this.featureFlags);
+    } else {
+      var luceneSearchIndex = Check.instanceOf(index, LuceneSearchIndex.class);
+      return InitializedLuceneSearchIndex.create(
+          luceneSearchIndex,
+          definitionGeneration.getGenerationId(),
+          directoryFactory,
+          this.indexDirectoryHelper,
+          luceneIndexSnapshotter,
+          this.featureFlags,
+          this.dynamicFeatureFlagRegistry);
+    }
+  }
+}

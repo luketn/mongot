@@ -1,0 +1,465 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "implicit-approximate-query",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "with-filter",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": {
+          "$numberLong": "10"
+        },
+        "limit": 10,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "filter": {
+          "my-field": {
+            "$nin": [
+              1,
+              2,
+              3
+            ]
+          }
+        },
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "bson-float32-query-vector",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "limit": 5,
+        "queryVector": {
+          "$binary": {
+            "base64": "JwAAAABAAAAAQAAAAEA=",
+            "subType": "09"
+          }
+        },
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "bson-int8-query-vector",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "limit": 5,
+        "queryVector": {
+          "$binary": {
+            "base64": "AwACAgI=",
+            "subType": "09"
+          }
+        },
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "simple-auto-embedding-query",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "query": "test query",
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "simple-auto-embedding-query-multimodal",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "query": {
+          "text": "test query"
+        },
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "with-searchNodePreference",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "searchNodePreference": {
+          "key": "primary"
+        }
+      }
+    },
+    {
+      "description": "auto-embedding-query-with-model",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "query": "test query",
+        "model": "voyage-3-large",
+        "returnStoredSource": false
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing index",
+      "value": {
+        "path": "description",
+        "numCandidates": 10,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "empty index",
+      "value": {
+        "index": "",
+        "path": "description",
+        "numCandidates": 10,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "missing queryVector",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "limit": 5,
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "missing numCandidates",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "limit": 10,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "missing limit",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "negative numCandidates",
+      "errorMessageContains": "\"numCandidates\" must be within bounds [1..10000]",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "numCandidates": -14,
+        "limit": 10,
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "negative limit",
+      "errorMessageContains": "\"limit\" must be positive",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "numCandidates": 10,
+        "limit": -5,
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "limit > numCandidates",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "numCandidates": 10,
+        "limit": 11,
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "zero numCandidates",
+      "errorMessageContains": "\"numCandidates\" must be within bounds [1..10000]",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "numCandidates": 0,
+        "limit": 1,
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "zero limit",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "numCandidates": 10,
+        "limit": 0,
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "invalid queryVector",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "limit": 10,
+        "queryVector": [
+          2,
+          "2",
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "invalid numCandidates",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 1000000000,
+        "limit": 10,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "exact: true",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 1000,
+        "limit": 10,
+        "exact": true,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "non-finite queryVector",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "limit": 5,
+        "queryVector": [
+          2,
+          {
+            "$numberDouble": "Infinity"
+          },
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "contains both query and queryVector",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "limit": 5,
+        "query": "test text",
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "with-searchNodePreference",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "searchNodePreference": {
+          "key": ""
+        }
+      }
+    },
+    {
+      "description": "query-with-invalid-type-array",
+      "errorMessageContains": "query must be a string or document",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "query": [
+          "test query"
+        ]
+      }
+    },
+    {
+      "description": "query-with-invalid-type-number",
+      "errorMessageContains": "query must be a string or document",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "query": 123
+      }
+    },
+    {
+      "description": "query-multimodal-with-unknown-field",
+      "errorMessageContains": "unrecognized field",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "query": {
+          "text": "test query",
+          "unknownField": "value"
+        }
+      }
+    },
+    {
+      "description": "query-multimodal-with-invalid-text-type",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "exact": false,
+        "limit": 5,
+        "query": {
+          "text": 123
+        }
+      }
+    },
+    {
+      "description": "model-with-queryVector-not-allowed",
+      "errorMessageContains": "model can only be specified when using 'query' for auto-embedding",
+      "value": {
+        "index": "myVectorIndex",
+        "path": "description",
+        "numCandidates": 10,
+        "limit": 5,
+        "queryVector": [
+          2,
+          2,
+          2
+        ],
+        "model": "voyage-3-large",
+        "returnStoredSource": false
+      }
+    }
+  ]
+}

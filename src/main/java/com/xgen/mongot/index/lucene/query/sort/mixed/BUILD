@@ -1,0 +1,39 @@
+load("//bazel/java:package.bzl", "java_library")
+
+java_library(
+    name = "mixed",
+    srcs = [
+        "CompositeComparator.java",
+        "CompositeLeafComparator.java",
+        "MixedBooleanLeafComparator.java",
+        "MixedDateLeafComparator.java",
+        "MixedDoubleLeafComparator.java",
+        "MixedEmptyLeafComparator.java",
+        "MixedFieldComparator.java",
+        "MixedLeafFieldComparator.java",
+        "MixedLongLeafComparator.java",
+        "MixedNullLeafComparator.java",
+        "MixedNumericLeafComparator.java",
+        "MixedOrdinalLeafComparator.java",
+        "MqlMixedSort.java",
+        "SortUtil.java",
+    ],
+    visibility = ["//visibility:public"],
+    exports = [
+        "//src/main/java/com/xgen/mongot/index/query/sort",
+        "@maven//:org_apache_lucene_lucene_core",
+        "@maven//:org_mongodb_bson",
+    ],
+    deps = [
+        "//src/main/java/com/xgen/mongot/index/lucene/field",
+        "//src/main/java/com/xgen/mongot/index/lucene/util",
+        "//src/main/java/com/xgen/mongot/index/query/sort",
+        "//src/main/java/com/xgen/mongot/util",
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:com_google_errorprone_error_prone_annotations",
+        "@maven//:com_google_guava_guava",
+        "@maven//:org_apache_lucene_lucene_core",
+        "@maven//:org_jetbrains_annotations",
+        "@maven//:org_mongodb_bson",
+    ],
+)

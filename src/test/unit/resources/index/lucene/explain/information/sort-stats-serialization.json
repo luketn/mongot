@@ -1,0 +1,92 @@
+{
+  "tests": [
+    {
+      "description": "full",
+      "json": {
+        "stats": {
+          "prunedResultIterator": {
+            "millisElapsed": 1.0E-5,
+            "invocationCounts": {}
+          },
+          "comparator": {
+            "millisElapsed": 1.0E-5,
+            "invocationCounts": {}
+          }
+        },
+        "fieldInfos": {
+          "foo": [
+            "date",
+            "token"
+          ]
+        }
+      },
+      "bson": {
+        "stats": {
+          "prunedResultIterator": {
+            "millisElapsed": {
+              "$numberDouble": "1e-5"
+            },
+            "invocationCounts": {}
+          },
+          "comparator": {
+            "millisElapsed": {
+              "$numberDouble": "1e-5"
+            },
+            "invocationCounts": {}
+          }
+        },
+        "fieldInfos": {
+          "foo": [
+            "date",
+            "token"
+          ]
+        }
+      }
+    },
+    {
+      "description": "full-with-can-benefit-from-index-sort",
+      "json": {
+        "stats": {
+          "prunedResultIterator": {
+            "millisElapsed": 1.0E-5,
+            "invocationCounts": {}
+          },
+          "comparator": {
+            "millisElapsed": 1.0E-5,
+            "invocationCounts": {}
+          }
+        },
+        "fieldInfos": {
+          "foo": [
+            "date",
+            "token"
+          ]
+        },
+        "canBenefitFromIndexSort": true
+      },
+      "bson": {
+        "stats": {
+          "prunedResultIterator": {
+            "millisElapsed": {
+              "$numberDouble": "1e-5"
+            },
+            "invocationCounts": {}
+          },
+          "comparator": {
+            "millisElapsed": {
+              "$numberDouble": "1e-5"
+            },
+            "invocationCounts": {}
+          }
+        },
+        "fieldInfos": {
+          "foo": [
+            "date",
+            "token"
+          ]
+        },
+        "canBenefitFromIndexSort": true
+      }
+    }
+  ]
+}

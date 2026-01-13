@@ -1,0 +1,39 @@
+{
+  "valid": [
+    {
+      "description": "text",
+      "value": {
+        "value": "firstText",
+        "type": "text"
+      }
+    },
+    {
+      "description": "hit",
+      "value": {
+        "value": "12Hit",
+        "type": "hit"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "noValue",
+      "value": {
+        "type": "text"
+      }
+    },
+    {
+      "description": "noType",
+      "value": {
+        "value": "firstText"
+      }
+    },
+    {
+      "description": "badType",
+      "value": {
+        "value": "firstText",
+        "type": "best"
+      }
+    }
+  ]
+}

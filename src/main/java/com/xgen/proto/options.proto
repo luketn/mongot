@@ -1,0 +1,82 @@
+// Options to control bson message handling behavior.
+
+syntax = "proto2";
+
+import "google/protobuf/descriptor.proto";
+
+option java_package = "org.bson.protobuf";
+option java_multiple_files = true;
+
+package bson.protobuf;
+
+message FieldOptions {
+  // If true, unknown fields are allowed in the tagged message field.
+  //
+  // This option may only be set on message-typed field, for all other field types this may result
+  // in a compilation error.
+  //
+  // This setting does not apply recursively -- any sub-messages within the field may have their
+  // own setting for allow_unknown_fields.
+  optional bool allow_unknown_fields = 1 [default = false];
+
+  // If true, accept a single value of the appropriate type for a list/repeated field.
+  //
+  // Setting this option may yield a compilation error if the target field is not marked repeated.
+  // * Is not marked as `repeated`.
+  // * May be represented as a BSON array (including ProtoArray and ProtoValue well-known types).
+  //
+  // This is not allowed for BSON array valued types as parsing becomes ambiguous.
+  optional bool allow_single_value = 2 [default = false];
+}
+
+extend google.protobuf.FieldOptions {
+  optional FieldOptions field_options = 57777;
+}
+
+enum MessageType {
+  // DOCUMENT messages serialize as a Bson Document.
+  //
+  // Generated code for these messages extends the BsonMessage interface. Fields are serialized by
+  // name with an appropriately typed value derived from the field value(s).
+  //
+  // This is the default message type.
+  DOCUMENT = 0;
+
+  // DISCRIMINATED_UNION messages serialize as a BsonDocument that is the union of several different
+  // message types.
+  //
+  // This setting is only allowed for messages with exactly one "oneof" field whose variants are
+  // all other message types. When parsing we expect the current bson document to contain a
+  // discriminator field (the name of the oneof) and a mix of fields from the current message and
+  // the matching union sub-message. Parsing will fail if the input document does not contain the
+  // discriminator field or if its value is unknown.
+  //
+  // When this is set the protobuf-bson plugin will check the following conditions:
+  // 1. The message contains exactly one oneof field.
+  // 2. All variants of the oneof field are message types.
+  // 3. All variants of the oneof field are _not_ discriminated union types.
+  // 4. The set of base message field names is disjoint from the set of field names in each variant
+  //    type. This checks the json names of the fields, not the names as they appear in the message
+  //    definition -- json names can be overridden if needed.
+  DISCRIMINATED_UNION = 1;
+
+  // VALUE message serialize a single value of an arbitrary Bson type.
+  //
+  // Generated code for these messages extends the BsonValueMessage interface and these messages
+  // cannot be coded with BsonWriter/BsonReader as the root of a message -- they must be composed as
+  // a field of another message. Most well-known type messages adhere to this interface.
+  //
+  // VALUE messages may contain either a single repeated field or a single oneof where each field in
+  // the oneof has a different Bson type. Field names inside a value message are never serialized
+  // as part of the output, instead only the type and value are written. Similarly, values are
+  // parsed by Bson type rather than by name.
+  VALUE = 2;
+}
+
+message MessageOptions {
+  optional MessageType message_type = 1 [default = DOCUMENT];
+}
+
+extend google.protobuf.MessageOptions {
+  optional MessageOptions message_options = 57777;
+}

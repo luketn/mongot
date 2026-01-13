@@ -1,0 +1,32 @@
+{
+  "valid": [
+    {
+      "description": "lowerBound",
+      "value": {
+        "lowerBound": {
+          "$numberLong": "1000"
+        }
+      }
+    },
+    {
+      "description": "total",
+      "value": {
+        "total": {
+          "$numberLong": "1000"
+        }
+      }
+    },
+    {
+      "description": "both",
+      "value": {
+        "lowerBound": {
+          "$numberLong": "1000"
+        },
+        "total": {
+          "$numberLong": "1000"
+        }
+      }
+    }
+  ],
+  "invalid": []
+}

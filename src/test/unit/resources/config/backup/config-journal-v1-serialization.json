@@ -1,0 +1,947 @@
+{
+  "tests": [
+    {
+      "description": "empty",
+      "value": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      }
+    },
+    {
+      "description": "with staged index",
+      "json": {
+        "version": 1,
+        "stagedIndexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              }
+            },
+            "analyzers": [
+            ],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          }
+        ],
+        "indexes": [
+        ],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      },
+      "bson": {
+        "version": 1,
+        "stagedIndexes": [
+          {
+            "index": {
+              "indexID": {
+                "$oid": "012345678901234567890123"
+              },
+              "name": "foo",
+              "database": "bar",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "collectionUUID": {
+                "$binary": {
+                  "base64": "AAAAABERIiIzM0RERERERA==",
+                  "subType": "04"
+                }
+              },
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              }
+            },
+            "analyzers": [
+            ],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          }
+        ],
+        "indexes": [
+        ],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      }
+    },
+    {
+      "description": "with index",
+      "json": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              }
+            },
+            "analyzers": [],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          }
+        ],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      },
+      "bson": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [
+          {
+            "index": {
+              "indexID": {
+                "$oid": "012345678901234567890123"
+              },
+              "name": "foo",
+              "database": "bar",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "collectionUUID": {
+                "$binary": {
+                  "base64": "AAAAABERIiIzM0RERERERA==",
+                  "subType": "04"
+                }
+              },
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              }
+            },
+            "analyzers": [],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          }
+        ],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      }
+    },
+    {
+      "description": "with overridden analyzer",
+      "json": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              },
+              "analyzer": "foo"
+            },
+            "analyzers": [
+              {
+                "name": "foo",
+                "baseAnalyzer": "bar",
+                "ignoreCase": true
+              }
+            ],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          }
+        ],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      },
+      "bson": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [
+          {
+            "index": {
+              "indexID": {
+                "$oid": "012345678901234567890123"
+              },
+              "name": "foo",
+              "database": "bar",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "collectionUUID": {
+                "$binary": {
+                  "base64": "AAAAABERIiIzM0RERERERA==",
+                  "subType": "04"
+                }
+              },
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              },
+              "analyzer": "foo"
+            },
+            "analyzers": [
+              {
+                "name": "foo",
+                "baseAnalyzer": "bar",
+                "ignoreCase": true
+              }
+            ],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          }
+        ],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      }
+    },
+    {
+      "description": "with deleted index",
+      "json": {
+        "version": 1,
+        "stagedIndexes": [
+        ],
+        "indexes": [
+        ],
+        "deletedIndexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              }
+            },
+            "analyzers": [
+            ],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          }
+        ],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      },
+      "bson": {
+        "version": 1,
+        "stagedIndexes": [
+        ],
+        "indexes": [
+        ],
+        "deletedIndexes": [
+          {
+            "index": {
+              "indexID": {
+                "$oid": "012345678901234567890123"
+              },
+              "name": "foo",
+              "database": "bar",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "collectionUUID": {
+                "$binary": {
+                  "base64": "AAAAABERIiIzM0RERERERA==",
+                  "subType": "04"
+                }
+              },
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              }
+            },
+            "analyzers": [
+            ],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          }
+        ],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      }
+    },
+    {
+      "description": "multiple values",
+      "json": {
+        "version": 1,
+        "stagedIndexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              }
+            },
+            "analyzers": [
+            ],
+            "generation": {
+              "userVersion": 10,
+              "formatVersion": 10
+            }
+          }
+        ],
+        "indexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              }
+            },
+            "analyzers": [
+            ],
+            "generation": {
+              "userVersion": 9,
+              "formatVersion": 9
+            }
+          }
+        ],
+        "deletedIndexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              }
+            },
+            "analyzers": [
+            ],
+            "generation": {
+              "userVersion": 8,
+              "formatVersion": 8
+            }
+          }
+        ],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      },
+      "bson": {
+        "version": 1,
+        "stagedIndexes": [
+          {
+            "index": {
+              "indexID": {
+                "$oid": "012345678901234567890123"
+              },
+              "name": "foo",
+              "database": "bar",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "collectionUUID": {
+                "$binary": {
+                  "base64": "AAAAABERIiIzM0RERERERA==",
+                  "subType": "04"
+                }
+              },
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              }
+            },
+            "analyzers": [
+            ],
+            "generation": {
+              "userVersion": 10,
+              "formatVersion": 10
+            }
+          }
+        ],
+        "indexes": [
+          {
+            "index": {
+              "indexID": {
+                "$oid": "012345678901234567890123"
+              },
+              "name": "foo",
+              "database": "bar",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "collectionUUID": {
+                "$binary": {
+                  "base64": "AAAAABERIiIzM0RERERERA==",
+                  "subType": "04"
+                }
+              },
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              }
+            },
+            "analyzers": [
+            ],
+            "generation": {
+              "userVersion": 9,
+              "formatVersion": 9
+            }
+          }
+        ],
+        "deletedIndexes": [
+          {
+            "index": {
+              "indexID": {
+                "$oid": "012345678901234567890123"
+              },
+              "name": "foo",
+              "database": "bar",
+              "lastObservedCollectionName": "baz",
+              "indexFeatureVersion": 0,
+              "collectionUUID": {
+                "$binary": {
+                  "base64": "AAAAABERIiIzM0RERERERA==",
+                  "subType": "04"
+                }
+              },
+              "numPartitions": 1,
+              "mappings": {
+                "dynamic": true,
+                "fields": {}
+              }
+            },
+            "analyzers": [
+            ],
+            "generation": {
+              "userVersion": 8,
+              "formatVersion": 8
+            }
+          }
+        ],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      }
+    },
+    {
+      "description": "with staged vector index",
+      "json": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "00000000-1111-2222-3333-444444444444",
+            "numPartitions": 1,
+            "indexFeatureVersion": 3,
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 6
+            }
+          }
+        ],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      },
+      "bson": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": {
+              "$oid": "507f191e810c19729de860ea"
+            },
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": {
+              "$binary": {
+                "base64": "AAAAABERIiIzM0RERERERA==",
+                "subType": "04"
+              }
+            },
+            "numPartitions": 1,
+            "indexFeatureVersion": 3,
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 6
+            }
+          }
+        ],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      }
+    },
+    {
+      "description": "with vector index",
+      "json": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "00000000-1111-2222-3333-444444444444",
+            "numPartitions": 1,
+            "indexFeatureVersion": 3,
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 6
+            }
+          }
+        ],
+        "deletedVectorIndexes": []
+      },
+      "bson": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": {
+              "$oid": "507f191e810c19729de860ea"
+            },
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": {
+              "$binary": {
+                "base64": "AAAAABERIiIzM0RERERERA==",
+                "subType": "04"
+              }
+            },
+            "numPartitions": 1,
+            "indexFeatureVersion": 3,
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 6
+            }
+          }
+        ],
+        "deletedVectorIndexes": []
+      }
+    },
+    {
+      "description": "with deleted vector index",
+      "json": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "00000000-1111-2222-3333-444444444444",
+            "numPartitions": 1,
+            "indexFeatureVersion": 3,
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 6
+            }
+          }
+        ]
+      },
+      "bson": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": {
+              "$oid": "507f191e810c19729de860ea"
+            },
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": {
+              "$binary": {
+                "base64": "AAAAABERIiIzM0RERERERA==",
+                "subType": "04"
+              }
+            },
+            "numPartitions": 1,
+            "indexFeatureVersion": 3,
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 6
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "multiple vector values",
+      "json": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "00000000-1111-2222-3333-444444444444",
+            "numPartitions": 1,
+            "indexFeatureVersion": 3,
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 6,
+              "attemptNumber": 1
+            }
+          }
+        ],
+        "vectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "00000000-1111-2222-3333-444444444444",
+            "numPartitions": 1,
+            "indexFeatureVersion": 3,
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 5
+            }
+          }
+        ],
+        "deletedVectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "00000000-1111-2222-3333-444444444444",
+            "numPartitions": 1,
+            "indexFeatureVersion": 3,
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 5
+            }
+          }
+        ]
+      },
+      "bson": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": {
+              "$oid": "507f191e810c19729de860ea"
+            },
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": {
+              "$binary": {
+                "base64": "AAAAABERIiIzM0RERERERA==",
+                "subType": "04"
+              }
+            },
+            "numPartitions": 1,
+            "indexFeatureVersion": 3,
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 6,
+              "attemptNumber": 1
+            }
+          }
+        ],
+        "vectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": {
+              "$oid": "507f191e810c19729de860ea"
+            },
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": {
+              "$binary": {
+                "base64": "AAAAABERIiIzM0RERERERA==",
+                "subType": "04"
+              }
+            },
+            "numPartitions": 1,
+            "indexFeatureVersion": 3,
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 5
+            }
+          }
+        ],
+        "deletedVectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": {
+              "$oid": "507f191e810c19729de860ea"
+            },
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": {
+              "$binary": {
+                "base64": "AAAAABERIiIzM0RERERERA==",
+                "subType": "04"
+              }
+            },
+            "numPartitions": 1,
+            "indexFeatureVersion": 3,
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 5
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
+

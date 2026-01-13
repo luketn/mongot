@@ -1,0 +1,59 @@
+{
+  "tests": [
+    {
+      "description": "full config",
+      "json": {
+        "numConcurrentInitialSyncs": 1,
+        "numConcurrentChangeStreams": 2,
+        "numIndexingThreads": 3,
+        "changeStreamMaxTimeMs": 4,
+        "numConcurrentSynonymSyncs": 5,
+        "changeStreamCursorMaxTimeSec": 6,
+        "numChangeStreamDecodingThreads": 7,
+        "enableSteadyStateChangeStreamProjection": true,
+        "pauseAllInitialSyncs": false,
+        "pauseInitialSyncOnIndexIds": [
+          "68784215b86a4a2d55787ae6",
+          "687d201de90e474dfbc7c1d4"
+        ],
+        "maxInFlightEmbeddingGetMores": 8,
+        "maxConcurrentEmbeddingInitialSyncs": 9,
+        "embeddingGetMoreBatchSize": 10,
+        "excludedChangestreamFields": [
+          "updateDescription.disambiguatedPaths"
+        ],
+        "matchCollectionUUIDForUpdateLookup": true,
+        "enableSplitLargeChangeStreamEvents": false,
+        "requestRateLimitBackoffMs" : 11
+      },
+      "bson": {
+        "numConcurrentInitialSyncs": 1,
+        "numConcurrentChangeStreams": 2,
+        "numIndexingThreads": 3,
+        "changeStreamMaxTimeMs": 4,
+        "numConcurrentSynonymSyncs": 5,
+        "changeStreamCursorMaxTimeSec": 6,
+        "numChangeStreamDecodingThreads": 7,
+        "enableSteadyStateChangeStreamProjection": true,
+        "pauseAllInitialSyncs": false,
+        "pauseInitialSyncOnIndexIds": [
+          {
+            "$oid": "68784215b86a4a2d55787ae6"
+          },
+          {
+            "$oid": "687d201de90e474dfbc7c1d4"
+          }
+        ],
+        "maxInFlightEmbeddingGetMores": 8,
+        "maxConcurrentEmbeddingInitialSyncs": 9,
+        "embeddingGetMoreBatchSize": 10,
+        "excludedChangestreamFields": [
+          "updateDescription.disambiguatedPaths"
+        ],
+        "matchCollectionUUIDForUpdateLookup": true,
+        "enableSplitLargeChangeStreamEvents": false,
+        "requestRateLimitBackoffMs" : 11
+      }
+    }
+  ]
+}

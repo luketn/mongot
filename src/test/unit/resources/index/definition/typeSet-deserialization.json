@@ -1,0 +1,153 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "name": "foo",
+        "types": [
+          {
+            "type": "autocomplete"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "description": "with multi",
+      "value": {
+        "name": "foo",
+        "types": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "string",
+            "multi": {
+              "english": {
+                "type": "string",
+                "analyzer": "lucene.english"
+              },
+              "french": {
+                "type": "string",
+                "analyzer": "lucene.french"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing name",
+      "value": {
+        "types": [
+          {
+            "type": "number"
+          }
+        ]
+      }
+    },
+    {
+      "description": "missing types",
+      "value": {
+        "name": "foo"
+      }
+    },
+    {
+      "description": "empty types",
+      "value": {
+        "name": "foo",
+        "types": [
+        ]
+      }
+    },
+    {
+      "description": "duplicate entries in types",
+      "value": {
+        "name": "foo",
+        "types": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "number",
+            "indexDoubles": true
+          }
+        ]
+      }
+    },
+    {
+      "description": "invalid entries in types",
+      "value": {
+        "name": "foo",
+        "types": [
+          {
+            "type": "document",
+            "dynamic": true
+          }
+        ]
+      },
+      "errorMessageContains": "The following field type definitions are disallowed in a typeSet definition: "
+    },
+    {
+      "description": "invalid types value",
+      "value": {
+        "name": "foo",
+        "types": {
+          "type": "number"
+        }
+      }
+    },
+    {
+      "description": "invalid name value",
+      "value": {
+        "name": true,
+        "types": [
+          {
+            "type": "number"
+          }
+        ]
+      }
+    },
+    {
+      "description": "invalid field type definition within types",
+      "value": {
+        "name": "foo",
+        "types": [
+          {
+            "type": "number",
+            "foo": "bar"
+          }
+        ]
+      }
+    },
+    {
+      "description": "empty name",
+      "value": {
+        "name": "",
+        "types": [
+          {
+            "type": "number"
+          }
+        ]
+      }
+    },
+    {
+      "description": "blank name",
+      "value": {
+        "name": "  ",
+        "types": [
+          {
+            "type": "number"
+          }
+        ]
+      }
+    }
+  ]
+}

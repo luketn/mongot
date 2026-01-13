@@ -1,0 +1,244 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "ancestorPath": "movies",
+        "operator": {
+          "text": {
+            "path": "movies.title",
+            "query": "Split"
+          }
+        }
+      }
+    },
+    {
+      "description": "withCompound",
+      "value": {
+        "ancestorPath": "movies",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "movies.title",
+                  "query": "Split"
+                }
+              }
+            ],
+            "should": [
+              {
+                "equals": {
+                  "path": "movies.year",
+                  "value": 1999
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "withCompoundAndScoring",
+      "value": {
+        "ancestorPath": "movies",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "text": {
+                  "path": "movies.title",
+                  "query": "Split"
+                }
+              }
+            ],
+            "should": [
+              {
+                "equals": {
+                  "path": "movies.year",
+                  "value": 1999
+                }
+              }
+            ]
+          }
+        },
+        "score": {
+          "function": {
+            "multiply": [
+              {
+                "score": "relevance"
+              },
+              {
+                "path": "movies.imdb.rating"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "withNestedEmbedded",
+      "value": {
+        "ancestorPath": "movies",
+        "operator": {
+          "embeddedDocument": {
+            "path": "movies.reviews",
+            "operator": {
+              "hasAncestor": {
+                "ancestorPath": "movies",
+                "operator": {
+                  "embeddedDocument": {
+                    "path": "movies.reviews.comments",
+                    "operator": {
+                      "hasAncestor": {
+                        "ancestorPath": "movies.reviews",
+                        "operator": {
+                          "compound": {
+                            "must": [
+                              {
+                                "text": {
+                                  "path": "movies.reviews.comments.author",
+                                  "query": "DJT"
+                                }
+                              }
+                            ],
+                            "should": [
+                              {
+                                "equals": {
+                                  "path": "movies.reviews.comments.year",
+                                  "value": 1999
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "nestedWithCompound",
+      "value": {
+        "ancestorPath": "movies",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "hasAncestor": {
+                  "ancestorPath": "movies.reviews.content",
+                  "operator": {
+                    "equals": {
+                      "path": "movies.reviews.content.date",
+                      "value": {
+                        "$date": "2022-12-06T13:13:13Z"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "nestedWithCompoundButUnmatchedAncestorPath",
+      "value": {
+        "ancestorPath": "movies.director",
+        "operator": {
+          "compound": {
+            "must": [
+              {
+                "hasAncestor": {
+                  "ancestorPath": "movies.reviews.content",
+                  "operator": {
+                    "equals": {
+                      "path": "movies.reviews.content.date",
+                      "value": {
+                        "$date": "2022-12-06T13:13:13Z"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "withNestedHasRoot",
+      "value": {
+        "ancestorPath": "movies",
+        "operator": {
+          "hasRoot": {
+            "operator": {
+              "text": {
+                "path": "movies.reviews.content.comments.author.name",
+                "query": "DJT"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing ancestorPath",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "movies.title",
+            "query": "Split"
+          }
+        }
+      }
+    },
+    {
+      "description": "missing operator",
+      "value": {
+        "ancestorPath": "movies"
+      }
+    },
+    {
+      "description": "invalid operator type",
+      "value": {
+        "ancestorPath": "movies",
+        "operator": {
+          "invalidOperator": {}
+        }
+      }
+    },
+    {
+      "description": "invalid ancestorPath type",
+      "value": {
+        "ancestorPath": 123,
+        "operator": {
+          "text": {
+            "path": "movies.title",
+            "query": "Split"
+          }
+        }
+      }
+    },
+    {
+      "description": "multiple ancestorPath",
+      "value": {
+        "ancestorPath": ["movies", "directors"],
+        "operator": {
+          "text": {
+            "path": "movies.title",
+            "query": "Split"
+          }
+        }
+      }
+    }
+  ]
+}

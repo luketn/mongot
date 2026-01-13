@@ -1,0 +1,62 @@
+# MongoDB-managed embedding model configurations for Community Edition
+# Note: Each model is automatically compatible with itself. The compatibleModels field
+# only needs to list OTHER models that are compatible for query-time model override.
+configs:
+  - modelName: voyage-4-large
+    embeddingProvider: VOYAGE
+    # voyage-4 family models are all interchangeable for query-time override
+    compatibleModels:
+      - voyage-4
+      - voyage-4-lite
+    config:
+      modelConfig:
+        batchSize: 1000
+        batchTokenLimit: 120000
+      errorHandlingConfig:
+        maxRetries: 50
+        initialRetryWaitMs: 200
+        maxRetryWaitMs: 10000
+        jitter: 0.1
+
+  - modelName: voyage-4
+    embeddingProvider: VOYAGE
+    compatibleModels:
+      - voyage-4-large
+      - voyage-4-lite
+    config:
+      modelConfig:
+        batchSize: 1000
+        batchTokenLimit: 320000
+      errorHandlingConfig:
+        maxRetries: 50
+        initialRetryWaitMs: 200
+        maxRetryWaitMs: 10000
+        jitter: 0.1
+
+  - modelName: voyage-4-lite
+    embeddingProvider: VOYAGE
+    compatibleModels:
+      - voyage-4
+      - voyage-4-large
+    config:
+      modelConfig:
+        batchSize: 1000
+        batchTokenLimit: 1000000
+      errorHandlingConfig:
+        maxRetries: 50
+        initialRetryWaitMs: 200
+        maxRetryWaitMs: 10000
+        jitter: 0.1
+
+  - modelName: voyage-code-3
+    embeddingProvider: VOYAGE
+    # voyage-code-3 is only compatible with itself (no other models listed)
+    config:
+      modelConfig:
+        batchSize: 1000
+        batchTokenLimit: 120000
+      errorHandlingConfig:
+        maxRetries: 50
+        initialRetryWaitMs: 200
+        maxRetryWaitMs: 10000
+        jitter: 0.1

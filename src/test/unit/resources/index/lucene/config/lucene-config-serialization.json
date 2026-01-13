@@ -1,0 +1,57 @@
+{
+  "tests": [
+    {
+      "description": "full config",
+      "json": {
+        "dataPath": "some-path",
+        "refreshInterval": 10000,
+        "refreshExecutorThreads": 2,
+        "numMaxMergeThreads": 3,
+        "numMaxMerges": 4,
+        "maxMergedSegmentSize": 2,
+        "fieldLimit": 42,
+        "docsLimit": 100,
+        "disableMaxClauseLimit": false,
+        "enableConcurrentSearch": false,
+        "concurrentSearchExecutorThreads": 4,
+        "concurrentSearchExecutorQueueSize": 8,
+        "concurrentVectorRescoringExecutorThreads": 16,
+        "concurrentVectorRescoringExecutorQueueSize": 32,
+        "vectorMergePolicyConfig": {
+          "maxCompoundDataMb": 100,
+          "maxVectorInputMb": 1024,
+          "mergeBudgetMb": 2048,
+          "segmentHeapBudgetMb": 1024,
+          "globalHeapBudgetMb": 2048
+        },
+        "enableTextOperatorNewSynonymsSyntax": false
+      },
+      "bson": {
+        "dataPath": "some-path",
+        "refreshInterval": 10000,
+        "refreshExecutorThreads": 2,
+        "numMaxMergeThreads": 3,
+        "numMaxMerges": 4,
+        "maxMergedSegmentSize": {
+          "$numberLong": "2"
+        },
+        "fieldLimit": 42,
+        "docsLimit": 100,
+        "disableMaxClauseLimit": false,
+        "enableConcurrentSearch": false,
+        "concurrentSearchExecutorThreads": 4,
+        "concurrentSearchExecutorQueueSize": 8,
+        "concurrentVectorRescoringExecutorThreads": 16,
+        "concurrentVectorRescoringExecutorQueueSize": 32,
+        "vectorMergePolicyConfig": {
+          "maxCompoundDataMb": 100,
+          "maxVectorInputMb": 1024,
+          "mergeBudgetMb": 2048,
+          "segmentHeapBudgetMb": 1024,
+          "globalHeapBudgetMb": 2048
+        },
+        "enableTextOperatorNewSynonymsSyntax": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "valid": [
+    {
+      "description": "default",
+      "value": {
+      }
+    },
+    {
+      "description": "explicit type",
+      "value": {
+        "type": "total"
+      }
+    },
+    {
+      "description": "explicit threshold",
+      "value": {
+        "threshold": 5000
+      }
+    },
+    {
+      "description": "zero threshold",
+      "value": {
+        "threshold": 0
+      }
+    },
+    {
+      "description": "explicit type and threshold",
+      "value": {
+        "type": "lowerBound",
+        "threshold": 5000
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "negative threshold",
+      "value": {
+        "threshold": -1
+      }
+    },
+    {
+      "description": "unknown type",
+      "value": {
+        "type": "exact"
+      }
+    }
+  ]
+}

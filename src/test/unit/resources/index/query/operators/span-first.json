@@ -1,0 +1,69 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "operator": {
+          "term": {
+            "path": "title",
+            "query": "godfather"
+          }
+        }
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "operator": {
+          "term": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "explicit endPositionLte",
+      "value": {
+        "operator": {
+          "term": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "endPositionLte": 13
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "zero endPositionLte",
+      "value": {
+        "operator": {
+          "term": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "endPositionLte": 0
+      }
+    },
+    {
+      "description": "negative endPositionLte",
+      "value": {
+        "operator": {
+          "term": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "endPositionLte": -1
+      }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "tests": [
+    {
+      "description": "include all",
+      "value": true
+    },
+    {
+      "description": "exclude all",
+      "value": false
+    },
+    {
+      "description": "include paths",
+      "value": {
+        "include": [
+          "_id", "a", "b.c", "b.d", "x.y.z"
+        ]
+      }
+    },
+    {
+      "description": "exclude paths",
+      "value": {
+        "exclude": [
+          "a", "b.c", "b.d", "x.y.z"
+        ]
+      }
+    },
+    {
+      "description": "duplicated paths",
+      "value": {
+        "exclude": [
+          "k", "l.m.n"
+        ]
+      }
+    }
+  ]
+}

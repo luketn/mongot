@@ -1,0 +1,68 @@
+{
+  "tests": [
+    {
+      "description": "collector-query",
+      "value": {
+        "index": "my-index",
+        "count": {
+          "type": "total",
+          "threshold": 1000
+        },
+        "highlight": {
+          "path": "my-path",
+          "maxNumPassages": 5,
+          "maxCharsToExamine": 500000
+        },
+        "facet": {
+          "operator": {
+            "text": {
+              "score": {
+                "boost": {
+                  "value": 1.0
+                }
+              },
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "eventFacet": {
+              "type": "date",
+              "path": "start",
+              "boundaries": [
+                {
+                  "$date": "2020-05-08T12:11:00Z"
+                },
+                {
+                  "$date": "2021-05-08T12:11:00Z"
+                }
+              ]
+            },
+            "ratingFacet": {
+              "type": "number",
+              "path": "rating",
+              "boundaries": [
+                1.12,
+                2.64
+              ]
+            },
+            "directorFacet": {
+              "type": "string",
+              "path": "director",
+              "numBuckets": 50
+            }
+          }
+        },
+        "returnStoredSource": true,
+        "concurrent": true,
+        "scoreDetails": true,
+        "tracking": {
+          "searchTerms": "par"
+        },
+        "returnScope": {
+          "path": "my-scope"
+        }
+      }
+    }
+  ]
+}

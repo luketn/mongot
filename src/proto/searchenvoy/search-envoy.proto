@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.xgen.mongot.searchenvoy.grpc";
+option java_outer_classname = "SearchEnvoyProto";
+
+package searchenvoy;
+
+// When receiving a gRPC stream of `mongodb.CommandService/AuthenticatedCommandStream`, this proto
+// message may present in the `search-envoy-metadata-bin` header. It must be encoded using Base64
+// without padding. For more context, refer to:
+// https://github.com/grpc/grpc/blob/c8f467aea99e074776901fc4c53d59565b90d988/doc/PROTOCOL-HTTP2.md?plain=1#L68
+message SearchEnvoyMetadata {
+  // If true, the commands in the gRPC stream are routed from a different shard of mongod/mongos.
+  // We should avoid reading indexed data when this field is set to true.
+  bool routed_from_another_shard = 1;
+}

@@ -1,0 +1,16 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "queryType": "unknownQuery"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing-queryType",
+      "value": {}
+    }
+  ]
+}

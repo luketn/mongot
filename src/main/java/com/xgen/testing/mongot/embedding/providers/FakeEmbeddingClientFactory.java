@@ -1,0 +1,59 @@
+package com.xgen.testing.mongot.embedding.providers;
+
+import com.google.common.collect.ImmutableSet;
+import com.xgen.mongot.embedding.providers.clients.ClientInterface;
+import com.xgen.mongot.embedding.providers.clients.EmbeddingClientFactory;
+import com.xgen.mongot.embedding.providers.configs.EmbeddingModelConfig;
+import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.util.Set;
+
+public class FakeEmbeddingClientFactory extends EmbeddingClientFactory {
+  private final Set<String> localErrorInputSet;
+  private final Set<String> transientErrorInputSet;
+  private final Set<String> nonTransientErrorInputSet;
+  private final int maxBatchSizeCharLimit;
+
+  public FakeEmbeddingClientFactory(
+      MeterRegistry meterRegistry,
+      Set<String> localErrorInputSet,
+      Set<String> transientErrorInputSet,
+      Set<String> nonTransientErrorInputSet,
+      int maxBatchSizeCharLimit) {
+    super(meterRegistry);
+    this.localErrorInputSet = localErrorInputSet;
+    this.transientErrorInputSet = transientErrorInputSet;
+    this.nonTransientErrorInputSet = nonTransientErrorInputSet;
+    this.maxBatchSizeCharLimit = maxBatchSizeCharLimit;
+  }
+
+  public FakeEmbeddingClientFactory(
+      MeterRegistry meterRegistry,
+      Set<String> localErrorInputSet,
+      Set<String> transientErrorInputSet,
+      Set<String> nonTransientErrorInputSet) {
+    this(
+        meterRegistry,
+        localErrorInputSet,
+        transientErrorInputSet,
+        nonTransientErrorInputSet,
+        Integer.MAX_VALUE);
+  }
+
+  public FakeEmbeddingClientFactory() {
+    this(new SimpleMeterRegistry(), ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of());
+  }
+
+  @Override
+  public ClientInterface createEmbeddingClient(
+      EmbeddingModelConfig embeddingModelConfig,
+      EmbeddingServiceConfig.ServiceTier serviceTier,
+      EmbeddingModelConfig.ConsolidatedWorkloadParams workloadParams) {
+    return new FakeEmbeddingProviderClient(
+        this.localErrorInputSet,
+        this.transientErrorInputSet,
+        this.nonTransientErrorInputSet,
+        this.maxBatchSizeCharLimit);
+  }
+}

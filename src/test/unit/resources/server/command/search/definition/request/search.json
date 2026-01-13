@@ -1,0 +1,166 @@
+{
+  "valid": [
+    {
+      "description": "search",
+      "value": {
+        "search": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        }
+      }
+    },
+    {
+      "description": "searchBeta",
+      "value": {
+        "searchBeta": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        }
+      }
+    },
+    {
+      "description": "search-on-view",
+      "value": {
+        "search": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "viewName": "my-view",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        }
+      }
+    },
+    {
+      "description": "search-with-explain",
+      "value": {
+        "search": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "explain": {
+          "verbosity": "allPlansExecution"
+        }
+      }
+    },
+    {
+      "description": "intermediate",
+      "value": {
+        "search": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "intermediate": 1
+      }
+    },
+    {
+      "description": "search-with-cursor-options",
+      "value": {
+        "search": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "cursorOptions": {
+          "docsRequested": 25
+        }
+      }
+    },
+    {
+      "description": "search-with-cursor-options-unknown-field",
+      "value": {
+        "search": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "cursorOptions": {
+          "docsRequested": 25,
+          "unknownField": "string"
+        }
+      }
+    },
+    {
+      "description": "search-with-optimization-flags",
+      "value": {
+        "search": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "optimizationFlags": {
+          "omitSearchDocumentResults": true
+        }
+      }
+    },
+    {
+      "description": "search-with-optimization-flags-unknown-field",
+      "value": {
+        "search": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "optimizationFlags": {
+          "omitSearchDocumentResults": true,
+          "unknownField": "string"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "search and searchBeta",
+      "value": {
+        "search": "my-collection",
+        "searchBeta": "my-collection2",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        }
+      }
+    }
+  ]
+}

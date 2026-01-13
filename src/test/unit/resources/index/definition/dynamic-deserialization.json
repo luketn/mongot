@@ -1,0 +1,45 @@
+{
+  "valid": [
+    {
+      "description": "boolean",
+      "value": true
+    },
+    {
+      "description": "typeSet",
+      "value": {
+        "typeSet": "foo"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "blank",
+      "value": {
+        "typeSet": " "
+      }
+    },
+    {
+      "description": "empty",
+      "value": {
+        "typeSet": ""
+      }
+    },
+    {
+      "description": "extra fields",
+      "value": {
+        "typeSet": "foo",
+        "abc": "bar"
+      }
+    },
+    {
+      "description": "empty document",
+      "value": {
+      }
+    },
+    {
+      "description": "non boolean/document",
+      "value": "foo",
+      "errorMessageContains": "must be a boolean or document"
+    }
+  ]
+}

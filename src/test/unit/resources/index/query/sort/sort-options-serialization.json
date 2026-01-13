@@ -1,0 +1,25 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "order": 1.0,
+        "noData": "lowest"
+      }
+    },
+    {
+      "description": "meta",
+      "value": {
+        "$meta": "searchScore",
+        "order": -1.0
+      }
+    },
+    {
+      "description": "noData",
+      "value": {
+        "order": -1.0,
+        "noData": "highest"
+      }
+    }
+  ]
+}

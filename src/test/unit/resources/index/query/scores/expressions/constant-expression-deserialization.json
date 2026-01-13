@@ -1,0 +1,46 @@
+{
+  "valid": [
+    {
+      "description": "negative constant",
+      "value": -4328.54
+    },
+    {
+      "description": "zero-valued constant",
+      "value": 0.0
+    },
+    {
+      "description": "positive constant",
+      "value": 2039.38
+    },
+    {
+      "description": "integer constant",
+      "value": {
+        "$numberInt": "250"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no value",
+      "value": {}
+    },
+    {
+      "description": "negative infinity",
+      "value": {
+        "$numberDouble": "-Infinity"
+      }
+    },
+    {
+      "description": "NaN constant",
+      "value": {
+        "$numberDouble": "NaN"
+      }
+    },
+    {
+      "description": "positive infinity",
+      "value": {
+        "$numberDouble": "Infinity"
+      }
+    }
+  ]
+}

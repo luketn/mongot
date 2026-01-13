@@ -1,0 +1,83 @@
+package com.xgen.mongot.index.query.collectors;
+
+import static java.util.stream.Collectors.joining;
+
+import com.xgen.mongot.util.bson.parser.BsonDocumentBuilder;
+import com.xgen.mongot.util.bson.parser.BsonParseException;
+import com.xgen.mongot.util.bson.parser.DocumentEncodable;
+import com.xgen.mongot.util.bson.parser.DocumentParser;
+import com.xgen.mongot.util.bson.parser.Field;
+import java.util.Arrays;
+import java.util.Optional;
+import org.bson.BsonDocument;
+import org.bson.BsonValue;
+
+public sealed interface Collector extends DocumentEncodable permits FacetCollector {
+
+  class Fields {
+    public static final Field.Optional<FacetCollector> FACET =
+        Field.builder("facet")
+            .classField(FacetCollector::fromBson, FacetCollector::collectorToBson)
+            .disallowUnknownFields()
+            .optional()
+            .noDefault();
+  }
+
+  public static final String ALL_COLLECTORS =
+      Arrays.stream(Type.values()).map(Type::getName).collect(joining(", "));
+
+  /**
+   * Collector Type Enumeration.
+   *
+   * <p>Please keep Type enumeration in alphabetical order.
+   *
+   * <p>Although currently facet is the only existing collector, we'll follow a structure parallel
+   * to that in Operator.java (see it for reference)
+   */
+  enum Type {
+    /** All collector types (with their associated name in MQL) */
+    FACET("facet");
+
+    private final String name;
+
+    /**
+     * Constructs a {@code Type} enum with provided user-facing name.
+     *
+     * @param name The user-facing name associated with enum.
+     */
+    Type(String name) {
+      this.name = name;
+    }
+
+    /**
+     * This method is distinct from the built-in {@code name()} method of Java enums. While {@code
+     * name()} returns the declared name of the enum constant, {@code getName()} returns the
+     * associated user-facing name defined on creation.
+     *
+     * <p>Example usage: Collector.Type.getName() will return the text name of some collector object
+     * (ex: FACET.getName() will return "facet")
+     *
+     * @return The user-facing name for this {@code Type}, as should be entered in MQL
+     */
+    String getName() {
+      return this.name;
+    }
+  }
+
+  @Override
+  default BsonDocument toBson() {
+    var builder = BsonDocumentBuilder.builder();
+    return switch (this) {
+      case FacetCollector facetCollector ->
+          builder.field(Fields.FACET, Optional.of(facetCollector)).build();
+    };
+  }
+
+  BsonValue collectorToBson();
+
+  static Optional<Collector> atMostOneFromBson(DocumentParser parser) throws BsonParseException {
+    return parser.getGroup().atMostOneOf(parser.getField(Fields.FACET));
+  }
+
+  Type getType();
+}

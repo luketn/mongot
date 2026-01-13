@@ -1,0 +1,180 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "explicit index",
+      "value": {
+        "index": "my-index",
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "blank index",
+      "value": {
+        "index": " ",
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "with highlights",
+      "value": {
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        },
+        "highlight": {
+          "path": "title"
+        }
+      }
+    },
+    {
+      "description": "with count",
+      "value": {
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        },
+        "count": {
+          "type": "total",
+          "threshold": 5000
+        }
+      }
+    },
+    {
+      "description": "with explicit returnStoredSource",
+      "value": {
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        },
+        "returnStoredSource": true
+      }
+    },
+    {
+      "description": "with explicit scoreDetails",
+      "value": {
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        },
+        "scoreDetails": true
+      }
+    },
+    {
+      "description": "with tracking",
+      "value": {
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        },
+        "tracking": {
+          "searchTerms": "foo"
+        }
+      }
+    },
+    {
+      "description": "with returnScope and explicit true returnStoredSource",
+      "value": {
+        "text": {
+          "path": "movies.title",
+          "query": "godfather"
+        },
+        "returnScope": {
+          "path": "movies"
+        },
+        "returnStoredSource": true
+      }
+    },
+    {
+      "description": "with searchNodePreference",
+      "value": {
+        "searchNodePreference": {
+          "key": "primary"
+        },
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    },
+    {
+      "description": "missing operator",
+      "value": {
+        "index": "my-index"
+      }
+    },
+    {
+      "description": "empty index",
+      "value": {
+        "index": "",
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "knnBeta with sortBetaV1",
+      "value": {
+        "knnBeta": {
+          "path": "description",
+          "k": 3,
+          "vector": [
+            9,
+            9,
+            9
+          ]
+        },
+        "sortBetaV1": {
+          "a": 1
+        }
+      }
+    },
+    {
+      "description": "with returnScope and explicit false returnStoredSource",
+      "value": {
+        "text": {
+          "path": "movies.title",
+          "query": "godfather"
+        },
+        "returnScope": {
+          "path": "movies"
+        },
+        "returnStoredSource": false
+      }
+    },
+    {
+      "description": "with searchNodePreference",
+      "value": {
+        "searchNodePreference": {
+          "key": ""
+        },
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    }
+  ]
+}

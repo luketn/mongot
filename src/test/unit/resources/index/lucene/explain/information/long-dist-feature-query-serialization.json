@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "path": "a",
+        "origin": 1,
+        "pivotDistance": 2,
+        "representation": "int64"
+      },
+      "bson": {
+        "path": "a",
+        "origin": {
+          "$numberLong": "1"
+        },
+        "pivotDistance": {
+          "$numberLong": "2"
+        },
+        "representation": "int64"
+      }
+    }
+  ]
+}

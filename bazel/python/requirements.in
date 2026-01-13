@@ -1,0 +1,5 @@
+requests==2.32.4
+urllib3==2.6.2
+certifi==2024.7.4
+fire
+PyGithub

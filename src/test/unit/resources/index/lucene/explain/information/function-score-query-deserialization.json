@@ -1,0 +1,41 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "scoreFunction": "expr(pivot / (pivot + abs(origin - value)))",
+        "query": {
+          "type": "LongDistanceFeatureQuery",
+          "args": {
+            "origin": 8.0,
+            "pivotDistance": 2.0,
+            "representation": "double",
+            "path": "accommodates"
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing-scoreFunction",
+      "value": {
+        "query": {
+          "type": "LongDistanceFeatureQuery",
+          "args": {
+            "origin": 8.0,
+            "pivotDistance": 2.0,
+            "representation": "double",
+            "path": "accommodates"
+          }
+        }
+      }
+    },
+    {
+      "description": "missing-query",
+      "value": {
+        "scoreFunction": "expr(pivot / (pivot + abs(origin - value)))"
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# This is a sample logrotate configuration that rotates the mongot log file daily if its size
+# exceeds 200 megabytes. Up to 5 rotated log files will be compressed and kept at a time.
+
+# To use this, replace /path/to/logfile with the path to your log file and copy this file to
+# /etc/logrotate.d/
+
+/path/to/logfile {
+    minsize 200M
+    daily
+    rotate 5
+    compress
+    create
+    missingok
+    notifempty
+}

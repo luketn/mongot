@@ -1,0 +1,62 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "clauses": [
+          {
+            "term": {
+              "path": "title",
+              "query": "godfather"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "clauses": [
+          {
+            "term": {
+              "path": "title",
+              "query": "godfather"
+            }
+          }
+        ],
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "multiple clauses",
+      "value": {
+        "clauses": [
+          {
+            "term": {
+              "path": "title",
+              "query": "godfather"
+            }
+          },
+          {
+            "term": {
+              "path": "title",
+              "query": "godmother"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "empty clauses",
+      "value": {
+        "clauses": []
+      }
+    }
+  ]
+}

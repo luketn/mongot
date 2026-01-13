@@ -1,0 +1,654 @@
+{
+  "valid": [
+    {
+      "description": "point",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "description": "point out of bounds",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          1000.0,
+          1200.0
+        ]
+      }
+    },
+    {
+      "description": "point 3 positions",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          10.5,
+          12.5,
+          14.5
+        ]
+      }
+    },
+    {
+      "description": "point integral pos",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          10,
+          12
+        ]
+      }
+    },
+    {
+      "description": "line",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            10,
+            12.0
+          ],
+          [
+            11,
+            13.0
+          ]
+        ]
+      }
+    },
+    {
+      "description": "line extra coordinates",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            10,
+            12.0,
+            14
+          ],
+          [
+            11,
+            13.0,
+            15.0
+          ]
+        ]
+      }
+    },
+    {
+      "description": "multi point empty",
+      "value": {
+        "type": "MultiPoint",
+        "coordinates": [
+        ]
+      }
+    },
+    {
+      "description": "multi point 1",
+      "value": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            10.0,
+            12.0
+          ]
+        ]
+      }
+    },
+    {
+      "description": "multi point 2",
+      "value": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            10.0,
+            12
+          ],
+          [
+            11,
+            13.0
+          ]
+        ]
+      }
+    },
+    {
+      "description": "multi line empty",
+      "value": {
+        "type": "MultiLineString",
+        "coordinates": [
+        ]
+      }
+    },
+    {
+      "description": "multi line 1",
+      "value": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [
+            [
+              10,
+              12
+            ],
+            [
+              11,
+              13
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "multi line 2",
+      "value": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [
+            [
+              1,
+              2
+            ],
+            [
+              3.0,
+              4
+            ]
+          ],
+          [
+            [
+              5,
+              6
+            ],
+            [
+              7.0,
+              8
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1,
+              2
+            ],
+            [
+              3.0,
+              4
+            ],
+            [
+              5.5,
+              6.6
+            ],
+            [
+              1.0,
+              2
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon w hole",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1,
+              2
+            ],
+            [
+              3.0,
+              4
+            ],
+            [
+              5.5,
+              6.6
+            ],
+            [
+              1.0,
+              2
+            ]
+          ],
+          [
+            [
+              0.1,
+              0.2
+            ],
+            [
+              0.3,
+              0.4
+            ],
+            [
+              0.5,
+              0.6
+            ],
+            [
+              0.1,
+              0.2
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "multi polygon",
+      "value": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [
+                1,
+                2
+              ],
+              [
+                3.0,
+                4
+              ],
+              [
+                5.5,
+                6.6
+              ],
+              [
+                1.0,
+                2
+              ]
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "multi polygon empty",
+      "value": {
+        "type": "MultiPolygon",
+        "coordinates": [
+        ]
+      }
+    },
+    {
+      "description": "collection empty",
+      "value": {
+        "type": "GeometryCollection",
+        "geometries": [
+        ]
+      }
+    },
+    {
+      "description": "collection point line",
+      "value": {
+        "type": "GeometryCollection",
+        "geometries": [
+          {
+            "type": "Point",
+            "coordinates": [
+              10.0,
+              12.0
+            ]
+          },
+          {
+            "type": "LineString",
+            "coordinates": [
+              [
+                10,
+                12.0
+              ],
+              [
+                11,
+                13.0
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "description": "collection, point with extra fields",
+      "value": {
+        "type": "GeometryCollection",
+        "geometries": [
+          {
+            "type": "Point",
+            "extra field": "is allowed when nested",
+            "coordinates": [
+              10.0,
+              12.0
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no type",
+      "value": {
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "description": "type should be string",
+      "value": {
+        "type": 3,
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "description": "unknown type",
+      "value": {
+        "type": "not a geometry type",
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "description": "point extra field",
+      "value": {
+        "type": "Point",
+        "extra field": "is not allowed",
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "description": "point no coordinates",
+      "value": {
+        "type": "Point"
+      }
+    },
+    {
+      "description": "point null coordinates",
+      "value": {
+        "type": "Point",
+        "coordinates": null
+      }
+    },
+    {
+      "description": "point coordinates is number",
+      "value": {
+        "type": "Point",
+        "coordinates": 12
+      }
+    },
+    {
+      "description": "point not enough coordinates",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          10.0
+        ]
+      }
+    },
+    {
+      "description": "point: null latitude",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          10.0,
+          null
+        ]
+      }
+    },
+    {
+      "description": "point: latitude not a number",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          10.0,
+          "12"
+        ]
+      }
+    },
+    {
+      "description": "line missing latitude",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            10,
+            12.0
+          ],
+          [
+            11
+          ]
+        ]
+      }
+    },
+    {
+      "description": "line less than 2 positions",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            11,
+            13.0
+          ]
+        ]
+      }
+    },
+    {
+      "description": "line: position instead list of positions",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          11,
+          13.0
+        ]
+      }
+    },
+    {
+      "description": "line unexpected field",
+      "value": {
+        "type": "LineString",
+        "unexpected": "field",
+        "coordinates": [
+          [
+            10,
+            12.0
+          ],
+          [
+            11,
+            13.0
+          ]
+        ]
+      }
+    },
+    {
+      "description": "multi point insufficient positions",
+      "value": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [
+            12.0
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon not enough coordinates",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1,
+              2
+            ],
+            [
+              3.0,
+              4
+            ],
+            [
+              1.0,
+              2
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon last and first not equal",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1,
+              2
+            ],
+            [
+              3.0,
+              4
+            ],
+            [
+              5.5,
+              6.6
+            ],
+            [
+              1.0,
+              55
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon hole doesnt close on itself",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1,
+              2
+            ],
+            [
+              3.0,
+              4
+            ],
+            [
+              5.5,
+              6.6
+            ],
+            [
+              1,
+              2
+            ]
+          ],
+          [
+            [
+              0.1,
+              0.2
+            ],
+            [
+              0.3,
+              0.4
+            ],
+            [
+              0.5,
+              0.6
+            ],
+            [
+              0.1,
+              0.4
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon hole not enough positions",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              1,
+              2
+            ],
+            [
+              3.0,
+              4
+            ],
+            [
+              5.5,
+              6.6
+            ],
+            [
+              1,
+              2
+            ]
+          ],
+          [
+            [
+              0.1,
+              0.2
+            ],
+            [
+              0.3,
+              0.4
+            ],
+            [
+              0.1,
+              0.2
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon insufficient position nesting",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            1,
+            2
+          ],
+          [
+            3.0,
+            4
+          ],
+          [
+            5.5,
+            6.6
+          ],
+          [
+            1.0,
+            55
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon incorrect coordinates type",
+      "value": {
+        "type": "Polygon",
+        "coordinates": "should not be string"
+      }
+    },
+    {
+      "description": "polygon empty",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+        ]
+      }
+    }
+  ]
+}

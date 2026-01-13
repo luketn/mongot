@@ -1,0 +1,229 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "query": {
+          "analyzer": "lucene.standard",
+          "type": "TermQuery",
+          "args": {
+            "value": "quie",
+            "path": "name"
+          },
+          "stats": {
+            "context": {
+              "millisElapsed": 1e-5,
+              "invocationCounts": {}
+            },
+            "match": {
+              "millisElapsed": 1e-5,
+              "invocationCounts": {}
+            },
+            "score": {
+              "millisElapsed": 1e-5,
+              "invocationCounts": {}
+            }
+          }
+        },
+        "collectors": {
+          "allCollectorStats": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "sort": {
+            "stats": {
+              "prunedResultIterator": {
+                "millisElapsed": 1.0E-5,
+                "invocationCounts": {}
+              },
+              "comparator": {
+                "millisElapsed": 1.0E-5,
+                "invocationCounts": {}
+              }
+            },
+            "fieldInfos": {
+              "foo": [
+                "date",
+                "token"
+              ]
+            }
+          }
+        },
+        "highlight": {
+          "resolvedHighlightPaths": [
+            "foo"
+          ],
+          "stats": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "offsetSources" : {}
+        },
+        "resultMaterialization": {
+          "stats": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          }
+        },
+        "metadata": {
+          "mongotVersion": "testVersion",
+          "mongotHostName": "localhost",
+          "indexName": "default",
+          "cursorOptions": {
+            "docsRequested": 25,
+            "requiresSearchSequenceToken": false
+          },
+          "optimizationFlags": {
+            "omitSearchDocumentResults": true
+          },
+          "lucene": {
+            "totalSegments": 3,
+            "totalDocs": 5
+          }
+        },
+        "resourceUsage": {
+          "majorFaults": 1,
+          "minorFaults": 2,
+          "userTimeMs": 3,
+          "systemTimeMs": 4,
+          "maxReportingThreads": 1,
+          "numBatches": 1
+        }
+      }
+    },
+    {
+      "description": "multiple query infos",
+      "value": {
+        "query": [
+          {
+            "analyzer": "lucene.standard",
+            "type": "TermQuery",
+            "args": {
+              "value": "quie",
+              "path": "name"
+            },
+            "stats": {
+              "context": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              },
+              "match": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              },
+              "score": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              }
+            }
+          },
+          {
+            "analyzer": "lucene.standard",
+            "type": "TermQuery",
+            "args": {
+              "value": "bar",
+              "path": "foo"
+            },
+            "stats": {
+              "context": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              },
+              "match": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              },
+              "score": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "with index partition",
+      "value": {
+        "indexPartitionExplain": [
+          {
+            "query": {
+              "analyzer": "lucene.standard",
+              "type": "TermQuery",
+              "args": {
+                "value": "quie",
+                "path": "name"
+              },
+              "stats": {
+                "context": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                },
+                "match": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                },
+                "score": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                }
+              }
+            },
+            "collectors": {
+              "allCollectorStats": {
+                "millisElapsed": 0.000010,
+                "invocationCounts": {}
+              }
+            }
+          },
+          {
+            "query": {
+              "analyzer": "lucene.english",
+              "type": "TermQuery",
+              "args": {
+                "value": "bar",
+                "path": "foo"
+              },
+              "stats": {
+                "context": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                },
+                "match": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                },
+                "score": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                }
+              }
+            },
+            "collectors": {
+              "allCollectorStats": {
+                "millisElapsed": 0.000010,
+                "invocationCounts": {}
+              }
+            }
+          }
+        ],
+        "resourceUsage": {
+          "majorFaults": 1,
+          "minorFaults": 2,
+          "userTimeMs": 3,
+          "systemTimeMs": 4,
+          "maxReportingThreads": 1,
+          "numBatches": 1
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "empty index partition explain list",
+      "value": {
+        "indexPartitionExplain": []
+      }
+    }
+  ]
+}

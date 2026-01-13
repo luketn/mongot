@@ -1,0 +1,38 @@
+{
+  "valid": [
+    {
+      "description": "scoreDoc",
+      "value": "CAEVAAAAQA=="
+    },
+    {
+      "description": "fieldDoc",
+      "value": "CAEVAAAAQBoGEICAgPgHGgY6BHRlc3Q="
+    },
+    {
+      "description": "searchBefore",
+      "value": "CAEaBhCAgICACBoGOgR0ZXN0"
+    },
+    {
+      "description": "scoreDoc-with-id",
+      "value": "CAEaBhCAgICACCICEAI="
+    },
+    {
+      "description": "fieldDoc-with-id",
+      "value": "CAEaBhCAgID4BxoGOgR0ZXN0IgIQAg=="
+    },
+    {
+      "description": "searchBefore-with-id",
+      "value": "CAEaBhCAgICACBoGOgR0ZXN0IgIQAg=="
+    },
+    {
+      "description": "empty String",
+      "value": ""
+    }
+  ],
+  "invalid": [
+    {
+      "description": "too short",
+      "value": "asdf"
+    }
+  ]
+}

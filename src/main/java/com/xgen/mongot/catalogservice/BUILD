@@ -1,0 +1,41 @@
+load("//bazel/java:package.bzl", "java_library")
+
+java_library(
+    name = "catalogservice",
+    srcs = [
+        "AuthoritativeIndexCatalog.java",
+        "AuthoritativeIndexKey.java",
+        "DefaultAuthoritativeIndexCatalog.java",
+        "DefaultIndexStats.java",
+        "DefaultMetadataService.java",
+        "DefaultServerState.java",
+        "IndexEntry.java",
+        "IndexStats.java",
+        "IndexStatsEntry.java",
+        "MetadataClient.java",
+        "MetadataService.java",
+        "MetadataServiceException.java",
+        "ServerState.java",
+        "ServerStateEntry.java",
+    ],
+    visibility = ["//visibility:public"],
+    exports = [
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "@maven//:org_mongodb_bson",
+    ],
+    deps = [
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/status",
+        "//src/main/java/com/xgen/mongot/index/synonym",
+        "//src/main/java/com/xgen/mongot/replication/mongodb/common",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/mongot/util/bson/parser",
+        "//src/main/java/com/xgen/mongot/util/mongodb",
+        "@maven//:com_google_guava_guava",
+        "@maven//:io_micrometer_micrometer_core",
+        "@maven//:org_mongodb_bson",
+        "@maven//:org_mongodb_mongodb_driver_core",
+        "@maven//:org_mongodb_mongodb_driver_sync",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)

@@ -1,0 +1,138 @@
+syntax = "proto3";
+
+package bson_proto.test;
+
+import "src/proto/bson/types.proto";
+import "src/main/java/com/xgen/proto/options.proto";
+
+option java_package = "com.xgen.proto";
+option java_multiple_files = true;
+
+message Greeting {
+  optional string message = 1;
+}
+
+enum TopLevelEnum {
+  ZERO = 0;
+  ONE = 1;
+  TWO = 2;
+}
+
+message TestMessage {
+  message Nested {
+    string text_string = 1;
+  }
+
+  enum Status {
+    OK = 0;
+    ILLEGAL_ARGUMENT = 1;
+    FILE_NOT_FOUND = 2;
+  }
+
+  optional string text_string = 1;
+  optional bytes byte_string = 2;
+  optional Nested nested_object = 3;
+  optional int32 int_single = 4;
+  optional int64 int_double = 5;
+  optional float float_single = 6;
+  optional double float_double = 7;
+  optional uint32 uint_single = 8;
+  optional uint64 uint_double = 9;
+  int32 scalar_without_presence = 10;
+  optional TopLevelEnum top_level_enum = 11;
+  optional Status status = 12;
+  optional bool boolean = 13;
+
+  repeated string text_strings = 16;
+  repeated bytes byte_strings = 17;
+  repeated Nested nested_objects = 18;
+  repeated double float_doubles = 19;
+  repeated int32 int_list_or_value = 20 [(bson.protobuf.field_options).allow_single_value = true];
+
+  map<string, int32> map_string_to_int = 28;
+  map<string, Greeting> map_string_to_message = 29;
+  map<string, Greeting> map_unknown_fields = 30 [(bson.protobuf.field_options).allow_unknown_fields = true];
+
+  optional Nested nested_allow_unknown = 32 [(bson.protobuf.field_options).allow_unknown_fields = true];
+  optional string json_named = 33 [json_name = "realGoodText"];
+  optional DiscriminatedUnionMessage union = 34;
+  optional TypeUnionValueMessage type_union = 35;
+}
+
+message WKTMessage {
+  optional com.xgen.mongot.proto.bson.ProtoDocument doc = 1;
+  optional com.xgen.mongot.proto.bson.ProtoArray array = 2;
+  optional com.xgen.mongot.proto.bson.ProtoValue value = 3;
+  optional com.xgen.mongot.proto.bson.ProtoBinaryData binary = 4;
+  optional com.xgen.mongot.proto.bson.ProtoObjectId object_id = 5;
+  optional com.xgen.mongot.proto.bson.ProtoRegularExpression regex = 6;
+  optional com.xgen.mongot.proto.bson.ProtoDecimal128 decimal128 = 7;
+  optional com.xgen.mongot.proto.bson.ProtoDbPointer db_pointer = 8;
+  optional com.xgen.mongot.proto.bson.ProtoJavaScriptWithScope java_script_with_scope = 9;
+  optional com.xgen.mongot.proto.bson.ProtoSymbol symbol = 10;
+  optional com.xgen.mongot.proto.bson.ProtoJavaScript java_script = 11;
+  optional com.xgen.mongot.proto.bson.ProtoDateTime date_time = 12;
+  optional com.xgen.mongot.proto.bson.ProtoTimestamp timestamp = 13;
+}
+
+message DiscriminatedUnionMessage {
+  option (bson.protobuf.message_options).message_type = DISCRIMINATED_UNION;
+
+  message FooBar {
+    optional bool enabled = 1;
+    optional string foo_bar_message = 2;
+  }
+  message BarBat {
+    optional bool enabled = 1;
+    optional string bar_bat_message = 2;
+  }
+  message FooBat {
+    optional bool enabled = 1;
+  }
+
+  oneof type {
+    FooBar foo_bar = 1;
+    BarBat bar_bat = 2 [(bson.protobuf.field_options).allow_unknown_fields = true];
+    FooBat foo_bat = 3 [json_name = "batFoo"];
+  }
+
+  int32 base_property = 16;
+}
+
+message OneofMessage {
+  message FooBar {
+    optional bool enabled = 1;
+    optional string foo_bar_message = 2;
+  }
+  message BarBat {
+    optional bool enabled = 1;
+    optional string bar_bat_message = 2;
+  }
+  message FooBat {
+    optional bool enabled = 1;
+  }
+
+  oneof type {
+    FooBar foo_bar = 1;
+    BarBat bar_bat = 2 [(bson.protobuf.field_options).allow_unknown_fields = true];
+    FooBat foo_bat = 3 [json_name = "batFoo"];
+  }
+
+  int32 base_property = 16;
+}
+
+message RepeatedValueMessage {
+  option (bson.protobuf.message_options).message_type = VALUE;
+  repeated int64 point = 1;
+}
+
+message TypeUnionValueMessage {
+  option (bson.protobuf.message_options).message_type = VALUE;
+  oneof typeunion {
+    bool as_bool = 1;
+    double as_double = 2 ;
+    com.xgen.mongot.proto.bson.ProtoObjectId as_object_id = 3;
+    DiscriminatedUnionMessage as_document = 4;
+    RepeatedValueMessage as_array = 5;
+  }
+}

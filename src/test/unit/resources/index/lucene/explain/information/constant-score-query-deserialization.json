@@ -1,0 +1,23 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "query": {
+          "type": "TermQuery",
+          "args": {
+            "path": "host.host_identity_verified",
+            "value": "true"
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing-query",
+      "value": {
+      }
+    }
+  ]
+}

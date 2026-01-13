@@ -1,0 +1,295 @@
+{
+  "valid": [
+    {
+      "description": "circle",
+      "value": {
+        "path": "location",
+        "circle": {
+          "center": {
+            "type": "Point",
+            "coordinates": [
+              1.0,
+              2.0
+            ]
+          },
+          "radius": 3
+        }
+      }
+    },
+    {
+      "description": "circle, integral center",
+      "value": {
+        "path": "location",
+        "circle": {
+          "center": {
+            "type": "Point",
+            "coordinates": [
+              1,
+              2
+            ]
+          },
+          "radius": 3
+        }
+      }
+    },
+    {
+      "description": "box",
+      "value": {
+        "path": "location",
+        "box": {
+          "bottomLeft": {
+            "type": "Point",
+            "coordinates": [
+              1.0,
+              2.0
+            ]
+          },
+          "topRight": {
+            "type": "Point",
+            "coordinates": [
+              3.0,
+              4.0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "polygon",
+      "value": {
+        "path": "location",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                10.0,
+                12.0
+              ],
+              [
+                11.0,
+                12.0
+              ],
+              [
+                11.0,
+                11.0
+              ],
+              [
+                10.0,
+                12.0
+              ]
+            ]
+          ]
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no shape",
+      "value": {
+        "path": "location"
+      }
+    },
+    {
+      "description": "circle center has extra field",
+      "value": {
+        "path": "location",
+        "circle": {
+          "center": {
+            "type": "Point",
+            "extra field": "not allowed",
+            "coordinates": [
+              1.0,
+              2.0
+            ]
+          },
+          "radius": 3
+        }
+      }
+    },
+    {
+      "description": "within point",
+      "value": {
+        "path": "location",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            2.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "circle and box",
+      "value": {
+        "path": "location",
+        "circle": {
+          "center": {
+            "type": "Point",
+            "coordinates": [
+              1.0,
+              2.0
+            ]
+          },
+          "radius": 3
+        },
+        "box": {
+          "bottomLeft": {
+            "type": "Point",
+            "coordinates": [
+              1.0,
+              2.0
+            ]
+          },
+          "topRight": {
+            "type": "Point",
+            "coordinates": [
+              3.0,
+              4.0
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "circle and polygon",
+      "value": {
+        "path": "location",
+        "circle": {
+          "center": {
+            "type": "Point",
+            "coordinates": [
+              1.0,
+              2.0
+            ]
+          },
+          "radius": 3
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                10.0,
+                12.0
+              ],
+              [
+                11.0,
+                12.0
+              ],
+              [
+                11.0,
+                11.0
+              ],
+              [
+                10.0,
+                12.0
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "description": "box and polygon",
+      "value": {
+        "path": "location",
+        "box": {
+          "bottomLeft": {
+            "type": "Point",
+            "coordinates": [
+              1.0,
+              2.0
+            ]
+          },
+          "topRight": {
+            "type": "Point",
+            "coordinates": [
+              3.0,
+              4.0
+            ]
+          }
+        },
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                10.0,
+                12.0
+              ],
+              [
+                11.0,
+                12.0
+              ],
+              [
+                11.0,
+                11.0
+              ],
+              [
+                10.0,
+                12.0
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "description": "geometry null",
+      "value": {
+        "path": "location",
+        "geometry": null
+      }
+    },
+    {
+      "description": "geometry empty document",
+      "value": {
+        "path": "location",
+        "geometry": {}
+      }
+    },
+    {
+      "description": "geometry missing type",
+      "value": {
+        "path": "location",
+        "geometry": {
+          "coordinates": [
+            1.0,
+            2.2
+          ]
+        }
+      }
+    },
+    {
+      "description": "geometry missing coordinates",
+      "value": {
+        "path": "location",
+        "geometry": {
+          "type": "polygon"
+        }
+      }
+    },
+    {
+      "description": "multi path",
+      "value": {
+        "path": {
+          "value": "location",
+          "multi": "my-multi"
+        },
+        "circle": {
+          "center": {
+            "type": "Point",
+            "coordinates": [
+              1.0,
+              2.0
+            ]
+          },
+          "radius": 3
+        }
+      }
+    }
+  ]
+}

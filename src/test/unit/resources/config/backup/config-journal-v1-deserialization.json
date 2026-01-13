@@ -1,0 +1,534 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": []
+      }
+    },
+    {
+      "description": "with staged index",
+      "value": {
+        "version": 1,
+        "indexes": [],
+        "stagedIndexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "mappings": {
+                "dynamic": true
+              }
+            },
+            "analyzers": [],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          }
+        ],
+        "deletedIndexes": []
+      }
+    },
+    {
+      "description": "with analyzer",
+      "value": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "analyzer": "foo",
+              "mappings": {
+                "dynamic": true
+              }
+            },
+            "analyzers": [
+              {
+                "name": "foo",
+                "baseAnalyzer": "bar"
+              }
+            ],
+            "generation": {
+              "userVersion": 4,
+              "formatVersion": 5
+            }
+          }
+        ],
+        "deletedIndexes": []
+      }
+    },
+    {
+      "description": "with index",
+      "value": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "mappings": {
+                "dynamic": true
+              }
+            },
+            "analyzers": [],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          }
+        ],
+        "deletedIndexes": []
+      }
+    },
+    {
+      "description": "with deletedIndex",
+      "value": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "mappings": {
+                "dynamic": true
+              }
+            },
+            "analyzers": [],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "multiple values",
+      "value": {
+        "version": 1,
+        "stagedIndexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "mappings": {
+                "dynamic": true
+              }
+            },
+            "analyzers": [],
+            "generation": {
+              "userVersion": 5,
+              "formatVersion": 6
+            }
+          },
+          {
+            "index": {
+              "indexID": "012345678901234567890124",
+              "name": "baz",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "mappings": {
+                "dynamic": true
+              }
+            },
+            "analyzers": [],
+            "generation": {
+              "userVersion": 5,
+              "formatVersion": 6
+            }
+          }
+        ],
+        "indexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "mappings": {
+                "dynamic": true
+              }
+            },
+            "analyzers": [],
+            "generation": {
+              "userVersion": 3,
+              "formatVersion": 4
+            }
+          },
+          {
+            "index": {
+              "indexID": "012345678901234567890124",
+              "name": "baz",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "mappings": {
+                "dynamic": true
+              }
+            },
+            "analyzers": [],
+            "generation": {
+              "userVersion": 3,
+              "formatVersion": 4
+            }
+          }
+        ],
+        "deletedIndexes": [
+          {
+            "index": {
+              "indexID": "012345678901234567890123",
+              "name": "foo",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "mappings": {
+                "dynamic": true
+              }
+            },
+            "analyzers": [],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          },
+          {
+            "index": {
+              "indexID": "012345678901234567890124",
+              "name": "baz",
+              "database": "bar",
+              "collectionUUID": "00000000-1111-2222-3333-444444444444",
+              "lastObservedCollectionName": "baz",
+              "mappings": {
+                "dynamic": true
+              }
+            },
+            "analyzers": [],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 2
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "with vector index",
+      "value": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine",
+                "quantization": "none"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 6
+            }
+          }
+        ],
+        "deletedVectorIndexes": []
+      }
+    },
+    {
+      "description": "with vector index and absent quantization field",
+      "value": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 6
+            }
+          }
+        ],
+        "deletedVectorIndexes": []
+      }
+    },
+    {
+      "description": "with staged vector index",
+      "value": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine",
+                "quantization": "none"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 6
+            }
+          }
+        ],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": []
+      }
+    },
+    {
+      "description": "with deleted vector index",
+      "value": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [],
+        "vectorIndexes": [],
+        "deletedVectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine",
+                "quantization": "none"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 6
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "multiple vector values",
+      "value": {
+        "version": 1,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": [],
+        "stagedVectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine",
+                "quantization": "none"
+              }
+            ],
+            "generation": {
+              "userVersion": 1,
+              "formatVersion": 6
+            }
+          }
+        ],
+        "vectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine",
+                "quantization": "none"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 5
+            }
+          }
+        ],
+        "deletedVectorIndexes": [
+          {
+            "type": "vectorSearch",
+            "indexID": "507f191e810c19729de860ea",
+            "name": "myVectorIndex",
+            "database": "myDatabase",
+            "lastObservedCollectionName": "myCollection",
+            "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+            "fields": [
+              {
+                "type": "filter",
+                "path": "filter.path"
+              },
+              {
+                "type": "vector",
+                "path": "vector.path",
+                "numDimensions": 3,
+                "similarity": "cosine",
+                "quantization": "none"
+              }
+            ],
+            "generation": {
+              "userVersion": 0,
+              "formatVersion": 5
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing version",
+      "value": {
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": []
+      }
+    },
+    {
+      "description": "wrong version 0",
+      "errorMessageContains": "must be set to 1",
+      "value": {
+        "version": 0,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": []
+      }
+    },
+    {
+      "description": "wrong version 2",
+      "errorMessageContains": "must be set to 1",
+      "value": {
+        "version": 2,
+        "stagedIndexes": [],
+        "indexes": [],
+        "deletedIndexes": []
+      }
+    },
+    {
+      "description": "missing staged",
+      "value": {
+        "indexes": [],
+        "deletedIndexes": []
+      }
+    },
+    {
+      "description": "missing indexes",
+      "value": {
+        "stagedIndexes": [],
+        "deletedIndexes": []
+      }
+    },
+    {
+      "description": "missing deletedIndexes",
+      "value": {
+        "stagedIndexes": [],
+        "indexes": []
+      }
+    }
+  ]
+}
+

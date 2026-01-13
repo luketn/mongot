@@ -1,0 +1,108 @@
+package com.xgen.mongot.util.mongodb.serialization;
+
+import static com.xgen.testing.BsonDeserializationTestSuite.fromRootDocument;
+
+import com.xgen.testing.BsonDeserializationTestSuite;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.bson.BsonDocument;
+import org.bson.BsonInt32;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Suite;
+
+@RunWith(Suite.class)
+@Suite.SuiteClasses(value = {MongoDbCollectionInfoTest.TestDeserialization.class})
+public class MongoDbCollectionInfoTest {
+
+  @RunWith(Parameterized.class)
+  public static class TestDeserialization {
+
+    private static final String SUITE_NAME = "collection-info-deserialization";
+    private static final BsonDeserializationTestSuite<Optional<MongoDbCollectionInfo>> TEST_SUITE =
+        fromRootDocument(
+            "src/test/unit/resources/util/mongodb/serialization",
+            SUITE_NAME,
+            MongoDbCollectionInfo::fromBsonDocument);
+
+    private final BsonDeserializationTestSuite.TestSpecWrapper<Optional<MongoDbCollectionInfo>>
+        testSpec;
+
+    public TestDeserialization(
+        BsonDeserializationTestSuite.TestSpecWrapper<Optional<MongoDbCollectionInfo>> testSpec) {
+      this.testSpec = testSpec;
+    }
+
+    @Parameterized.Parameters(name = "{0}")
+    public static Iterable<
+            BsonDeserializationTestSuite.TestSpecWrapper<Optional<MongoDbCollectionInfo>>>
+        data() {
+      return TEST_SUITE.withExamples(
+          collection(),
+          view(),
+          viewWithNoPipeline(),
+          viewWithNoViewOn(),
+          timeseries(),
+          collectionWithInvalidUuid(),
+          collectionWithNoUuid());
+    }
+
+    @Test
+    public void runTest() throws Exception {
+      TEST_SUITE.runTest(this.testSpec);
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<Optional<MongoDbCollectionInfo>>
+        collection() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "collection",
+          Optional.of(
+              new MongoDbCollectionInfo.Collection(
+                  "testDatabaseWithCollectionAndView",
+                  new MongoDbCollectionInfo.Collection.Info(
+                      UUID.fromString("0eaa56f3-7cd1-4321-8b06-e47ef68503b9")))));
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<Optional<MongoDbCollectionInfo>> view() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "view",
+          Optional.of(
+              new MongoDbCollectionInfo.View(
+                  "testDatabaseWithCollectionAndView-view",
+                  new MongoDbCollectionInfo.View.Options(
+                      "testDatabaseWithCollectionAndView",
+                      List.of(
+                          new BsonDocument(
+                              "$set", new BsonDocument("cats", new BsonInt32(20))))))));
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<Optional<MongoDbCollectionInfo>>
+        collectionWithInvalidUuid() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "collection-with-invalid-uuid", Optional.empty());
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<Optional<MongoDbCollectionInfo>>
+        collectionWithNoUuid() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "collection-with-no-uuid", Optional.empty());
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<Optional<MongoDbCollectionInfo>>
+        viewWithNoPipeline() {
+      return BsonDeserializationTestSuite.TestSpec.valid("view-with-no-pipeline", Optional.empty());
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<Optional<MongoDbCollectionInfo>>
+        viewWithNoViewOn() {
+      return BsonDeserializationTestSuite.TestSpec.valid("view-with-no-viewOn", Optional.empty());
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<Optional<MongoDbCollectionInfo>>
+        timeseries() {
+      return BsonDeserializationTestSuite.TestSpec.valid("timeseries", Optional.empty());
+    }
+  }
+}

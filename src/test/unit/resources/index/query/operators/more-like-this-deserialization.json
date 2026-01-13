@@ -1,0 +1,58 @@
+{
+  "valid": [
+    {
+      "description": "oneDoc",
+      "value": {
+        "like": {
+          "title": "C++",
+          "author": "Bjarne Stroustrup"
+        }
+      }
+    },
+    {
+      "description": "twoDocs",
+      "value": {
+        "like": [
+          {
+            "title": "C++",
+            "author": "Bjarne Stroustrup"
+          },
+          {
+            "title": "Java",
+            "author": "James Gosling"
+          }
+        ]
+      }
+    },
+    {
+      "description": "docWithArray",
+      "value": {
+        "like": [
+          {
+            "fruit": [
+              "Apple",
+              "Pear"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "intsInsteadOfDocuments",
+      "value": {
+        "like": [
+          5,
+          13
+        ]
+      }
+    },
+    {
+      "description": "emptyLike",
+      "value": {
+        "like": []
+      }
+    }
+  ]
+}

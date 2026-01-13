@@ -1,0 +1,41 @@
+load("//bazel/java:package.bzl", "java_library")
+
+java_library(
+    name = "lifecycle",
+    srcs = [
+        "DefaultLifecycleManager.java",
+        "IndexLifecycleManager.java",
+        "LifecycleConfig.java",
+        "LifecycleManager.java",
+    ],
+    visibility = ["//visibility:public"],
+    exports = [
+        "//src/main/java/com/xgen/mongot/replication",
+        "//src/main/java/com/xgen/mongot/util/mongodb",
+        "@maven//:org_mongodb_bson",
+    ],
+    deps = [
+        "//src/main/java/com/xgen/mongot/blobstore",
+        "//src/main/java/com/xgen/mongot/catalog",
+        "//src/main/java/com/xgen/mongot/index",
+        "//src/main/java/com/xgen/mongot/index/autoembedding",
+        "//src/main/java/com/xgen/mongot/index/blobstore",
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/status",
+        "//src/main/java/com/xgen/mongot/index/version",
+        "//src/main/java/com/xgen/mongot/metrics",
+        "//src/main/java/com/xgen/mongot/monitor",
+        "//src/main/java/com/xgen/mongot/replication",
+        "//src/main/java/com/xgen/mongot/replication/mongodb/autoembedding",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/mongot/util/bson/parser",
+        "//src/main/java/com/xgen/mongot/util/concurrent",
+        "//src/main/java/com/xgen/mongot/util/mongodb",
+        "@maven//:com_google_errorprone_error_prone_annotations",
+        "@maven//:com_google_guava_guava",
+        "@maven//:io_micrometer_micrometer_core",
+        "@maven//:org_jetbrains_annotations",
+        "@maven//:org_mongodb_bson",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)

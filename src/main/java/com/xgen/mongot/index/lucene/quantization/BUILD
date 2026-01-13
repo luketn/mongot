@@ -1,0 +1,37 @@
+load("//bazel/java:package.bzl", "java_library")
+
+java_library(
+    name = "quantization",
+    srcs = [
+        "BinaryQuantizationUtils.java",
+        "BinaryQuantizedFlatVectorsScorer.java",
+        "BinaryQuantizedVectorRescorer.java",
+        "BinaryQuantizer.java",
+        "BitRandomVectorScorer.java",
+        "BitRandomVectorScorerSupplier.java",
+        "DequantizedVectorValues.java",
+        "FlatBitVectorsScorer.java",
+        "Mongot01042BinaryQuantizedFlatVectorsFormat.java",
+        "Mongot01042BinaryQuantizedFlatVectorsReader.java",
+        "Mongot01042BinaryQuantizedFlatVectorsWriter.java",
+        "Mongot01042HnswBinaryQuantizedVectorsFormat.java",
+        "Mongot01042HnswBitVectorsFormat.java",
+        "OffHeapQuantizedByteVectorValues.java",
+    ],
+    visibility = ["//:__subpackages__"],
+    exports = ["@maven//:org_apache_lucene_lucene_core"],
+    deps = [
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/lucene/explain/knn",
+        "//src/main/java/com/xgen/mongot/index/lucene/explain/tracing",
+        "//src/main/java/com/xgen/mongot/index/lucene/util",
+        "//src/main/java/com/xgen/mongot/index/query/operators",
+        "//src/main/java/com/xgen/mongot/util/concurrent",
+        "@maven//:com_google_auto_service_auto_service_annotations",
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:com_google_errorprone_error_prone_annotations",
+        "@maven//:com_google_flogger_flogger",
+        "@maven//:com_google_guava_guava",
+        "@maven//:org_apache_lucene_lucene_core",
+    ],
+)

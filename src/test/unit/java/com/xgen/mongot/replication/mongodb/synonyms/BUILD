@@ -1,0 +1,36 @@
+load("//bazel/java:test.bzl", "java_test_suite")
+
+java_test_suite(
+    name = "synonyms",
+    srcs = [
+        "SynonymCollectionScannerTest.java",
+        "SynonymDocumentIndexerTest.java",
+        "SynonymManagerTest.java",
+        "SynonymMappingManagerTest.java",
+        "SynonymSyncMetricsTest.java",
+    ],
+    tags = ["unit"],
+    deps = [
+        "//src/main/java/com/xgen/mongot/index",
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/synonym",
+        "//src/main/java/com/xgen/mongot/index/version",
+        "//src/main/java/com/xgen/mongot/metrics",
+        "//src/main/java/com/xgen/mongot/replication/mongodb/common",
+        "//src/main/java/com/xgen/mongot/replication/mongodb/synonyms",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/mongot/util/bson/parser",
+        "//src/main/java/com/xgen/mongot/util/functionalinterfaces",
+        "//src/main/java/com/xgen/testing",
+        "//src/main/java/com/xgen/testing/mongot/index/definition",
+        "//src/main/java/com/xgen/testing/mongot/index/synonym",
+        "//src/main/java/com/xgen/testing/mongot/mock/index",
+        "@maven//:com_google_errorprone_error_prone_annotations",
+        "@maven//:com_google_truth_truth",
+        "@maven//:io_micrometer_micrometer_core",
+        "@maven//:junit_junit",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mongodb_bson",
+        "@maven//:org_mongodb_mongodb_driver_core",
+    ],
+)

@@ -1,0 +1,43 @@
+load("//bazel/java:package.bzl", "java_library")
+
+java_library(
+    name = "changestream",
+    srcs = [
+        "ChangeStreamDispatcher.java",
+        "ChangeStreamIndexManager.java",
+        "ChangeStreamIndexManagerFactory.java",
+        "ChangeStreamManager.java",
+        "ChangeStreamMongoClientFactory.java",
+        "DecodingExecutorChangeStreamIndexManager.java",
+        "ModeAwareChangeStreamClient.java",
+        "SteadyStateReplicationConfig.java",
+        "SyncChangeStreamDispatcher.java",
+        "TimedChangeStreamClient.java",
+    ],
+    visibility = ["//visibility:public"],
+    exports = [
+        "//src/main/java/com/xgen/mongot/index/version",
+        "//src/main/java/com/xgen/mongot/replication/mongodb/common",
+        "@maven//:org_mongodb_bson",
+    ],
+    deps = [
+        "//src/main/java/com/xgen/mongot/index",
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/version",
+        "//src/main/java/com/xgen/mongot/logging",
+        "//src/main/java/com/xgen/mongot/metrics",
+        "//src/main/java/com/xgen/mongot/replication/mongodb/common",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/mongot/util/concurrent",
+        "//src/main/java/com/xgen/mongot/util/mongodb",
+        "@maven//:com_google_errorprone_error_prone_annotations",
+        "@maven//:com_google_guava_guava",
+        "@maven//:commons_codec_commons_codec",
+        "@maven//:io_micrometer_micrometer_core",
+        "@maven//:org_jetbrains_annotations",
+        "@maven//:org_mongodb_bson",
+        "@maven//:org_mongodb_mongodb_driver_core",
+        "@maven//:org_mongodb_mongodb_driver_sync",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)

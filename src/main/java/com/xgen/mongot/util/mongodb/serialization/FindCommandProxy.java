@@ -1,0 +1,86 @@
+package com.xgen.mongot.util.mongodb.serialization;
+
+import com.xgen.mongot.util.Check;
+import java.util.Optional;
+import org.bson.BsonBoolean;
+import org.bson.BsonDocument;
+import org.bson.BsonString;
+import org.bson.codecs.configuration.CodecRegistry;
+import org.bson.conversions.Bson;
+
+/**
+ * FindCommandProxy is a proxy for an <em>find</em> command.
+ *
+ * <p>See https://docs.mongodb.com/manual/reference/command/find/#dbcmd.find
+ */
+public class FindCommandProxy implements Bson {
+
+  private static final String FIND_FIELD = "find";
+  private static final String SORT_FIELD = "sort";
+  private static final String HINT_FIELD = "hint";
+  private static final String PROJECTION_FIELD = "projection";
+  private static final String READ_CONCERN_FIELD = "readConcern";
+  private static final String NO_CURSOR_TIMEOUT_FIELD = "noCursorTimeout";
+  private static final String MIN_FIELD = "min";
+  private static final String FILTER_FIELD = "filter";
+
+  private final BsonString collection;
+  private final Optional<Bson> sort;
+  private final Optional<Bson> hint;
+  private final Optional<Bson> projection;
+  private final Optional<BsonDocument> readConcern;
+  private final Optional<BsonBoolean> noCursorTimeout;
+  private final Optional<Bson> min;
+  private final Optional<Bson> filter;
+
+  public FindCommandProxy(
+      BsonString collection,
+      Optional<Bson> sort,
+      Optional<Bson> hint,
+      Optional<Bson> projection,
+      Optional<BsonBoolean> noCursorTimeout,
+      Optional<Bson> min,
+      Optional<Bson> filter,
+      Optional<BsonDocument> readConcern) {
+    Check.argNotNull(collection, "collection");
+    Check.argNotNull(sort, "sort");
+    Check.argNotNull(hint, "hint");
+    Check.argNotNull(projection, "projection");
+    Check.argNotNull(noCursorTimeout, "noCursorTimeout");
+    Check.argNotNull(min, "min");
+    Check.argNotNull(filter, "filter");
+    Check.argNotNull(readConcern, "readConcern");
+
+    this.collection = collection;
+    this.sort = sort;
+    this.hint = hint;
+    this.projection = projection;
+    this.readConcern = readConcern;
+    this.noCursorTimeout = noCursorTimeout;
+    this.min = min;
+    this.filter = filter;
+  }
+
+  @Override
+  public <T> BsonDocument toBsonDocument(Class<T> documentClass, CodecRegistry codecRegistry) {
+    Check.argNotNull(documentClass, "documentClass");
+    Check.argNotNull(codecRegistry, "codecRegistry");
+
+    BsonDocument doc = new BsonDocument().append(FIND_FIELD, this.collection);
+
+    this.sort.ifPresent(
+        bson -> doc.append(SORT_FIELD, bson.toBsonDocument(documentClass, codecRegistry)));
+    this.hint.ifPresent(
+        bson -> doc.append(HINT_FIELD, bson.toBsonDocument(documentClass, codecRegistry)));
+    this.projection.ifPresent(
+        bson -> doc.append(PROJECTION_FIELD, bson.toBsonDocument(documentClass, codecRegistry)));
+    this.noCursorTimeout.ifPresent(bsonBoolean -> doc.append(NO_CURSOR_TIMEOUT_FIELD, bsonBoolean));
+    this.min.ifPresent(
+        bson -> doc.append(MIN_FIELD, bson.toBsonDocument(documentClass, codecRegistry)));
+    this.filter.ifPresent(
+        bson -> doc.append(FILTER_FIELD, bson.toBsonDocument(documentClass, codecRegistry)));
+    this.readConcern.ifPresent(concern -> doc.append(READ_CONCERN_FIELD, concern));
+
+    return doc;
+  }
+}

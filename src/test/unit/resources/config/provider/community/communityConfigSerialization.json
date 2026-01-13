@@ -1,0 +1,91 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd",
+            "authSource": "admin",
+            "tls": false,
+            "readPreference": "secondaryPreferred"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028",
+            "tls": {
+              "mode": "MTLS",
+              "certificateKeyFile": "/etc/ssl/common-cert.pem",
+              "caFile": "/etc/mongot-tls/ca.pem"
+            }
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "healthCheck": {
+          "address": "localhost:8080"
+        },
+        "logging": {
+          "verbosity": "DEBUG",
+          "logPath": "/var/log/mongot"
+        },
+        "ftdc": {
+          "enabled": true,
+          "directorySizeMb": 100,
+          "fileSizeMb": 10,
+          "collectionPeriodMillis": 1000
+        }
+      },
+      "bson": {
+        "syncSource": {
+          "replicaSet": {
+            "hostAndPort": "mongod:27017",
+            "username": "user",
+            "passwordFile": "/etc/mongot/replicaSet.passwd",
+            "authSource": "admin",
+            "tls": false,
+            "readPreference": "secondaryPreferred"
+          }
+        },
+        "storage": {
+          "dataPath": "data/mongot"
+        },
+        "server": {
+          "grpc": {
+            "address": "localhost:27028",
+            "tls": {
+              "mode": "MTLS",
+              "certificateKeyFile": "/etc/ssl/common-cert.pem",
+              "caFile": "/etc/mongot-tls/ca.pem"
+            }
+          }
+        },
+        "metrics": {
+          "enabled": true,
+          "address": "localhost:9946"
+        },
+        "healthCheck": {
+          "address": "localhost:8080"
+        },
+        "logging": {
+          "verbosity": "DEBUG",
+          "logPath": "/var/log/mongot"
+        },
+        "ftdc": {
+          "enabled": true,
+          "directorySizeMb": 100,
+          "fileSizeMb": 10,
+          "collectionPeriodMillis": 1000
+        }
+      }
+    }
+  ]
+}

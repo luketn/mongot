@@ -1,0 +1,6 @@
+lifelinestyle ::solid
+participant ConfigManager
+participant ConfigJournal
+
+ConfigJournal->ConfigManager:read if present
+ConfigManager->ConfigState:initialize indexes

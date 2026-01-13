@@ -1,0 +1,30 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "a",
+        "value": "hello"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing-path",
+      "value": {
+        "value": "something"
+      }
+    },
+    {
+      "description": "missing-value",
+      "value": {
+        "path": "a"
+      }
+    },
+    {
+      "description": "missing-path-and-value",
+      "value": {
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "description": "equivalent",
+      "value": {
+        "mappingType": "equivalent",
+        "synonyms": [
+          "car",
+          "truck"
+        ]
+      }
+    },
+    {
+      "description": "explicit",
+      "value": {
+        "mappingType": "explicit",
+        "input": [
+          "vehicle",
+          "transportation"
+        ],
+        "synonyms": [
+          "car",
+          "truck"
+        ]
+      }
+    }
+  ]
+}

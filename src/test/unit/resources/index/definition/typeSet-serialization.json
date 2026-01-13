@@ -1,0 +1,31 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "name": "foo",
+        "types": [
+          {
+            "type": "autocomplete",
+            "minGrams": 2,
+            "maxGrams": 15,
+            "foldDiacritics": true,
+            "tokenization": "edgeGram"
+          },
+          {
+            "type": "number",
+            "representation": "double",
+            "indexDoubles": true,
+            "indexIntegers": true
+          },
+          {
+            "type": "string",
+            "indexOptions": "offsets",
+            "store": true,
+            "norms": "include"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+load("//bazel/java:package.bzl", "java_library")
+
+java_library(
+    name = "monitor",
+    srcs = [
+        "DiskMonitor.java",
+        "Gate.java",
+        "HysteresisGate.java",
+        "NoOpDiskMonitor.java",
+        "PeriodicDiskMonitor.java",
+        "ReplicationStateMonitor.java",
+        "ToggleGate.java",
+    ],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//src/main/java/com/xgen/mongot/config/util",
+        "//src/main/java/com/xgen/mongot/metrics",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/mongot/util/concurrent",
+        "@maven//:com_google_errorprone_error_prone_annotations",
+        "@maven//:com_google_guava_guava",
+        "@maven//:io_micrometer_micrometer_core",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)

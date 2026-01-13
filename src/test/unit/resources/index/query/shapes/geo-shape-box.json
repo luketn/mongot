@@ -1,0 +1,262 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "bottomLeft": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            2.0
+          ]
+        },
+        "topRight": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing bottom",
+      "value": {
+        "topRight": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "bottom is null",
+      "value": {
+        "bottomLeft": null,
+        "topRight": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "top is null",
+      "value": {
+        "topRight": null,
+        "bottomLeft": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "missing top",
+      "value": {
+        "bottomLeft": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            2.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "missing coordinates",
+      "value": {
+        "bottomLeft": {
+          "type": "Point",
+          "coordinates": [
+            1.0
+          ]
+        },
+        "topRight": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "coordinates contain null",
+      "value": {
+        "bottomLeft": {
+          "type": "Point",
+          "coordinates": [
+            null,
+            1.0
+          ]
+        },
+        "topRight": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "coordinates are null",
+      "value": {
+        "bottomLeft": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            1.0
+          ]
+        },
+        "topRight": {
+          "type": "Point",
+          "coordinates": null
+        }
+      }
+    },
+    {
+      "description": "bottom not a point",
+      "value": {
+        "bottomLeft": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              1.0,
+              2.0
+            ],
+            [
+              3.0,
+              4.0
+            ]
+          ]
+        },
+        "topRight": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "missing bottom type",
+      "value": {
+        "bottomLeft": {
+          "coordinates": [
+            1.0,
+            2.0
+          ]
+        },
+        "topRight": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "missing bottom coordinates",
+      "value": {
+        "bottomLeft": {
+          "type": "Point"
+        },
+        "topRight": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "bottom.lon > top.lon",
+      "value": {
+        "bottomLeft": {
+          "type": "Point",
+          "coordinates": [
+            20.0,
+            2.0
+          ]
+        },
+        "topRight": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "bottom.lon == top.lon",
+      "value": {
+        "bottomLeft": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            2.0
+          ]
+        },
+        "topRight": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "bottom.lat > top.lat",
+      "value": {
+        "bottomLeft": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            4.1
+          ]
+        },
+        "topRight": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "bottom.lat == top.lat",
+      "value": {
+        "bottomLeft": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            4.0
+          ]
+        },
+        "topRight": {
+          "type": "Point",
+          "coordinates": [
+            3.0,
+            4.0
+          ]
+        }
+      }
+    }
+  ]
+}

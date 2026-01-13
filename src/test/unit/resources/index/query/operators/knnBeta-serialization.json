@@ -1,0 +1,74 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "knnBeta": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "description",
+          "vector": [
+            2,
+            2,
+            2
+          ],
+          "k": 10
+        }
+      }
+    },
+    {
+      "description": "filter",
+      "value": {
+        "knnBeta": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": "description",
+          "vector": [
+            5,
+            5,
+            5
+          ],
+          "filter": {
+            "equals": {
+              "score": {
+                "boost": {
+                  "value": 1.0
+                }
+              },
+              "path": "flag",
+              "value": true
+            }
+          },
+          "k": 10
+        }
+      }
+    },
+    {
+      "description": "multiple paths",
+      "value": {
+        "knnBeta": {
+          "score": {
+            "boost": {
+              "value": 1.0
+            }
+          },
+          "path": [
+            "description",
+            "title"
+          ],
+          "vector": [
+            15,
+            15
+          ],
+          "k": 10
+        }
+      }
+    }
+  ]
+}

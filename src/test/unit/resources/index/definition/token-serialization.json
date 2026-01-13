@@ -1,0 +1,15 @@
+{
+  "tests": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    },
+    {
+      "description": "with normalizer",
+      "value": {
+        "normalizer": "none"
+      }
+    }
+  ]
+}

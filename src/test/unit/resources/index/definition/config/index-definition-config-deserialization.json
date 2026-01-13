@@ -1,0 +1,29 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {}
+    },
+    {
+      "description": "with value",
+      "value": {
+        "maxEmbeddedDocumentsNestingLevel": 2
+      }
+    },
+    {
+      "description": "with zero value",
+      "value": {
+        "maxEmbeddedDocumentsNestingLevel": 0
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "negative nesting level",
+      "value": {
+        "maxEmbeddedDocumentsNestingLevel": -1
+      },
+      "errorMessageContains": "cannot be negative"
+    }
+  ]
+}

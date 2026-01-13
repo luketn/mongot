@@ -1,0 +1,186 @@
+{
+  "valid": [
+    {
+      "description": "simple search index",
+      "value": {
+        "status": {
+          "statusCode": "INITIAL_SYNC"
+        },
+        "definition": {
+          "indexID": "695301d3bb11192ef11c42f6",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "numPartitions": 1,
+          "mappings": {
+            "dynamic": true,
+            "fields": {}
+          },
+          "indexFeatureVersion": 0
+        }
+      }
+    },
+    {
+      "description": "simple vector index",
+      "value": {
+        "status": {
+          "statusCode": "INITIAL_SYNC"
+        },
+        "definition": {
+          "type": "vectorSearch",
+          "indexID": "695301d3bb11192ef11c42f6",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "numPartitions": 1,
+          "fields": [
+            {
+              "type": "vector",
+              "path": "my.vector.field",
+              "numDimensions": 1,
+              "similarity": "cosine"
+            },
+            {
+              "type": "filter",
+              "path": "my.filter.field"
+            }
+          ],
+          "indexFeatureVersion": 3
+        }
+      }
+    },
+    {
+      "description": "search with synonym status",
+      "value": {
+        "status": {
+          "statusCode": "INITIAL_SYNC"
+        },
+        "definition": {
+          "indexID": "695301d3bb11192ef11c42f6",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "numPartitions": 1,
+          "mappings": {
+            "dynamic": true,
+            "fields": {}
+          },
+          "indexFeatureVersion": 0
+        },
+        "synonymStatus": "READY"
+      }
+    },
+    {
+      "description": "search with empty synonym detailed status map",
+      "value": {
+        "status": {
+          "statusCode": "INITIAL_SYNC"
+        },
+        "definition": {
+          "indexID": "695301d3bb11192ef11c42f6",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "numPartitions": 1,
+          "mappings": {
+            "dynamic": true,
+            "fields": {}
+          },
+          "indexFeatureVersion": 0
+        },
+        "synonymDetailedStatusMap": {}
+      }
+    },
+    {
+      "description": "search with synonym detailed status map",
+      "value": {
+        "status": {
+          "statusCode": "INITIAL_SYNC"
+        },
+        "definition": {
+          "indexID": "695301d3bb11192ef11c42f6",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "numPartitions": 1,
+          "mappings": {
+            "dynamic": true,
+            "fields": {}
+          },
+          "indexFeatureVersion": 0
+        },
+        "synonymDetailedStatusMap": {
+          "index1": {
+            "statusCode": "INITIAL_SYNC",
+            "message": "Syncing"
+          },
+          "index2": {
+            "statusCode": "INITIAL_SYNC"
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "search with unknown synonym status",
+      "value": {
+        "status": {
+          "statusCode": "INITIAL_SYNC"
+        },
+        "definition": {
+          "indexID": "695301d3bb11192ef11c42f6",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "numPartitions": 1,
+          "mappings": {
+            "dynamic": true,
+            "fields": {}
+          },
+          "indexFeatureVersion": 0
+        },
+        "synonymStatus": "FOOBAR"
+      }
+    },
+    {
+      "description": "search with unkown synonym in detailed status map",
+      "value": {
+        "status": {
+          "statusCode": "INITIAL_SYNC"
+        },
+        "definition": {
+          "indexID": "695301d3bb11192ef11c42f6",
+          "name": "index",
+          "database": "database",
+          "lastObservedCollectionName": "collection",
+          "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+          "numPartitions": 1,
+          "mappings": {
+            "dynamic": true,
+            "fields": {}
+          },
+          "indexFeatureVersion": 0
+        },
+        "synonymDetailedStatusMap": {
+          "index1": {
+            "statusCode": "INITIAL_SYNC",
+            "message": "Syncing"
+          },
+          "index2": {
+            "statusCode": "INITIAL_SYNC"
+          },
+          "index3": {
+            "statusCode": "FOOBAR"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "_id": "category",
+        "count": {
+          "$numberLong": "2"
+        }
+      }
+    },
+    {
+      "description": "numericId",
+      "value": {
+        "_id": 1,
+        "count": {
+          "$numberLong": "2"
+        }
+      }
+    },
+    {
+      "description": "dateId",
+      "value": {
+        "_id": {
+          "$date": "2020-04-03T13:13:13Z"
+        },
+        "count": {
+          "$numberLong": "2"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "noId",
+      "value": {
+        "count": {
+          "$numberLong": "2"
+        }
+      }
+    },
+    {
+      "description": "noCount",
+      "value": {
+        "_id": "category"
+      }
+    }
+  ]
+}

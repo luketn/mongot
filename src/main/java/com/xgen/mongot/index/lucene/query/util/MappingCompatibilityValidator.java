@@ -1,0 +1,77 @@
+package com.xgen.mongot.index.lucene.query.util;
+
+import com.xgen.mongot.index.query.InvalidQueryException;
+import com.xgen.mongot.index.query.QueryTimeMappingChecks;
+import com.xgen.mongot.index.query.operators.type.ValueType;
+import com.xgen.mongot.util.FieldPath;
+import java.util.Optional;
+
+public class MappingCompatibilityValidator {
+
+  /**
+   * Validates that the configured mappings for the index could serve query with the specified
+   * datatype.
+   */
+  public static void validate(
+      FieldPath path,
+      Optional<FieldPath> embeddedRoot,
+      QueryTimeMappingChecks mappingChecks,
+      ValueType type)
+      throws InvalidQueryException {
+
+    boolean hasFilter = mappingChecks.supportsFilter();
+    switch (type) {
+      case DATE:
+        InvalidQueryException.validate(
+            mappingChecks.indexedAsDate(path, embeddedRoot),
+            "Path '%s' needs to be indexed as %s",
+            path,
+            hasFilter ? "filter" : "date");
+        break;
+
+      case NUMBER:
+        InvalidQueryException.validate(
+            mappingChecks.indexedAsNumber(path, embeddedRoot),
+            "Path '%s' needs to be indexed as %s",
+            path,
+            hasFilter ? "filter" : "number");
+        break;
+
+      case STRING:
+        InvalidQueryException.validate(
+            mappingChecks.indexedAsToken(path, embeddedRoot),
+            "Path '%s' needs to be indexed as %s",
+            path,
+            hasFilter ? "filter" : "token");
+        break;
+
+      case BOOLEAN:
+        InvalidQueryException.validate(
+            mappingChecks.indexedAsBoolean(path, embeddedRoot),
+            "Path '%s' needs to be indexed as %s",
+            path,
+            hasFilter ? "filter" : "boolean");
+        break;
+
+      case OBJECT_ID:
+        InvalidQueryException.validate(
+            mappingChecks.indexedAsObjectId(path, embeddedRoot),
+            "Path '%s' needs to be indexed as %s",
+            path,
+            hasFilter ? "filter" : "objectId");
+        break;
+
+      case UUID:
+        InvalidQueryException.validate(
+            mappingChecks.indexedAsUuid(path, embeddedRoot),
+            "Path '%s' needs to be indexed as %s",
+            path,
+            hasFilter ? "filter" : "uuid");
+        break;
+
+      case NULL:
+        // Do nothing since null values are indexed automatically for all fields
+        break;
+    }
+  }
+}

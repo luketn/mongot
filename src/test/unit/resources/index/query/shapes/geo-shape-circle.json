@@ -1,0 +1,153 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "center": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            2.0
+          ]
+        },
+        "radius": 3
+      }
+    },
+    {
+      "description": "integral position center",
+      "value": {
+        "center": {
+          "type": "Point",
+          "coordinates": [
+            1,
+            2
+          ]
+        },
+        "radius": 3
+      }
+    },
+    {
+      "description": "radius zero",
+      "value": {
+        "center": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            2.0
+          ]
+        },
+        "radius": 0
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing radius",
+      "value": {
+        "center": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            2.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "missing center",
+      "value": {
+        "radius": 3
+      }
+    },
+    {
+      "description": "center is null",
+      "value": {
+        "center": null,
+        "radius": 3
+      }
+    },
+    {
+      "description": "coordinates contain null",
+      "value": {
+        "center": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            null
+          ]
+        },
+        "radius": 3
+      }
+    },
+    {
+      "description": "not enough coordinates",
+      "value": {
+        "center": {
+          "type": "Point",
+          "coordinates": [
+            1.0
+          ]
+        },
+        "radius": 3
+      }
+    },
+    {
+      "description": "coordinates are null",
+      "value": {
+        "center": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            null
+          ]
+        },
+        "radius": 3
+      }
+    },
+    {
+      "description": "radius null",
+      "value": {
+        "center": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            2.0
+          ]
+        },
+        "radius": null
+      }
+    },
+    {
+      "description": "radius negative",
+      "value": {
+        "center": {
+          "type": "Point",
+          "coordinates": [
+            1.0,
+            2.0
+          ]
+        },
+        "radius": -1
+      }
+    },
+    {
+      "description": "not a point",
+      "value": {
+        "center": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              1.0,
+              2.0
+            ],
+            [
+              3.0,
+              4.0
+            ]
+          ]
+        },
+        "radius": -1
+      }
+    }
+  ]
+}

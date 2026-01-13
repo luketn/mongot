@@ -1,0 +1,11 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    }
+  ],
+  "invalid": [
+  ]
+}

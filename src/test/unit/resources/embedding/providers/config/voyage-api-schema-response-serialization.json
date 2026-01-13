@@ -1,0 +1,103 @@
+{
+  "tests": [
+    {
+      "description": "voyage-3-large response",
+      "json": {
+        "object": "list",
+        "data": [
+          {
+            "object": "embedding",
+            "embedding": [
+              1.0,
+              2.0,
+              3.0
+            ],
+            "index": 0
+          },
+          {
+            "object": "embedding",
+            "embedding": [
+              1.0,
+              2.0,
+              3.0
+            ],
+            "index": 1
+          },
+          {
+            "object": "embedding",
+            "embedding": [
+              1.0,
+              2.0,
+              3.0
+            ],
+            "index": 2
+          }
+        ],
+        "usage": {
+          "total_tokens": 100
+        }
+      },
+      "bson": {
+        "object": "list",
+        "data": [
+          {
+            "object": "embedding",
+            "embedding": [
+              {
+                "$numberDouble": "1.0"
+              },
+              {
+                "$numberDouble": "2.0"
+              },
+              {
+                "$numberDouble": "3.0"
+              }
+            ],
+            "index": {
+              "$numberInt": "0"
+            }
+          },
+          {
+            "object": "embedding",
+            "embedding": [
+              {
+                "$numberDouble": "1.0"
+              },
+              {
+                "$numberDouble": "2.0"
+              },
+              {
+                "$numberDouble": "3.0"
+              }
+            ],
+            "index": {
+              "$numberInt": "1"
+            }
+          },
+          {
+            "object": "embedding",
+            "embedding": [
+              {
+                "$numberDouble": "1.0"
+              },
+              {
+                "$numberDouble": "2.0"
+              },
+              {
+                "$numberDouble": "3.0"
+              }
+            ],
+            "index": {
+              "$numberInt": "2"
+            }
+          }
+        ],
+        "usage": {
+          "total_tokens": {
+            "$numberInt": "100"
+          }
+        }
+      }
+    }
+  ]
+}

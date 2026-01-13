@@ -1,0 +1,31 @@
+load("//bazel/java:package.bzl", "java_library")
+
+java_library(
+    name = "block",
+    srcs = [
+        "DocumentBlock.java",
+        "EmbeddedBlock.java",
+        "EmbeddedDocumentBuilder.java",
+        "EmbeddedDocumentHandler.java",
+        "EmbeddedFieldValueHandler.java",
+        "RootBlock.java",
+    ],
+    visibility = ["//visibility:public"],
+    exports = [
+        "//src/main/java/com/xgen/mongot/index/ingestion/handlers",
+        "@maven//:org_apache_lucene_lucene_core",
+    ],
+    deps = [
+        "//src/main/java/com/xgen/mongot/index",
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/ingestion/handlers",
+        "//src/main/java/com/xgen/mongot/index/ingestion/stored",
+        "//src/main/java/com/xgen/mongot/index/lucene/document/builder",
+        "//src/main/java/com/xgen/mongot/index/lucene/document/single",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/mongot/util/bson",
+        "@maven//:org_apache_lucene_lucene_core",
+        "@maven//:org_mongodb_bson",
+        "@maven//:org_mongodb_mongodb_driver_core",
+    ],
+)

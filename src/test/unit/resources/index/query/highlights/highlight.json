@@ -1,0 +1,65 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "title"
+      }
+    },
+    {
+      "description": "explicit maxNumPassages and maxCharsToExamine",
+      "value": {
+        "path": "title",
+        "maxNumPassages": 1,
+        "maxCharsToExamine": 2
+      }
+    },
+    {
+      "description": "path with multi",
+      "value": {
+        "path": {
+          "value": "title",
+          "multi": "keyword"
+        }
+      }
+    },
+    {
+      "description": "wildcardPath",
+      "value": {
+        "path": {
+          "wildcard": "des*"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "negative maxNumPassages",
+      "value": {
+        "path": "title",
+        "maxNumPassages": -1
+      }
+    },
+    {
+      "description": "zero maxNumPassages",
+      "value": {
+        "path": "title",
+        "maxNumPassages": 0
+      }
+    },
+    {
+      "description": "negative maxCharsToExamine",
+      "value": {
+        "path": "title",
+        "maxCharsToExamine": -1
+      }
+    },
+    {
+      "description": "zero maxCharsToExamine",
+      "value": {
+        "path": "title",
+        "maxCharsToExamine": 0
+      }
+    }
+  ]
+}

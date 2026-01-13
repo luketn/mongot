@@ -1,0 +1,48 @@
+{
+  "valid": [
+    {
+      "description": "single value",
+      "value": {
+        "query": "my query"
+      }
+    },
+    {
+      "description": "array of values",
+      "value": {
+        "query": [
+          "my first query",
+          "my second query"
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "wrong field name",
+      "value": {
+        "foo": "my query"
+      }
+    },
+    {
+      "description": "missing query",
+      "value": {
+        "query": null
+      }
+    },
+    {
+      "description": "empty query",
+      "value": {
+        "query": ""
+      }
+    },
+    {
+      "description": "empty query array element",
+      "value": {
+        "query": [
+          "my query",
+          ""
+        ]
+      }
+    }
+  ]
+}

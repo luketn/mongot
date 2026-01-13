@@ -1,0 +1,227 @@
+{
+  "valid": [
+    {
+      "description": "doesNotAffect",
+      "value": {
+        "path": "point",
+        "lt": {
+          "$numberLong": "15"
+        },
+        "doesNotAffect": [
+          "points",
+          "sizes"
+        ]
+      }
+    },
+    {
+      "description": "doesNotAffectString",
+      "value": {
+        "path": "point",
+        "lt": {
+          "$numberLong": "15"
+        },
+        "doesNotAffect": "points"
+      }
+    },
+    {
+      "description": "date bounds",
+      "value": {
+        "path": "point",
+        "lt": {
+          "$date": "2020-04-03T13:13:13Z"
+        }
+      }
+    },
+    {
+      "description": "long bounds",
+      "value": {
+        "path": "point",
+        "lt": {
+          "$numberLong": "13"
+        }
+      }
+    },
+    {
+      "description": "double bounds",
+      "value": {
+        "path": "point",
+        "lt": 13.0
+      }
+    },
+    {
+      "description": "string bounds",
+      "value": {
+        "path": "point",
+        "gt": "a",
+        "lt": "z"
+      }
+    },
+    {
+      "description": "objectId bounds",
+      "value": {
+        "path": "point",
+        "gt": {
+          "$oid": "000000000000000000000001"
+        },
+        "lt": {
+          "$oid": "000000000000000000000004"
+        }
+      }
+    },
+    {
+      "description": "uuid bounds",
+      "value": {
+        "path": "point",
+        "gt": {
+          "$uuid": "00000000-0000-0000-0000-000000000001"
+        },
+        "lt": {
+          "$uuid": "00000000-0000-0000-0000-000000000004"
+        }
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "path": "point",
+        "lt": 13.0,
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "lt and gt",
+      "value": {
+        "path": "point",
+        "lt": 26.0,
+        "gt": 13.0
+      }
+    },
+    {
+      "description": "lt and gte",
+      "value": {
+        "path": "point",
+        "lt": 26.0,
+        "gte": 13.0
+      }
+    },
+    {
+      "description": "lte and gt",
+      "value": {
+        "path": "point",
+        "lte": 26.0,
+        "gt": 13.0
+      }
+    },
+    {
+      "description": "lte and gte",
+      "value": {
+        "path": "point",
+        "lte": 26.0,
+        "gte": 13.0
+      }
+    },
+    {
+      "description": "lte and gte same value",
+      "value": {
+        "path": "point",
+        "lte": 13.0,
+        "gte": 13.0
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "GeoJSON bounds",
+      "value": {
+        "path": "point",
+        "lt": {
+          "type": "Point",
+          "coordinates": [
+            10.0,
+            12.0
+          ]
+        }
+      }
+    },
+    {
+      "description": "lt and lte mutually exclusive",
+      "value": {
+        "path": "point",
+        "lt": 13.0,
+        "lte": 14.0
+      }
+    },
+    {
+      "description": "gt and gte mutually exclusive",
+      "value": {
+        "path": "point",
+        "gt": 13.0,
+        "gte": 14.0
+      }
+    },
+    {
+      "description": "gt greater than lt",
+      "value": {
+        "path": "point",
+        "lt": 13.0,
+        "gt": 14.0
+      }
+    },
+    {
+      "description": "lt and gt same value",
+      "value": {
+        "path": "point",
+        "lt": 13.0,
+        "gt": 13.0
+      }
+    },
+    {
+      "description": "multi path",
+      "value": {
+        "path": {
+          "value": "point",
+          "multi": "my-multi"
+        },
+        "lt": {
+          "$date": "2020-04-03T13:13:13Z"
+        }
+      }
+    },
+    {
+      "description": "boolean bounds",
+      "value": {
+        "path": "point",
+        "lt": true
+      }
+    },
+    {
+      "description": "no bounds",
+      "value": {
+        "path": "point"
+      },
+      "errorMessageContains": "must specify at least one of [lt, lte, gt, gte]"
+    },
+    {
+      "description": "multi lt lte",
+      "value": {
+        "path": "point",
+        "lt": 13.0,
+        "lte": 13.0
+      },
+      "errorMessageContains": "at most one of [lt, lte] may be present"
+    },
+    {
+      "description": "multi gt gte",
+      "value": {
+        "path": "point",
+        "gt": 13.0,
+        "gte": 13.0
+      },
+      "errorMessageContains": "at most one of [gt, gte] may be present"
+    }
+  ]
+}

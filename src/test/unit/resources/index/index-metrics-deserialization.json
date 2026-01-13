@@ -1,0 +1,183 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "collectionUuid": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "lastObservedCollectionName": "collection",
+        "dbName": "database",
+        "indexStatus": "notStarted",
+        "replicationOpTime": {
+          "$timestamp": {
+            "t": 20,
+            "i": 0
+          }
+        },
+        "replicationLagMs": 20,
+        "totalBytesProcessed": 10.0,
+        "numDocs": 100,
+        "numLuceneMaxDocs": 100,
+        "maxLuceneMaxDocs": 100,
+        "numMongoDbDocs": 100,
+        "indexSizeBytes": 5,
+        "vectorFieldSizeBytes": 0,
+        "requiredMemoryBytes": 500000000,
+        "numFields": 20,
+        "numFieldsPerDatatype": {
+          "autocomplete": 0.0,
+          "boolean": 0.0,
+          "date": 0.0,
+          "dateV2": 0.0,
+          "dateMultiple": 0.0,
+          "dateFacet": 0.0,
+          "geoPoint": 0.0,
+          "geoShape": 0.0,
+          "knnVector": 0.0,
+          "knnByte": 0.0,
+          "knnBit": 0.0,
+          "knnF32Q7": 0.0,
+          "knnF32Q1": 0.0,
+          "null": 0.0,
+          "numberDouble": 0.0,
+          "numberDoubleV2": 0.0,
+          "numberDoubleMultiple": 0.0,
+          "numberDoubleFacet": 0.0,
+          "numberInt64": 0.0,
+          "numberInt64V2": 0.0,
+          "numberInt64Multiple": 0.0,
+          "numberInt64Facet": 0.0,
+          "objectId": 0.0,
+          "sortableDateBetaV1": 0.0,
+          "sortableNumberBetaV1": 0.0,
+          "sortableStringBetaV1": 0.0,
+          "string": 0.0,
+          "token": 0.0,
+          "uuid": 0.0
+        },
+        "appliedDocumentEventTypeCount": {
+          "insert": 50.0,
+          "update": 0.0,
+          "delete": 0.0
+        },
+        "initialSyncExceptionCount": 1.0,
+        "steadyStateExceptionCount": 2.0,
+        "batchIndexingTimer": {
+          "timeUnit": "nanoseconds",
+          "count": 2,
+          "totalTimeSeconds": 100.0,
+          "maxTimeSeconds": 80.0,
+          "meanTimeSeconds": 50.0
+        },
+        "query": {
+          "totalQueriesCount": 5.0,
+          "failedQueriesCount": 3.0,
+          "lenientFailureCount": 4.0,
+          "searchGetMoreCommandCount": 4.0,
+          "searchResultBatchLatency": {
+            "timeUnit": "milliseconds",
+            "count": 2,
+            "totalTimeSeconds": 8.0,
+            "maxTimeSeconds": 4.0,
+            "meanTimeSeconds": 2.0,
+            "percentiles": {
+              "50th": 2.0,
+              "75th": 2.0,
+              "90th": 2.0,
+              "99th": 1.0
+            }
+          },
+          "tokenFacetsStateRefreshLatency": {
+            "timeUnit": "milliseconds",
+            "count": 2,
+            "totalTimeSeconds": 8.0,
+            "maxTimeSeconds": 4.0,
+            "meanTimeSeconds": 2.0,
+            "percentiles": {
+              "50th": 2.0,
+              "75th": 2.0,
+              "90th": 2.0,
+              "99th": 3.0
+            }
+          },
+          "synonymCount": 6.0,
+          "textSynonymCount": 4.0,
+          "textSynonymsWithoutMatchCriteriaCount": 3.0,
+          "phraseSynonymCount": 2.0,
+          "fuzzyCount": 5.0,
+          "wildcardPathCount": 8.0,
+          "highlightingCount": 7.0,
+          "concurrentCount": 10.0,
+          "returnStoredSourceCount": 2.0,
+          "returnScopeCount": 12.0,
+          "sequenceTokenCount": 4.0,
+          "requireSequenceTokensCount": 1.0,
+          "scoreDetails": 1.0,
+          "sortCount": 3.0,
+          "trackingCount": 11.0,
+          "operatorTypeCount": {
+            "allDocuments": 0.0,
+            "autocomplete": 0.0,
+            "compound": 0.0,
+            "embeddedDocument": 0.0,
+            "equals": 0.0,
+            "exists": 0.0,
+            "geoShape": 0.0,
+            "geoWithin": 0.0,
+            "hasAncestor": 0.0,
+            "hasRoot": 0.0,
+            "in": 0.0,
+            "knnBeta": 0.0,
+            "moreLikeThis": 0.0,
+            "near": 0.0,
+            "phrase": 0.0,
+            "queryString": 0.0,
+            "range": 0.0,
+            "regex": 0.0,
+            "search": 0.0,
+            "searchPhrase": 0.0,
+            "searchPhrasePrefix": 0.0,
+            "spanContains": 0.0,
+            "spanFirst": 0.0,
+            "spanNear": 0.0,
+            "spanOr": 0.0,
+            "spanSubtract": 0.0,
+            "spanTerm": 0.0,
+            "term": 0.0,
+            "termFuzzy": 0.0,
+            "termPrefix": 0.0,
+            "termRegex": 0.0,
+            "termWildcard": 0.0,
+            "text": 0.0,
+            "vectorSearch": 0.0,
+            "wildcard": 0.0
+          },
+          "scoreTypeCount": {
+            "valueBoost": 0.0,
+            "pathBoost": 0.0,
+            "constant": 0.0,
+            "dismax": 0.0,
+            "function": 0.0,
+            "embedded": 0.0
+          },
+          "collectorTypeCount": {
+            "facet": 0.0
+          },
+          "vectorQueryTypeCount": {
+            "exact": 0.0,
+            "approximate": 0.0,
+            "autoEmbedding": 0.0
+          },
+          "textMatchCriteriaCount": {
+            "any": 0.0,
+            "all": 0.0
+          },
+          "noDataSortPositionCount": {
+            "lowest": 0.0,
+            "highest": 0.0
+          }
+        }
+      }
+    }
+  ],
+  "invalid": []
+}

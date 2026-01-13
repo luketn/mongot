@@ -1,0 +1,37 @@
+load("//bazel/java:package.bzl", "java_library")
+
+java_library(
+    name = "sort",
+    srcs = [
+        "IndexSortUtils.java",
+        "LuceneSortFactory.java",
+        "MqlDateSort.java",
+        "MqlDoubleSort.java",
+        "MqlLongSort.java",
+        "MqlSortedSetSortField.java",
+    ],
+    visibility = ["//visibility:public"],
+    exports = [
+        "@maven//:org_apache_lucene_lucene_core",
+        "@maven//:org_mongodb_bson",
+    ],
+    deps = [
+        "//src/main/java/com/xgen/mongot/index/lucene/explain/explainers",
+        "//src/main/java/com/xgen/mongot/index/lucene/explain/tracing",
+        "//src/main/java/com/xgen/mongot/index/lucene/field",
+        "//src/main/java/com/xgen/mongot/index/lucene/query/context",
+        "//src/main/java/com/xgen/mongot/index/lucene/query/sort/common",
+        "//src/main/java/com/xgen/mongot/index/lucene/query/sort/comparator",
+        "//src/main/java/com/xgen/mongot/index/lucene/query/sort/mixed",
+        "//src/main/java/com/xgen/mongot/index/lucene/searcher",
+        "//src/main/java/com/xgen/mongot/index/query",
+        "//src/main/java/com/xgen/mongot/index/query/sort",
+        "//src/main/java/com/xgen/mongot/index/version",
+        "//src/main/java/com/xgen/mongot/util",
+        "@maven//:com_google_guava_guava",
+        "@maven//:org_apache_lucene_lucene_core",
+        "@maven//:org_jetbrains_annotations",
+        "@maven//:org_mongodb_bson",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)

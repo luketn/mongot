@@ -1,0 +1,153 @@
+{
+  "tests": [
+    {
+      "description": "empty",
+      "bson": {
+      },
+      "json": {
+      }
+    },
+    {
+      "description": "index format version only",
+      "bson": {
+        "backendIndexVersion": 6
+      },
+      "json": {
+        "backendIndexVersion": 6
+      }
+    },
+    {
+      "description": "exceeded",
+      "bson": {
+        "exceededLimitsReason": "reason"
+      },
+      "json": {
+        "exceededLimitsReason": "reason"
+      }
+    },
+    {
+      "description": "with resume info",
+      "bson": {
+        "changeStreamResumeInfo": {
+          "namespace": "database.collection",
+          "resumeToken": {
+            "_data": "resume token"
+          }
+        },
+        "backendIndexVersion": 6
+      },
+      "json": {
+        "changeStreamResumeInfo": {
+          "namespace": "database.collection",
+          "resumeToken": {
+            "_data": "resume token"
+          }
+        },
+        "backendIndexVersion": 6
+      }
+    },
+    {
+      "description": "with initial sync resume",
+      "bson": {
+        "backendIndexVersion": 6,
+        "initialSyncResumeInfo": {
+          "bufferlessInitialSync": {
+            "highWaterMark": {
+              "$numberLong": "1234567890"
+            },
+            "lastScannedId": "a"
+          }
+        }
+      },
+      "json": {
+        "backendIndexVersion": 6,
+        "initialSyncResumeInfo": {
+          "bufferlessInitialSync": {
+            "highWaterMark": 1234567890,
+            "lastScannedId": "a"
+          }
+        }
+      }
+    },
+    {
+      "description": "with natural order initial sync resume",
+      "bson": {
+        "backendIndexVersion": 6,
+        "initialSyncResumeInfo": {
+          "bufferlessNaturalOrderInitialSync": {
+            "highWaterMark": {
+              "$numberLong": "1234567890"
+            },
+            "postBatchResumeToken": {
+              "$recordId": {
+                "$numberLong": "1"
+              },
+              "$initialSyncId": {
+                "$binary": {
+                  "base64": "OQpgSkl5TRCfTz0lUiJK7g==",
+                  "subType": "04"
+                }
+              }
+            },
+            "syncSourceHost": "testHost"
+          }
+        }
+      },
+      "json": {
+        "backendIndexVersion": 6,
+        "initialSyncResumeInfo": {
+          "bufferlessNaturalOrderInitialSync": {
+            "highWaterMark": 1234567890,
+            "postBatchResumeToken": {
+              "$recordId": 1,
+              "$initialSyncId": "390a604a-4979-4d10-9f4f-3d2552224aee"
+            },
+            "syncSourceHost": "testHost"
+          }
+        }
+      }
+    },
+    {
+      "description": "with stale info",
+      "bson": {
+        "staleStateInfo": {
+          "lastOptime": {
+            "$timestamp": {
+              "t": 0,
+              "i": 1234567890
+            }
+          },
+          "reason": "DOCS_EXCEEDED",
+          "message": "Docs exceeded: Index exceeded max docs limit"
+        }
+      },
+      "json": {
+        "staleStateInfo": {
+          "lastOptime": {
+            "$timestamp": {
+              "t": 0,
+              "i": 1234567890
+            }
+          },
+          "reason": "DOCS_EXCEEDED",
+          "message": "Docs exceeded: Index exceeded max docs limit"
+        }
+      }
+    },
+    {
+      "description": "with index state info",
+      "bson": {
+        "indexStateInfo": {
+          "reason": "COLLECTION_NOT_FOUND",
+          "status": "DOES_NOT_EXIST"
+        }
+      },
+      "json": {
+        "indexStateInfo": {
+          "reason": "COLLECTION_NOT_FOUND",
+          "status": "DOES_NOT_EXIST"
+        }
+      }
+    }
+  ]
+}

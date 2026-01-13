@@ -1,0 +1,925 @@
+{
+  "valid": [
+    {
+      "description": "max dimensions",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "cosine",
+            "quantization": "none"
+          },
+          {
+            "type": "filter",
+            "path": "my.filter.field"
+          }
+        ]
+      }
+    },
+    {
+      "description": "min dimensions",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 1,
+            "similarity": "cosine",
+            "quantization": "none"
+          },
+          {
+            "type": "filter",
+            "path": "my.filter.field"
+          }
+        ]
+      }
+    },
+    {
+      "description": "all similarities",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.cosine.vector.field",
+            "numDimensions": 1,
+            "similarity": "cosine",
+            "quantization": "none"
+          },
+          {
+            "type": "vector",
+            "path": "my.dotproduct.vector.field",
+            "numDimensions": 2,
+            "similarity": "dotProduct",
+            "quantization": "none"
+          },
+          {
+            "type": "vector",
+            "path": "my.euclidean.vector.field",
+            "numDimensions": 3,
+            "similarity": "euclidean",
+            "quantization": "none"
+          }
+        ]
+      }
+    },
+    {
+      "description": "with view",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "view": {
+          "name": "myView",
+          "effectivePipeline": [
+            {
+              "$set": {
+                "cats": 20
+              }
+            },
+            {
+              "$set": {
+                "dogs": 40
+              }
+            }
+          ],
+          "exists": true
+        },
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.cosine.vector.field",
+            "numDimensions": 1,
+            "similarity": "cosine",
+            "quantization": "none"
+          },
+          {
+            "type": "vector",
+            "path": "my.dotproduct.vector.field",
+            "numDimensions": 2,
+            "similarity": "dotProduct",
+            "quantization": "none"
+          },
+          {
+            "type": "vector",
+            "path": "my.euclidean.vector.field",
+            "numDimensions": 3,
+            "similarity": "euclidean",
+            "quantization": "none"
+          }
+        ]
+      }
+    },
+    {
+      "description": "with default numPartitions",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "numPartitions": 1,
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "cosine",
+            "quantization": "none"
+          },
+          {
+            "type": "filter",
+            "path": "my.filter.field"
+          }
+        ]
+      }
+    },
+    {
+      "description": "with multiple numPartitions",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "numPartitions": 2,
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "cosine",
+            "quantization": "none"
+          },
+          {
+            "type": "filter",
+            "path": "my.filter.field"
+          }
+        ]
+      }
+    },
+    {
+      "description": "with empty quantization field",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "cosine"
+          }
+        ]
+      }
+    },
+    {
+      "description": "with custom hnsw options",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "cosine",
+            "hnswOptions": {
+              "maxEdges": 32,
+              "numEdgeCandidates": 500
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "with custom hnsw options (only maxEdges)",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "cosine",
+            "hnswOptions": {
+              "maxEdges": 32
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "with custom hnsw options (only numEdgeCandidates)",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "cosine",
+            "hnswOptions": {
+              "numEdgeCandidates": 500
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "with stored fields document inclusion",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "cosine"
+          }
+        ],
+        "storedSource": {
+          "include": [
+            "a",
+            "b.c",
+            "b.d"
+          ]
+        }
+      }
+    },
+    {
+      "description": "with stored fields document exclusion",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "cosine"
+          }
+        ],
+        "storedSource": {
+          "exclude": [
+            "a",
+            "b.c",
+            "b.d"
+          ]
+        }
+      }
+    },
+    {
+      "description": "text embedding",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "text",
+            "path": "my.vector.text.field"
+          }
+        ]
+      }
+    },
+    {
+      "description": "text embedding using dot product",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "text",
+            "path": "my.vector.text.field2",
+            "model": "voyage-3.5",
+            "similarity": "dotProduct"
+          }
+        ]
+      }
+    },
+    {
+      "description": "text embedding with invalid model name",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "text",
+            "path": "my.vector.text.field2",
+            "model": "voyage-3.5-xyz",
+            "similarity": "euclidean"
+          }
+        ]
+      }
+    },
+    {
+      "description": "text embedding full config",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "text",
+            "path": "my.vector.text.field2",
+            "model": "voyage-3.5",
+            "similarity": "dotProduct",
+            "quantization": "scalar"
+          }
+        ]
+      }
+    },
+    {
+      "description": "with flat indexing algorithm",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 1024,
+            "similarity": "cosine",
+            "indexingAlgorithm": "flat"
+          }
+        ]
+      }
+    },
+    {
+      "description": "with explicit hnsw indexing algorithm",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 1024,
+            "similarity": "cosine",
+            "indexingAlgorithm": "hnsw",
+            "hnswOptions": {
+              "maxEdges": 32,
+              "numEdgeCandidates": 500
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no fields",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": []
+      }
+    },
+    {
+      "description": "zero dimensions",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 0,
+            "similarity": "cosine",
+            "quantization": "none"
+          }
+        ]
+      }
+    },
+    {
+      "description": "too high dimensions",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 8193,
+            "similarity": "cosine",
+            "quantization": "none"
+          }
+        ]
+      }
+    },
+    {
+      "description": "invalid similarity",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "crossProduct",
+            "quantization": "none"
+          }
+        ]
+      }
+    },
+    {
+      "description": "invalid type",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vector",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "cosine",
+            "quantization": "none"
+          }
+        ]
+      }
+    },
+    {
+      "description": "missing type",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "cosine",
+            "quantization": "none"
+          }
+        ]
+      }
+    },
+    {
+      "description": "duplicate vector paths",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 2048,
+            "similarity": "cosine",
+            "quantization": "none"
+          },
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 1024,
+            "similarity": "cosine",
+            "quantization": "none"
+          }
+        ]
+      }
+    },
+    {
+      "description": "duplicate filter paths",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "fields": [
+          {
+            "type": "filter",
+            "path": "my.filter.field"
+          },
+          {
+            "type": "filter",
+            "path": "my.filter.field"
+          }
+        ]
+      }
+    },
+    {
+      "description": "duplicate vector and filter paths",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "fields": [
+          {
+            "type": "filter",
+            "path": "my.path"
+          },
+          {
+            "type": "vector",
+            "path": "my.path",
+            "numDimensions": 1024,
+            "similarity": "cosine",
+            "quantization": "none"
+          }
+        ]
+      }
+    },
+    {
+      "description": "with invalid quantization type",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "fields": [
+          {
+            "type": "filter",
+            "path": "my.path"
+          },
+          {
+            "type": "vector",
+            "path": "my.path",
+            "numDimensions": 1024,
+            "similarity": "cosine",
+            "quantization": "invalid"
+          }
+        ]
+      }
+    },
+    {
+      "description": "with invalid maxEdges below the limit",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.path",
+            "numDimensions": 1024,
+            "similarity": "cosine",
+            "hnswOptions": {
+              "maxEdges": 15,
+              "numEdgeCandidates": 500
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "with invalid maxEdges above the limit",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.path",
+            "numDimensions": 1024,
+            "similarity": "cosine",
+            "hnswOptions": {
+              "maxEdges": 65,
+              "numEdgeCandidates": 500
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "with invalid numEdgeCandidates below the limit",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.path",
+            "numDimensions": 1024,
+            "similarity": "cosine",
+            "hnswOptions": {
+              "maxEdges": 32,
+              "numEdgeCandidates": 99
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "with invalid numEdgeCandidates above the limit",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.path",
+            "numDimensions": 1024,
+            "similarity": "cosine",
+            "hnswOptions": {
+              "maxEdges": 32,
+              "numEdgeCandidates": 3201
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "with flat indexing algorithm and hnsw options",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "myDatabase",
+        "lastObservedCollectionName": "myCollection",
+        "collectionUUID": {
+          "$binary": {
+            "base64": "62xAyvJeR+i0jAKgW2Slqg==",
+            "subType": "04"
+          }
+        },
+        "name": "myVectorIndex",
+        "type": "vectorSearch",
+        "fields": [
+          {
+            "type": "vector",
+            "path": "my.vector.field",
+            "numDimensions": 1024,
+            "similarity": "cosine",
+            "indexingAlgorithm": "flat",
+            "hnswOptions": {
+              "maxEdges": 32,
+              "numEdgeCandidates": 500
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

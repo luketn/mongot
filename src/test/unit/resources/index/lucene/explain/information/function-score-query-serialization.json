@@ -1,0 +1,35 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "scoreFunction": "expr(pivot / (pivot + abs(origin - value)))",
+        "query": {
+          "type": "LongDistanceFeatureQuery",
+          "args": {
+            "origin": 8.0,
+            "pivotDistance": 2.0,
+            "representation": "double",
+            "path": "accommodates"
+          }
+        }
+      },
+      "bson": {
+        "scoreFunction": "expr(pivot / (pivot + abs(origin - value)))",
+        "query": {
+          "type": "LongDistanceFeatureQuery",
+          "args": {
+            "origin": {
+              "$numberDouble": "8"
+            },
+            "pivotDistance": {
+              "$numberDouble": "2"
+            },
+            "representation": "double",
+            "path": "accommodates"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,289 @@
+{
+  "tests": [
+    {
+      "description": "full",
+      "bson": {
+        "ok": 1,
+        "cursors": [
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "meta",
+              "id": {
+                "$numberLong": "1"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 0,
+                  "count": {
+                    "$numberLong": "0"
+                  }
+                },
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 1,
+                  "count": {
+                    "$numberLong": "1"
+                  }
+                }
+              ]
+            },
+            "explain": {
+              "query": {
+                "analyzer": "lucene.standard",
+                "type": "TermQuery",
+                "args": {
+                  "value": "quie",
+                  "path": "name"
+                },
+                "stats": {
+                  "context": {
+                    "millisElapsed": {
+                      "$numberDouble": "1e-5"
+                    },
+                    "invocationCounts": {}
+                  },
+                  "match": {
+                    "millisElapsed": {
+                      "$numberDouble": "1e-5"
+                    },
+                    "invocationCounts": {}
+                  },
+                  "score": {
+                    "millisElapsed": {
+                      "$numberDouble": "1e-5"
+                    },
+                    "invocationCounts": {}
+                  }
+                }
+              },
+              "collectors": {
+                "allCollectorStats": {
+                  "millisElapsed": {
+                    "$numberDouble": "1e-5"
+                  },
+                  "invocationCounts": {}
+                }
+              },
+              "resourceUsage": {
+                "majorFaults": {
+                  "$numberLong": "1"
+                },
+                "minorFaults": {
+                  "$numberLong": "2"
+                },
+                "userTimeMs": {
+                  "$numberLong": "3"
+                },
+                "systemTimeMs": {
+                  "$numberLong": "4"
+                },
+                "maxReportingThreads": 1,
+                "numBatches": 1
+              }
+            }
+          },
+          {
+            "ok": 1,
+            "cursor": {
+              "type": "results",
+              "id": {
+                "$numberLong": "2"
+              },
+              "ns": "foo.bar",
+              "nextBatch": [
+                {
+                  "_id": 0,
+                  "$searchScore": 0.0
+                },
+                {
+                  "_id": 1,
+                  "$searchScore": 1.0
+                }
+              ]
+            },
+            "explain": {
+              "query": {
+                "analyzer": "lucene.standard",
+                "type": "TermQuery",
+                "args": {
+                  "value": "quie",
+                  "path": "name"
+                },
+                "stats": {
+                  "context": {
+                    "millisElapsed": {
+                      "$numberDouble": "1e-5"
+                    },
+                    "invocationCounts": {}
+                  },
+                  "match": {
+                    "millisElapsed": {
+                      "$numberDouble": "1e-5"
+                    },
+                    "invocationCounts": {}
+                  },
+                  "score": {
+                    "millisElapsed": {
+                      "$numberDouble": "1e-5"
+                    },
+                    "invocationCounts": {}
+                  }
+                }
+              },
+              "collectors": {
+                "allCollectorStats": {
+                  "millisElapsed": {
+                    "$numberDouble": "1e-5"
+                  },
+                  "invocationCounts": {}
+                }
+              },
+              "resourceUsage": {
+                "majorFaults": {
+                  "$numberLong": "1"
+                },
+                "minorFaults": {
+                  "$numberLong": "2"
+                },
+                "userTimeMs": {
+                  "$numberLong": "3"
+                },
+                "systemTimeMs": {
+                  "$numberLong": "4"
+                },
+                "maxReportingThreads": 1,
+                "numBatches": 1
+              }
+            }
+          }
+        ]
+      },
+      "json": {
+        "cursors": [
+          {
+            "cursor": {
+              "id": 1,
+              "nextBatch": [
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 0,
+                  "count": 0
+                },
+                {
+                  "type": "facet",
+                  "tag": "myFacet",
+                  "bucket": 1,
+                  "count": 1
+                }
+              ],
+              "ns": "foo.bar",
+              "type": "meta"
+            },
+            "ok": 1,
+            "explain": {
+              "query": {
+                "analyzer": "lucene.standard",
+                "type": "TermQuery",
+                "args": {
+                  "value": "quie",
+                  "path": "name"
+                },
+                "stats": {
+                  "context": {
+                    "millisElapsed": 1e-5,
+                    "invocationCounts": {}
+                  },
+                  "match": {
+                    "millisElapsed": 1e-5,
+                    "invocationCounts": {}
+                  },
+                  "score": {
+                    "millisElapsed": 1e-5,
+                    "invocationCounts": {}
+                  }
+                }
+              },
+              "collectors": {
+                "allCollectorStats": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                }
+              },
+              "resourceUsage": {
+                "majorFaults": 1,
+                "minorFaults": 2,
+                "userTimeMs": 3,
+                "systemTimeMs": 4,
+                "maxReportingThreads": 1,
+                "numBatches": 1
+              }
+            }
+          },
+          {
+            "cursor": {
+              "id": 2,
+              "nextBatch": [
+                {
+                  "_id": 0,
+                  "$searchScore": 0.0
+                },
+                {
+                  "_id": 1,
+                  "$searchScore": 1.0
+                }
+              ],
+              "ns": "foo.bar",
+              "type": "results"
+            },
+            "ok": 1,
+            "explain": {
+              "query": {
+                "analyzer": "lucene.standard",
+                "type": "TermQuery",
+                "args": {
+                  "value": "quie",
+                  "path": "name"
+                },
+                "stats": {
+                  "context": {
+                    "millisElapsed": 1e-5,
+                    "invocationCounts": {}
+                  },
+                  "match": {
+                    "millisElapsed": 1e-5,
+                    "invocationCounts": {}
+                  },
+                  "score": {
+                    "millisElapsed": 1e-5,
+                    "invocationCounts": {}
+                  }
+                }
+              },
+              "collectors": {
+                "allCollectorStats": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                }
+              },
+              "resourceUsage": {
+                "majorFaults": 1,
+                "minorFaults": 2,
+                "userTimeMs": 3,
+                "systemTimeMs": 4,
+                "maxReportingThreads": 1,
+                "numBatches": 1
+              }
+            }
+          }
+        ],
+        "ok": 1
+      }
+    }
+  ]
+}

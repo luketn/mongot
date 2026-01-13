@@ -1,0 +1,317 @@
+{
+  "valid": [
+    {
+      "description": "voyage-3-large full config",
+      "value": {
+        "config": {
+          "changeStream": {
+            "credentials": {
+              "_provider": "VOYAGE",
+              "apiToken": "token123",
+              "expirationDate": "2024-10-15T22:32:20.925Z"
+            },
+            "errorHandlingConfig": {
+              "initialRetryWaitMs": 50,
+              "jitter": 0.1,
+              "maxRetries": 50,
+              "maxRetryWaitMs": 10
+            },
+            "modelConfig": {
+              "_provider": "VOYAGE",
+              "batchSize": 100,
+              "batchTokenLimit": 1000,
+              "outputDimensions": 512,
+              "truncation": "START"
+            }
+          },
+          "collectionScan": {
+            "credentials": {
+              "_provider": "VOYAGE",
+              "apiToken": "token123",
+              "expirationDate": "2024-10-15T22:32:20.925Z"
+            },
+            "errorHandlingConfig": {
+              "initialRetryWaitMs": 50,
+              "jitter": 0.1,
+              "maxRetries": 50,
+              "maxRetryWaitMs": 10
+            },
+            "modelConfig": {
+              "_provider": "VOYAGE",
+              "batchSize": 100,
+              "batchTokenLimit": 1000,
+              "outputDimensions": 512,
+              "truncation": "START"
+            }
+          },
+          "credentials": {
+            "_provider": "VOYAGE",
+            "apiToken": "token123",
+            "expirationDate": "2024-10-15T22:32:20.925Z"
+          },
+          "errorHandlingConfig": {
+            "initialRetryWaitMs": 50,
+            "jitter": 0.1,
+            "maxRetries": 50,
+            "maxRetryWaitMs": 10
+          },
+          "modelConfig": {
+            "_provider": "VOYAGE",
+            "batchSize": 100,
+            "batchTokenLimit": 1000,
+            "outputDimensions": 512,
+            "truncation": "START"
+          },
+          "query": {
+            "credentials": {
+              "_provider": "VOYAGE",
+              "apiToken": "token123",
+              "expirationDate": "2024-10-15T22:32:20.925Z"
+            },
+            "errorHandlingConfig": {
+              "initialRetryWaitMs": 50,
+              "jitter": 0.1,
+              "maxRetries": 50,
+              "maxRetryWaitMs": 10
+            },
+            "modelConfig": {
+              "_provider": "VOYAGE",
+              "batchSize": 100,
+              "batchTokenLimit": 1000,
+              "outputDimensions": 512,
+              "truncation": "START"
+            },
+            "tenantCredentials": {
+              "_provider": "VOYAGE",
+              "apiToken": "tenant-query-token",
+              "expirationDate": "2024-10-15T22:32:20.925Z"
+            }
+          },
+          "region": "us-east-1",
+          "tenantCredentials": {
+            "tenant-1": {
+              "query": {
+                "_provider": "VOYAGE",
+                "apiToken": "tenant1-query-token",
+                "expirationDate": "2024-10-15T22:32:20.925Z"
+              },
+              "changeStream": {
+                "_provider": "VOYAGE",
+                "apiToken": "tenant1-changestream-token",
+                "expirationDate": "2024-10-15T22:32:20.925Z"
+              },
+              "collectionScan": {
+                "_provider": "VOYAGE",
+                "apiToken": "tenant1-collectionscan-token",
+                "expirationDate": "2024-10-15T22:32:20.925Z"
+              }
+            },
+            "tenant-2": {
+              "query": {
+                "_provider": "VOYAGE",
+                "apiToken": "tenant2-query-token",
+                "expirationDate": "2024-10-15T22:32:20.925Z"
+              }
+            }
+          }
+        },
+        "embeddingProvider": "VOYAGE",
+        "modelName": "voyage-3-large"
+      }
+    },
+    {
+      "description": "voyage-3.5-lite with some optional fields",
+      "value": {
+        "embeddingProvider": "VOYAGE",
+        "modelName": "voyage-3.5-lite",
+        "config": {
+          "credentials": {
+            "_provider": "VOYAGE",
+            "apiToken": "token123",
+            "expirationDate": "2024-10-15T22:32:20.925Z"
+          },
+          "errorHandlingConfig": {
+            "initialRetryWaitMs": 50,
+            "jitter": 0.1,
+            "maxRetries": 50,
+            "maxRetryWaitMs": 10
+          },
+          "modelConfig": {
+            "_provider": "VOYAGE",
+            "batchSize": 100,
+            "batchTokenLimit": 1000,
+            "outputDimensions": 512,
+            "truncation": "START"
+          }
+        }
+      }
+    },
+    {
+      "description": "voyage-3.5 with isDedicatedCluster false",
+      "value": {
+        "embeddingProvider": "VOYAGE",
+        "modelName": "voyage-3.5",
+        "config": {
+          "credentials": {
+            "_provider": "VOYAGE",
+            "apiToken": "token123",
+            "expirationDate": "2024-10-15T22:32:20.925Z"
+          },
+          "errorHandlingConfig": {
+            "initialRetryWaitMs": 50,
+            "jitter": 0.1,
+            "maxRetries": 50,
+            "maxRetryWaitMs": 10
+          },
+          "modelConfig": {
+            "_provider": "VOYAGE",
+            "batchSize": 100,
+            "batchTokenLimit": 1000,
+            "outputDimensions": 512,
+            "truncation": "START"
+          },
+          "isDedicatedCluster": false
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing credential",
+      "value": {
+        "embeddingProvider": "VOYAGE",
+        "modelName": "VOYAGE_3_LITE",
+        "embeddingProviderParams": {
+          "query": {
+            "credentials": {
+              "apiToken": "token123"
+            }
+          },
+          "collectionScan": {
+            "credentials": {
+              "apiToken": "token123"
+            }
+          },
+          "changeStream": {
+          }
+        }
+      }
+    },
+    {
+      "description": "invalid embedding provider",
+      "value": {
+        "embeddingProvider": "GCP",
+        "modelName": "VOYAGE_3",
+        "embeddingProviderParams": {
+          "query": {
+            "credentials": {
+              "apiToken": "token123"
+            }
+          },
+          "collectionScan": {
+            "credentials": {
+              "apiToken": "token123"
+            }
+          },
+          "changeStream": {
+            "credentials": {
+              "apiToken": "token123"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "invalid model name",
+      "value": {
+        "embeddingProvider": "AWS_BEDROCK",
+        "modelName": "TITAN",
+        "embeddingProviderParams": {
+          "query": {
+            "credentials": {
+              "apiToken": "token123"
+            }
+          },
+          "collectionScan": {
+            "credentials": {
+              "apiToken": "token123"
+            }
+          },
+          "changeStream": {
+            "credentials": {
+              "apiToken": "token123"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "tenant credentials missing _provider",
+      "value": {
+        "embeddingProvider": "VOYAGE",
+        "modelName": "voyage-3-large",
+        "config": {
+          "credentials": {
+            "_provider": "VOYAGE",
+            "apiToken": "token123",
+            "expirationDate": "2024-10-15T22:32:20.925Z"
+          },
+          "modelConfig": {
+            "_provider": "VOYAGE",
+            "batchSize": 100,
+            "batchTokenLimit": 1000,
+            "outputDimensions": 512,
+            "truncation": "START"
+          },
+          "errorHandlingConfig": {
+            "initialRetryWaitMs": 50,
+            "jitter": 0.1,
+            "maxRetries": 50,
+            "maxRetryWaitMs": 10
+          },
+          "tenantCredentials": {
+            "tenant-1": {
+              "query": {
+                "apiToken": "tenant1-query-token",
+                "expirationDate": "2024-10-15T22:32:20.925Z"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "workload params tenant credentials missing _provider",
+      "value": {
+        "embeddingProvider": "VOYAGE",
+        "modelName": "voyage-3-large",
+        "config": {
+          "credentials": {
+            "_provider": "VOYAGE",
+            "apiToken": "token123",
+            "expirationDate": "2024-10-15T22:32:20.925Z"
+          },
+          "modelConfig": {
+            "_provider": "VOYAGE",
+            "batchSize": 100,
+            "batchTokenLimit": 1000,
+            "outputDimensions": 512,
+            "truncation": "START"
+          },
+          "errorHandlingConfig": {
+            "initialRetryWaitMs": 50,
+            "jitter": 0.1,
+            "maxRetries": 50,
+            "maxRetryWaitMs": 10
+          },
+          "query": {
+            "tenantCredentials": {
+              "apiToken": "tenant-override-token",
+              "expirationDate": "2024-10-15T22:32:20.925Z"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

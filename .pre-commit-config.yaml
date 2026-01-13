@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: kingfisher
+        name: kingfisher
+        description: Runs kingfisher hook to scan staged changes for exposed secrets
+        entry: ./scripts/pre-commit/kingfisher-precommit.sh
+        language: script
+        always_run: true

@@ -1,0 +1,89 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "context": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {
+            "first": 1,
+            "second": 2
+          }
+        },
+        "match": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {
+            "first": 1,
+            "second": 2
+          }
+        },
+        "score": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {
+            "first": 1,
+            "second": 2
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing-context",
+      "value": {
+        "match": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {
+            "first": 1,
+            "second": 2
+          }
+        },
+        "score": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {
+            "first": 1,
+            "second": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "missing-match",
+      "value": {
+        "context": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {
+            "first": 1,
+            "second": 2
+          }
+        },
+        "score": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {
+            "first": 1,
+            "second": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "missing-score",
+      "value": {
+        "context": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {
+            "first": 1,
+            "second": 2
+          }
+        },
+        "match": {
+          "millisElapsed": 1e-5,
+          "invocationCounts": {
+            "first": 1,
+            "second": 2
+          }
+        }
+      }
+    }
+  ]
+}

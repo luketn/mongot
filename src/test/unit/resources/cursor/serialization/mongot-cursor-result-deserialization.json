@@ -1,0 +1,60 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "id": {
+          "$numberLong": "1"
+        },
+        "ns": "foo.bar",
+        "nextBatch": [
+          {
+            "_id": 0,
+            "$searchScore": 0.0
+          },
+          {
+            "_id": 1,
+            "$searchScore": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "description": "emptyBatch",
+      "value": {
+        "id": {
+          "$numberLong": "1"
+        },
+        "ns": "foo.bar",
+        "nextBatch": []
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "noId",
+      "value": {
+        "ns": "foo.bar",
+        "nextBatch": []
+      }
+    },
+    {
+      "description": "noNs",
+      "value": {
+        "id": {
+          "$numberLong": "1"
+        },
+        "nextBatch": []
+      }
+    },
+    {
+      "description": "noBatch",
+      "value": {
+        "id": {
+          "$numberLong": "1"
+        },
+        "ns": "foo.bar"
+      }
+    }
+  ]
+}

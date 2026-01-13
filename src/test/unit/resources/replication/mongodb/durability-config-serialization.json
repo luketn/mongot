@@ -1,0 +1,15 @@
+{
+  "tests": [
+    {
+      "description": "full config",
+      "json": {
+        "numCommittingThreads": 10,
+        "commitInterval": 60000
+      },
+      "bson": {
+        "numCommittingThreads": 10,
+        "commitInterval": 60000
+      }
+    }
+  ]
+}

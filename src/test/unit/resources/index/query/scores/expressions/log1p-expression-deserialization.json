@@ -1,0 +1,56 @@
+{
+  "valid": [
+    {
+      "description": "log1p of path as string",
+      "value": {
+        "path": "popularity"
+      }
+    },
+    {
+      "description": "log1p of path as object with default undefined",
+      "value": {
+        "path": {
+          "value": "popularity"
+        }
+      }
+    },
+    {
+      "description": "log1p of path with undefined",
+      "value": {
+        "path": {
+          "value": "popularity",
+          "undefined": 532.31
+        }
+      }
+    },
+    {
+      "description": "log1p of log1p of path",
+      "value": {
+        "log1p": {
+          "path": {
+            "value": "popularity",
+            "undefined": 2905.33
+          }
+        }
+      }
+    },
+    {
+      "description": "log1p of constant",
+      "value": {
+        "constant": 340
+      }
+    },
+    {
+      "description": "log1p of score",
+      "value": {
+        "score": "relevance"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no value",
+      "value": {}
+    }
+  ]
+}

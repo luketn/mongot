@@ -1,0 +1,140 @@
+{
+  "valid": [
+    {
+      "description": "vector-search",
+      "value": {
+        "vectorSearch": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "path": "vec",
+        "queryVector": [
+          1,
+          2,
+          3
+        ],
+        "index": "vecSearch",
+        "limit": 100,
+        "numCandidates": 100
+      }
+    },
+    {
+      "description": "vector-search-on-view",
+      "value": {
+        "vectorSearch": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "viewName": "my-view",
+        "path": "vec",
+        "queryVector": [
+          1,
+          2,
+          3
+        ],
+        "index": "vecSearch",
+        "limit": 100,
+        "numCandidates": 100
+      }
+    },
+    {
+      "description": "vector-search-with-explain",
+      "value": {
+        "vectorSearch": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "path": "vec",
+        "queryVector": [
+          1,
+          2,
+          3
+        ],
+        "index": "vecSearch",
+        "limit": 100,
+        "numCandidates": 100,
+        "explain": {
+          "verbosity": "allPlansExecution"
+        }
+      }
+    },
+    {
+      "description": "vector-search-with-filter-gt",
+      "value": {
+        "vectorSearch": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "path": "vec",
+        "queryVector": [
+          1,
+          2,
+          3
+        ],
+        "index": "vecSearch",
+        "limit": 100,
+        "numCandidates": 100,
+        "filter": {
+          "cost": {
+            "$gt": 70
+          }
+        }
+      }
+    },
+    {
+      "description": "vector-search-with-filter-gt-lt",
+      "value": {
+        "vectorSearch": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "path": "vec",
+        "queryVector": [
+          1,
+          2,
+          3
+        ],
+        "index": "vecSearch",
+        "limit": 100,
+        "numCandidates": 100,
+        "filter": {
+          "cost": {
+            "$gt": 70,
+            "$lt": 120
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "numCandidates-invalid",
+      "value": {
+        "vectorSearch": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "path": "vec",
+        "queryVector": [
+          1,
+          2,
+          3
+        ],
+        "index": "vecSearch",
+        "limit": 100,
+        "numCandidates": 100000000000
+      }
+    },
+    {
+      "description": "limit-invalid",
+      "value": {
+        "vectorSearch": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "path": "vec",
+        "queryVector": [
+          1,
+          2,
+          3
+        ],
+        "index": "vecSearch",
+        "limit": 100000000000,
+        "numCandidates": 100
+      }
+    }
+  ]
+}

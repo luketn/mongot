@@ -1,0 +1,25 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "_id": 0,
+        "$vectorSearchScore": 0.0
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing id",
+      "value": {
+        "$vectorSearchScore": 0.0
+      }
+    },
+    {
+      "description": "missing vectorSearchScore",
+      "value": {
+        "_id": 0
+      }
+    }
+  ]
+}

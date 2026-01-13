@@ -1,0 +1,43 @@
+load("//bazel/java:package.bzl", "java_library")
+
+java_library(
+    name = "mql",
+    srcs = [
+        "AndClause.java",
+        "Clause.java",
+        "ComparisonOperator.java",
+        "CompoundClause.java",
+        "EqOperator.java",
+        "ExistsOperator.java",
+        "GtOperator.java",
+        "GteOperator.java",
+        "InOperator.java",
+        "LtOperator.java",
+        "LteOperator.java",
+        "MqlFilterOperator.java",
+        "MqlFilterOperatorList.java",
+        "NeOperator.java",
+        "NinOperator.java",
+        "NorClause.java",
+        "NotOperator.java",
+        "OpenRangeBoundComparisonOperator.java",
+        "OrClause.java",
+        "SimpleClause.java",
+    ],
+    visibility = ["//visibility:public"],
+    exports = [
+        "//src/main/java/com/xgen/mongot/index/query/operators/type",
+        "//src/main/java/com/xgen/mongot/index/query/points",
+        "@maven//:org_mongodb_bson",
+    ],
+    deps = [
+        "//src/main/java/com/xgen/mongot/index/query/operators/bound",
+        "//src/main/java/com/xgen/mongot/index/query/operators/type",
+        "//src/main/java/com/xgen/mongot/index/query/operators/value",
+        "//src/main/java/com/xgen/mongot/index/query/points",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/mongot/util/bson/parser",
+        "@maven//:com_google_guava_guava",
+        "@maven//:org_mongodb_bson",
+    ],
+)

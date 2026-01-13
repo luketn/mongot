@@ -1,0 +1,48 @@
+<configuration>
+    <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator"/>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <jsonGeneratorDecorator class="com.xgen.mongot.logging.OmitEmptyFieldJsonDecorator"/>
+            <providers>
+                <timestamp>
+                    <fieldName>t</fieldName>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSZ</pattern>
+                </timestamp>
+                <logLevel>
+                    <fieldName>s</fieldName>
+                </logLevel>
+                <pattern>
+                    <pattern>
+                        { "svc": "TEST" }
+                    </pattern>
+                </pattern>
+                <threadName>
+                    <fieldName>ctx</fieldName>
+                </threadName>
+                <loggerName>
+                    <fieldName>n</fieldName>
+                </loggerName>
+                <message>
+                    <fieldName>msg</fieldName>
+                </message>
+                <nestedField>
+                    <fieldName>attr</fieldName>
+                    <providers>
+                        <provider class="com.xgen.mongot.logging.SafeKeyValuePairsJsonProvider"/>
+                        <stackTrace/>
+                    </providers>
+                </nestedField>
+            </providers>
+        </encoder>
+    </appender>
+
+    <logger name="io.netty" level="INFO"/>
+    <logger name="io.grpc" level="INFO"/>
+    <logger name="org.mongodb" level="INFO"/>
+    <logger name="org.apache.hc.client5.http" level="INFO"/>
+
+    <root level="debug">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>
+

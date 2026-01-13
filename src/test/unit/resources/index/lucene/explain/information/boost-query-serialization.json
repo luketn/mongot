@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "query": {
+          "type": "TermQuery",
+          "args": {
+            "value": "whopper",
+            "path": "q"
+          }
+        },
+        "boost": 2.5
+      },
+      "bson": {
+        "query": {
+          "type": "TermQuery",
+          "args": {
+            "value": "whopper",
+            "path": "q"
+          }
+        },
+        "boost": 2.5
+      }
+    }
+  ]
+}

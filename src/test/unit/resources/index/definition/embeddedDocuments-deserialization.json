@@ -1,0 +1,252 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {}
+    },
+    {
+      "description": "explicit dynamic",
+      "value": {
+        "dynamic": false
+      }
+    },
+    {
+      "description": "explicit empty fields",
+      "value": {
+        "fields": {}
+      }
+    },
+    {
+      "description": "explicit populated fields",
+      "value": {
+        "fields": {
+          "a": {
+            "type": "string"
+          },
+          "b": [
+            {
+              "type": "date"
+            },
+            {
+              "type": "geo"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "explicit field mapped to empty array",
+      "value": {
+        "fields": {
+          "a": []
+        }
+      }
+    },
+    {
+      "description": "storedSource configured",
+      "value": {
+        "dynamic": true,
+        "storedSource": {
+          "include": [
+            "b"
+          ]
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "explicit null mapping",
+      "value": {
+        "fields": {
+          "a": null
+        }
+      },
+      "errorMessageContains": "cannot be null"
+    },
+    {
+      "description": "explicit nested null mapping",
+      "value": {
+        "fields": {
+          "foo": {
+            "type": "embeddedDocuments",
+            "fields": {
+              "a": null
+            }
+          }
+        }
+      },
+      "errorMessageContains": "cannot be null"
+    },
+    {
+      "description": "multiple embeddedDocuments at same path",
+      "value": {
+        "fields": {
+          "one": [
+            {
+              "type": "document",
+              "fields": {
+                "two": {
+                  "type": "embeddedDocuments",
+                  "fields": {
+                    "foo": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "embeddedDocuments",
+              "fields": {
+                "two": {
+                  "type": "embeddedDocuments",
+                  "fields": {
+                    "bar": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "errorMessageContains": "cannot define multiple embeddedDocuments fields at sub-paths one.two"
+    },
+    {
+      "description": "sortableStringBetaV1 in embeddedDocuments",
+      "value": {
+        "fields": {
+          "foo": {
+            "type": "embeddedDocuments",
+            "fields": {
+              "a": {
+                "type": "sortableStringBetaV1"
+              }
+            }
+          }
+        }
+      },
+      "errorMessageContains": "cannot define fields of type sortableStringBetaV1 inside an embeddedDocuments field"
+    },
+    {
+      "description": "sortableNumberBetaV1 in embeddedDocuments",
+      "value": {
+        "fields": {
+          "foo": {
+            "type": "embeddedDocuments",
+            "fields": {
+              "a": {
+                "type": "sortableNumberBetaV1"
+              }
+            }
+          }
+        }
+      },
+      "errorMessageContains": "cannot define fields of type sortableNumberBetaV1 inside an embeddedDocuments field"
+    },
+    {
+      "description": "sortableDateBetaV1 in embeddedDocuments",
+      "value": {
+        "fields": {
+          "foo": {
+            "type": "embeddedDocuments",
+            "fields": {
+              "a": {
+                "type": "sortableDateBetaV1"
+              }
+            }
+          }
+        }
+      },
+      "errorMessageContains": "cannot define fields of type sortableDateBetaV1 inside an embeddedDocuments field"
+    },
+    {
+      "description": "nested sortable fields",
+      "value": {
+        "fields": {
+          "foo": {
+            "type": "embeddedDocuments",
+            "fields": {
+              "a": {
+                "type": "document",
+                "fields": {
+                  "b": {
+                    "type": "document",
+                    "fields": {
+                      "c": {
+                        "type": "sortableDateBetaV1"
+                      }
+                    }
+                  },
+                  "d": {
+                    "type": "sortableStringBetaV1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "errorMessageContains": "cannot define fields of type sortableDateBetaV1, sortableStringBetaV1 inside an embeddedDocuments field"
+    },
+    {
+      "description": "knnVector in embeddedDocuments",
+      "value": {
+        "fields": {
+          "schools": [
+            {
+              "type": "embeddedDocuments",
+              "dynamic": false,
+              "fields": {
+                "name": {
+                  "type": "string"
+                },
+                "vector": {
+                  "type": "knnVector",
+                  "dimensions": 5,
+                  "similarity": "cosine"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "errorMessageContains": "cannot define fields of type knnVector inside an embeddedDocuments field"
+    },
+    {
+      "description": "nested knnVector fields",
+      "value": {
+        "fields": {
+          "foo": {
+            "type": "embeddedDocuments",
+            "fields": {
+              "a": {
+                "type": "document",
+                "fields": {
+                  "b": {
+                    "type": "document",
+                    "fields": {
+                      "c": {
+                        "type": "knnVector",
+                        "dimensions": 5,
+                        "similarity": "cosine"
+                      }
+                    }
+                  },
+                  "d": {
+                    "type": "knnVector",
+                    "dimensions": 5,
+                    "similarity": "cosine"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "errorMessageContains": "cannot define fields of type knnVector inside an embeddedDocuments field"
+    }
+  ]
+}

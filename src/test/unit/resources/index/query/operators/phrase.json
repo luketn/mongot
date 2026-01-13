@@ -1,0 +1,97 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "title",
+        "query": "godfather"
+      }
+    },
+    {
+      "description": "multi path",
+      "value": {
+        "path": {
+          "value": "title",
+          "multi": "my-multi"
+        },
+        "query": "godfather"
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "with synonyms and boost score",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "synonyms": "collection",
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "zero slop",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "slop": 0
+      }
+    },
+    {
+      "description": "positive slop",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "slop": 13
+      }
+    },
+    {
+      "description": "with synonyms",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "synonyms": "collection"
+      }
+    },
+    {
+      "description": "with synonyms and slop",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "synonyms": "collection",
+        "slop": 13
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "negative slop",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "slop": -1
+      }
+    },
+    {
+      "description": "empty synonyms field",
+      "value": {
+        "path": "title",
+        "query": "godfather",
+        "synonyms": ""
+      }
+    }
+  ]
+}

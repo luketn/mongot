@@ -1,0 +1,575 @@
+package com.xgen.mongot.embedding.providers.clients;
+
+import static com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig.ErrorHandlingConfig;
+import static com.xgen.mongot.util.bson.FloatVector.OriginalType.NATIVE;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+
+import com.xgen.mongot.embedding.EmbeddingRequestContext;
+import com.xgen.mongot.embedding.VectorOrError;
+import com.xgen.mongot.embedding.exceptions.EmbeddingProviderTransientException;
+import com.xgen.mongot.embedding.providers.configs.EmbeddingModelConfig;
+import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig;
+import com.xgen.mongot.metrics.MetricsFactory;
+import com.xgen.mongot.util.bson.Vector;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.IOException;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import org.bson.types.ObjectId;
+import org.junit.Test;
+import org.mockito.ArgumentCaptor;
+
+public class VoyageClientTest {
+  private static EmbeddingRequestContext dummyContext() {
+    return new EmbeddingRequestContext("testdb", new ObjectId(), UUID.randomUUID());
+  }
+
+  private static HttpClient createMockHttpClient() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+    doReturn(200).when(mockResponse).statusCode();
+    doReturn(
+            "{\"object\":\"list\",\"data\":[{\"object\":\"embedding\","
+                + "\"embedding\":\"AKBEPACgSbw=\",\"index\":0}],\"model\":\"voyage-3-large\","
+                + "\"usage\":{\"total_tokens\":1}}")
+        .when(mockResponse)
+        .body();
+    doReturn(mockResponse)
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    return mockClient;
+  }
+
+  private static EmbeddingServiceConfig.EmbeddingConfig createDedicatedClusterConfig(
+      String apiToken) {
+    EmbeddingServiceConfig.VoyageEmbeddingCredentials creds =
+        new EmbeddingServiceConfig.VoyageEmbeddingCredentials(apiToken, "2024-10-15T22:32:20.925Z");
+
+    EmbeddingServiceConfig.WorkloadParams queryParams =
+        new EmbeddingServiceConfig.WorkloadParams(
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(creds));
+
+    return new EmbeddingServiceConfig.EmbeddingConfig(
+        Optional.empty(),
+        new EmbeddingServiceConfig.VoyageModelConfig(
+            Optional.of(1024),
+            Optional.of(EmbeddingServiceConfig.TruncationOption.NONE),
+            Optional.of(100),
+            Optional.of(120_000)),
+        RETRY_CONFIG,
+        creds,
+        Optional.of(queryParams),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        true,
+        Optional.empty());
+  }
+
+  private static EmbeddingServiceConfig.EmbeddingConfig createMtmClusterConfig(
+      Map<String, EmbeddingServiceConfig.TenantWorkloadCredentials> perTenantCredentials) {
+    return new EmbeddingServiceConfig.EmbeddingConfig(
+        Optional.empty(), // region
+        new EmbeddingServiceConfig.VoyageModelConfig(
+            Optional.of(1024),
+            Optional.of(EmbeddingServiceConfig.TruncationOption.NONE),
+            Optional.of(100),
+            Optional.of(120_000)),
+        RETRY_CONFIG,
+        new EmbeddingServiceConfig.VoyageEmbeddingCredentials(
+            "default-token", "2024-10-15T22:32:20.925Z"),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.of(perTenantCredentials),
+        false,
+        Optional.empty());
+  }
+
+  /** Helper to create tenant credentials for a specific tenant. */
+  private static EmbeddingServiceConfig.TenantWorkloadCredentials createTenantCredentials(
+      String apiToken) {
+    EmbeddingServiceConfig.VoyageEmbeddingCredentials creds =
+        new EmbeddingServiceConfig.VoyageEmbeddingCredentials(apiToken, "2024-10-15T22:32:20.925Z");
+    return new EmbeddingServiceConfig.TenantWorkloadCredentials(
+        Optional.of(creds), Optional.empty(), Optional.empty());
+  }
+
+  /** Helper to create and inject a VoyageClient with mocked HTTP client. */
+  private static VoyageClient createMockedVoyageClient(
+      EmbeddingServiceConfig.EmbeddingConfig config, HttpClient mockClient) {
+    EmbeddingModelConfig modelConfig =
+        EmbeddingModelConfig.create(
+            "voyage-3-large", EmbeddingServiceConfig.EmbeddingProvider.VOYAGE, config);
+
+    VoyageClient voyageClient =
+        new VoyageClient(
+            modelConfig,
+            EmbeddingServiceConfig.ServiceTier.QUERY,
+            modelConfig.query(),
+            METRICS_FACTORY,
+            Optional.empty());
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+    return voyageClient;
+  }
+
+  private static final ErrorHandlingConfig RETRY_CONFIG = new ErrorHandlingConfig(3, 10L, 10L, 0.1);
+  private static final MetricsFactory METRICS_FACTORY =
+      new MetricsFactory("test", new SimpleMeterRegistry());
+  private static final EmbeddingModelConfig VOYAGE_3_LARGE =
+      EmbeddingModelConfig.create(
+          "voyage-3-large",
+          EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
+          new EmbeddingServiceConfig.EmbeddingConfig(
+              Optional.empty(),
+              new EmbeddingServiceConfig.VoyageModelConfig(
+                  Optional.of(1024),
+                  Optional.of(EmbeddingServiceConfig.TruncationOption.NONE),
+                  Optional.of(100),
+                  Optional.of(120_000)),
+              RETRY_CONFIG,
+              new EmbeddingServiceConfig.VoyageEmbeddingCredentials(
+                  "token123", "2024-10-15T22:32:20.925Z"),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              true,
+              Optional.empty()));
+
+  @Test
+  public void testEmbed_okStatus() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+    doReturn(
+            "{\"object\":\"list\",\"data\":"
+                + "[{\"object\": \"embedding\", \"embedding\":"
+                + "\"ACBNvQDAAj0AIOQ8AGA1vA==\", "
+                + "\"index\":0},"
+                + "{\"object\": \"embedding\", \"embedding\":"
+                + "\"AKBEPACgSbwAwKi8AMBdvA==\", "
+                + "\"index\":1},"
+                + "{\"object\": \"embedding\", \"embedding\":"
+                + "\"AGAFPQBA0Tsi+I081GAavQ==\", "
+                + "\"index\":2}],"
+                + "\"model\": \"voyage-large-3\","
+                + "\"usage\": {\"total_tokens\": 10}"
+                + "}")
+        .when(mockResponse)
+        .body();
+    doReturn(mockResponse)
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.QUERY,
+            VOYAGE_3_LARGE.query(),
+            METRICS_FACTORY,
+            Optional.empty());
+
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    assertEquals(
+        voyageClient.embed(List.of("one", "two", "three"), dummyContext()),
+        List.of(
+            new VectorOrError(
+                Vector.fromFloats(
+                    new float[] {-0.050079346f, 0.031921387f, 0.02784729f, -0.011070251f}, NATIVE)),
+            new VectorOrError(
+                Vector.fromFloats(
+                    new float[] {0.012001038f, -0.012306213f, -0.020599365f, -0.013534546f},
+                    NATIVE)),
+            new VectorOrError(
+                Vector.fromFloats(
+                    new float[] {0.032562256f, 0.006385803f, 0.0173302338f, -0.03769f}, NATIVE))));
+  }
+
+  @Test
+  public void testEmbed_error() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    doThrow(new IOException("failed test intentionally"))
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.QUERY,
+            VOYAGE_3_LARGE.query(),
+            METRICS_FACTORY,
+            Optional.empty());
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+    EmbeddingProviderTransientException ex =
+        assertThrows(
+            EmbeddingProviderTransientException.class,
+            () -> voyageClient.embed(List.of("one", "two", "three"), dummyContext()));
+    assertEquals("failed test intentionally", ex.getCause().getMessage());
+  }
+
+  @Test
+  public void testEmbed_skipEmptyStrings() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+    doReturn(
+            "{\"object\":\"list\",\"data\":"
+                + "[{\"object\": \"embedding\", \"embedding\":"
+                + "\"ACBNvQDAAj0AIOQ8AGA1vA==\", "
+                + "\"index\":0},"
+                + "{\"object\": \"embedding\", \"embedding\":"
+                + "\"AGAFPQBA0Tsi+I081GAavQ==\", "
+                + "\"index\":1}],"
+                + "\"model\": \"voyage-large-3\","
+                + "\"usage\": {\"total_tokens\": 6}"
+                + "}")
+        .when(mockResponse)
+        .body();
+    doReturn(mockResponse)
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.QUERY,
+            VOYAGE_3_LARGE.query(),
+            METRICS_FACTORY,
+            Optional.empty());
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    assertEquals(
+        voyageClient.embed(List.of("one", "", "three"), dummyContext()),
+        List.of(
+            new VectorOrError(
+                Vector.fromFloats(
+                    new float[] {-0.050079346f, 0.031921387f, 0.02784729f, -0.011070251f}, NATIVE)),
+            VectorOrError.EMPTY_INPUT_ERROR,
+            new VectorOrError(
+                Vector.fromFloats(
+                    new float[] {0.032562256f, 0.006385803f, 0.0173302338f, -0.03769f}, NATIVE))));
+
+    assertEquals(
+        voyageClient.embed(List.of("", "", ""), dummyContext()),
+        List.of(
+            VectorOrError.EMPTY_INPUT_ERROR,
+            VectorOrError.EMPTY_INPUT_ERROR,
+            VectorOrError.EMPTY_INPUT_ERROR));
+  }
+
+  @Test
+  public void testEmbed_returnsErrorOnEmptyList() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+    doReturn("some error occurred").when(mockResponse).body();
+    doReturn(400).when(mockResponse).statusCode();
+    doReturn(mockResponse)
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.QUERY,
+            VOYAGE_3_LARGE.query(),
+            METRICS_FACTORY,
+            Optional.empty());
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    assertEquals(
+        voyageClient.embed(List.of("invalid input"), dummyContext()),
+        List.of(
+            new VectorOrError(
+                "Got invalid request, fail fast and give up retries. "
+                    + "Response body: some error occurred.")));
+  }
+
+  @Test
+  public void customEndpoint_usesProvidedEndpoint() throws Exception {
+    // Create config with custom endpoint
+    String customEndpoint = "https://custom.voyageai.com/v1/embeddings";
+    EmbeddingModelConfig customConfig =
+        EmbeddingModelConfig.create(
+            "voyage-3-large",
+            EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
+            new EmbeddingServiceConfig.EmbeddingConfig(
+                Optional.empty(),
+                new EmbeddingServiceConfig.VoyageModelConfig(
+                    Optional.of(1024),
+                    Optional.of(EmbeddingServiceConfig.TruncationOption.NONE),
+                    Optional.of(100),
+                    Optional.of(120_000)),
+                RETRY_CONFIG,
+                new EmbeddingServiceConfig.VoyageEmbeddingCredentials(
+                    "token123", "2024-10-15T22:32:20.925Z"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                true,
+                Optional.of(customEndpoint)));
+
+    HttpClient mockClient = mock(HttpClient.class);
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+    doReturn(
+            "{\"object\":\"list\",\"data\":"
+                + "[{\"object\": \"embedding\", \"embedding\":"
+                + "\"ACBNvQDAAj0AIOQ8AGA1vA==\", "
+                + "\"index\":0}],"
+                + "\"model\": \"voyage-large-3\","
+                + "\"usage\": {\"total_tokens\": 5}"
+                + "}")
+        .when(mockResponse)
+        .body();
+    doReturn(mockResponse)
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+    VoyageClient voyageClient =
+        new VoyageClient(
+            customConfig,
+            EmbeddingServiceConfig.ServiceTier.QUERY,
+            customConfig.query(),
+            METRICS_FACTORY,
+            Optional.empty());
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    voyageClient.embed(List.of("test"), dummyContext());
+
+    // Verify the request was sent to the custom endpoint
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+    assertEquals(customEndpoint, requestCaptor.getValue().uri().toString());
+  }
+
+  @Test
+  public void defaultEndpoint_usedWhenNotProvided() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+    doReturn(
+            "{\"object\":\"list\",\"data\":"
+                + "[{\"object\": \"embedding\", \"embedding\":"
+                + "\"ACBNvQDAAj0AIOQ8AGA1vA==\", "
+                + "\"index\":0}],"
+                + "\"model\": \"voyage-large-3\","
+                + "\"usage\": {\"total_tokens\": 5}"
+                + "}")
+        .when(mockResponse)
+        .body();
+    doReturn(mockResponse)
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.QUERY,
+            VOYAGE_3_LARGE.query(),
+            METRICS_FACTORY,
+            Optional.empty());
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    voyageClient.embed(List.of("test"), dummyContext());
+
+    // Verify the request was sent to the default endpoint
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+    assertEquals(VoyageClient.DEFAULT_ENDPOINT, requestCaptor.getValue().uri().toString());
+  }
+
+  @Test
+  public void updateConfig_updatesEndpoint() throws Exception {
+    // Start with default endpoint
+    HttpClient mockClient = mock(HttpClient.class);
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+    doReturn(
+            "{\"object\":\"list\",\"data\":"
+                + "[{\"object\": \"embedding\", \"embedding\":"
+                + "\"ACBNvQDAAj0AIOQ8AGA1vA==\", "
+                + "\"index\":0}],"
+                + "\"model\": \"voyage-large-3\","
+                + "\"usage\": {\"total_tokens\": 5}"
+                + "}")
+        .when(mockResponse)
+        .body();
+    doReturn(mockResponse)
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.QUERY,
+            VOYAGE_3_LARGE.query(),
+            METRICS_FACTORY,
+            Optional.empty());
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    // Update config with new endpoint
+    String newEndpoint = "https://updated.voyageai.com/v1/embeddings";
+    EmbeddingModelConfig updatedConfig =
+        EmbeddingModelConfig.create(
+            "voyage-3-large",
+            EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
+            new EmbeddingServiceConfig.EmbeddingConfig(
+                Optional.empty(),
+                new EmbeddingServiceConfig.VoyageModelConfig(
+                    Optional.of(1024),
+                    Optional.of(EmbeddingServiceConfig.TruncationOption.NONE),
+                    Optional.of(100),
+                    Optional.of(120_000)),
+                RETRY_CONFIG,
+                new EmbeddingServiceConfig.VoyageEmbeddingCredentials(
+                    "newtoken", "2024-10-15T22:32:20.925Z"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                true,
+                Optional.of(newEndpoint)));
+
+    voyageClient.updateConfig(updatedConfig.query());
+    voyageClient.embed(List.of("test"), dummyContext());
+
+    // Verify the request was sent to the updated endpoint
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+    assertEquals(newEndpoint, requestCaptor.getValue().uri().toString());
+  }
+
+  @Test
+  public void testDedicatedCluster_usesDefaultCredentials() throws Exception {
+    EmbeddingServiceConfig.EmbeddingConfig config =
+        createDedicatedClusterConfig("dedicated-token-123");
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient);
+
+    // For a dedicated cluster, tenant ID should be ignored
+    EmbeddingRequestContext dedicatedContext =
+        new EmbeddingRequestContext("tenant123_mydb", new ObjectId(), UUID.randomUUID());
+
+    voyageClient.embed(List.of("test"), dedicatedContext);
+
+    // Verify the correct credentials were used
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    HttpRequest capturedRequest = requestCaptor.getValue();
+    List<String> authHeaders = capturedRequest.headers().allValues("Authorization");
+    assertEquals(1, authHeaders.size());
+    assertEquals("Bearer dedicated-token-123", authHeaders.getFirst());
+  }
+
+  @Test
+  public void testMtmCluster_usesPerTenantCredentials() throws Exception {
+    Map<String, EmbeddingServiceConfig.TenantWorkloadCredentials> perTenantCreds =
+        Map.of("tenant1", createTenantCredentials("tenant1-query-token"));
+    EmbeddingServiceConfig.EmbeddingConfig config = createMtmClusterConfig(perTenantCreds);
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient);
+
+    // For MTM, tenant ID should be extracted from database name
+    EmbeddingRequestContext mtmContext =
+        new EmbeddingRequestContext("tenant1_mydb", new ObjectId(), UUID.randomUUID());
+
+    voyageClient.embed(List.of("test"), mtmContext);
+
+    // Verify the correct tenant-specific credentials were used
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    HttpRequest capturedRequest = requestCaptor.getValue();
+    List<String> authHeaders = capturedRequest.headers().allValues("Authorization");
+    assertEquals(1, authHeaders.size());
+    assertEquals("Bearer tenant1-query-token", authHeaders.get(0));
+  }
+
+  @Test
+  public void testMtmCluster_throwsWhenTenantCredentialsNotFound() {
+    // MTM cluster with credentials for tenant1 only
+    Map<String, EmbeddingServiceConfig.TenantWorkloadCredentials> perTenantCreds =
+        Map.of("tenant1", createTenantCredentials("tenant1-query-token"));
+    EmbeddingServiceConfig.EmbeddingConfig config = createMtmClusterConfig(perTenantCreds);
+    VoyageClient voyageClient =
+        createMockedVoyageClient(config, mock(HttpClient.class)); // No need for response
+
+    // Request with tenant2 (which has no credentials)
+    EmbeddingRequestContext unknownTenantContext =
+        new EmbeddingRequestContext("tenant2_mydb", new ObjectId(), UUID.randomUUID());
+
+    EmbeddingProviderTransientException ex =
+        assertThrows(
+            EmbeddingProviderTransientException.class,
+            () -> voyageClient.embed(List.of("test"), unknownTenantContext));
+
+    assertEquals("Unable to find credentials for tenant: tenant2", ex.getMessage());
+  }
+
+  @Test
+  public void testExtractTenantId_fromDatabaseString() throws Exception {
+    Map<String, EmbeddingServiceConfig.TenantWorkloadCredentials> perTenantCreds =
+        Map.of("tenant123", createTenantCredentials("tenant123-query-token"));
+    EmbeddingServiceConfig.EmbeddingConfig config = createMtmClusterConfig(perTenantCreds);
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient);
+
+    EmbeddingRequestContext context =
+        new EmbeddingRequestContext("tenant123_mydb", new ObjectId(), UUID.randomUUID());
+
+    // Should successfully extract tenant ID and embed
+    voyageClient.embed(List.of("test"), context);
+  }
+
+  @Test
+  public void testNoTenantIdExtracted_whenDedicatedCluster() throws Exception {
+    EmbeddingServiceConfig.EmbeddingConfig config = createDedicatedClusterConfig("dedicated-token");
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient);
+
+    // Database looks like MTM format, but dedicated cluster ignores it
+    EmbeddingRequestContext context =
+        new EmbeddingRequestContext("tenant123_mydb", new ObjectId(), UUID.randomUUID());
+
+    voyageClient.embed(List.of("test"), context);
+
+    // Verify dedicated credentials were used
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+    HttpRequest capturedRequest = requestCaptor.getValue();
+    List<String> authHeaders = capturedRequest.headers().allValues("Authorization");
+    assertEquals("Bearer dedicated-token", authHeaders.get(0));
+  }
+
+  @Test
+  public void testNoTenantId_whenNoPrefixInDatabase() {
+    Map<String, EmbeddingServiceConfig.TenantWorkloadCredentials> perTenantCreds =
+        Map.of("tenant1", createTenantCredentials("tenant1-query-token"));
+    EmbeddingServiceConfig.EmbeddingConfig config = createMtmClusterConfig(perTenantCreds);
+    VoyageClient voyageClient =
+        createMockedVoyageClient(config, mock(HttpClient.class)); // No need for response
+
+    EmbeddingRequestContext context =
+        new EmbeddingRequestContext("mydb", new ObjectId(), UUID.randomUUID());
+
+    EmbeddingProviderTransientException ex =
+        assertThrows(
+            EmbeddingProviderTransientException.class,
+            () -> voyageClient.embed(List.of("test"), context));
+
+    assertEquals(
+        "Unable to extract tenant ID from database name for MTM cluster. "
+            + "Database name must be in format 'tenantId_dbName'.",
+        ex.getMessage());
+  }
+}

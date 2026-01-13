@@ -1,0 +1,620 @@
+{
+  "valid": [
+    {
+      "description": "doesNotAffectFilter",
+      "value": {
+        "filter": {
+          "text": {
+            "path": "size",
+            "query": "S"
+          }
+        },
+        "doesNotAffect": ["points", "sizes"]
+      }
+    },
+    {
+      "description": "doesNotAffectShould",
+      "value": {
+        "should": {
+          "text": {
+            "path": "size",
+            "query": "S"
+          }
+        },
+        "doesNotAffect": ["points", "sizes"]
+      }
+    },
+    {
+      "description": "doesNotAffectMust",
+      "value": {
+        "must": {
+          "text": {
+            "path": "size",
+            "query": "S"
+          }
+        },
+        "doesNotAffect": ["points", "sizes"]
+      }
+    },
+    {
+      "description": "doesNotAffectMustNot",
+      "value": {
+        "mustNot": {
+          "text": {
+            "path": "size",
+            "query": "S"
+          }
+        },
+        "doesNotAffect": ["points", "sizes"]
+      }
+    },
+    {
+      "description": "doesNotAffectEmptyArray",
+      "value": {
+        "should": {
+          "text": {
+            "path": "size",
+            "query": "S"
+          }
+        },
+        "doesNotAffect": []
+      }
+    },
+    {
+      "description": "doesNotAffectString",
+      "value": {
+        "should": {
+          "text": {
+            "path": "size",
+            "query": "S"
+          }
+        },
+        "doesNotAffect": "sizes"
+      }
+    },
+    {
+      "description": "doesNotAffectNested",
+      "value": {
+        "should": {
+          "equals": {
+            "path": "size",
+            "value":"S",
+            "doesNotAffect": ["points", "sizes"]
+          }
+        }
+      }
+    },
+    {
+      "description": "doesNotAffectNestedOuterLevel",
+      "value": {
+        "should": {
+          "equals": {
+            "path": "size",
+            "value":"S"
+          }
+        },
+        "doesNotAffect": ["points", "sizes"]
+      }
+    },
+    {
+      "description": "doesNotAffectBothLevels",
+      "value": {
+        "should": {
+          "equals": {
+            "path": "size",
+            "value": "S",
+            "doesNotAffect": ["sizes"]
+          }
+        },
+        "doesNotAffect": ["points", "sizes"]
+      }
+    },
+    {
+      "description": "doesNotAffectMultiInterior",
+      "value": {
+        "should": [
+          {
+            "range": {
+              "path": "rating",
+              "gte": 4.0,
+              "lt": 5.0,
+              "doesNotAffect": ["ratings"]
+            }
+          },
+          {
+            "range": {
+              "path": "rating",
+              "gte": 6.0,
+              "lt": 7.0,
+              "doesNotAffect": ["ratings"]
+            }
+          }
+        ],
+        "doesNotAffect": ["firmnesses"]
+      }
+    },
+    {
+      "description": "doesNotAffectOuterCompoundLevel",
+      "value": {
+        "filter": {
+          "compound": {
+            "should": [
+              {
+                "range": {
+                  "path": "pricePerNight",
+                  "gte": 0.0,
+                  "lt": 100.0
+                }
+              },
+              {
+                "range": {
+                  "path": "pricePerNight",
+                  "gte": 300.0,
+                  "lt": 400.0
+                }
+              },
+              {
+                "range": {
+                  "path": "pricePerNight",
+                  "gte": 500.0,
+                  "lt": 1000.0
+                }
+              }
+            ],
+            "doesNotAffect": ["pricePerNightFacet"],
+            "minimumShouldMatch": 1
+          }
+        }
+      }
+    },
+    {
+      "description": "doesNotAffectInnerOperatorLevel",
+      "value": {
+        "filter": {
+          "compound": {
+            "should": [
+              {
+                "range": {
+                  "path": "pricePerNight",
+                  "gte": 0.0,
+                  "lt": 100.0,
+                  "doesNotAffect": ["pricePerNightFacet"]
+                }
+              },
+              {
+                "range": {
+                  "path": "pricePerNight",
+                  "gte": 300.0,
+                  "lt": 400.0,
+                  "doesNotAffect": ["pricePerNightFacet"]
+                }
+              },
+              {
+                "range": {
+                  "path": "pricePerNight",
+                  "gte": 500.0,
+                  "lt": 1000.0,
+                  "doesNotAffect": ["pricePerNightFacet"]
+                }
+              }
+            ],
+            "minimumShouldMatch": 1
+          }
+        }
+      }
+    },
+    {
+      "description": "single filter",
+      "value": {
+        "filter": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        }
+      }
+    },
+    {
+      "description": "multiple filters",
+      "value": {
+        "filter": [
+          {
+            "text": {
+              "path": "title",
+              "query": "first"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "second"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "single must",
+      "value": {
+        "must": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        }
+      }
+    },
+    {
+      "description": "multiple musts",
+      "value": {
+        "must": [
+          {
+            "text": {
+              "path": "title",
+              "query": "first"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "second"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "single mustNot",
+      "value": {
+        "mustNot": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        }
+      }
+    },
+    {
+      "description": "multiple mustNots",
+      "value": {
+        "mustNot": [
+          {
+            "text": {
+              "path": "title",
+              "query": "first"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "second"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "single should",
+      "value": {
+        "should": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        }
+      }
+    },
+    {
+      "description": "multiple shoulds",
+      "value": {
+        "should": [
+          {
+            "text": {
+              "path": "title",
+              "query": "first"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "second"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "all clauses",
+      "value": {
+        "filter": {
+          "text": {
+            "path": "title",
+            "query": "first"
+          }
+        },
+        "must": {
+          "text": {
+            "path": "title",
+            "query": "second"
+          }
+        },
+        "mustNot": {
+          "text": {
+            "path": "title",
+            "query": "third"
+          }
+        },
+        "should": {
+          "text": {
+            "path": "title",
+            "query": "fourth"
+          }
+        }
+      }
+    },
+    {
+      "description": "minimumShouldMatch zero",
+      "value": {
+        "should": [
+          {
+            "text": {
+              "path": "title",
+              "query": "first"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "second"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "third"
+            }
+          }
+        ],
+        "minimumShouldMatch": 0
+      }
+    },
+    {
+      "description": "minimumShouldMatch less than clauses",
+      "value": {
+        "should": [
+          {
+            "text": {
+              "path": "title",
+              "query": "first"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "second"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "third"
+            }
+          }
+        ],
+        "minimumShouldMatch": 2
+      }
+    },
+    {
+      "description": "minimumShouldMatch same as clauses",
+      "value": {
+        "should": [
+          {
+            "text": {
+              "path": "title",
+              "query": "first"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "second"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "third"
+            }
+          }
+        ],
+        "minimumShouldMatch": 3
+      }
+    },
+    {
+      "description": "with boost score",
+      "value": {
+        "filter": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "with dismax score",
+      "value": {
+        "should": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "score": {
+          "dismax": {
+            "tieBreakerScore": 0.5
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no clauses",
+      "value": {
+      }
+    },
+    {
+      "description": "all empty clauses",
+      "value": {
+        "filter": [],
+        "must": [],
+        "mustNot": [],
+        "should": []
+      }
+    },
+    {
+      "description": "dismax with non-should clause",
+      "value": {
+        "filter": {
+          "text": {
+            "path": "title",
+            "query": "first"
+          }
+        },
+        "should": {
+          "text": {
+            "path": "title",
+            "query": "second"
+          }
+        },
+        "score": {
+          "dismax": {
+            "tieBreakerScore": 0.5
+          }
+        }
+      }
+    },
+    {
+      "description": "dismax with no should clause",
+      "value": {
+        "filter": {
+          "text": {
+            "path": "title",
+            "query": "first"
+          }
+        },
+        "score": {
+          "dismax": {
+            "tieBreakerScore": 0.5
+          }
+        }
+      }
+    },
+    {
+      "description": "minimumShouldMatch zero no should clauses",
+      "value": {
+        "filter": {
+          "text": {
+            "path": "title",
+            "query": "first"
+          }
+        },
+        "minimumShouldMatch": 0
+      }
+    },
+    {
+      "description": "minimumShouldMatch no should clauses",
+      "value": {
+        "filter": {
+          "text": {
+            "path": "title",
+            "query": "first"
+          }
+        },
+        "minimumShouldMatch": 1
+      }
+    },
+    {
+      "description": "minimumShouldMatch greater than clauses",
+      "value": {
+        "should": [
+          {
+            "text": {
+              "path": "title",
+              "query": "first"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "second"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "third"
+            }
+          }
+        ],
+        "minimumShouldMatch": 4
+      }
+    },
+    {
+      "description": "negative minimumShouldMatch",
+      "value": {
+        "should": [
+          {
+            "text": {
+              "path": "title",
+              "query": "first"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "second"
+            }
+          },
+          {
+            "text": {
+              "path": "title",
+              "query": "third"
+            }
+          }
+        ],
+        "minimumShouldMatch": -1
+      }
+    },
+    {
+      "description": "contains knn operator",
+      "value": {
+        "should": [
+          {
+            "text": {
+              "path": "title",
+              "query": "first"
+            }
+          },
+          {
+            "knnBeta": {
+              "path": "description",
+              "k": 3,
+              "vector": [
+                9,
+                9,
+                9
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

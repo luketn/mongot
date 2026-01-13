@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE suppressions PUBLIC
+        "-//Checkstyle//DTD SuppressionXpathFilter Experimental Configuration 1.2//EN"
+        "https://checkstyle.org/dtds/suppressions_1_2_xpath_experimental.dtd">
+
+<!-- This file is included by: conf/checkstyle/mongot.xml -->
+<!-- See also: https://checkstyle.sourceforge.io/filters/suppressionfilter.html -->
+
+<suppressions>
+    <!-- CLOUDP-272527: Disable our coding standards for these third-party files
+         temporarily copied into mongot/index/lucene/quantization/ as a workaround.
+         Remove these after Lucene adds support for binary quantization. -->
+    <suppress files="mongot[/\\]index[/\\]lucene[/\\]quantization[/\\]BinaryQuantizer\.java" checks=".*"/>
+    <suppress files="mongot[/\\]index[/\\]lucene[/\\]quantization[/\\]OffHeapQuantizedByteVectorValues\.java" checks=".*"/>
+    <suppress files="mongot[/\\]index[/\\]lucene[/\\]quantization[/\\]BinaryQuantizedFlatVectorsScorer\.java" checks=".*"/>
+    <suppress files="mongot[/\\]index[/\\]lucene[/\\]quantization[/\\]FlatBitVectorsScorer\.java" checks=".*"/>
+    <suppress files="mongot[/\\]index[/\\]lucene[/\\]quantization[/\\]Mongot01042HnswBitVectorsFormat\.java" checks=".*"/>
+    <!-- Ignore ONLY MissingJavadocMethod in test sources -->
+    <suppress checks="MissingJavadocMethod" files=".*/src/test/.*"/>
+    <!-- Suppress println check for tests -->
+    <suppress id="noPrint" files=".*/src/test/.*"/>
+    <suppress id="noPrint" files=".*/testing/.*"/>
+    <!-- Suppress MissingJavadocMethod for routine methods -->
+    <suppress-xpath files=".*" checks="MissingJavadocMethod" query="//METHOD_DEF[./IDENT[@text='create']]"/>
+    <suppress-xpath files=".*" checks="MissingJavadocMethod" query="//METHOD_DEF[./IDENT[@text='build']]"/>
+    <suppress-xpath files=".*" checks="MissingJavadocMethod" query="//METHOD_DEF[./IDENT[@text='toBson']]"/>
+    <suppress-xpath files=".*" checks="MissingJavadocMethod" query="//METHOD_DEF[./IDENT[@text='fromBson']]"/>
+    <suppress-xpath files=".*" checks="MissingJavadocMethod" query="//METHOD_DEF[./IDENT[@text='toString']]"/>
+    <suppress-xpath files=".*" checks="MissingJavadocMethod" query="//METHOD_DEF[./IDENT[@text='builder']]"/>
+</suppressions>

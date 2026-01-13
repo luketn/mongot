@@ -1,0 +1,42 @@
+load("//bazel/java:test.bzl", "mongot_java_unit_test_suite")
+
+# gazelle:ignore
+
+mongot_java_unit_test_suite(
+    name = "lib",
+    resources = True,
+    deps = [
+        "org.mongodb:bson",
+        "//src/main/java/com/xgen/mongot/cursor",
+        "//src/main/java/com/xgen/mongot/cursor/batch",
+        "//src/main/java/com/xgen/mongot/featureflag/dynamic",
+        "//src/main/java/com/xgen/mongot/index",
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/query",
+        "//src/main/java/com/xgen/mongot/index/query/collectors",
+        "//src/main/java/com/xgen/mongot/index/query/operators",
+        "//src/main/java/com/xgen/mongot/index/query/scores",
+        "//src/main/java/com/xgen/mongot/index/query/sort",
+        "//src/main/java/com/xgen/mongot/index/status",
+        "//src/main/java/com/xgen/mongot/index/version",
+        "//src/main/java/com/xgen/mongot/metrics",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/mongot/util/bson",
+        "//src/main/java/com/xgen/mongot/util/bson/parser",
+        "//src/main/java/com/xgen/testing",
+        "//src/main/java/com/xgen/testing/mongot/cursor/batch",
+        "//src/main/java/com/xgen/testing/mongot/index",
+        "//src/main/java/com/xgen/testing/mongot/index/definition",
+        "//src/main/java/com/xgen/testing/mongot/index/path/string",
+        "//src/main/java/com/xgen/testing/mongot/index/query",
+        "//src/main/java/com/xgen/testing/mongot/index/query/collectors",
+        "//src/main/java/com/xgen/testing/mongot/index/query/highlights",
+        "//src/main/java/com/xgen/testing/mongot/index/query/operators",
+        "//src/main/java/com/xgen/testing/mongot/index/query/scores",
+        "//src/main/java/com/xgen/testing/mongot/index/query/sort",
+        "//src/main/java/com/xgen/testing/mongot/index/version",
+        "//src/main/java/com/xgen/testing/mongot/metrics/micrometer",
+        "//src/main/java/com/xgen/testing/mongot/mock/index",
+        "@maven//:io_opentelemetry_opentelemetry_context",
+    ],
+)

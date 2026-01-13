@@ -1,0 +1,564 @@
+{
+  "valid": [
+    {
+      "description": "simple string facet",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "directorFacet": {
+            "type": "string",
+            "path": "director"
+          }
+        }
+      }
+    },
+    {
+      "description": "string facet with numBuckets",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "directorFacet": {
+            "type": "string",
+            "path": "director",
+            "numBuckets": 1000
+          }
+        }
+      }
+    },
+    {
+      "description": "simple numeric facet",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "ratingFacet": {
+            "type": "number",
+            "path": "rating",
+            "boundaries": [
+              1,
+              2
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "numeric facet with default bucket",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "ratingFacet": {
+            "type": "number",
+            "path": "rating",
+            "default": "other",
+            "boundaries": [
+              1,
+              2
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "simple date facet",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "eventFacet": {
+            "type": "date",
+            "path": "start",
+            "boundaries": [
+              {
+                "$date": "2020-05-08T12:11:00Z"
+              },
+              {
+                "$date": "2021-05-08T12:11:00Z"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "date facet with default bucket",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "eventFacet": {
+            "type": "date",
+            "path": "start",
+            "default": "other",
+            "boundaries": [
+              {
+                "$date": "2020-05-08T12:11:00Z"
+              },
+              {
+                "$date": "2021-05-08T12:11:00Z"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "multiple definitions",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "directorFacet": {
+            "type": "string",
+            "path": "director"
+          },
+          "ratingFacet": {
+            "type": "number",
+            "path": "rating",
+            "default": "other",
+            "boundaries": [
+              1,
+              2
+            ]
+          },
+          "eventFacet": {
+            "type": "date",
+            "path": "start",
+            "default": "other",
+            "boundaries": [
+              {
+                "$date": "2020-05-08T12:11:00Z"
+              },
+              {
+                "$date": "2021-05-08T12:11:00Z"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "no operator",
+      "value": {
+        "facets": {
+          "directorFacet": {
+            "type": "string",
+            "path": "director"
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no facets",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        }
+      }
+    },
+    {
+      "description": "empty facets",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+        }
+      }
+    },
+    {
+      "description": "no facet type specified",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "directorFacet": {
+            "path": "director"
+          }
+        }
+      }
+    },
+    {
+      "description": "no facet path specified",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "directorFacet": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "description": "negative string numBuckets",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "directorFacet": {
+            "type": "string",
+            "path": "director",
+            "numBuckets": -1
+          }
+        }
+      }
+    },
+    {
+      "description": "zero string numBuckets",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "directorFacet": {
+            "type": "string",
+            "path": "director",
+            "numBuckets": 0
+          }
+        }
+      }
+    },
+    {
+      "description": "string numBuckets > 1000",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "directorFacet": {
+            "type": "string",
+            "path": "director",
+            "numBuckets": 1001
+          }
+        }
+      }
+    },
+    {
+      "description": "empty numeric boundary",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "ratingFacet": {
+            "type": "number",
+            "path": "rating",
+            "boundaries": [
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "empty date boundary",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "eventFacet": {
+            "type": "date",
+            "path": "start",
+            "boundaries": [
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "numeric facet with empty default bucket name",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "ratingFacet": {
+            "type": "number",
+            "path": "rating",
+            "default": "",
+            "boundaries": [
+              1,
+              2
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "date facet with empty default bucket name",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "eventFacet": {
+            "type": "date",
+            "path": "start",
+            "default": "",
+            "boundaries": [
+              {
+                "$date": "2020-05-08T12:11:00Z"
+              },
+              {
+                "$date": "2021-05-08T12:11:00Z"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "single numeric boundary",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "ratingFacet": {
+            "type": "number",
+            "path": "rating",
+            "boundaries": [
+              1
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "single date boundary",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "eventFacet": {
+            "type": "date",
+            "path": "start",
+            "default": "other",
+            "boundaries": [
+              {
+                "$date": "2020-05-08T12:11:00Z"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "descending numeric boundaries",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "ratingFacet": {
+            "type": "number",
+            "path": "rating",
+            "boundaries": [
+              2,
+              1
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "duplicated numeric boundaries",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "ratingFacet": {
+            "type": "number",
+            "path": "rating",
+            "boundaries": [
+              1,
+              1
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "descending date boundaries",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "eventFacet": {
+            "type": "date",
+            "path": "start",
+            "default": "other",
+            "boundaries": [
+              {
+                "$date": "2021-05-08T12:11:00Z"
+              },
+              {
+                "$date": "2020-05-08T12:11:00Z"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "duplicated date boundaries",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "eventFacet": {
+            "type": "date",
+            "path": "start",
+            "default": "other",
+            "boundaries": [
+              {
+                "$date": "2021-05-08T12:11:00Z"
+              },
+              {
+                "$date": "2021-05-08T12:11:00Z"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "invalid type boundaries for numeric facets",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "ratingFacet": {
+            "type": "number",
+            "path": "rating",
+            "boundaries": [
+              {
+                "$date": "2020-05-08T12:11:00Z"
+              },
+              {
+                "$date": "2021-05-08T12:11:00Z"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "description": "invalid type boundaries for date facets",
+      "value": {
+        "operator": {
+          "text": {
+            "path": "review",
+            "query": "good"
+          }
+        },
+        "facets": {
+          "ratingFacet": {
+            "type": "date",
+            "path": "rating",
+            "boundaries": [
+              1,
+              2
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "valid": [
+    {
+      "description": "double value",
+      "value": 13.0
+    }
+  ],
+  "invalid": [
+    {
+      "description": "non-numeric value",
+      "value": {
+        "$date": "2020-04-03T13:13:13Z"
+      }
+    }
+  ]
+}

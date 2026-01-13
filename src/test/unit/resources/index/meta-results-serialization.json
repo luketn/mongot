@@ -1,0 +1,30 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "count": {
+          "lowerBound": 2147483648
+        }
+      }
+    },
+    {
+      "description": "withFacet",
+      "value": {
+        "count": {
+          "lowerBound": 2147483648
+        },
+        "facet": {
+          "myFacet": {
+            "buckets": [
+              {
+                "_id": "category",
+                "count": 2147483648
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

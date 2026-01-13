@@ -1,0 +1,48 @@
+{
+  "tests": [
+    {
+      "description": "empty",
+      "json": {
+        "ok": 1,
+        "metaPipeline": [],
+        "sortSpec": {
+          "$searchScore": -1
+        },
+        "protocolVersion": 1
+      },
+      "bson": {
+        "ok": 1,
+        "metaPipeline": [],
+        "sortSpec": {
+          "$searchScore": -1
+        },
+        "protocolVersion": {
+          "$numberInt": "1"
+        }
+      }
+    },
+    {
+      "description": "with sortSpec",
+      "json": {
+        "ok": 1,
+        "metaPipeline": [],
+        "sortSpec": {
+          "$searchSortValues._0": 1,
+          "$searchSortValues._1": -1
+        },
+        "protocolVersion": 1
+      },
+      "bson": {
+        "ok": 1,
+        "metaPipeline": [],
+        "sortSpec": {
+          "$searchSortValues._0": 1,
+          "$searchSortValues._1": -1
+        },
+        "protocolVersion": {
+          "$numberInt": "1"
+        }
+      }
+    }
+  ]
+}

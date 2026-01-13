@@ -1,0 +1,1061 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        }
+      }
+    },
+    {
+      "description": "with analyzer",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "analyzer": "my-analyzer"
+      }
+    },
+    {
+      "description": "with unreferenced typeSets",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "analyzer": "my-analyzer",
+        "typeSets": [
+          {
+            "name": "foo",
+            "types": [
+              {
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "name": "bar",
+            "types": [
+              {
+                "type": "string"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "description": "with typeSets",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": {
+            "typeSet": "foo"
+          }
+        },
+        "analyzer": "my-analyzer",
+        "typeSets": [
+          {
+            "name": "foo",
+            "types": [
+              {
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "name": "bar",
+            "types": [
+              {
+                "type": "string"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "description": "with nested typeSets",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": {
+            "typeSet": "foo"
+          },
+          "fields": {
+            "nested": {
+              "type": "document",
+              "dynamic": {
+                "typeSet": "bar"
+              }
+            }
+          }
+        },
+        "analyzer": "my-analyzer",
+        "typeSets": [
+          {
+            "name": "foo",
+            "types": [
+              {
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "name": "bar",
+            "types": [
+              {
+                "type": "string"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "description": "with sort",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": false,
+          "fields": {
+            "a": {
+              "type": "token"
+            },
+            "b": {
+              "type": "number"
+            },
+            "c": {
+              "type": "date"
+            },
+            "d": {
+              "type": "objectId"
+            },
+            "e": [
+              {
+                "type": "document",
+                "dynamic": false,
+                "fields": {
+                  "f": {
+                    "type": "token"
+                  }
+                }
+              },
+              {
+                "type": "embeddedDocuments",
+                "dynamic": true
+              }
+            ]
+          }
+        },
+        "analyzer": "my-analyzer",
+        "sort": {
+          "a": 1,
+          "b": -1,
+          "c": {
+            "order": 1,
+            "noData": "highest"
+          },
+          "d": {
+            "order": -1,
+            "noData": "lowest"
+          },
+          "e.f": 1
+        }
+      }
+    },
+    {
+      "description": "with searchAnalyzer",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "searchAnalyzer": "my-search-analyzer"
+      }
+    },
+    {
+      "description": "with custom analyzer",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "analyzers": [
+          {
+            "name": "simple",
+            "tokenizer": {
+              "type": "standard"
+            },
+            "charFilters": [
+              {
+                "type": "htmlStrip",
+                "ignoredTags": [
+                  "a"
+                ]
+              }
+            ],
+            "tokenFilters": [
+              {
+                "type": "length",
+                "max": 2
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "description": "with synonyms",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "synonyms": [
+          {
+            "name": "synonyms",
+            "source": {
+              "collection": "synonymCollection"
+            },
+            "analyzer": "lucene.english"
+          }
+        ]
+      }
+    },
+    {
+      "description": "with view",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "view": {
+          "name": "myView",
+          "effectivePipeline": [
+            {
+              "$set": {
+                "cats": 20
+              }
+            },
+            {
+              "$set": {
+                "dogs": 40
+              }
+            }
+          ],
+          "exists": true
+        }
+      }
+    },
+    {
+      "description": "with stored fields boolean",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "storedSource": true
+      }
+    },
+    {
+      "description": "with stored fields document inclusion",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "storedSource": {
+          "include": [
+            "a",
+            "b.c",
+            "b.d"
+          ]
+        }
+      }
+    },
+    {
+      "description": "with stored fields document exclusion",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "storedSource": {
+          "exclude": [
+            "a",
+            "b.c",
+            "b.d"
+          ]
+        }
+      }
+    },
+    {
+      "description": "with high indexFeatureVersion",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "indexFeatureVersion": 10
+      }
+    },
+    {
+      "description": "with default numPartitions",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "numPartitions": 1
+      }
+    },
+    {
+      "description": "with multiple numPartitions",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "numPartitions": 2
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid numPartitions",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "numPartitions": 3
+      }
+    },
+    {
+      "description": "missing indexID",
+      "value": {
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        }
+      }
+    },
+    {
+      "description": "missing name",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        }
+      }
+    },
+    {
+      "description": "missing database",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        }
+      }
+    },
+    {
+      "description": "missing lastObservedCollectionName",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        }
+      }
+    },
+    {
+      "description": "missing collectionUUID",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "mappings": {
+          "dynamic": true
+        }
+      }
+    },
+    {
+      "description": "missing mappings",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa"
+      }
+    },
+    {
+      "description": "mappings with type",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "type": "document",
+          "dynamic": true
+        }
+      }
+    },
+    {
+      "description": "custom analyzer with builtin name",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "analyzers": [
+          {
+            "name": "lucene.badanalyzer",
+            "tokenizer": {
+              "type": "standard"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "custom analyzers with same name",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "analyzers": [
+          {
+            "name": "my analyzer",
+            "tokenizer": {
+              "type": "standard"
+            }
+          },
+          {
+            "name": "my analyzer",
+            "tokenizer": {
+              "type": "whitespace"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "synonyms with same name",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "synonyms": [
+          {
+            "name": "someName",
+            "source": {
+              "collection": "collection"
+            },
+            "analyzer": "lucene.english"
+          },
+          {
+            "name": "someName",
+            "source": {
+              "collection": "collection"
+            },
+            "analyzer": "lucene.english"
+          }
+        ]
+      }
+    },
+    {
+      "description": "typeSets with same name",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "analyzer": "my-analyzer",
+        "typeSets": [
+          {
+            "name": "foo",
+            "types": [
+              {
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "name": "foo",
+            "types": [
+              {
+                "type": "string"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "description": "empty typeSets",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "analyzer": "my-analyzer",
+        "typeSets": [
+        ]
+      }
+    },
+    {
+      "description": "invalid typeSets",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "analyzer": "my-analyzer",
+        "typeSets": {
+          "name": "foo",
+          "types": []
+        }
+      }
+    },
+    {
+      "description": "mappings defined typeSet doesn't reference valid typeSet",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": "abc"
+        },
+        "analyzer": "my-analyzer",
+        "typeSets": {
+          "name": "foo",
+          "types": [
+            {
+              "name": "foo",
+              "types": [
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "name": "bar",
+              "types": [
+                {
+                  "type": "string"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "nested typeSet within document doesn't reference valid typeSet",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": {
+            "typeSet": "foo"
+          },
+          "fields": {
+            "sampleField": {
+              "type": "document",
+              "dynamic": {
+                "typeSet": "abc"
+              }
+            }
+          }
+        },
+        "analyzer": "my-analyzer",
+        "typeSets": {
+          "name": "foo",
+          "types": [
+            {
+              "name": "foo",
+              "types": [
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "name": "bar",
+              "types": [
+                {
+                  "type": "string"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "nested embeddedDocs typeSet within document doesn't reference valid typeSet",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": {
+            "typeSet": "foo"
+          },
+          "fields": {
+            "sampleField": {
+              "type": "embeddedDocs",
+              "dynamic": {
+                "typeSet": "abc"
+              }
+            }
+          }
+        },
+        "analyzer": "my-analyzer",
+        "typeSets": {
+          "name": "foo",
+          "types": [
+            {
+              "name": "foo",
+              "types": [
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "name": "bar",
+              "types": [
+                {
+                  "type": "string"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "typeSet for embeddedDocuments doesn't reference valid typeSet",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "fields": {
+            "sampleField": {
+              "type": "embeddedDocuments",
+              "dynamic": {
+                "typeSet": "abc"
+              }
+            }
+          }
+        },
+        "analyzer": "my-analyzer",
+        "typeSets": {
+          "name": "foo",
+          "types": [
+            {
+              "name": "foo",
+              "types": [
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "name": "bar",
+              "types": [
+                {
+                  "type": "string"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "typeSet for nested embeddedDocuments doesn't reference valid typeSet",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "fields": {
+            "sampleField": {
+              "type": "embeddedDocuments",
+              "dynamic": {
+                "typeSet": "foo",
+                "fields": {
+                  "nestedField": {
+                    "type": "embeddedDocuments",
+                    "dynamic": {
+                      "typeSet": "abc"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "analyzer": "my-analyzer",
+        "typeSets": {
+          "name": "foo",
+          "types": [
+            {
+              "name": "foo",
+              "types": [
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "name": "bar",
+              "types": [
+                {
+                  "type": "string"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "nested document typeSet within embededdedDocs doesn't reference valid typeSet",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "fields": {
+            "sampleField": {
+              "type": "embeddedDocuments",
+              "dynamic": {
+                "typeSet": "foo",
+                "fields": {
+                  "nestedField": {
+                    "type": "document",
+                    "dynamic": {
+                      "typeSet": "abc"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "analyzer": "my-analyzer",
+        "typeSets": {
+          "name": "foo",
+          "types": [
+            {
+              "name": "foo",
+              "types": [
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            {
+              "name": "bar",
+              "types": [
+                {
+                  "type": "string"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "description": "invalid score index sort",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "sort": {
+          "a": {
+            "$meta": "searchScore",
+            "order": 1
+          },
+          "b": {
+            "$meta": "searchScore",
+            "order": -1
+          }
+        }
+      },
+      "errorMessageContains": "Cannot sort on score for fields: [a, b]"
+    },
+    {
+      "description": "non-static sort with boolean dynamic",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": true
+        },
+        "sort": {
+          "a.a1": 1,
+          "b": -1
+        }
+      },
+      "errorMessageContains": "Sort fields: [a.a1, b] are not statically defined"
+    },
+    {
+      "description": "non-static sort with dynamic typeSet",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": {
+            "typeSet": "foo"
+          }
+        },
+        "typeSets": [
+          {
+            "name": "foo",
+            "types": [
+              {
+                "type": "number"
+              }
+            ]
+          }
+        ],
+        "sort": {
+          "a.a1": 1,
+          "b": -1
+        }
+      },
+      "errorMessageContains": "Sort fields: [a.a1, b] are not statically defined"
+    },
+    {
+      "description": "non-static sort with dynamic nested embeddedDocuments",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": false,
+          "fields": {
+            "a": {
+              "type": "document",
+              "dynamic": false,
+              "fields": {
+                "b": {
+                  "type": "embeddedDocuments",
+                  "dynamic": true
+                }
+              }
+            }
+          }
+        },
+        "sort": {
+          "a.b.c": 1
+        }
+      },
+      "errorMessageContains": "Sort fields: [a.b.c] are not statically defined"
+    },
+    {
+      "description": "non-sortable field",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": false,
+          "fields": {
+            "a": {
+              "type": "document",
+              "dynamic": false,
+              "fields": {
+                "b": {
+                  "type": "string"
+                },
+                "c": {
+                  "type": "geo"
+                }
+              }
+            }
+          }
+        },
+        "sort": {
+          "a.b": 1,
+          "a.c": -1
+        }
+      },
+      "errorMessageContains": "Sort fields: {a.b=STRING, a.c=GEO} are not sortable types. Sortable types are: [BOOLEAN, DATE, NUMBER, OBJECT_ID, TOKEN, UUID]"
+    },
+    {
+      "description": "multi-type sort field is not supported",
+      "value": {
+        "indexID": "507f191e810c19729de860ea",
+        "name": "index",
+        "database": "database",
+        "lastObservedCollectionName": "collection",
+        "collectionUUID": "eb6c40ca-f25e-47e8-b48c-02a05b64a5aa",
+        "mappings": {
+          "dynamic": false,
+          "fields": {
+            "a": [
+              {
+                "type": "token"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        },
+        "sort": {
+          "a": 1
+        }
+      },
+      "errorMessageContains": "Sort fields: [a] have mixed types or are not defined"
+    }
+  ]
+}

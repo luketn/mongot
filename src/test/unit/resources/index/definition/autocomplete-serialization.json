@@ -1,0 +1,23 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "tokenization": "edgeGram",
+        "minGrams": 12,
+        "maxGrams": 19,
+        "foldDiacritics": true,
+        "analyzer": "lucene.standard"
+      }
+    },
+    {
+      "description": "doesnt serialize empty analyzer",
+      "value": {
+        "tokenization": "nGram",
+        "minGrams": 1,
+        "maxGrams": 2,
+        "foldDiacritics": true
+      }
+    }
+  ]
+}

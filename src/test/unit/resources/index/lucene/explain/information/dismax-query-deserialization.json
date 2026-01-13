@@ -1,0 +1,67 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "disjuncts": [
+          {
+            "path": "disjuncts[0]",
+            "type": "TermQuery",
+            "args": {
+              "value": "value1",
+              "path": "field1"
+            }
+          }
+        ],
+        "tieBreaker": 0.5
+      }
+    },
+    {
+      "description": "with-multiple-disjuncts",
+      "value": {
+        "disjuncts": [
+          {
+            "path": "disjuncts[0]",
+            "type": "TermQuery",
+            "args": {
+              "value": "value1",
+              "path": "field1"
+            }
+          },
+          {
+            "path": "disjuncts[1]",
+            "type": "TermQuery",
+            "args": {
+              "value": "value2",
+              "path": "field2"
+            }
+          }
+        ],
+        "tieBreaker": 0.5
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing-disjuncts",
+      "value": {
+        "tieBreaker": 0.5
+      }
+    },
+    {
+      "description": "missing-tieBreaker",
+      "value": {
+        "disjuncts": [
+          {
+            "path": "disjuncts[0]",
+            "type": "TermQuery",
+            "args": {
+              "value": "value1",
+              "path": "field1"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

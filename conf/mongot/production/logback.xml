@@ -1,0 +1,47 @@
+<configuration>
+    <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator"/>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <jsonGeneratorDecorator class="com.xgen.mongot.logging.OmitEmptyFieldJsonDecorator"/>
+            <providers>
+                <timestamp>
+                    <fieldName>t</fieldName>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSZ</pattern>
+                </timestamp>
+                <logLevel>
+                    <fieldName>s</fieldName>
+                </logLevel>
+                <pattern>
+                    <omitEmptyFields>true</omitEmptyFields>
+                    <pattern>
+                        { "svc": "MONGOT" }
+                    </pattern>
+                </pattern>
+                <threadName>
+                    <fieldName>ctx</fieldName>
+                </threadName>
+                <loggerName>
+                    <fieldName>n</fieldName>
+                </loggerName>
+                <message>
+                    <fieldName>msg</fieldName>
+                </message>
+                <nestedField>
+                    <fieldName>attr</fieldName>
+                    <providers>
+                        <provider class="com.xgen.mongot.logging.SafeKeyValuePairsJsonProvider"/>
+                        <stackTrace/>
+                    </providers>
+                </nestedField>
+            </providers>
+        </encoder>
+    </appender>
+
+    <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="STDOUT"/>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="ASYNC"/>
+    </root>
+</configuration>

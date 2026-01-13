@@ -1,0 +1,63 @@
+package com.xgen.mongot.index;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.xgen.mongot.index.query.InvalidQueryException;
+import com.xgen.mongot.index.query.MaterializedVectorSearchQuery;
+import java.io.IOException;
+import org.bson.BsonArray;
+
+// TODO(CLOUDP-210212): vector search: expand this to record more detailed query stats
+public class MeteredVectorIndexReader implements VectorIndexReader {
+
+  private final VectorIndexReader indexReader;
+  private final IndexMetricsUpdater.QueryingMetricsUpdater metricsUpdater;
+  private final QueryMetricsRecorder queryMetricsRecorder;
+
+  public MeteredVectorIndexReader(
+      VectorIndexReader indexReader, IndexMetricsUpdater.QueryingMetricsUpdater metricsUpdater) {
+    this.indexReader = indexReader;
+    this.metricsUpdater = metricsUpdater;
+    this.queryMetricsRecorder =
+        new QueryMetricsRecorder(metricsUpdater.getQueryFeaturesMetricsUpdater());
+  }
+
+  @Override
+  public BsonArray query(MaterializedVectorSearchQuery materializedQuery)
+      throws ReaderClosedException, IOException, InvalidQueryException {
+    this.metricsUpdater.getTotalQueryCounter().increment();
+    try {
+      BsonArray result = this.indexReader.query(materializedQuery);
+      this.queryMetricsRecorder.record(materializedQuery.vectorSearchQuery());
+      return result;
+    } catch (Exception e) {
+      this.metricsUpdater.handleQueryException(
+          e, materializedQuery.vectorSearchQuery().toBson().toString());
+      throw e;
+    }
+  }
+
+  @Override
+  public void refresh() throws IOException, ReaderClosedException {
+    this.indexReader.refresh();
+  }
+
+  @Override
+  public void open() {
+    this.indexReader.open();
+  }
+
+  @Override
+  public void close() {
+    this.indexReader.close();
+  }
+
+  @VisibleForTesting
+  public VectorIndexReader unwrap() {
+    return this.indexReader;
+  }
+
+  @Override
+  public long getRequiredMemoryForVectorData() throws ReaderClosedException {
+    return this.indexReader.getRequiredMemoryForVectorData();
+  }
+}

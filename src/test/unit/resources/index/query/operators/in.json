@@ -1,0 +1,315 @@
+{
+  "valid": [
+    {
+      "description": "doesNotAffect",
+      "value": {
+        "path": "size",
+        "value": ["S", "M"],
+        "doesNotAffect": [
+          "points",
+          "sizes"
+        ]
+      }
+    },
+    {
+      "description": "doesNotAffectString",
+      "value": {
+        "path": "size",
+        "value": ["S", "M"],
+        "doesNotAffect": "sizes"
+      }
+    },
+    {
+      "description": "boolean-single-value",
+      "value": {
+        "path": "a",
+        "value": true
+      }
+    },
+    {
+      "description": "boolean-single-value-with-score",
+      "value": {
+        "path": "a",
+        "value": false,
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "objectId-single-value",
+      "value": {
+        "path": "a",
+        "value": {
+          "$oid": "507f1f77bcf86cd799439011"
+        }
+      }
+    },
+    {
+      "description": "objectId-single-value-with-score",
+      "value": {
+        "path": "a",
+        "value": {
+          "$oid": "507f1f77bcf86cd799439011"
+        },
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "date-single-value",
+      "value": {
+        "path": "a",
+        "value": {
+          "$date": "2022-12-06T13:13:13Z"
+        }
+      }
+    },
+    {
+      "description": "date-single-value-with-score",
+      "value": {
+        "path": "a",
+        "value": {
+          "$date": "2022-12-06T13:13:13Z"
+        },
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "numberLong-single-value",
+      "value": {
+        "path": "a",
+        "value": 2
+      }
+    },
+    {
+      "description": "numberLong-single-value-with-score",
+      "value": {
+        "path": "a",
+        "value": 2,
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "numberDouble-single-value",
+      "value": {
+        "path": "a",
+        "value": 2.01
+      }
+    },
+    {
+      "description": "numberDouble-15decimal",
+      "value": {
+        "path": "a",
+        "value": 2.151515151515151
+      }
+    },
+    {
+      "description": "numberDouble-18decimal",
+      "value": {
+        "path": "a",
+        "value": 2.151515151515151515
+      }
+    },
+    {
+      "description": "number-single-value-with-score",
+      "value": {
+        "path": "a",
+        "value": 2,
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "boolean-multiple-values",
+      "value": {
+        "path": "a",
+        "value": [
+          true,
+          false
+        ]
+      }
+    },
+    {
+      "description": "objectId-multiple-values",
+      "value": {
+        "path": "a",
+        "value": [
+          {
+            "$oid": "507f1f77bcf86cd799439011"
+          },
+          {
+            "$oid": "507f191e810c19729de860ea"
+          }
+        ]
+      }
+    },
+    {
+      "description": "date-multiple-values",
+      "value": {
+        "path": "a",
+        "value": [
+          {
+            "$date": "2022-12-06T13:13:13Z"
+          },
+          {
+            "$date": "2022-12-06T13:13:14Z"
+          }
+        ]
+      }
+    },
+    {
+      "description": "number-multiple-values",
+      "value": {
+        "path": "a",
+        "value": [
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "description": "string-single-value",
+      "value": {
+        "path": "a",
+        "value": "example"
+      }
+    },
+    {
+      "description": "string-multiple-values",
+      "value": {
+        "path": "a",
+        "value": [
+          "example1",
+          "example2"
+        ]
+      }
+    },
+    {
+      "description": "uuid-single-value",
+      "value": {
+        "path": "a",
+        "value": {
+          "$uuid": "00000000-1111-2222-3333-444444444444"
+        }
+      }
+    },
+    {
+      "description": "uuid-single-value-with-score",
+      "value": {
+        "path": "a",
+        "value": {
+          "$uuid": "00000000-1111-2222-3333-444444444444"
+        },
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "uuid-multiple-values",
+      "value": {
+        "path": "a",
+        "value": [
+          {
+            "$uuid": "00000000-1111-2222-3333-444444444444"
+          },
+          {
+            "$uuid": "55555555-6666-7777-8888-999999999999"
+          }
+        ]
+      }
+    },
+    {
+      "description": "multiple-path",
+      "value": {
+        "path": [
+          "a",
+          "b"
+        ],
+        "value": [
+          "example1",
+          "example2"
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing-path-query",
+      "value": {
+      }
+    },
+    {
+      "description": "missing-query",
+      "value": {
+        "path": "a"
+      }
+    },
+    {
+      "description": "missing-path",
+      "value": {
+        "value": true
+      }
+    },
+    {
+      "description": "mixed-types-in-value-array",
+      "value": {
+        "path": "a",
+        "value": [
+          1,
+          true,
+          3
+        ]
+      }
+    },
+    {
+      "description": "null-single-value",
+      "value": {
+        "path": "a",
+        "value": null
+      }
+    },
+    {
+      "description": "mixed-types-with-null-in-value-array",
+      "value": {
+        "path": "a",
+        "value": [
+          1,
+          null,
+          3
+        ]
+      }
+    },
+    {
+      "description": "null-array",
+      "value": {
+        "path": "a",
+        "value": [
+          null,
+          null,
+          null
+        ]
+      }
+    }
+  ]
+}

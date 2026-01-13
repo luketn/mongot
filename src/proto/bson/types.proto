@@ -1,0 +1,176 @@
+// Well-known types for BSON<->Protobuf integration.
+//
+// The ProtoDocument, ProtoArray, and ProtoValue classes can be used to code arbitrarily shaped
+// BSON documents.
+//
+// This file uses proto3 to handle ProtoBinarySubType -- if this enum is extended parsing may fail
+// in older binaries as the enum is closed. proto3 supports open enums with new values being
+// presented as "unrecognized" in old binaries.
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.xgen.mongot.proto.bson";
+
+package com.xgen.mongot.proto.bson;
+
+import "src/main/java/com/xgen/proto/options.proto";
+
+message ProtoDocument {
+  message Field {
+    string name = 1;
+    ProtoValue value = 2;
+  }
+  // Represent document fields as a (name, value) pair rather than a map.
+  // Proto implementations do not guarantee an iteration or serialization order for maps.
+  // While the bson spec does not specify this either, in practice implementations preserve
+  // insertion order and representation allows us to guarantee the same property.
+  //
+  // Like with map fields themselves, code handling ProtoDocument must guarantee that if a field
+  // name appears multiple times only the last value will be kept/used.
+  repeated Field field = 1;
+}
+
+message ProtoArray {
+  option (.bson.protobuf.message_options).message_type = VALUE;
+
+  repeated ProtoValue value = 1;
+}
+
+message ProtoValue {
+  option (.bson.protobuf.message_options).message_type = VALUE;
+
+  oneof type {
+    bool bool = 1;
+    // Use sint/zigzag encoding for this values to optimize for low absolute values.
+    sint32 int32 = 2;
+    // Use sint/zigzag encoding for this values to optimize for low absolute values.
+    sint64 int64 = 3;
+    double double = 4;
+    fixed64 utc_datetime = 5;
+    fixed64 timestamp = 6;
+    string string = 7;
+    ProtoBinaryData binary = 8;
+    ProtoDocument document = 9;
+    ProtoArray array = 10;
+    // Encode ObjectId values as bytes. A wrapper message is better for usability but the serialized
+    // representation is slightly larger (16 bytes instead of 14).
+    // TODO(mccullocht): add protovalidate annotation -- this should always contain 12 bytes.
+    bytes object_id = 11;
+    ProtoValueless valueless = 12;
+
+    // NB: only use tag values 13-15 if you believe this field type will occur _very_ frequently.
+    // These low tag values encode to 1 byte; anything higher encodes to 2 bytes.
+
+    ProtoRegularExpression regular_expression = 16;
+    string java_script = 17;
+    // Encode Decimal128 values as bytes. A wrapper message is better for usability but the
+    // serialized representation is slightly larger (21 bytes instead of 19).
+    // bytes are written in little-endian order, low then high
+    // TODO(mccullocht): add protovalidate annotation -- this should always contain 16 bytes.
+    bytes decimal128 = 18;
+
+    // This type is deprecated in the spec.
+    ProtoDbPointer db_pointer = 101;
+    // This type is deprecated in the spec.
+    string symbol = 102;
+    // This type is deprecated in the spec.
+    ProtoJavaScriptWithScope java_script_with_scope = 103;
+  }
+}
+
+// Arbitrary binary data with subtype. In the future we may not represent all sub-types using this
+// message -- a more specific type may be more appropriate for usability.
+message ProtoBinaryData {
+  option (.bson.protobuf.message_options).message_type = VALUE;
+
+  ProtoBinarySubType sub_type = 1;
+  bytes data = 2;
+}
+
+// Defined sub-types for binary data fields from bsonspec.org.
+enum ProtoBinarySubType {
+  BINARY = 0;
+  FUNCTION = 1;
+  OLD_BINARY = 2;
+  UUID_LEGACY = 3;
+  UUID_STANDARD = 4;
+  MD5 = 5;
+  ENCRYPTED = 6;
+  COMPRESSED = 7;
+  USER_DEFINED = 128;
+}
+
+// Message wrapper for ObjectId.
+//
+// Use this in message definitions to produce additional native type handling methods.
+message ProtoObjectId {
+  option (.bson.protobuf.message_options).message_type = VALUE;
+
+  // TODO(mccullocht): add protovalidate annotation -- this should always contain 12 bytes.
+  bytes rep = 1;
+}
+
+// Representation of valueless BSON types -- these are defined as a type + field name in the spec.
+enum ProtoValueless {
+  NULL = 0;
+  MIN_KEY = 1;
+  MAX_KEY = 2;
+  // This type is deprecated in the spec.
+  UNDEFINED = 127;
+}
+
+message ProtoRegularExpression {
+  option (.bson.protobuf.message_options).message_type = VALUE;
+
+  string pattern = 1;
+  string options = 2;
+}
+
+// Message wrapper for Decimal128.
+//
+// Use this in message definitions to produce additional native type handling methods.
+message ProtoDecimal128 {
+  option (.bson.protobuf.message_options).message_type = VALUE;
+
+  // TODO(mccullocht): add protovalidate annotation -- this should always contain 16 bytes.
+  bytes rep = 1;
+}
+
+message ProtoDbPointer {
+  option (.bson.protobuf.message_options).message_type = VALUE;
+
+  string namespace = 1;
+  ProtoObjectId object_id = 2;
+}
+
+message ProtoSymbol {
+  option (.bson.protobuf.message_options).message_type = VALUE;
+
+  string rep = 1;
+}
+
+message ProtoJavaScript {
+  option (.bson.protobuf.message_options).message_type = VALUE;
+
+  string code = 1;
+}
+
+message ProtoJavaScriptWithScope {
+  option (.bson.protobuf.message_options).message_type = VALUE;
+
+  string code = 1;
+  ProtoDocument scope = 2;
+}
+
+message ProtoDateTime {
+  option (.bson.protobuf.message_options).message_type = VALUE;
+
+  int64 rep = 1;
+}
+
+message ProtoTimestamp {
+  option (.bson.protobuf.message_options).message_type = VALUE;
+
+  uint64 rep = 1;
+}

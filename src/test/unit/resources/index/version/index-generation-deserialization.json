@@ -1,0 +1,47 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "userVersion": 1,
+        "formatVersion": 2,
+        "attemptNumber": 1
+      }
+    },
+    {
+      "description": "no attempt number",
+      "value": {
+        "userVersion": 1,
+        "formatVersion": 2
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing user",
+      "value": {
+        "formatVersion": 2
+      }
+    },
+    {
+      "description": "missing backend",
+      "value": {
+        "userVersion": 1
+      }
+    },
+    {
+      "description": "negative user",
+      "value": {
+        "userVersion": -1,
+        "formatVersion": 2
+      }
+    },
+    {
+      "description": "negative backend",
+      "value": {
+        "userVersion": 1,
+        "formatVersion": -1
+      }
+    }
+  ]
+}

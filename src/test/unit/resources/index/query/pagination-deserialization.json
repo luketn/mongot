@@ -1,0 +1,46 @@
+{
+  "valid": [
+    {
+      "description": "searchBefore is present",
+      "value": {
+        "searchBefore": "CAEVAAAAQCIGOgR0ZXN0",
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "searchAfter is present",
+      "value": {
+        "searchAfter": "CAEVAAAAQCIGOgR0ZXN0",
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    },
+    {
+      "description": "neither searchBefore or searchAfter",
+      "value": {
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "searchBefore with searchAfter",
+      "value": {
+        "searchBefore": "CAEVAAAAQCIGOgR0ZXN0",
+        "searchAfter": "CAEVAAAAQCIGOgR0ZXN0",
+        "text": {
+          "path": "title",
+          "query": "godfather"
+        }
+      }
+    }
+  ]
+}

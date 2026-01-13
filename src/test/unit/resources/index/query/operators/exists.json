@@ -1,0 +1,52 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "title"
+      }
+    },
+    {
+      "description": "empty path",
+      "value": {
+        "path": ""
+      }
+    },
+    {
+      "description": "with score",
+      "value": {
+        "path": "title",
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing path",
+      "value": {
+      }
+    },
+    {
+      "description": "path array",
+      "value": {
+        "path": [
+          "foo",
+          "bar"
+        ]
+      }
+    },
+    {
+      "description": "multi path",
+      "value": {
+        "path": {
+          "value": "title",
+          "multi": "my-multi"
+        }
+      }
+    }
+  ]
+}

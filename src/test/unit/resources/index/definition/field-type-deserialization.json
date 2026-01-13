@@ -1,0 +1,119 @@
+{
+  "valid": [
+    {
+      "description": "autocomplete",
+      "value": {
+        "type": "autocomplete",
+        "tokenization": "nGram"
+      }
+    },
+    {
+      "description": "boolean",
+      "value": {
+        "type": "boolean"
+      }
+    },
+    {
+      "description": "date",
+      "value": {
+        "type": "date"
+      }
+    },
+    {
+      "description": "document",
+      "value": {
+        "type": "document",
+        "dynamic": false
+      }
+    },
+    {
+      "description": "embeddedDocuments",
+      "value": {
+        "type": "embeddedDocuments",
+        "dynamic": false
+      }
+    },
+    {
+      "description": "geo",
+      "value": {
+        "type": "geo",
+        "indexShapes": false
+      }
+    },
+    {
+      "description": "knnVector",
+      "value": {
+        "type": "knnVector",
+        "dimensions": 100,
+        "similarity": "dotProduct"
+      }
+    },
+    {
+      "description": "number",
+      "value": {
+        "type": "number",
+        "representation": "int64",
+        "indexDoubles": true,
+        "indexIntegers": true
+      }
+    },
+    {
+      "description": "objectId",
+      "value": {
+        "type": "objectId"
+      }
+    },
+    {
+      "description": "sortableDateBetaV1",
+      "value": {
+        "type": "sortableDateBetaV1"
+      }
+    },
+    {
+      "description": "sortableNumberBetaV1",
+      "value": {
+        "type": "sortableNumberBetaV1"
+      }
+    },
+    {
+      "description": "sortableStringBetaV1",
+      "value": {
+        "type": "sortableStringBetaV1"
+      }
+    },
+    {
+      "description": "string",
+      "value": {
+        "type": "string",
+        "store": false
+      }
+    },
+    {
+      "description": "stringFacet",
+      "value": {
+        "type": "stringFacet"
+      }
+    },
+    {
+      "description": "token",
+      "value": {
+        "type": "token"
+      }
+    },
+    {
+      "description": "uuid",
+      "value": {
+        "type": "uuid"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid type error message excludes deprecated types",
+      "value": {
+        "type": "invalid"
+      },
+      "errorMessageContains": "[autocomplete, boolean, date, document, embeddedDocuments, geo, knnVector, number, objectId, string, token, uuid, vector]"
+    }
+  ]
+}

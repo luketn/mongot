@@ -1,0 +1,19 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "userVersion": 1,
+        "formatVersion": 2,
+        "attemptNumber": 1
+      }
+    },
+    {
+      "description": "no attempt number",
+      "value": {
+        "userVersion": 1,
+        "formatVersion": 2
+      }
+    }
+  ]
+}

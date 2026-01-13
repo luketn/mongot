@@ -1,0 +1,445 @@
+{
+  "valid": [
+    {
+      "description": "valid point",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          1.2,
+          3.4
+        ]
+      }
+    },
+    {
+      "description": "valid point integral",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          1,
+          3
+        ]
+      }
+    },
+    {
+      "description": "point: with extra field",
+      "value": {
+        "type": "Point",
+        "extra": "field",
+        "coordinates": [
+          120.2,
+          3.4
+        ]
+      }
+    },
+    {
+      "description": "valid line",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            1.2,
+            3.4
+          ],
+          [
+            5.6,
+            7.8
+          ]
+        ]
+      }
+    },
+    {
+      "description": "null geo json field value",
+      "value": null
+    }
+  ],
+  "invalid": [
+    {
+      "description": "point: out of bounds longitude",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          333.2,
+          3.4
+        ]
+      }
+    },
+    {
+      "description": "point: out of bounds lat",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          3.4,
+          333.2
+        ]
+      }
+    },
+    {
+      "description": "line: out of bounds lon",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            333.2,
+            3.4
+          ],
+          [
+            5.6,
+            7.8
+          ]
+        ]
+      }
+    },
+    {
+      "description": "line: out of bounds lat",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            5.6,
+            7.8
+          ],
+          [
+            3.4,
+            333.2
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon: out of bounds lat",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              5.6,
+              7.8
+            ],
+            [
+              3.4,
+              2.2
+            ],
+            [
+              31.4,
+              333.2
+            ],
+            [
+              5.6,
+              7.8
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon: null in one of the coordinates",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              5.6,
+              7.8
+            ],
+            [
+              3.4,
+              2.2
+            ],
+            [
+              31.4,
+              null
+            ],
+            [
+              5.6,
+              7.8
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon: string in one of the coordinates",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              5.6,
+              7.8
+            ],
+            [
+              3.4,
+              2.2
+            ],
+            [
+              31.4,
+              "123.3"
+            ],
+            [
+              5.6,
+              7.8
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon: out of bounds lon",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              5.6,
+              7.8
+            ],
+            [
+              3.4,
+              2.2
+            ],
+            [
+              333.2,
+              31.4
+            ],
+            [
+              5.6,
+              7.8
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "empty document",
+      "value": {
+      }
+    },
+    {
+      "description": "empty array",
+      "value": []
+    },
+    {
+      "description": "array of numbers",
+      "value": [
+        1.1,
+        2.2
+      ]
+    },
+    {
+      "description": "random fields in document",
+      "value": {
+        "a": "a",
+        "b": 4
+      }
+    },
+    {
+      "description": "missing type",
+      "value": {
+        "coordinates": [
+          1.2,
+          3.4
+        ]
+      }
+    },
+    {
+      "description": "type null",
+      "value": {
+        "type": null,
+        "coordinates": [
+          1.2,
+          3.4
+        ]
+      }
+    },
+    {
+      "description": "type is number",
+      "value": {
+        "type": 3,
+        "coordinates": [
+          1.2,
+          3.4
+        ]
+      }
+    },
+    {
+      "description": "type invalid string",
+      "value": {
+        "type": "not a geometry",
+        "coordinates": [
+          1.2,
+          3.4
+        ]
+      }
+    },
+    {
+      "description": "missing coordinates",
+      "value": {
+        "type": "Point"
+      }
+    },
+    {
+      "description": "coordinates null",
+      "value": {
+        "type": "Point",
+        "coordinates": null
+      }
+    },
+    {
+      "description": "not enough coordinates",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          3.4
+        ]
+      }
+    },
+    {
+      "description": "null in coordinates",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          3.4,
+          null
+        ]
+      }
+    },
+    {
+      "description": "string in coordinates",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          3.4,
+          "1"
+        ]
+      }
+    },
+    {
+      "description": "coordinates is a number",
+      "value": {
+        "type": "Point",
+        "coordinates": 12.3
+      }
+    },
+    {
+      "description": "not enough brackets for line",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          1.2,
+          3.4
+        ]
+      }
+    },
+    {
+      "description": "line with only 1 point",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            1.2,
+            3.4
+          ]
+        ]
+      }
+    },
+    {
+      "description": "empty collection (not invalid per-se, but will index nothing)",
+      "value": {
+        "type": "GeometryCollection",
+        "geometries": [
+        ]
+      }
+    },
+    {
+      "description": "not enough brackets for polygon",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            1.2,
+            3.4
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon does not close on itself",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -122.5518826887,
+              37.6833587198
+            ],
+            [
+              -122.3537090208,
+              37.6833587198
+            ],
+            [
+              -122.3537090208,
+              37.8197041785
+            ],
+            [
+              -122.5518826887,
+              37.8197041785
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon without envelope",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [],
+          [
+            [
+              -122.5518826887,
+              37.6833587198
+            ],
+            [
+              -122.3537090208,
+              37.6833587198
+            ],
+            [
+              -122.3537090208,
+              37.8197041785
+            ],
+            [
+              -122.5518826887,
+              37.8197041785
+            ],
+            [
+              -122.5518826887,
+              37.6833587198
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "description": "polygon: not enough coordinates",
+      "value": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              5.6,
+              7.8
+            ],
+            [
+              3.4,
+              2.2
+            ],
+            [
+              5.6,
+              7.8
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

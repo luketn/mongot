@@ -1,0 +1,366 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director",
+              "numBuckets": 5
+            },
+            "ratingFacet": {
+              "type": "number",
+              "path": "rating",
+              "boundaries": [
+                1,
+                2
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "explicit index",
+      "value": {
+        "index": "my-index",
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director",
+              "numBuckets": 5
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "with highlights",
+      "value": {
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director"
+            }
+          }
+        },
+        "highlight": {
+          "path": "review"
+        }
+      }
+    },
+    {
+      "description": "with count",
+      "value": {
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director"
+            }
+          }
+        },
+        "count": {
+          "type": "total",
+          "threshold": 5000
+        }
+      }
+    },
+    {
+      "description": "with explicit returnStoredSource",
+      "value": {
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director"
+            }
+          }
+        },
+        "returnStoredSource": true
+      }
+    },
+    {
+      "description": "with explicit returnStoredSource and returnScope",
+      "value": {
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director"
+            }
+          }
+        },
+        "returnStoredSource": true,
+        "returnScope": {
+          "path": "my-scope"
+        }
+      }
+    },
+    {
+      "description": "with explicit scoreDetails",
+      "value": {
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director"
+            }
+          }
+        },
+        "scoreDetails": true
+      }
+    },
+    {
+      "description": "with tracking",
+      "value": {
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director",
+              "numBuckets": 5
+            },
+            "ratingFacet": {
+              "type": "number",
+              "path": "rating",
+              "boundaries": [
+                1,
+                2
+              ]
+            }
+          }
+        },
+        "tracking": {
+          "searchTerms": "baz"
+        }
+      }
+    },
+    {
+      "description": "with searchNodePreference",
+      "value": {
+        "searchNodePreference": {
+          "key": "primary"
+        },
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director",
+              "numBuckets": 5
+            },
+            "ratingFacet": {
+              "type": "number",
+              "path": "rating",
+              "boundaries": [
+                1,
+                2
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    },
+    {
+      "description": "missing collector",
+      "value": {
+        "index": "my-index"
+      }
+    },
+    {
+      "description": "empty index",
+      "value": {
+        "index": "",
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director",
+              "numBuckets": 5
+            },
+            "ratingFacet": {
+              "type": "number",
+              "path": "rating",
+              "boundaries": [
+                1,
+                2
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "collector with a top-level operator",
+      "value": {
+        "text": {
+          "path": "review",
+          "query": "good"
+        },
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director"
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "contains knn operator",
+      "value": {
+        "facet": {
+          "operator": {
+            "knnBeta": {
+              "path": "description",
+              "k": 3,
+              "vector": [
+                1,
+                2,
+                3
+              ]
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director"
+            }
+          }
+        },
+        "scoreDetails": true
+      }
+    },
+    {
+      "description": "with returnScope but no returnStoredSource",
+      "value": {
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director"
+            }
+          }
+        },
+        "returnScope": {
+          "path": "my-scope"
+        }
+      }
+    },
+    {
+      "description": "with empty searchNodePreference key",
+      "value": {
+        "searchNodePreference": {
+          "key": ""
+        },
+        "facet": {
+          "operator": {
+            "text": {
+              "path": "review",
+              "query": "good"
+            }
+          },
+          "facets": {
+            "directorFacet": {
+              "type": "string",
+              "path": "director",
+              "numBuckets": 5
+            },
+            "ratingFacet": {
+              "type": "number",
+              "path": "rating",
+              "boundaries": [
+                1,
+                2
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

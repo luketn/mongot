@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "description": "double representation",
+      "value": {
+        "representation": "double",
+        "indexDoubles": true,
+        "indexIntegers": true
+      }
+    },
+    {
+      "description": "int64 representation",
+      "value": {
+        "representation": "int64",
+        "indexDoubles": true,
+        "indexIntegers": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,454 @@
+package com.xgen.mongot.metrics;
+
+import static com.xgen.mongot.util.Check.checkArg;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CaseFormat;
+import com.google.common.collect.ImmutableSet;
+import com.xgen.mongot.util.Check;
+import com.xgen.mongot.util.Enums;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.LongTaskTimer;
+import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.TimeGauge;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.search.RequiredSearch;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.ToDoubleFunction;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+/**
+ * Wraps the Meter instantiation APIs of the backing MeterRegistry by prepending the Meter names
+ * with a namespace and applying optional class level tags when creating Meters.
+ *
+ * <p>This class is required to be thread-safe.
+ */
+public class MetricsFactory {
+
+  private final String namespace;
+  private final MeterRegistry registry;
+  private final Tags factoryTags;
+  private final Set<Meter> registeredMeters;
+
+  public MetricsFactory(String namespace, MeterRegistry registry) {
+    this(namespace, registry, Tags.empty());
+  }
+
+  public MetricsFactory(String namespace, MeterRegistry registry, Tag... factoryTags) {
+    this(namespace, registry, Tags.of(factoryTags));
+  }
+
+  public MetricsFactory(String namespace, MeterRegistry registry, Tags factoryTags) {
+    this.namespace = namespace;
+    this.registry = registry;
+    this.factoryTags = factoryTags;
+    this.registeredMeters = Collections.synchronizedSet(new HashSet<>());
+  }
+
+  /**
+   * Export a counter with name. If this MetricsFactory is configured to produce a timeseries per
+   * index this counter will be back by two underlying counters:
+   *
+   * <ol>
+   *   <li>a counter without the index tag which will be exported to all outputs.
+   *   <li>a counter with the index tag that will be omitted from prometheus exports.
+   * </ol>
+   *
+   * <p>Prometheus exports are limited in an attempt to control the number of timeseries we export
+   * as this affects prometheus scalability. If it is important to see this counter per-index on a
+   * prometheus console, use perIndexCounter instead.
+   *
+   * @param name the name of the metric
+   * @return a {@link Counter} that can be incremented.
+   */
+  public Counter counter(String name) {
+    return counter(name, Tags.empty());
+  }
+
+  /**
+   * Export a counter with name. If this MetricsFactory is configured to produce a timeseries per
+   * index this counter will be back by two underlying counters:
+   *
+   * <ol>
+   *   <li>a counter without the index tag which will be exported to all outputs.
+   *   <li>a counter with the index tag that will be omitted from prometheus exports.
+   * </ol>
+   *
+   * <p>Prometheus exports are limited in an attempt to control the number of timeseries we export
+   * as this affects prometheus scalability. If it is important to see this counter per-index on a
+   * prometheus console, use perIndexCounter instead.
+   *
+   * @param name the name of the metric
+   * @param meterTags additional tags to add to the exported counters.
+   * @return a {@link Counter} that can be incremented.
+   */
+  public Counter counter(String name, Tags meterTags) {
+    var counter = this.registry.counter(metricName(name), this.factoryTags.and(meterTags));
+    this.registeredMeters.add(counter);
+    return counter;
+  }
+
+  /**
+   * Exports a gauge with the provided name and no tags. We internally create an AtomicLong, which
+   * is tracked by the gauge and returned.
+   *
+   * <p>Note: creating a new gauge with the same name and tags will remove the previous gauge,
+   * potentially leaving an "orphaned" state object that does not update any gauges.
+   */
+  public AtomicLong numGauge(String name) {
+    return numGauge(name, Tags.empty());
+  }
+
+  /**
+   * Exports a gauge with the provided name and tags. We internally create an AtomicLong, which is
+   * tracked by the gauge and returned.
+   *
+   * <p>Note: creating a new gauge with the same name and tags will remove the previous gauge,
+   * potentially leaving an "orphaned" state object that does not update any gauges.
+   */
+  public AtomicLong numGauge(String name, Tags meterTags) {
+    return objectValueGauge(name, new AtomicLong(), Number::doubleValue, meterTags);
+  }
+
+  /**
+   * Exports a gauge with the provided name and no tags, with the value of valueFunc(stateObject).
+   *
+   * <p>Note: creating a new gauge with the same name and tags will remove the previous gauge,
+   * potentially leaving an "orphaned" state object that does not update any gauges.
+   */
+  public <T> T objectValueGauge(String name, T stateObject, ToDoubleFunction<T> valueFunc) {
+    return objectValueGauge(name, stateObject, valueFunc, Tags.empty());
+  }
+
+  /**
+   * Exports a gauge with the provided name and tags, with the value of valueFunc(stateObject).
+   *
+   * <p>Note: creating a new gauge with the same name and tags will remove the previous gauge,
+   * potentially leaving an "orphaned" state object that does not update any gauges.
+   */
+  public synchronized <T> T objectValueGauge(
+      String name, T stateObject, ToDoubleFunction<T> valueFunc, Tags meterTags) {
+    var fullName = metricName(name);
+    var fullTags = this.factoryTags.and(meterTags);
+
+    // We remove the old gauge first, as we prefer to have the more recently created gauge work over
+    // the older one. We must assume that we will not create an identical gauge while the old one is
+    // still in use
+    Meter.Id gaugeId = new Meter.Id(fullName, fullTags, null, null, Meter.Type.GAUGE);
+    Optional<Meter> previousGauge = Optional.ofNullable(this.registry.remove(gaugeId));
+    previousGauge.ifPresent(this.registeredMeters::remove);
+
+    Gauge objectValueGauge =
+        Gauge.builder(fullName, stateObject, valueFunc)
+            // maintain a strong reference so that the stateObject does not get garbage collected
+            .strongReference(true)
+            .tags(fullTags)
+            .register(this.registry);
+    this.registeredMeters.add(objectValueGauge);
+    return stateObject;
+  }
+
+  /**
+   * Exports a time gauge with the provided name and no tags, with the value of valueFunc
+   * (stateObject).
+   *
+   * <p>Note: creating a new gauge with the same name and tags will remove the previous gauge,
+   * potentially leaving an "orphaned" state object that does not update any gauges.
+   */
+  public synchronized <T> T timeGauge(String name, T stateObject, ToDoubleFunction<T> valueFunc) {
+    return timeGauge(name, stateObject, valueFunc, Tags.empty());
+  }
+
+  /**
+   * Exports a time gauge with the provided name and tags, with the value of valueFunc(stateObject).
+   *
+   * <p>Note: creating a new gauge with the same name and tags will remove the previous gauge,
+   * potentially leaving an "orphaned" state object that does not update any gauges.
+   */
+  public synchronized <T> T timeGauge(
+      String name, T stateObject, ToDoubleFunction<T> valueFunc, Tags meterTags) {
+    var fullName = metricName(name);
+    var fullTags = this.factoryTags.and(meterTags);
+
+    // We remove the old gauge first, as we prefer to have the more recently created gauge work over
+    // the older one. We must assume that we will not create an identical gauge while the old one is
+    // still in use
+    Meter.Id timeGaugeId = new Meter.Id(fullName, fullTags, null, null, Meter.Type.GAUGE);
+    Optional<Meter> previousGauge = Optional.ofNullable(this.registry.remove(timeGaugeId));
+    previousGauge.ifPresent(this.registeredMeters::remove);
+
+    TimeGauge timeGauge =
+        TimeGauge.builder(fullName, stateObject, TimeUnit.MILLISECONDS, valueFunc)
+            // maintain a strong reference so that the stateObject does not get garbage collected
+            .strongReference(true)
+            .tags(fullTags)
+            .register(this.registry);
+    this.registeredMeters.add(timeGauge);
+    return stateObject;
+  }
+
+  /**
+   * Exports a gauge with the provided name and no tags, with the value of the collection's size.
+   *
+   * <p>Note: creating a new gauge with the same name and tags will remove the previous gauge,
+   * potentially leaving an "orphaned" state object that does not update any gauges.
+   */
+  public <T extends Collection<?>> T collectionSizeGauge(String name, T collection) {
+    return collectionSizeGauge(name, collection, Tags.empty());
+  }
+
+  /**
+   * Exports a gauge with the provided name and tags, with the value of the collection's size.
+   *
+   * <p>Note: creating a new gauge with the same name and tags will remove the previous gauge,
+   * potentially leaving an "orphaned" state object that does not update any gauges.
+   */
+  public <T extends Collection<?>> T collectionSizeGauge(
+      String name, T collection, Tags meterTags) {
+    return objectValueGauge(name, collection, Collection::size, meterTags);
+  }
+
+  /**
+   * Export distribution summary under name: counter, max, sum, and percentiles 50, 75, 90, and 99.
+   *
+   * <p>These percentiles computed cannot be aggregated to produce fleet-wide percentiles in
+   * Prometheus. If you need fleet-wide aggregation of percentiles across all instances, use
+   * {@link #histogram(String)} instead.
+   *
+   * @param name name of the variable to export
+   * @return a {@link DistributionSummary} that can be used to record samples.
+   */
+  public DistributionSummary summary(String name) {
+    return summary(name, 0.5, 0.75, 0.9, 0.99);
+  }
+
+  /**
+   * Export distribution summary under name: counter, max, sum, and the specified percentiles
+   *
+   * <p>These percentiles computed cannot be aggregated to produce fleet-wide percentiles in
+   * Prometheus. If you need fleet-wide aggregation of percentiles across all instances, use
+   * {@link #histogram(String)} instead.
+   *
+   * @param name name of the variable to export
+   * @param percentiles a list of percentile values to export.
+   * @return a {@link DistributionSummary} that can be used to record samples.
+   */
+  public DistributionSummary summary(String name, double... percentiles) {
+    return summary(name, Tags.empty(), percentiles);
+  }
+
+  /**
+   * Export distribution summary under name: counter, max, sum, and the specified percentiles.
+   *
+   * <p>These percentiles computed cannot be aggregated to produce fleet-wide percentiles in
+   * Prometheus. If you need fleet-wide aggregation of percentiles across all instances, use
+   * {@link #histogram(String)} instead.
+   *
+   * @param name name of the variable to export
+   * @param meterTags additional tags to add to the exported histogram variables.
+   * @param percentiles a list of percentile values to export.
+   * @return a {@link DistributionSummary} that can be used to record samples.
+   */
+  public DistributionSummary summary(String name, Tags meterTags, double... percentiles) {
+    var summary =
+        DistributionSummary.builder(metricName(name))
+            .tags(this.factoryTags.and(meterTags))
+            .publishPercentiles(percentiles)
+            .register(this.registry);
+    this.registeredMeters.add(summary);
+    return summary;
+  }
+
+  /**
+   * Export distribution summary with percentile histogram under name: counter, max, sum, and
+   * automatic buckets.
+   *
+   * <p>The exported summary supports PromQL queries such as {@code histogram_quantile()} to
+   * compute accurate percentiles aggregated across all instances.
+   *
+   * <p>Warning: This method uses automatic buckets, which may produce many wide or unused buckets
+   * and significant increase the number of exported time series. Please consider using
+   * {@link #histogram(String, double...)} or {@link #histogram(String, Tags, double...)} with
+   * explicit bucket buckets to avoid cardinality explosion.
+   *
+   * @param name name of the variable to export
+   * @return a {@link DistributionSummary} that can be used to record samples.
+   */
+  public DistributionSummary histogram(String name) {
+    return histogram(name, Tags.empty());
+  }
+
+  /**
+   * Export distribution summary with percentile histogram under name: counter, max, sum, and
+   * automatic buckets.
+   *
+   * <p>The exported summary supports PromQL queries such as {@code histogram_quantile()} to
+   * compute accurate percentiles aggregated across all instances.
+   *
+   * <p>Warning: This method uses automatic buckets, which may produce many wide or unused buckets
+   * and significant increase the number of exported time series. Please consider using
+   * {@link #histogram(String, double...)} or {@link #histogram(String, Tags, double...)} with
+   * explicit bucket buckets to avoid cardinality explosion.
+   *
+   * @param name name of the variable to export
+   * @param meterTags additional tags to add to the exported histogram variables.
+   * @return a {@link DistributionSummary} that can be used to record samples.
+   */
+  public DistributionSummary histogram(String name, Tags meterTags) {
+    var histogram =
+        DistributionSummary.builder(metricName(name))
+            .tags(this.factoryTags.and(meterTags))
+            .publishPercentileHistogram()
+            .register(this.registry);
+    this.registeredMeters.add(histogram);
+    return histogram;
+  }
+
+  /**
+   * Export distribution summary with percentile histogram under name: counter, max, sum, and
+   * buckets defined by the {@code buckets} passed to this method.
+   *
+   * <p>The exported summary supports PromQL queries such as {@code histogram_quantile()} to
+   * compute accurate percentiles aggregated across all instances.
+   *
+   * @param name name of the variable to export
+   * @param buckets the upper-bound cutoffs for histogram buckets (must be strictly increasing).
+   * @return a {@link DistributionSummary} that can be used to record samples.
+   */
+  public DistributionSummary histogram(String name, double... buckets) {
+    return histogram(name, Tags.empty(), buckets);
+  }
+
+  /**
+   * Export distribution summary with percentile histogram under name: counter, max, sum, and
+   * buckets defined by the {@code buckets} passed to this method.
+   *
+   * <p>The exported summary supports PromQL queries such as {@code histogram_quantile()} to
+   * compute accurate percentiles aggregated across all instances.
+   *
+   * @param name name of the variable to export
+   * @param meterTags additional tags to add to the exported histogram variables.
+   * @param buckets the upper-bound cutoffs for histogram buckets (must be strictly increasing).
+   * @return a {@link DistributionSummary} that can be used to record samples.
+   */
+  public DistributionSummary histogram(String name, Tags meterTags, double... buckets) {
+    var histogram =
+        DistributionSummary.builder(metricName(name))
+            .tags(this.factoryTags.and(meterTags))
+            .serviceLevelObjectives(buckets)
+            .register(this.registry);
+    this.registeredMeters.add(histogram);
+    return histogram;
+  }
+
+  /**
+   * Used to track the duration of short-running tasks. "Short-running" is subjective but the
+   * assumption is that it should be under a minute.
+   */
+  public Timer timer(String name) {
+    return timer(
+        name,
+        Tags.of("timeUnit", Enums.convertNameTo(CaseFormat.LOWER_CAMEL, TimeUnit.SECONDS)),
+        0.5,
+        0.75,
+        0.9,
+        0.99);
+  }
+
+  /**
+   * Used to track the duration of short-running tasks. "Short-running" is subjective but the
+   * assumption is that it should be under a minute.
+   */
+  public Timer timer(String name, Tags meterTags, double... percentiles) {
+    boolean hasTimeUnitTag = meterTags.stream().anyMatch(tag -> tag.getKey().equals("timeUnit"));
+    // Prometheus recommends seconds as the base unit. Unit conversions should be handled on
+    // display-side (see https://prometheus.io/docs/practices/naming/#base-units).
+    var defaultTimeUnitTag =
+        Tags.of("timeUnit", Enums.convertNameTo(CaseFormat.LOWER_CAMEL, TimeUnit.SECONDS));
+    Timer timer =
+        Timer.builder(metricName(name))
+            .tags(
+                hasTimeUnitTag
+                    ? this.factoryTags.and(meterTags)
+                    : this.factoryTags.and(meterTags.and(defaultTimeUnitTag)))
+            .publishPercentiles(percentiles)
+            .register(this.registry);
+    this.registeredMeters.add(timer);
+    return timer;
+  }
+
+  /** Used to track the duration of long-running tasks (over a minute). */
+  public LongTaskTimer longTaskTimer(String name, double... percentiles) {
+    return longTaskTimer(name, Tags.empty(), percentiles);
+  }
+
+  public LongTaskTimer longTaskTimer(String name, Tags meterTags, double... percentiles) {
+    LongTaskTimer.Builder builder =
+        LongTaskTimer.builder(metricName(name)).tags(this.factoryTags.and(meterTags));
+    // Percentiles must be either null or have length > 0 (see https://tinyurl.com/2p86tekm).
+    LongTaskTimer longTaskTimer =
+        percentiles.length > 0
+            ? builder.publishPercentiles(percentiles).register(this.registry)
+            : builder.register(this.registry);
+    this.registeredMeters.add(longTaskTimer);
+    return longTaskTimer;
+  }
+
+  String metricName(String name) {
+    return String.format("%s.%s", this.namespace, name);
+  }
+
+  public MetricsFactory childMetricsFactory(String childNamespace) {
+    return new MetricsFactory(
+        String.format("%s.%s", this.namespace, childNamespace), this.registry, this.factoryTags);
+  }
+
+  /** Closes all meters created by this MetricsFactory. */
+  public void close() {
+    this.registeredMeters.forEach(this.registry::remove);
+    this.registeredMeters.clear();
+  }
+
+  @VisibleForTesting
+  public RequiredSearch get(String name) {
+    return this.get(name, Tags.empty());
+  }
+
+  @VisibleForTesting
+  public RequiredSearch get(String name, Tags meterTags) {
+    return this.registry.get(metricName(name)).tags(this.factoryTags.and(meterTags));
+  }
+
+  /** Returns all meters registered by this MetricsFactory. */
+  @VisibleForTesting
+  Set<Meter> getAllRegisteredMeters() {
+    return ImmutableSet.copyOf(this.registeredMeters);
+  }
+
+  /** Maps Enum constant to micrometer counter. */
+  public <T extends Enum<T>> Map<T, Counter> getEnumCounterMap(Class<T> enumClass) {
+    checkArg(enumClass.isEnum(), "provided class is not Enum");
+    return Stream.of(enumClass.getEnumConstants())
+        .collect(
+            Collectors.toMap(
+                type -> type,
+                type -> counter(Enums.convertNameTo(CaseFormat.LOWER_CAMEL, type)),
+                (oldCounter, newCounter) -> Check.unreachable(
+                    "Duplicate enum key should not occur"),
+                () -> new EnumMap<>(enumClass)));
+  }
+}

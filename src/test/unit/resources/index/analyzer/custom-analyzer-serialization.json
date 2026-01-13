@@ -1,0 +1,26 @@
+{
+  "tests": [
+    {
+      "description": "full definition",
+      "value": {
+        "name": "full definition",
+        "tokenizer": {
+          "type": "standard"
+        },
+        "tokenFilters": [
+          {
+            "type": "length",
+            "min": 2,
+            "max": 12
+          }
+        ],
+        "charFilters": [
+          {
+            "type": "htmlStrip",
+            "ignoredTags": []
+          }
+        ]
+      }
+    }
+  ]
+}

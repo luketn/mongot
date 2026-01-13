@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "millisElapsed": 1e-5,
+        "invocationCounts": {
+          "first": 1,
+          "second": 2
+        }
+      },
+      "bson": {
+        "millisElapsed": {
+          "$numberDouble": "1e-5"
+        },
+        "invocationCounts": {
+          "first": {
+            "$numberLong": "1"
+          },
+          "second": {
+            "$numberLong": "2"
+          }
+        }
+      }
+    }
+  ]
+}

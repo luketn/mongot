@@ -1,0 +1,377 @@
+{
+  "valid": [
+    {
+      "description": "edgeGram",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "edgeGram min max equal",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 3,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "nGram",
+      "value": {
+        "type": "nGram",
+        "minGram": 1,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "nGram min max equal",
+      "value": {
+        "type": "nGram",
+        "minGram": 3,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "standard tokenizer",
+      "value": {
+        "type": "standard"
+      }
+    },
+    {
+      "description": "standard tokenizer with max token length",
+      "value": {
+        "type": "standard",
+        "maxTokenLength": 123
+      }
+    },
+    {
+      "description": "standard tokenizer with small max token length",
+      "value": {
+        "type": "standard",
+        "maxTokenLength": 1
+      }
+    },
+    {
+      "description": "standard tokenizer with large max token length",
+      "value": {
+        "type": "standard",
+        "maxTokenLength": 1048576
+      }
+    },
+    {
+      "description": "whitespace tokenizer",
+      "value": {
+        "type": "whitespace"
+      }
+    },
+    {
+      "description": "whitespace tokenizer with max token length",
+      "value": {
+        "type": "whitespace",
+        "maxTokenLength": 123
+      }
+    },
+    {
+      "description": "whitespace tokenizer with small max token length",
+      "value": {
+        "type": "whitespace",
+        "maxTokenLength": 1
+      }
+    },
+    {
+      "description": "whitespace tokenizer with large max token length",
+      "value": {
+        "type": "whitespace",
+        "maxTokenLength": 1048576
+      }
+    },
+    {
+      "description": "regexSplit tokenizer",
+      "value": {
+        "type": "regexSplit",
+        "pattern": "\"^\\\\b\\\\d{3}[-.]?\\\\d{3}[-.]?\\\\d{4}\\\\b$\""
+      }
+    },
+    {
+      "description": "regexSplit tokenizer with empty pattern",
+      "value": {
+        "type": "regexSplit",
+        "pattern": ""
+      }
+    },
+    {
+      "description": "regexCaptureGroup tokenizer",
+      "value": {
+        "type": "regexCaptureGroup",
+        "pattern": "\"^\\\\b\\\\d{3}[-.]?\\\\d{3}[-.]?\\\\d{4}\\\\b$\"",
+        "group": 0
+      }
+    },
+    {
+      "description": "regexCaptureGroup tokenizer with empty pattern",
+      "value": {
+        "type": "regexCaptureGroup",
+        "pattern": "",
+        "group": 0
+      }
+    },
+    {
+      "description": "keyword tokenizer",
+      "value": {
+        "type": "keyword"
+      }
+    },
+    {
+      "description": "uaxUrlEmail",
+      "value": {
+        "type": "uaxUrlEmail",
+        "maxTokenLength": 200
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "nGram max lt min",
+      "value": {
+        "type": "nGram",
+        "minGram": 2,
+        "maxGram": 1
+      }
+    },
+    {
+      "description": "nGram no min",
+      "value": {
+        "type": "nGram",
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "nGram no max",
+      "value": {
+        "type": "nGram",
+        "minGram": 1
+      }
+    },
+    {
+      "description": "nGram negative min",
+      "value": {
+        "type": "nGram",
+        "minGram": -1,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "nGram negative max",
+      "value": {
+        "type": "nGram",
+        "minGram": 1,
+        "maxGram": -1
+      }
+    },
+    {
+      "description": "nGram null min",
+      "value": {
+        "type": "nGram",
+        "minGram": null,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "nGram null max",
+      "value": {
+        "type": "nGram",
+        "minGram": 1,
+        "maxGram": null
+      }
+    },
+    {
+      "description": "edgeGram max lt min",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 2,
+        "maxGram": 1
+      }
+    },
+    {
+      "description": "edgeGram no min",
+      "value": {
+        "type": "edgeGram",
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "edgeGram no max",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1
+      }
+    },
+    {
+      "description": "edgeGram negative min",
+      "value": {
+        "type": "edgeGram",
+        "minGram": -1,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "edgeGram negative max",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1,
+        "maxGram": -1
+      }
+    },
+    {
+      "description": "edgeGram null min",
+      "value": {
+        "type": "edgeGram",
+        "minGram": null,
+        "maxGram": 3
+      }
+    },
+    {
+      "description": "edgeGram null max",
+      "value": {
+        "type": "edgeGram",
+        "minGram": 1,
+        "maxGram": null
+      }
+    },
+    {
+      "description": "standard tokenizer with max token length greater than max allowed",
+      "value": {
+        "type": "standard",
+        "maxTokenLength": 1048577
+      }
+    },
+    {
+      "description": "standard tokenizer with max token length of zero",
+      "value": {
+        "type": "standard",
+        "maxTokenLength": 0
+      }
+    },
+    {
+      "description": "standard tokenizer with max token length less than zero",
+      "value": {
+        "type": "standard",
+        "maxTokenLength": -1
+      }
+    },
+    {
+      "description": "whitespace tokenizer with max token length greater than max allowed",
+      "value": {
+        "type": "whitespace",
+        "maxTokenLength": 1048577
+      }
+    },
+    {
+      "description": "whitespace tokenizer with max token length of zero",
+      "value": {
+        "type": "whitespace",
+        "maxTokenLength": 0
+      }
+    },
+    {
+      "description": "whitespace tokenizer with max token length less than zero",
+      "value": {
+        "type": "whitespace",
+        "maxTokenLength": -1
+      }
+    },
+    {
+      "description": "regexSplit tokenizer with no pattern",
+      "value": {
+        "type": "regexSplit"
+      }
+    },
+    {
+      "description": "regexSplit tokenizer with invalid pattern",
+      "value": {
+        "type": "regexSplit",
+        "pattern": "BOOM\\"
+      }
+    },
+    {
+      "description": "regexSplit tokenizer with null pattern",
+      "value": {
+        "type": "regexSplit",
+        "pattern": null
+      }
+    },
+    {
+      "description": "regexSplit tokenizer with integer pattern",
+      "value": {
+        "type": "regexSplit",
+        "pattern": 1
+      }
+    },
+    {
+      "description": "regexSplit tokenizer with group",
+      "value": {
+        "type": "regexSplit",
+        "pattern": "\"^\\\\b\\\\d{3}[-.]?\\\\d{3}[-.]?\\\\d{4}\\\\b$\"",
+        "group": 0
+      }
+    },
+    {
+      "description": "regexCaptureGroup tokenizer with null pattern",
+      "value": {
+        "type": "regexCaptureGroup",
+        "pattern": null,
+        "group": 0
+      }
+    },
+    {
+      "description": "regexCaptureGroup tokenizer with integer pattern",
+      "value": {
+        "type": "regexCaptureGroup",
+        "pattern": 1,
+        "group": 0
+      }
+    },
+    {
+      "description": "regexCaptureGroup tokenizer with invalid pattern",
+      "value": {
+        "type": "regexCaptureGroup",
+        "pattern": "BOOM\\",
+        "group": 0
+      }
+    },
+    {
+      "description": "regexCaptureGroup tokenizer with null group",
+      "value": {
+        "type": "regexCaptureGroup",
+        "pattern": "\"^\\\\b\\\\d{3}[-.]?\\\\d{3}[-.]?\\\\d{4}\\\\b$\"",
+        "group": null
+      }
+    },
+    {
+      "description": "regexCaptureGroup tokenizer with string group",
+      "value": {
+        "type": "regexCaptureGroup",
+        "pattern": "\"^\\\\b\\\\d{3}[-.]?\\\\d{3}[-.]?\\\\d{4}\\\\b$\"",
+        "group": "0"
+      }
+    },
+    {
+      "description": "regexCaptureGroup tokenizer with negative group",
+      "value": {
+        "type": "regexCaptureGroup",
+        "pattern": "\"^\\\\b\\\\d{3}[-.]?\\\\d{3}[-.]?\\\\d{4}\\\\b$\"",
+        "group": -1
+      }
+    },
+    {
+      "description": "regexCaptureGroup tokenizer with invalid group",
+      "value": {
+        "type": "regexCaptureGroup",
+        "pattern": "\"^\\\\b\\\\d{3}[-.]?\\\\d{3}[-.]?\\\\d{4}\\\\b$\"",
+        "group": 20
+      }
+    }
+  ]
+}
+

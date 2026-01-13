@@ -1,0 +1,17 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    },
+    {
+      "description": "explicit indexShapes",
+      "value": {
+        "indexShapes": true
+      }
+    }
+  ],
+  "invalid": [
+  ]
+}

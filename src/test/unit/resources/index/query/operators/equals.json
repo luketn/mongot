@@ -1,0 +1,303 @@
+{
+  "valid": [
+    {
+      "description": "doesNotAffect",
+      "value": {
+        "path": "point",
+        "value": {
+          "$numberLong": "15"
+        },
+        "doesNotAffect": [
+          "points",
+          "sizes"
+        ]
+      }
+    },
+    {
+      "description": "doesNotAffectString",
+      "value": {
+        "path": "point",
+        "value": {
+          "$numberLong": "15"
+        },
+        "doesNotAffect": "points"
+      }
+    },
+    {
+      "description": "boolean-simple",
+      "value": {
+        "path": "a",
+        "value": true
+      }
+    },
+    {
+      "description": "null-simple",
+      "value": {
+        "path": "a",
+        "value": null
+      }
+    },
+    {
+      "description": "boolean-with-score",
+      "value": {
+        "path": "a",
+        "value": false,
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "objectId-simple",
+      "value": {
+        "path": "a",
+        "value": {
+          "$oid": "507f1f77bcf86cd799439011"
+        }
+      }
+    },
+    {
+      "description": "objectId-with-score",
+      "value": {
+        "path": "a",
+        "value": {
+          "$oid": "507f1f77bcf86cd799439011"
+        },
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "date-simple",
+      "value": {
+        "path": "a",
+        "value": {
+          "$date": "2022-12-06T13:13:13Z"
+        }
+      }
+    },
+    {
+      "description": "date-with-score",
+      "value": {
+        "path": "a",
+        "value": {
+          "$date": "2022-12-06T13:13:13Z"
+        },
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "string-simple",
+      "value": {
+        "path": "a",
+        "value": "test"
+      }
+    },
+    {
+      "description": "string-with-score",
+      "value": {
+        "path": "a",
+        "value": "test",
+        "score": {
+          "boost": {
+            "value": 10
+          }
+        }
+      }
+    },
+    {
+      "description": "numberLong-simple",
+      "value": {
+        "path": "a",
+        "value": 2
+      }
+    },
+    {
+      "description": "numberDouble-simple",
+      "value": {
+        "path": "a",
+        "value": 2.01
+      }
+    },
+    {
+      "description": "numberDouble-15decimal",
+      "value": {
+        "path": "a",
+        "value": 2.151515151515151
+      }
+    },
+    {
+      "description": "numberDouble-18decimal",
+      "value": {
+        "path": "a",
+        "value": 2.151515151515151515
+      }
+    },
+    {
+      "description": "number-with-score",
+      "value": {
+        "path": "a",
+        "value": 2,
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "uuid-simple",
+      "value": {
+        "path": "a",
+        "value": {
+          "$uuid": "00000000-1111-2222-3333-444444444444"
+        }
+      }
+    },
+    {
+      "description": "uuid-with-score",
+      "value": {
+        "path": "a",
+        "value": {
+          "$uuid": "00000000-1111-2222-3333-444444444444"
+        },
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "null-simple",
+      "value": {
+        "path": "a",
+        "value": null
+      }
+    },
+    {
+      "description": "null-with-score",
+      "value": {
+        "path": "a",
+        "value": null,
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "equals-missing-query",
+      "value": {
+        "path": "a"
+      }
+    },
+    {
+      "description": "equals-missing-path-query",
+      "value": {
+      }
+    },
+    {
+      "description": "equals-multiple-path",
+      "value": {
+        "path": [
+          "a",
+          "b"
+        ],
+        "value": false
+      }
+    },
+    {
+      "description": "equals-missing-path",
+      "value": {
+        "value": true
+      }
+    },
+    {
+      "description": "boolean-multiple-values",
+      "value": {
+        "path": "a",
+        "value": [
+          true,
+          false
+        ]
+      }
+    },
+    {
+      "description": "objectId-multiple-values",
+      "value": {
+        "path": "a",
+        "value": [
+          {
+            "$oid": "507f1f77bcf86cd799439011"
+          },
+          {
+            "$oid": "507f191e810c19729de860ea"
+          }
+        ]
+      }
+    },
+    {
+      "description": "date-multiple-values",
+      "value": {
+        "path": "a",
+        "value": [
+          {
+            "$date": "2022-12-06T13:13:13Z"
+          },
+          {
+            "$date": "2022-12-06T13:13:14Z"
+          }
+        ]
+      }
+    },
+    {
+      "description": "number-multiple-values",
+      "value": {
+        "path": "a",
+        "value": [
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "description": "uuid-multiple-values",
+      "value": {
+        "path": "a",
+        "value": [
+          {
+            "$uuid": "00000000-1111-2222-3333-444444444444"
+          },
+          {
+            "$uuid": "55555555-6666-7777-8888-999999999999"
+          }
+        ]
+      }
+    },
+    {
+      "description": "null-multiple-values",
+      "value": {
+        "path": "a",
+        "value": [
+          null,
+          null,
+          null
+        ]
+      }
+    }
+  ]
+}

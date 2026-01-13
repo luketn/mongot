@@ -1,0 +1,162 @@
+package com.xgen.mongot.index.lucene.codec;
+
+import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.DEFAULT_NUM_MERGE_WORKER;
+
+import com.google.common.flogger.FluentLogger;
+import com.xgen.mongot.index.definition.VectorFieldSpecification;
+import com.xgen.mongot.index.definition.VectorIndexingAlgorithm;
+import com.xgen.mongot.index.lucene.codec.flat.BinaryQuantizedFlatVectorsFormat;
+import com.xgen.mongot.index.lucene.codec.flat.FlatBitVectorsFormat;
+import com.xgen.mongot.index.lucene.codec.flat.Float32AndByteFlatVectorsFormat;
+import com.xgen.mongot.index.lucene.codec.flat.ScalarQuantizedFlatVectorsFormat;
+import com.xgen.mongot.index.lucene.field.FieldName;
+import com.xgen.mongot.index.lucene.quantization.Mongot01042HnswBinaryQuantizedVectorsFormat;
+import com.xgen.mongot.index.lucene.quantization.Mongot01042HnswBitVectorsFormat;
+import com.xgen.mongot.util.Check;
+import com.xgen.mongot.util.FieldPath;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import org.apache.lucene.codecs.FilterCodec;
+import org.apache.lucene.codecs.KnnVectorsFormat;
+import org.apache.lucene.codecs.StoredFieldsFormat;
+import org.apache.lucene.codecs.lucene99.Lucene99Codec;
+import org.apache.lucene.codecs.lucene99.Lucene99HnswScalarQuantizedVectorsFormat;
+import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
+import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
+import org.apache.lucene.index.SegmentInfos;
+import org.apache.lucene.store.Directory;
+
+/**
+ * Customized {@link Lucene99Codec} which utilizes our own {@link LuceneStoredFieldsFormat}. The
+ * change is needed to improve Stored Source queries latency by sacrificing some compression
+ * improvements introduced in Lucene 8.7. See https://tinyurl.com/mrx22sav for details. Note that we
+ * are not modifying the codec name (Lucene99), so Lucene could use the original codec for reads
+ * (the codec is looked up by the name encoded with segment's metadata in {@link
+ * SegmentInfos#readCommit(Directory, String)} when Lucene opens index for read). That guarantees
+ * that our compression changes are compatible with the original codec, and we won't need
+ * re-indexing to upgrade to the next major Lucene version in the future.
+ */
+public class LuceneCodec extends FilterCodec {
+
+  private static final FluentLogger FLOGGER = FluentLogger.forEnclosingClass();
+
+  /** HNSW construction parameters used if not explicitly specified in IndexDefinition. */
+  private static final VectorIndexingAlgorithm DEFAULT_INDEXING_ALGORITHM =
+      new VectorIndexingAlgorithm.HnswIndexingAlgorithm();
+
+  private static final String CODEC_NAME = "Lucene99";
+
+  private final StoredFieldsFormat storedFieldsFormat;
+
+  private final KnnVectorsFormat knnVectorsFormat =
+      new PerFieldKnnVectorsFormat() {
+        @Override
+        public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
+          return LuceneCodec.this.getKnnVectorsFormatForField(field);
+        }
+
+        @Override
+        public int getMaxDimensions(String fieldName) {
+          return VectorFieldSpecification.MAX_DIMENSIONS;
+        }
+      };
+
+  private final Map<FieldPath, VectorIndexingAlgorithm> fieldConfigs;
+
+  public LuceneCodec() {
+    this(CODEC_NAME, Map.of());
+  }
+
+  public LuceneCodec(String codecName) {
+    this(codecName, Map.of());
+  }
+
+  public LuceneCodec(Map<FieldPath, VectorFieldSpecification> fieldMap) {
+    this(CODEC_NAME, fieldMap);
+  }
+
+  private LuceneCodec(String codecName, Map<FieldPath, VectorFieldSpecification> fieldMap) {
+    super(codecName, new Lucene99Codec());
+    this.storedFieldsFormat =
+        new LuceneStoredFieldsFormat(LuceneStoredFieldsFormat.Mode.BEST_SPEED);
+    this.fieldConfigs = new HashMap<>();
+
+    for (FieldPath path : fieldMap.keySet()) {
+      VectorFieldSpecification field = fieldMap.get(path);
+      this.fieldConfigs.put(path, field.indexingAlgorithm());
+    }
+  }
+
+  @Override
+  public StoredFieldsFormat storedFieldsFormat() {
+    return this.storedFieldsFormat;
+  }
+
+  @Override
+  public final KnnVectorsFormat knnVectorsFormat() {
+    return this.knnVectorsFormat;
+  }
+
+  private KnnVectorsFormat getKnnVectorsFormatForField(String field) {
+    FieldName.TypeField typeField =
+        Check.isPresent(FieldName.TypeField.getTypeOf(field), "typeField");
+
+    VectorIndexingAlgorithm algorithm = getKnnFieldConfig(typeField, field);
+
+    return switch (algorithm) {
+      case VectorIndexingAlgorithm.HnswIndexingAlgorithm hnswIndexingAlgorithm ->
+          resolveHnswVectorFormat(field, typeField, hnswIndexingAlgorithm.options());
+      case VectorIndexingAlgorithm.FlatIndexingAlgorithm flatIndexingAlgorithm ->
+          resolveFlatVectorFormat(field, typeField);
+    };
+  }
+
+  private KnnVectorsFormat resolveHnswVectorFormat(
+      String field, FieldName.TypeField typeField, VectorFieldSpecification.HnswOptions options) {
+    return switch (typeField) {
+      case FieldName.TypeField.KNN_VECTOR, FieldName.TypeField.KNN_BYTE ->
+          new Lucene99HnswVectorsFormat(options.maxEdges(), options.numEdgeCandidates());
+      case FieldName.TypeField.KNN_BIT ->
+          new Mongot01042HnswBitVectorsFormat(options.maxEdges(), options.numEdgeCandidates());
+      case FieldName.TypeField.KNN_F32_Q7 ->
+          new Lucene99HnswScalarQuantizedVectorsFormat(
+              options.maxEdges(),
+              options.numEdgeCandidates(),
+              DEFAULT_NUM_MERGE_WORKER,
+              7,
+              false,
+              null,
+              null);
+      case FieldName.TypeField.KNN_F32_Q1 ->
+          new Mongot01042HnswBinaryQuantizedVectorsFormat(
+              options.maxEdges(), options.numEdgeCandidates());
+      default -> {
+        FLOGGER.atWarning().atMostEvery(1, TimeUnit.MINUTES).log(
+            "Unexpected field type %s for KNN field %s. Using default", typeField, field);
+        throw new IllegalStateException(String.format("Unexpected field type %s", typeField));
+      }
+    };
+  }
+
+  private KnnVectorsFormat resolveFlatVectorFormat(String field, FieldName.TypeField typeField) {
+    return switch (typeField) {
+      case FieldName.TypeField.KNN_VECTOR, FieldName.TypeField.KNN_BYTE ->
+          new Float32AndByteFlatVectorsFormat();
+      case FieldName.TypeField.KNN_BIT -> new FlatBitVectorsFormat();
+      case FieldName.TypeField.KNN_F32_Q7 -> new ScalarQuantizedFlatVectorsFormat(null, 7, false);
+      case FieldName.TypeField.KNN_F32_Q1 -> new BinaryQuantizedFlatVectorsFormat();
+      default -> {
+        FLOGGER.atWarning().atMostEvery(1, TimeUnit.MINUTES).log(
+            "Unexpected field type %s for KNN field %s. Using default", typeField, field);
+        throw new IllegalStateException(String.format("Unexpected field type %s", typeField));
+      }
+    };
+  }
+
+  private VectorIndexingAlgorithm getKnnFieldConfig(
+      FieldName.TypeField typeField, String luceneField) {
+    FieldPath fieldPath = FieldPath.parse(typeField.stripPrefix(luceneField));
+    return this.fieldConfigs.getOrDefault(fieldPath, DEFAULT_INDEXING_ALGORITHM);
+  }
+}

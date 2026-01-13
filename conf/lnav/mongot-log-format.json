@@ -1,0 +1,47 @@
+{
+  "$schema": "https://lnav.org/schemas/format-v1.schema.json",
+  "mongot": {
+    "description": "Mongot structured log format file for lnav",
+    "regex": {
+      "std": {
+          "pattern": "^{\"t\":\"(?P<timestamp>[^\"]+)\",\"s\":\"(?P<level>[^\"]+)\",\"svc\":\"(?P<service>[^\"]+)\",\"ctx\":\"(?P<thread>[^\"]+)\",\"n\":\"(?P<logger_name>[^\"]+)\",\"msg\":\"(?P<message>[^\"]+)\"(?:,\"attr\":(?P<attributes>\\{.*\\}))?\\}$"
+      }
+    },
+    "value": {
+      "timestamp": {
+        "kind": "string"
+      },
+      "level": {
+        "kind": "string"
+      },
+      "service": {
+        "kind": "string"
+      },
+      "thread": {
+        "kind": "string"
+      },
+      "logger_name": {
+        "kind": "string"
+      },
+      "message": {
+        "kind": "string"
+      },
+      "attributes": {
+          "kind": "json"
+      }
+    },
+    "sample": [
+      {
+        "line": "{\"t\":\"2025-04-30T03:48:00.756+0000\",\"s\":\"INFO\",\"svc\":\"MONGOT\",\"ctx\":\"main\",\"n\":\"com.xgen.mongot.Mongot\",\"msg\":\"[Starting Mongot]\",\"attr\":{\"mongotVersion\":\"local\"}}"
+      },
+      {
+        "description": "No attributes",
+        "line": "{\"t\":\"2025-04-30T06:30:10.771+0000\",\"s\":\"INFO\",\"svc\":\"MONGOT\",\"ctx\":\"main\",\"n\":\"com.xgen.mongot.util.security.Security\",\"msg\":\"installing FIPS security providers\"}"
+      },
+      {
+        "description": "Multiple attributes",
+        "line": "{\"t\":\"2025-04-30T06:30:13.206+0000\",\"s\":\"INFO\",\"svc\":\"MONGOT\",\"ctx\":\"indexing-lifecycle-0\",\"n\":\"com.xgen.mongot.replication.mongodb.ReplicationIndexManager\",\"msg\":\"No index metadata found (likely due to never having been committed), resyncing.\",\"attr\":{\"indexId\":\"680290c7b7cfec567a30e5e7\",\"indexGeneration\":\"Generation{user=0, format=6, attempt=0}\"}}"
+      }
+    ]
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "path": "a",
+        "representation": "int64",
+        "gte": 1
+      }
+    },
+    {
+      "description": "missing-representation",
+      "value": {
+        "path": "a",
+        "gte": 1
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "missing-path",
+      "value": {
+        "representation": "int64",
+        "gte": 1,
+        "lte": 3
+      }
+    }
+  ]
+}

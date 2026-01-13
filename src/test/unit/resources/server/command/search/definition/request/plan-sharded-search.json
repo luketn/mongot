@@ -1,0 +1,88 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "planShardedSearch": "my-collection",
+        "$db": "my-database",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "searchFeatures": {
+          "shardedSort": 1
+        }
+      }
+    },
+    {
+      "description": "simple-on-view",
+      "value": {
+        "planShardedSearch": "my-collection",
+        "$db": "my-database",
+        "viewName": "my-view",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "searchFeatures": {
+          "shardedSort": 1
+        }
+      }
+    },
+    {
+      "description": "unknownField",
+      "value": {
+        "planShardedSearch": "my-collection",
+        "$db": "my-database",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "searchFeatures": {
+          "shardedSort": 1,
+          "foo": "bar"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "invalid searchFeatures number",
+      "value": {
+        "planShardedSearch": "my-collection",
+        "$db": "my-database",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "searchFeatures": {
+          "shardedSort": 2
+        }
+      }
+    },
+    {
+      "description": "invalid searchFeatures value type",
+      "value": {
+        "planShardedSearch": "my-collection",
+        "$db": "my-database",
+        "query": {
+          "text": {
+            "path": "title",
+            "query": "godfather"
+          }
+        },
+        "searchFeatures": {
+          "shardedSort": "foo"
+        }
+      }
+    }
+  ]
+}

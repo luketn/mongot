@@ -1,0 +1,34 @@
+{
+  "valid": [
+    {
+      "description": "simpleDocsRequested",
+      "value": {
+        "docsRequested": 25
+      }
+    },
+    {
+      "description": "simpleBatchSize",
+      "value": {
+        "batchSize": 25
+      }
+    },
+    {
+      "description": "missing-all-parameters",
+      "value": {}
+    }
+  ],
+  "invalid": [
+    {
+      "description": "negative-docs-requested",
+      "value": {
+        "docsRequested": -1
+      }
+    },
+    {
+      "description": "invalid-docs-requested",
+      "value": {
+        "docsRequested": "string"
+      }
+    }
+  ]
+}

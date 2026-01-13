@@ -1,0 +1,23 @@
+{
+  "valid": [
+    {
+      "description": "string value",
+      "value": "example"
+    },
+    {
+      "description": "empty",
+      "value": ""
+    }
+  ],
+  "invalid": [
+    {
+      "description": "wrong type",
+      "value": true
+    },
+    {
+      "description": "no value",
+      "value": {
+      }
+    }
+  ]
+}

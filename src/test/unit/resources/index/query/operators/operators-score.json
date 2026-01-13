@@ -1,0 +1,43 @@
+{
+  "valid": [
+    {
+      "description": "explicit score",
+      "value": {
+        "score": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "default score",
+      "value": {
+        "score": null
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "wrong field name",
+      "value": {
+        "foo": {
+          "boost": {
+            "value": 2
+          }
+        }
+      }
+    },
+    {
+      "description": "dismax should not be specifiable in general operators",
+      "errorMessageContains": "one of [boost, constant, function] must be present",
+      "value": {
+        "score": {
+          "dismax": {
+            "tieBreakerScore": 0.3
+          }
+        }
+      }
+    }
+  ]
+}

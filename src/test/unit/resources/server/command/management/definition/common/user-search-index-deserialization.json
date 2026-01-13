@@ -1,0 +1,33 @@
+{
+  "valid": [
+    {
+      "description": "simple",
+      "value": {
+        "mappings": {
+          "dynamic": true
+        },
+        "numPartitions": 1,
+        "typeSets": [
+          {
+            "name": "foo",
+            "types": [
+              {
+                "type": "number"
+              }
+            ]
+          },
+          {
+            "name": "bar",
+            "types": [
+              {
+                "type": "string"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+  ]
+}

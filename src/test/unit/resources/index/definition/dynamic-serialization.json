@@ -1,0 +1,14 @@
+{
+  "tests": [
+    {
+      "description": "boolean",
+      "value": true
+    },
+    {
+      "description": "typeSet",
+      "value": {
+        "typeSet": "foo"
+      }
+    }
+  ]
+}

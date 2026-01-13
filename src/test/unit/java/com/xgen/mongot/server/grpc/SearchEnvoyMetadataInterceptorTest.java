@@ -1,0 +1,54 @@
+package com.xgen.mongot.server.grpc;
+
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+
+import com.xgen.mongot.searchenvoy.grpc.SearchEnvoyMetadata;
+import io.grpc.Metadata;
+import io.grpc.ServerCall;
+import org.junit.Test;
+
+public class SearchEnvoyMetadataInterceptorTest {
+  @Test
+  public void testPopulateSearchEnvoyMetadata() {
+    var searchEnvoyMetadata =
+        SearchEnvoyMetadata.newBuilder().setRoutedFromAnotherShard(true).build();
+
+    Metadata metadata = new Metadata();
+    metadata.put(GrpcMetadata.SEARCH_ENVOY_METADATA_KEY, searchEnvoyMetadata);
+    triggerInterceptor(metadata, searchEnvoyMetadata);
+  }
+
+  @Test
+  public void testPopulateSearchEnvoyMetadata_defaultInstance() {
+    Metadata metadata = new Metadata();
+    metadata.put(GrpcMetadata.SEARCH_ENVOY_METADATA_KEY, SearchEnvoyMetadata.getDefaultInstance());
+    triggerInterceptor(metadata, SearchEnvoyMetadata.getDefaultInstance());
+  }
+
+  @Test
+  public void testPopulateSearchEnvoyMetadata_headerDoesNotExist() {
+    Metadata metadata = new Metadata();
+    triggerInterceptor(metadata, SearchEnvoyMetadata.getDefaultInstance());
+  }
+
+  @SuppressWarnings("unchecked")
+  private void triggerInterceptor(
+      Metadata metadata, SearchEnvoyMetadata expectedSearchEnvoyMetadata) {
+    ServerCall<Object, Object> serverCall = mock(ServerCall.class);
+    ServerCall.Listener<Object> listener = mock(ServerCall.Listener.class);
+    doAnswer(
+            invocation -> {
+              assertEquals(
+                  expectedSearchEnvoyMetadata, GrpcContext.SEARCH_ENVOY_METADATA_KEY.get());
+              return null;
+            })
+        .when(listener)
+        .onReady();
+    var interceptor = new SearchEnvoyMetadataInterceptor();
+    var interceptedCall =
+        interceptor.interceptCall(serverCall, metadata, (call, headers) -> listener);
+    interceptedCall.onReady();
+  }
+}

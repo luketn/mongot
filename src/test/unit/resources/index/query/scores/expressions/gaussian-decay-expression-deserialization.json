@@ -1,0 +1,108 @@
+{
+  "valid": [
+    {
+      "description": "path origin scale offset decay",
+      "value":
+        {
+          "path": {
+            "value": "rating",
+            "undefined": 6043.28
+          },
+          "origin": 100.0,
+          "scale": 5.0,
+          "offset": 0.0,
+          "decay": 0.5
+        }
+    },
+    {
+      "description": "path origin scale",
+      "value": 
+        {
+          "path": {
+            "value": "rating",
+            "undefined": 6043.28
+          },
+          "origin": 100.0,
+          "scale": 5.0
+        }
+      
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no value",
+      "value": {}
+    },
+    {
+      "description": "missing arguments",
+      "value": {
+        "path": {
+          "value": "rating",
+          "undefined": 6043.28
+        },
+        "origin": 100.0
+      }
+    },
+    {
+      "description": "no value",
+      "value": {}
+    },
+    {
+      "description": "scale = 0",
+      "value": {
+        "path": {
+          "value": "rating",
+          "undefined": 6043.28
+        },
+        "origin": 100.0,
+        "scale": 0.0,
+        "offset": 5.0,
+        "decay": 0.5
+      }
+    },
+     {
+       "description": "decay <= 0",
+       "value": {
+         "path": {
+           "value": "rating",
+           "undefined": 6043.28
+         },
+         "origin": 100.0,
+         "scale": 1.0,
+         "offset": 5.0,
+         "decay": -1.0
+       }
+     },
+     {
+       "description": "inf values",
+       "value": {
+         "path": {
+           "value": "rating",
+           "undefined": 6043.28
+         },
+         "origin": {
+           "$numberDouble":"Infinity"
+         },
+         "scale": 1.0,
+         "offset": 5.0,
+         "decay": 0.5
+       }
+     },
+     {
+       "description": "inf values",
+       "value": {
+         "path": {
+           "value": "rating",
+           "undefined": 6043.28
+         },
+         "origin": {
+           "value": "rating",
+           "undefined": 6043.28
+         },
+         "scale": 1.0,
+         "offset": 5.0,
+         "decay": 0.5
+       }
+     }
+  ]
+}

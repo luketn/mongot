@@ -1,0 +1,41 @@
+load("//bazel/java:test.bzl", "java_test_suite")
+
+java_test_suite(
+    name = "lifecycle",
+    srcs = [
+        "DefaultLifecycleManagerTest.java",
+        "IndexLifecycleManagerTest.java",
+        "LifecycleConfigTest.java",
+    ],
+    data = [
+        "//src/test/unit/resources/lifecycle:srcs",
+    ],
+    tags = ["unit"],
+    deps = [
+        "//src/main/java/com/xgen/mongot/blobstore",
+        "//src/main/java/com/xgen/mongot/catalog",
+        "//src/main/java/com/xgen/mongot/index",
+        "//src/main/java/com/xgen/mongot/index/blobstore",
+        "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/status",
+        "//src/main/java/com/xgen/mongot/index/version",
+        "//src/main/java/com/xgen/mongot/lifecycle",
+        "//src/main/java/com/xgen/mongot/metrics",
+        "//src/main/java/com/xgen/mongot/monitor",
+        "//src/main/java/com/xgen/mongot/replication",
+        "//src/main/java/com/xgen/mongot/replication/mongodb",
+        "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/mongot/util/concurrent",
+        "//src/main/java/com/xgen/mongot/util/mongodb",
+        "//src/main/java/com/xgen/testing",
+        "//src/main/java/com/xgen/testing/mongot/index/definition",
+        "//src/main/java/com/xgen/testing/mongot/index/version",
+        "//src/main/java/com/xgen/testing/mongot/mock/index",
+        "@maven//:com_google_errorprone_error_prone_annotations",
+        "@maven//:io_micrometer_micrometer_core",
+        "@maven//:junit_junit",
+        "@maven//:org_mockito_mockito_core",
+        "@maven//:org_mongodb_bson",
+        "@maven//:org_mongodb_mongodb_driver_core",
+    ],
+)

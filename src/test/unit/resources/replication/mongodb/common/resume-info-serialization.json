@@ -1,0 +1,95 @@
+{
+  "tests": [
+    {
+      "description": "collection scan",
+      "bson": {
+        "collectionScan": {
+          "bufferStartOperationTime": {
+            "$numberLong": "1234567890"
+          },
+          "lastScannedId": "a"
+        }
+      },
+      "json": {
+        "collectionScan": {
+          "bufferStartOperationTime": 1234567890,
+          "lastScannedId": "a"
+        }
+      }
+    },
+    {
+      "description": "change stream application",
+      "bson": {
+        "changeStreamApplication": {
+          "bufferStartOperationTime": {
+            "$numberLong": "1234567890"
+          },
+          "bufferEndOperationTime": {
+            "$numberLong": "12345678900"
+          },
+          "lastAppliedBatchResumeToken": {
+            "data": "foo"
+          }
+        }
+      },
+      "json": {
+        "changeStreamApplication": {
+          "bufferStartOperationTime": 1234567890,
+          "bufferEndOperationTime": 12345678900,
+          "lastAppliedBatchResumeToken": {
+            "data": "foo"
+          }
+        }
+      }
+    },
+    {
+      "description": "bufferless",
+      "bson": {
+        "bufferlessInitialSync": {
+          "highWaterMark": {
+            "$numberLong": "1234567890"
+          },
+          "lastScannedId": "a"
+        }
+      },
+      "json": {
+        "bufferlessInitialSync": {
+          "highWaterMark": 1234567890,
+          "lastScannedId": "a"
+        }
+      }
+    },
+    {
+      "description": "bufferlessNaturalOrder",
+      "bson": {
+        "bufferlessNaturalOrderInitialSync": {
+          "highWaterMark": {
+            "$numberLong": "1234567890"
+          },
+          "postBatchResumeToken": {
+            "$recordId": {
+              "$numberLong": "1"
+            },
+            "$initialSyncId": {
+              "$binary": {
+                "base64": "OQpgSkl5TRCfTz0lUiJK7g==",
+                "subType": "04"
+              }
+            }
+          },
+          "syncSourceHost": "testHost"
+        }
+      },
+      "json": {
+        "bufferlessNaturalOrderInitialSync": {
+          "highWaterMark": 1234567890,
+          "postBatchResumeToken": {
+            "$recordId": 1,
+            "$initialSyncId": "390a604a-4979-4d10-9f4f-3d2552224aee"
+          },
+          "syncSourceHost": "testHost"
+        }
+      }
+    }
+  ]
+}

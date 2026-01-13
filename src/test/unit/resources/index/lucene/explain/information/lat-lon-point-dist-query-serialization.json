@@ -1,0 +1,29 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "path": "a",
+        "center": [
+          2.5,
+          1.5
+        ],
+        "radius": 3.5
+      },
+      "bson": {
+        "path": "a",
+        "center": [
+          {
+            "$numberDouble": "2.5"
+          },
+          {
+            "$numberDouble": "1.5"
+          }
+        ],
+        "radius": {
+          "$numberDouble": "3.5"
+        }
+      }
+    }
+  ]
+}

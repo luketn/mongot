@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- ========================================================================
+         SpotBugs Exclusion Configuration for Mongot
+
+         This file defines which SpotBugs checks are ENABLED vs SUPPRESSED.
+
+         Strategy: Enable only high-value checks that catch real bugs.
+         Currently ENABLED:
+         - OBL_UNSATISFIED_OBLIGATION - Detects resource leaks (streams, connections not closed)
+         - OBL_UNSATISFIED_OBLIGATION_EXCEPTION_EDGE - Detects resource leaks on exception paths
+         - OS_OPEN_STREAM - Detects streams that may not be closed
+         - ODR_OPEN_DATABASE_RESOURCE - Detects database resources that may not be closed
+
+         All other checks are SUPPRESSED to reduce noise and focus on actionable issues.
+         ======================================================================== -->
+
+    <!-- ========================================================================
+         GLOBAL EXCLUSIONS - Apply to all code
+         ======================================================================== -->
+
+    <!-- Exclude all test files from SpotBugs analysis -->
+    <Match>
+        <Or>
+            <Source name="~.*/src/test/.*"/>
+            <Source name="~src/test/.*"/>
+            <Package name="~.*\.test\..*"/>
+            <Class name="~.*Test"/>
+            <Class name="~.*Test\$.*"/>
+        </Or>
+    </Match>
+
+    <!-- ========================================================================
+         SUPPRESSED CHECKS - All patterns disabled except SF_SWITCH_FALLTHROUGH
+         ======================================================================== -->
+
+    <!-- Suppress ALL bug patterns and categories -->
+    <Match>
+        <Or>
+            <!-- All categories -->
+            <Bug category="CORRECTNESS"/>
+            <Bug category="BAD_PRACTICE"/>
+            <Bug category="PERFORMANCE"/>
+            <Bug category="MALICIOUS_CODE"/>
+            <Bug category="DODGY_CODE"/>
+            <Bug category="I18N"/>
+            <Bug category="EXPERIMENTAL"/>
+            <Bug category="MT_CORRECTNESS"/>
+            <Bug category="SECURITY"/>
+            <Bug category="STYLE"/>
+        </Or>
+        <!-- Exclude enabled checks from suppression -->
+        <Not>
+            <Or>
+                <Bug pattern="OBL_UNSATISFIED_OBLIGATION"/>
+                <Bug pattern="OBL_UNSATISFIED_OBLIGATION_EXCEPTION_EDGE"/>
+                <Bug pattern="OS_OPEN_STREAM"/>
+                <Bug pattern="ODR_OPEN_DATABASE_RESOURCE"/>
+            </Or>
+        </Not>
+    </Match>
+
+    <!-- ========================================================================
+         ENABLED CHECKS - These will report violations
+         ======================================================================== -->
+
+    <!--
+         OBL_UNSATISFIED_OBLIGATION - ENABLED
+         Detects when a method may fail to clean up a stream, database object,
+         or other resource requiring an explicit cleanup operation. This check
+         tracks obligations from creation to cleanup and reports when cleanup
+         may not occur on all paths.
+
+         OBL_UNSATISFIED_OBLIGATION_EXCEPTION_EDGE - ENABLED
+         Similar to OBL_UNSATISFIED_OBLIGATION but specifically focuses on
+         exception paths. Detects when a resource may not be cleaned up if
+         an exception is thrown before the cleanup code is reached.
+
+         OS_OPEN_STREAM - ENABLED
+         Detects when a method opens a stream (InputStream, OutputStream, Reader,
+         Writer) but may fail to close it. Unclosed streams can lead to resource
+         leaks and file descriptor exhaustion.
+
+         ODR_OPEN_DATABASE_RESOURCE - ENABLED
+         Detects when a method opens a database resource (Connection, Statement,
+         ResultSet) but may fail to close it. Unclosed database resources can
+         lead to connection pool exhaustion and database performance issues.
+
+         NOTE: These checks are ENABLED by excluding them from the global
+         suppression above using the <Not> element.
+    -->
+
+</FindBugsFilter>

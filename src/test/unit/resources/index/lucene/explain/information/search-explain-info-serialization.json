@@ -1,0 +1,489 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "json": {
+        "query": {
+          "analyzer": "lucene.standard",
+          "type": "TermQuery",
+          "args": {
+            "value": "quie",
+            "path": "name"
+          },
+          "stats": {
+            "context": {
+              "millisElapsed": 1e-5,
+              "invocationCounts": {}
+            },
+            "match": {
+              "millisElapsed": 1e-5,
+              "invocationCounts": {}
+            },
+            "score": {
+              "millisElapsed": 1e-5,
+              "invocationCounts": {}
+            }
+          }
+        },
+        "collectors": {
+          "allCollectorStats": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "sort": {
+            "stats": {
+              "prunedResultIterator": {
+                "millisElapsed": 1.0E-5,
+                "invocationCounts": {}
+              },
+              "comparator": {
+                "millisElapsed": 1.0E-5,
+                "invocationCounts": {}
+              }
+            },
+            "fieldInfos": {
+              "foo": [
+                "date",
+                "token"
+              ]
+            }
+          }
+        },
+        "highlight": {
+          "resolvedHighlightPaths": [
+            "foo"
+          ],
+          "stats": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          },
+          "offsetSources" : {}
+        },
+        "resultMaterialization": {
+          "stats": {
+            "millisElapsed": 1e-5,
+            "invocationCounts": {}
+          }
+        },
+        "metadata": {
+          "mongotVersion": "testVersion",
+          "mongotHostName": "localhost",
+          "indexName": "default",
+          "cursorOptions": {
+            "docsRequested": 25,
+            "requiresSearchSequenceToken": false
+          },
+          "optimizationFlags": {
+            "omitSearchDocumentResults": true
+          },
+          "lucene": {
+            "totalSegments": 3,
+            "totalDocs": 5
+          }
+        },
+        "resourceUsage": {
+          "majorFaults": 1,
+          "minorFaults": 2,
+          "userTimeMs": 3,
+          "systemTimeMs": 4,
+          "maxReportingThreads": 1,
+          "numBatches": 1
+        }
+      },
+      "bson": {
+        "query": {
+          "analyzer": "lucene.standard",
+          "type": "TermQuery",
+          "args": {
+            "value": "quie",
+            "path": "name"
+          },
+          "stats": {
+            "context": {
+              "millisElapsed": {
+                "$numberDouble": "1e-5"
+              },
+              "invocationCounts": {}
+            },
+            "match": {
+              "millisElapsed": {
+                "$numberDouble": "1e-5"
+              },
+              "invocationCounts": {}
+            },
+            "score": {
+              "millisElapsed": {
+                "$numberDouble": "1e-5"
+              },
+              "invocationCounts": {}
+            }
+          }
+        },
+        "collectors": {
+          "allCollectorStats": {
+            "millisElapsed": {
+              "$numberDouble": "1e-5"
+            },
+            "invocationCounts": {}
+          },
+          "sort": {
+            "stats": {
+              "prunedResultIterator": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              },
+              "comparator": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              }
+            },
+            "fieldInfos": {
+              "foo": [
+                "date",
+                "token"
+              ]
+            }
+          }
+        },
+        "highlight": {
+          "resolvedHighlightPaths": [
+            "foo"
+          ],
+          "stats": {
+            "millisElapsed": {
+              "$numberDouble": "1e-5"
+            },
+            "invocationCounts": {}
+          },
+          "offsetSources" : {}
+        },
+        "resultMaterialization": {
+          "stats": {
+            "millisElapsed": {
+              "$numberDouble": "1e-5"
+            },
+            "invocationCounts": {}
+          }
+        },
+        "metadata": {
+          "mongotVersion": "testVersion",
+          "mongotHostName": "localhost",
+          "indexName": "default",
+          "cursorOptions": {
+            "docsRequested": 25,
+            "requiresSearchSequenceToken": false
+          },
+          "optimizationFlags": {
+            "omitSearchDocumentResults": true
+          },
+          "lucene": {
+            "totalSegments": 3,
+            "totalDocs": 5
+          }
+        },
+        "resourceUsage": {
+          "majorFaults": {
+            "$numberLong": "1"
+          },
+          "minorFaults": {
+            "$numberLong": "2"
+          },
+          "userTimeMs": {
+            "$numberLong": "3"
+          },
+          "systemTimeMs": {
+            "$numberLong": "4"
+          },
+          "maxReportingThreads": 1,
+          "numBatches": 1
+        }
+      }
+    },
+    {
+      "description": "multiple query infos",
+      "json": {
+        "query": [
+          {
+            "analyzer": "lucene.standard",
+            "type": "TermQuery",
+            "args": {
+              "value": "quie",
+              "path": "name"
+            },
+            "stats": {
+              "context": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              },
+              "match": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              },
+              "score": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              }
+            }
+          },
+          {
+            "analyzer": "lucene.standard",
+            "type": "TermQuery",
+            "args": {
+              "value": "bar",
+              "path": "foo"
+            },
+            "stats": {
+              "context": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              },
+              "match": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              },
+              "score": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              }
+            }
+          }
+        ]
+      },
+      "bson": {
+        "query": [
+          {
+            "analyzer": "lucene.standard",
+            "type": "TermQuery",
+            "args": {
+              "value": "quie",
+              "path": "name"
+            },
+            "stats": {
+              "context": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              },
+              "match": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              },
+              "score": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              }
+            }
+          },
+          {
+            "analyzer": "lucene.standard",
+            "type": "TermQuery",
+            "args": {
+              "value": "bar",
+              "path": "foo"
+            },
+            "stats": {
+              "context": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              },
+              "match": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              },
+              "score": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "with index partition does not serialize query and collect",
+      "json": {
+        "indexPartitionExplain": [
+          {
+            "query": {
+              "analyzer": "lucene.standard",
+              "type": "TermQuery",
+              "args": {
+                "value": "quie",
+                "path": "name"
+              },
+              "stats": {
+                "context": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                },
+                "match": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                },
+                "score": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                }
+              }
+            },
+            "collectors": {
+              "allCollectorStats": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              }
+            }
+          },
+          {
+            "query": {
+              "analyzer": "lucene.english",
+              "type": "TermQuery",
+              "args": {
+                "value": "bar",
+                "path": "foo"
+              },
+              "stats": {
+                "context": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                },
+                "match": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                },
+                "score": {
+                  "millisElapsed": 1e-5,
+                  "invocationCounts": {}
+                }
+              }
+            },
+            "collectors": {
+              "allCollectorStats": {
+                "millisElapsed": 1e-5,
+                "invocationCounts": {}
+              }
+            }
+          }
+        ],
+        "resourceUsage": {
+          "majorFaults": 1,
+          "minorFaults": 2,
+          "userTimeMs": 3,
+          "systemTimeMs": 4,
+          "maxReportingThreads": 1,
+          "numBatches": 1
+        }
+      },
+      "bson": {
+        "indexPartitionExplain": [
+          {
+            "query": {
+              "analyzer": "lucene.standard",
+              "type": "TermQuery",
+              "args": {
+                "value": "quie",
+                "path": "name"
+              },
+              "stats": {
+                "context": {
+                  "millisElapsed": {
+                    "$numberDouble": "1e-5"
+                  },
+                  "invocationCounts": {}
+                },
+                "match": {
+                  "millisElapsed": {
+                    "$numberDouble": "1e-5"
+                  },
+                  "invocationCounts": {}
+                },
+                "score": {
+                  "millisElapsed": {
+                    "$numberDouble": "1e-5"
+                  },
+                  "invocationCounts": {}
+                }
+              }
+            },
+            "collectors": {
+              "allCollectorStats": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              }
+            }
+          },
+          {
+            "query": {
+              "analyzer": "lucene.english",
+              "type": "TermQuery",
+              "args": {
+                "value": "bar",
+                "path": "foo"
+              },
+              "stats": {
+                "context": {
+                  "millisElapsed": {
+                    "$numberDouble": "1e-5"
+                  },
+                  "invocationCounts": {}
+                },
+                "match": {
+                  "millisElapsed": {
+                    "$numberDouble": "1e-5"
+                  },
+                  "invocationCounts": {}
+                },
+                "score": {
+                  "millisElapsed": {
+                    "$numberDouble": "1e-5"
+                  },
+                  "invocationCounts": {}
+                }
+              }
+            },
+            "collectors": {
+              "allCollectorStats": {
+                "millisElapsed": {
+                  "$numberDouble": "1e-5"
+                },
+                "invocationCounts": {}
+              }
+            }
+          }
+        ],
+        "resourceUsage": {
+          "majorFaults": {
+            "$numberLong": "1"
+          },
+          "minorFaults": {
+            "$numberLong": "2"
+          },
+          "userTimeMs": {
+            "$numberLong": "3"
+          },
+          "systemTimeMs": {
+            "$numberLong": "4"
+          },
+          "maxReportingThreads": 1,
+          "numBatches": 1
+        }
+      }
+    }
+  ]
+}

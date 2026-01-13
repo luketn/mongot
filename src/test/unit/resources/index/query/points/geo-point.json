@@ -1,0 +1,53 @@
+{
+  "valid": [
+    {
+      "description": "GeoJSON point value",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "description": "GeoJSON point with integral positions",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          10,
+          12
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "non-GeoJSON document",
+      "value": {
+        "foo": "bar"
+      }
+    },
+    {
+      "description": "GeoJSON point extra fields",
+      "value": {
+        "not": "good",
+        "type": "Point",
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "description": "GeoJSON point wrong type",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    }
+  ]
+}

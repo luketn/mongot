@@ -1,0 +1,34 @@
+{
+  "tests": [
+    {
+      "description": "simple",
+      "value": {
+        "dynamic": false,
+        "fields": {}
+      }
+    },
+    {
+      "description": "populated fields",
+      "value": {
+        "dynamic": false,
+        "fields": {
+          "a": {
+            "type": "string",
+            "indexOptions": "offsets",
+            "store": true,
+            "norms": "include"
+          },
+          "b": [
+            {
+              "type": "date"
+            },
+            {
+              "type": "geo",
+              "indexShapes": false
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "valid": [
+    {
+      "description": "empty",
+      "value": {
+      }
+    },
+    {
+      "description": "with normalizer",
+      "value": {
+        "normalizer": "none"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "unexpected option",
+      "value": {
+        "unexpected-option": "value"
+      }
+    },
+    {
+      "description": "invalid normalizer name",
+      "value": {
+        "normalizer": "foo"
+      }
+    }
+  ]
+}

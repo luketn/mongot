@@ -1,0 +1,93 @@
+{
+  "valid": [
+    {
+      "description": "true value",
+      "value": true
+    },
+    {
+      "description": "false value",
+      "value": false
+    },
+    {
+      "description": "string value",
+      "value": "Hello World!"
+    },
+    {
+      "description": "date value",
+      "value": {
+        "$date": "2020-04-03T13:13:13Z"
+      }
+    },
+    {
+      "description": "int32 value",
+      "value": {
+        "$numberInt": "13"
+      }
+    },
+    {
+      "description": "int64 value",
+      "value": {
+        "$numberLong": "13"
+      }
+    },
+    {
+      "description": "double value",
+      "value": 13.0
+    },
+    {
+      "description": "GeoJSON point value",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "description": "GeoJSON point with integral positions",
+      "value": {
+        "type": "Point",
+        "coordinates": [
+          10,
+          12
+        ]
+      }
+    },
+    {
+      "description": "UUID point value",
+      "value": {
+        "$uuid": "00000000-0000-0000-0000-000000000000"
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "non-GeoJSON document",
+      "value": {
+        "foo": "bar"
+      }
+    },
+    {
+      "description": "GeoJSON point extra fields",
+      "value": {
+        "not": "good",
+        "type": "Point",
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    },
+    {
+      "description": "GeoJSON point wrong type",
+      "value": {
+        "type": "LineString",
+        "coordinates": [
+          10.0,
+          12.0
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,260 @@
+{
+  "valid": [
+    {
+      "description": "path shorthand",
+      "value": {
+        "path": "popularity"
+      }
+    },
+    {
+      "description": "path as object no undefined",
+      "value": {
+        "path": {
+          "value": "popularity"
+        }
+      }
+    },
+    {
+      "description": "path with undefined",
+      "value": {
+        "path": {
+          "value": "popularity",
+          "undefined": 3.5
+        }
+      }
+    },
+    {
+      "description": "negative constant expression",
+      "value": {
+        "constant": -7857.43
+      }
+    },
+    {
+      "description": "positive constant expression",
+      "value": {
+        "constant": 2389.473
+      }
+    },
+    {
+      "description": "score expression",
+      "value": {
+        "score": "relevance"
+      }
+    },
+    {
+      "description": "log of path with undefined",
+      "value": {
+        "log": {
+          "path": {
+            "value": "popularity",
+            "undefined": 532.31
+          }
+        }
+      }
+    },
+    {
+      "description": "log1p of log of path",
+      "value": {
+        "log1p": {
+          "log": {
+            "path": {
+              "value": "popularity",
+              "undefined": 532.31
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "add constant, score, and path",
+      "value": {
+        "add": [
+          {
+            "constant": 349587.43
+          },
+          {
+            "score": "relevance"
+          },
+          {
+            "path": {
+              "value": "nominations",
+              "undefined": 23
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "multiply constant, score, and path",
+      "value": {
+        "multiply": [
+          {
+            "constant": 349587.43
+          },
+          {
+            "score": "relevance"
+          },
+          {
+            "path": {
+              "value": "nominations",
+              "undefined": 23
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "gaussian decay expression",
+      "value": {
+        "gauss": {
+          "path": {
+            "value": "rating",
+            "undefined": 0.0
+          },
+          "origin": 100.0,
+          "scale": 5.0,
+          "offset": 0.0,
+          "decay": 0.5
+        }
+      }
+    },
+    {
+      "description": "all expressions with nesting",
+      "value": {
+        "add": [
+          {
+            "multiply": [
+              {
+                "constant": 349587.43
+              },
+              {
+                "score": "relevance"
+              }
+            ]
+          },
+          {
+            "log": {
+              "add": [
+                {
+                  "path": {
+                    "value": "nominations",
+                    "undefined": 23
+                  }
+                },
+                {
+                  "log1p": {
+                    "path": "rating"
+                  }
+                },
+                {
+                  "constant": -439.8
+                },
+                {
+                  "gauss": {
+                    "path": {
+                      "value": "rating",
+                      "undefined": 0.0
+                    },
+                    "origin": 100.0,
+                    "scale": 5.0,
+                    "offset": 0.0,
+                    "decay": 0.5
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "description": "no value",
+      "value": {}
+    },
+    {
+      "description": "integer-typed path",
+      "value": {
+        "path": 1
+      }
+    },
+    {
+      "description": "path only undefined specified",
+      "value": {
+        "path": {
+          "undefined": 2.3
+        }
+      }
+    },
+    {
+      "description": "string-typed constant",
+      "value": {
+        "constant": "4738.34"
+      }
+    },
+    {
+      "description": "invalid score type",
+      "value": {
+        "score": "regular"
+      }
+    },
+    {
+      "description": "integer-typed log",
+      "value": {
+        "log": 1383
+      }
+    },
+    {
+      "description": "integer-typed log1p",
+      "value": {
+        "log1p": 320948
+      }
+    },
+    {
+      "description": "only one arg for add",
+      "value": {
+        "add": [
+          {
+            "path": {
+              "value": "rating",
+              "undefined": 6043.28
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "only one arg for multiply",
+      "value": {
+        "multiply": [
+          {
+            "path": {
+              "value": "rating",
+              "undefined": 6043.28
+            }
+          }
+        ]
+      }
+    },
+    {
+      "description": "missing args for gaussian",
+      "value": {
+        "gauss": {
+          "path": {
+            "value": "rating",
+            "undefined": 6043.28
+          }
+        }
+      }
+    },
+    {
+      "description": "NaN value",
+      "value": {
+        "value": {
+          "$numberDouble": "NaN"
+        }
+      }
+    }
+  ]
+}
