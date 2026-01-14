@@ -19,11 +19,11 @@ Welcome to MongoDB Search!
 
 ## Learn MongoDB
 
-- Getting
-  Started - https://www.mongodb.com/docs/atlas/atlas-search/tutorial/?deployment-type=self
+- Getting Started - https://www.mongodb.com/docs/atlas/atlas-search/tutorial/?deployment-type=self
 - Documentation - https://docs.mongodb.com/manual/
 - Developer Center - https://www.mongodb.com/developer/
 - MongoDB University - https://learn.mongodb.com
+- Building - [docs/building.md](docs/building.md)
 
 ## Forums
 
