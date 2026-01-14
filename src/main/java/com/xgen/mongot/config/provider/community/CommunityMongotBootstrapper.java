@@ -583,7 +583,8 @@ public class CommunityMongotBootstrapper {
                         serviceConfig.embeddingConfig.getChangeStreamParams(),
                         serviceConfig.embeddingConfig.getTenantCredentials(),
                         serviceConfig.embeddingConfig.isDedicatedCluster,
-                        Optional.of(endpoint))))
+                        Optional.of(endpoint)),
+                    serviceConfig.compatibleModels))
         .toList();
   }
 

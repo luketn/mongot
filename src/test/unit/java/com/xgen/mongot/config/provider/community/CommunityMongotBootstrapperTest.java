@@ -170,6 +170,10 @@ public class CommunityMongotBootstrapperTest {
     // Verify the expected models are present (they may have been registered by other tests too)
     Set<String> supportedModels = EmbeddingModelCatalog.getAllSupportedModels();
     assertFalse("Model catalog should contain at least 1 model", supportedModels.isEmpty());
+    Set<String> queryCompatibleModels = EmbeddingModelCatalog.getAllowedQueryModels();
+    assertFalse(
+        "Query compatible models should contain at least 1 after endpoint overrides",
+        queryCompatibleModels.isEmpty());
 
     // Verify that the endpoint override was applied to the expected models
     for (String modelName : supportedModels) {

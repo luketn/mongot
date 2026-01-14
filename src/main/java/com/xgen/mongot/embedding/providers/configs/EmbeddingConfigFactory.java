@@ -27,6 +27,7 @@ public class EmbeddingConfigFactory {
         EmbeddingProvider.valueOf(parser.getField(Fields.EMBEDDING_PROVIDER).unwrap());
     String model = parser.getField(Fields.MODEL_NAME).unwrap().toLowerCase();
     EmbeddingServiceConfig.EmbeddingConfig config = parser.getField(Fields.CONFIG).unwrap();
+    // TODO(CLOUDP-373068): Parse compatibility params from ConfCall.
     return new EmbeddingServiceConfig(provider, model, config);
   }
 
