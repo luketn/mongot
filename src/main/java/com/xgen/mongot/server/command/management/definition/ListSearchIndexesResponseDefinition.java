@@ -45,7 +45,6 @@ public record ListSearchIndexesResponseDefinition(int ok, Cursor cursor)
     // A cursor ID of 0 is hardcoded because this response explicitly does not implement cursors.
     // An IndexInformationTooLarge error will be returned if the response is larger than a single
     // batch.
-    // https://docs.google.com/document/d/1rCU7vLmMEn-87SuSZ3xnnSpnkwoWpekyOl15NPIqTJk/edit#bookmark=id.ael4x7xdunku
     private static final int ID = EXHAUSTED_CURSOR_ID;
 
     public static class Fields {
