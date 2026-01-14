@@ -104,6 +104,8 @@ public class AllPresentIndexesTest {
     IndexGeneration secondIndexGeneration =
         this.mocks.addIndex(secondIndexId, ConfigStateMocks.State.LIVE);
 
+    this.mocks.waitAndGetInitializedIndex(phasedOutIndexGeneration.getGenerationId());
+
     var indexGenerationsGrouped =
         AllPresentIndexes.allIndexInfos(this.mocks.configState).allIndexGenerationsGrouped();
 
