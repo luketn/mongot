@@ -132,12 +132,6 @@ This will:
 make test.unit
 ```
 
-### End-to-End Tests (Community)
-
-```bash
-make test.e2e.community
-```
-
 ## Common Build Issues
 
 ### Issue: "pre-commit not installed" warning
