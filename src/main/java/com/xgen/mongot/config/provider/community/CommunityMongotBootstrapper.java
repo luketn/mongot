@@ -117,6 +117,7 @@ public class CommunityMongotBootstrapper {
    * <p>This method does not return until all mongot subsystems have been configured and started.
    */
   public static void bootstrap(Path configPath, boolean internalListAllIndexesForTesting) {
+
     CommunityConfig config =
         Crash.because("failed to parse config file")
             .ifThrows(() -> CommunityConfig.readFromFile(configPath));
@@ -136,6 +137,14 @@ public class CommunityMongotBootstrapper {
                         Logging.enableFileAppender(logPath);
                       });
             });
+
+    // Unlike production mode, we expect that the path to the data dir may not exist yet
+    Crash.because("failed to create data directory")
+        .ifThrows(() -> Files.createDirectories(config.storageConfig().dataPath()));
+
+    // The server-id is stored to disk so we need the datapath to exist before fetching it.
+    var serverInfo = new CommunityServerInfo(config);
+    LOG.atInfo().addKeyValue("serverInfo", serverInfo).log("Starting server with server info");
 
     var syncSourceConfig = syncSourceConfig(config.syncSourceConfig());
     var indexCatalog = new DefaultIndexCatalog();
@@ -170,10 +179,6 @@ public class CommunityMongotBootstrapper {
     var cursorManager =
         MongotCursorManagerImpl.fromConfig(
             CursorConfig.getDefault(), meterRegistry, indexCatalog, initializedIndexCatalog);
-
-    // Unlike production mode, we expect that the path to the data dir may not exist yet
-    Crash.because("failed to create data directory")
-        .ifThrows(() -> Files.createDirectories(config.storageConfig().dataPath()));
 
     var diskMonitor =
         PeriodicDiskMonitor.createAndStart(

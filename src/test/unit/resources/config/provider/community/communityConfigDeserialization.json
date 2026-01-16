@@ -76,7 +76,8 @@
               "certificateKeyFile": "/etc/ssl/common-cert.pem",
               "caFile": "/etc/mongot-tls/ca.pem"
             }
-          }
+          },
+          "name": "server-name"
         },
         "metrics": {
           "enabled": true,

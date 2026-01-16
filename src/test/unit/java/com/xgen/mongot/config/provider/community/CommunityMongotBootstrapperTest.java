@@ -312,6 +312,7 @@ public class CommunityMongotBootstrapperTest {
   }
 
   private ServerConfig createMinimalServerConfig() {
-    return new ServerConfig(new ServerConfig.GrpcServerConfig("127.0.0.1:27028", Optional.empty()));
+    return new ServerConfig(
+        new ServerConfig.GrpcServerConfig("127.0.0.1:27028", Optional.empty()), Optional.empty());
   }
 }

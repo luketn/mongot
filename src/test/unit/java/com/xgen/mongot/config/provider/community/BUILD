@@ -6,6 +6,8 @@ java_test_suite(
         "CommunityConfigTest.java",
         "CommunityConfigUpdaterTest.java",
         "CommunityMongotBootstrapperTest.java",
+        "CommunityServerIdProviderTest.java",
+        "ServerConfigTest.java",
     ],
     data = [
         "//src/main/resources/config/community:embedding-service-configs",
@@ -35,6 +37,7 @@ java_test_suite(
         "@maven//:com_google_guava_guava",
         "@maven//:io_micrometer_micrometer_core",
         "@maven//:junit_junit",
+        "@maven//:org_apache_commons_commons_lang3",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_mongodb_bson",
         "@maven//:org_mongodb_mongodb_driver_core",

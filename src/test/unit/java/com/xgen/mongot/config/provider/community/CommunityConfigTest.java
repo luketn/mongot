@@ -82,7 +82,8 @@ public class CommunityConfigTest {
                   Optional.empty(),
                   Optional.empty()),
               new StorageConfig(Path.of("data/mongot")),
-              new ServerConfig(new GrpcServerConfig("localhost:27028", Optional.empty())),
+              new ServerConfig(
+                  new GrpcServerConfig("localhost:27028", Optional.empty()), Optional.empty()),
               FtdcCommunityConfig.getDefault(),
               Optional.of(new MetricsConfig(true, "localhost:9946")),
               Optional.of(new HealthCheckConfig("localhost:8080")),
@@ -123,7 +124,8 @@ public class CommunityConfigTest {
                           new GrpcTls(
                               TlsMode.MTLS,
                               Optional.of(Path.of("/etc/ssl/common-cert.pem")),
-                              Optional.of(Path.of("/etc/mongot-tls/ca.pem")))))),
+                              Optional.of(Path.of("/etc/mongot-tls/ca.pem"))))),
+                  Optional.of("server-name")),
               new FtdcCommunityConfig(false, 200, 20, 3000),
               Optional.of(new MetricsConfig(true, "localhost:9946")),
               Optional.of(new HealthCheckConfig("localhost:8080")),
@@ -147,7 +149,8 @@ public class CommunityConfigTest {
                   Optional.empty(),
                   Optional.empty()),
               new StorageConfig(Path.of("data/mongot")),
-              new ServerConfig(new GrpcServerConfig("localhost:27028", Optional.empty())),
+              new ServerConfig(
+                  new GrpcServerConfig("localhost:27028", Optional.empty()), Optional.empty()),
               FtdcCommunityConfig.getDefault(),
               Optional.of(new MetricsConfig(true, "localhost:9946")),
               Optional.of(new HealthCheckConfig("localhost:8080")),
@@ -174,7 +177,8 @@ public class CommunityConfigTest {
                   new GrpcServerConfig(
                       "localhost:27028",
                       Optional.of(
-                          new GrpcTls(TlsMode.DISABLED, Optional.empty(), Optional.empty())))),
+                          new GrpcTls(TlsMode.DISABLED, Optional.empty(), Optional.empty()))),
+                  Optional.empty()),
               FtdcCommunityConfig.getDefault(),
               Optional.of(new MetricsConfig(true, "localhost:9946")),
               Optional.of(new HealthCheckConfig("localhost:8080")),
@@ -204,7 +208,8 @@ public class CommunityConfigTest {
                           new GrpcTls(
                               TlsMode.TLS,
                               Optional.of(Path.of("/etc/ssl/common-cert.pem")),
-                              Optional.empty())))),
+                              Optional.empty()))),
+                  Optional.empty()),
               FtdcCommunityConfig.getDefault(),
               Optional.of(new MetricsConfig(true, "localhost:9946")),
               Optional.of(new HealthCheckConfig("localhost:8080")),
@@ -234,7 +239,8 @@ public class CommunityConfigTest {
                           new GrpcTls(
                               TlsMode.MTLS,
                               Optional.of(Path.of("/etc/ssl/common-cert.pem")),
-                              Optional.of(Path.of("/etc/mongot-tls/ca.pem")))))),
+                              Optional.of(Path.of("/etc/mongot-tls/ca.pem"))))),
+                  Optional.empty()),
               FtdcCommunityConfig.getDefault(),
               Optional.of(new MetricsConfig(true, "localhost:9946")),
               Optional.of(new HealthCheckConfig("localhost:8080")),
@@ -258,7 +264,8 @@ public class CommunityConfigTest {
                   Optional.empty(),
                   Optional.empty()),
               new StorageConfig(Path.of("data/mongot")),
-              new ServerConfig(new GrpcServerConfig("localhost:27028", Optional.empty())),
+              new ServerConfig(
+                  new GrpcServerConfig("localhost:27028", Optional.empty()), Optional.empty()),
               FtdcCommunityConfig.getDefault(),
               Optional.of(new MetricsConfig(true, "localhost:9946")),
               Optional.of(new HealthCheckConfig("localhost:8080")),
@@ -286,7 +293,8 @@ public class CommunityConfigTest {
                   Optional.empty(),
                   Optional.empty()),
               new StorageConfig(Path.of("data/mongot")),
-              new ServerConfig(new GrpcServerConfig("localhost:27028", Optional.empty())),
+              new ServerConfig(
+                  new GrpcServerConfig("localhost:27028", Optional.empty()), Optional.empty()),
               new FtdcCommunityConfig(false, 200, 20, 3000),
               Optional.of(new MetricsConfig(true, "localhost:9946")),
               Optional.of(new HealthCheckConfig("localhost:8080")),
@@ -340,7 +348,8 @@ public class CommunityConfigTest {
                           new GrpcTls(
                               TlsMode.MTLS,
                               Optional.of(Path.of("/etc/ssl/common-cert.pem")),
-                              Optional.of(Path.of("/etc/mongot-tls/ca.pem")))))),
+                              Optional.of(Path.of("/etc/mongot-tls/ca.pem"))))),
+                  Optional.of("server-name")),
               FtdcCommunityConfig.getDefault(),
               Optional.of(new MetricsConfig(true, "localhost:9946")),
               Optional.of(new HealthCheckConfig("localhost:8080")),
@@ -386,7 +395,8 @@ public class CommunityConfigTest {
                           new GrpcTls(
                               TlsMode.MTLS,
                               Optional.of(Path.of("/etc/ssl/common-cert.pem")),
-                              Optional.of(Path.of("/etc/mongot-tls/ca.pem")))))),
+                              Optional.of(Path.of("/etc/mongot-tls/ca.pem"))))),
+                  Optional.empty()),
               new FtdcCommunityConfig(false, 200, 20, 3000),
               Optional.of(new MetricsConfig(true, "localhost:9946")),
               Optional.of(new HealthCheckConfig("localhost:8080")),

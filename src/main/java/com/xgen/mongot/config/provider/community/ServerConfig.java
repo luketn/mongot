@@ -1,36 +1,76 @@
 package com.xgen.mongot.config.provider.community;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.xgen.mongot.config.provider.community.parser.PathField;
 import com.xgen.mongot.config.util.TlsMode;
 import com.xgen.mongot.util.bson.parser.BsonDocumentBuilder;
+import com.xgen.mongot.util.bson.parser.BsonParseContext;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
 import com.xgen.mongot.util.bson.parser.DocumentEncodable;
 import com.xgen.mongot.util.bson.parser.DocumentParser;
 import com.xgen.mongot.util.bson.parser.Field;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.regex.Pattern;
+import org.apache.commons.lang3.StringUtils;
 import org.bson.BsonDocument;
 
-public record ServerConfig(GrpcServerConfig grpc) implements DocumentEncodable {
+public record ServerConfig(GrpcServerConfig grpc, Optional<String> name)
+    implements DocumentEncodable {
+
+  private static final Pattern SERVER_NAME_VALID_REGEX = Pattern.compile("^[a-zA-Z0-9._-]*$");
+
   private static class Fields {
     public static final Field.Required<GrpcServerConfig> GRPC =
         Field.builder("grpc")
             .classField(GrpcServerConfig::fromBson)
             .disallowUnknownFields()
             .required();
+
+    public static final Field.Optional<String> NAME =
+        Field.builder("name").stringField().optional().noDefault();
   }
 
   public static ServerConfig fromBson(DocumentParser parser) throws BsonParseException {
-    return new ServerConfig(parser.getField(Fields.GRPC).unwrap());
+    ServerConfig config =
+        new ServerConfig(
+            parser.getField(Fields.GRPC).unwrap(), parser.getField(Fields.NAME).unwrap());
+
+    if (config.name().isPresent()) {
+      validateServerName(parser.getContext(), config.name().get());
+    }
+
+    return config;
   }
 
   @Override
   public BsonDocument toBson() {
-    return BsonDocumentBuilder.builder().field(Fields.GRPC, this.grpc).build();
+    return BsonDocumentBuilder.builder()
+        .field(Fields.GRPC, this.grpc)
+        .field(Fields.NAME, this.name)
+        .build();
   }
 
   public TlsMode getGrpcTlsMode() {
     return this.grpc.tls().map(GrpcServerConfig.GrpcTls::mode).orElse(TlsMode.DISABLED);
+  }
+
+  @VisibleForTesting
+  protected static void validateServerName(BsonParseContext context, String serverName)
+      throws BsonParseException {
+    if (StringUtils.isBlank(serverName)) {
+      context.handleSemanticError("server name must not be blank");
+    }
+
+    if (serverName.length() > 253) {
+      context.handleSemanticError("server name must be less than 253 characters");
+    }
+
+    if (!SERVER_NAME_VALID_REGEX.matcher(serverName).matches()) {
+      context.handleSemanticError(
+          "server name must only contain alphanumeric characters, periods, hyphens"
+              + " and underscores");
+    }
   }
 
   public record GrpcServerConfig(String address, Optional<GrpcServerConfig.GrpcTls> tls)
