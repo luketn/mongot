@@ -246,7 +246,8 @@ public class TestLuceneIndexingFailures {
   }
 
   @Test
-  public void logIndexingFailureWithRateLimited_bsonObjectId_logsHexString() throws Exception {
+  public void logIndexingFailureWithRateLimited_bsonObjectId_logsUnloggable() throws Exception {
+    // TODO(CLOUDP-373690): Add back the right legacy and standard UUID handling
     var indexingMetricsUpdater =
         SearchIndex.mockIndexingMetricsUpdater(MOCK_INDEX_DEFINITION.getType());
 
@@ -304,17 +305,11 @@ public class TestLuceneIndexingFailures {
               rawDoc2));
     });
 
-    // Verify that doLogIndexingFailure was called with the correct ObjectId hex string
-    ArgumentCaptor<String> documentIdCaptor = ArgumentCaptor.forClass(String.class);
+    // Verify that doLogIndexingFailure was called with "unloggable" due to temporary hotfix
     verify(spyWriter).doLogIndexingFailure(
         any(TestException.class),
         eq("INSERT"),
-        documentIdCaptor.capture());
-    // Verify the documentIdString is the ObjectId hex string (LoggableIdUtils returns hex for
-    // ObjectId)
-    var capturedDocumentId = documentIdCaptor.getValue();
-    var objectIdHexString = objectId.getValue().toHexString();
-    assertThat(capturedDocumentId).isEqualTo(objectIdHexString);
+        eq(LoggableIdUtils.UNLOGGABLE_ID_TYPE));
   }
 
   @Test

@@ -33,6 +33,8 @@ import org.apache.lucene.analysis.core.KeywordAnalyzer;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.IndexableField;
+import org.bson.BsonBinary;
+import org.bson.BsonBinarySubType;
 import org.bson.BsonInt32;
 import org.bson.BsonObjectId;
 import org.bson.BsonString;
@@ -945,8 +947,9 @@ public class IndexableFieldFactoryTest {
   }
 
   @Test
-  public void getLoggingId_withObjectId_returnsIdString() {
+  public void getLoggingId_withObjectId_returnsUnloggable() {
     // Test with ObjectId
+    // TODO(CLOUDP-373690): Update this test when proper UUID handling is restored
     org.bson.types.ObjectId objectIdValue = new org.bson.types.ObjectId();
     BsonObjectId objectId = new BsonObjectId(objectIdValue);
     byte[] encodedId = LuceneDocumentIdEncoder.encodeDocumentId(objectId);
@@ -958,10 +961,10 @@ public class IndexableFieldFactoryTest {
                 SearchIndex.mockMetricsFactory(), IndexDefinition.Type.SEARCH));
 
     String loggingId = IndexableFieldFactory.getLoggingId(wrapper);
-    // ObjectId is returned as-is without hashing
+    // ObjectId currently returns unloggable due to temporary hotfix
     assertThat(loggingId).isNotNull();
     assertThat(loggingId).isNotEmpty();
-    assertThat(loggingId).isEqualTo(objectIdValue.toHexString());
+    assertThat(loggingId).isEqualTo(LoggableIdUtils.UNLOGGABLE_ID_TYPE);
   }
 
   @Test
@@ -980,6 +983,36 @@ public class IndexableFieldFactoryTest {
 
     String loggingId = IndexableFieldFactory.getLoggingId(wrapper);
     // Non-UUID/ObjectId string IDs return "unloggable"
+    assertThat(loggingId).isNotNull();
+    assertThat(loggingId).isNotEmpty();
+    assertThat(loggingId).isEqualTo(LoggableIdUtils.UNLOGGABLE_ID_TYPE);
+  }
+
+  @Test
+  public void getLoggingId_withLegacyUuid_returnsUnloggable() {
+    // TODO(CLOUDP-373690): Add back the right legacy and standard UUID handling
+    // Test with legacy UUID (subtype 3) - this previously threw a runtime exception
+    // because asUuid() doesn't know the byte order for legacy UUIDs without explicit
+    // UuidRepresentation
+    byte[] uuidBytes = new byte[] {
+        (byte) 0xeb, (byte) 0x6c, (byte) 0x40, (byte) 0xca,
+        (byte) 0xf2, (byte) 0x5e, (byte) 0x47, (byte) 0xe8,
+        (byte) 0xb4, (byte) 0x8c, (byte) 0x02, (byte) 0xa0,
+        (byte) 0x5b, (byte) 0x64, (byte) 0xa5, (byte) 0xaa
+    };
+    BsonBinary legacyUuid = new BsonBinary(BsonBinarySubType.UUID_LEGACY, uuidBytes);
+    byte[] encodedId = LuceneDocumentIdEncoder.encodeDocumentId(legacyUuid);
+    DocumentWrapper wrapper =
+        DocumentWrapper.createRootStandalone(
+            encodedId,
+            new KeywordAnalyzer(),
+            SearchIndex.MOCK_INDEX_DEFINITION.createFieldDefinitionResolver(
+                IndexFormatVersion.CURRENT),
+            new IndexingMetricsUpdater(
+                SearchIndex.mockMetricsFactory(), IndexDefinition.Type.SEARCH));
+
+    // This should NOT throw an exception anymore - instead returns "unloggable"
+    String loggingId = IndexableFieldFactory.getLoggingId(wrapper);
     assertThat(loggingId).isNotNull();
     assertThat(loggingId).isNotEmpty();
     assertThat(loggingId).isEqualTo(LoggableIdUtils.UNLOGGABLE_ID_TYPE);

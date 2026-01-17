@@ -2,8 +2,6 @@ package com.xgen.mongot.util;
 
 import java.util.Optional;
 import java.util.regex.Pattern;
-import org.bson.BsonBinarySubType;
-import org.bson.BsonType;
 import org.bson.BsonValue;
 import org.bson.types.ObjectId;
 
@@ -77,23 +75,7 @@ public final class LoggableIdUtils {
    *     "unloggable"
    */
   public static String getLoggableId(BsonValue id) {
-    if (id == null) {
-      return UNKNOWN_LOGGABLE_ID;
-    }
-
-    BsonType bsonType = id.getBsonType();
-
-    // Return ObjectId as-is
-    if (bsonType == BsonType.OBJECT_ID) {
-      return id.asObjectId().getValue().toHexString();
-    }
-
-    // Return UUID as-is
-    if (bsonType == BsonType.BINARY && BsonBinarySubType.isUuid(id.asBinary().getType())) {
-      return id.asBinary().asUuid().toString();
-    }
-
-    // Other types cannot be logged
+    // TODO(CLOUDP-373690): Add back the right legacy and standard UUID handling
     return UNLOGGABLE_ID_TYPE;
   }
 }
