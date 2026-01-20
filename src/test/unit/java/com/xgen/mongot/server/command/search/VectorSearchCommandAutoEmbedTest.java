@@ -205,7 +205,7 @@ public class VectorSearchCommandAutoEmbedTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
     Assert.assertEquals(
@@ -658,7 +658,7 @@ public class VectorSearchCommandAutoEmbedTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
     Assert.assertEquals(
@@ -697,7 +697,7 @@ public class VectorSearchCommandAutoEmbedTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
     Assert.assertEquals(
@@ -736,7 +736,7 @@ public class VectorSearchCommandAutoEmbedTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
     Assert.assertEquals(
@@ -775,7 +775,7 @@ public class VectorSearchCommandAutoEmbedTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
     Assert.assertEquals(
@@ -837,7 +837,7 @@ public class VectorSearchCommandAutoEmbedTest {
         mocks.initializedIndexCatalog,
         BOOTSTRAPPER_METADATA,
         embeddingServiceManagerSupplier,
-        mockMetricsFactory());
+        new VectorSearchCommand.Metrics(mockMetricsFactory()));
   }
 
   private static VectorSearchCommand
@@ -865,7 +865,7 @@ public class VectorSearchCommandAutoEmbedTest {
         mocks.initializedIndexCatalog,
         BOOTSTRAPPER_METADATA,
         MOCK_EMBEDDING_SERVICE,
-        mockMetricsFactory());
+        new VectorSearchCommand.Metrics(mockMetricsFactory()));
   }
 
   private static Supplier<EmbeddingServiceManager> mockEmbeddingServiceManager(
@@ -1046,7 +1046,7 @@ public class VectorSearchCommandAutoEmbedTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory);
+            new VectorSearchCommand.Metrics(mockMetricsFactory));
 
     var result =
         CompletableFuture.supplyAsync(() -> command.run(), Executors.newSingleThreadExecutor());
@@ -1108,7 +1108,7 @@ public class VectorSearchCommandAutoEmbedTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory);
+            new VectorSearchCommand.Metrics(mockMetricsFactory));
 
     var result =
         CompletableFuture.supplyAsync(() -> command.run(), Executors.newSingleThreadExecutor());

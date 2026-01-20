@@ -77,32 +77,11 @@ public class VectorSearchCommand implements Command {
   private static final FluentLogger FLOGGER = FluentLogger.forEnclosingClass();
 
   private final MetricsFactory metricsFactory;
-  // Counter for total search commands received.
-  private final Counter totalCount;
-  // Either the query has BSON parsing error, or doesn't conform to the query syntax (e.g. missing a
-  // required field, or having an unrecognized field).
-  private final Counter invalidQueries;
-  // Tracks instances where a RuntimeException wrapping an InvalidQueryException was caught and
-  // unwrapped.
-  private final Counter wrappedInvalidQueryExceptions;
-  private final Counter queriesAgainstView;
-  private final Counter queriesAgainstViewSourceCollection;
-  private final Counter exactVectorSearchQueries;
-  private final Counter approximateVectorSearchQueries;
-  private final Counter autoEmbeddingVectorSearchQueries;
-  private final Counter autoEmbeddingTextQueries;
-  private final Counter autoEmbeddingMultiModalQueries;
-  private final Counter bsonFloatVectorQueries;
-  private final Counter bsonByteVectorQueries;
-  private final Counter bsonBitVectorQueries;
-  private final Counter vectorStoredSourceQueries;
-  private final AtomicLong concurrentExactQueries;
-  private final AtomicLong concurrentApproximateQueries;
-  private final AtomicLong concurrentAutoEmbeddingQueries;
   private final VectorSearchCommandDefinition definition;
   private final IndexCatalog indexCatalog;
   private final InitializedIndexCatalog initializedIndexCatalog;
   private final SearchCommandsRegister.BootstrapperMetadata metadata;
+  private final Metrics metrics;
 
   private @Var Optional<SearchEnvoyMetadata> searchEnvoyMetadata;
   private final Supplier<EmbeddingServiceManager> embeddingServiceManagerSupplier;
@@ -113,36 +92,13 @@ public class VectorSearchCommand implements Command {
       InitializedIndexCatalog initializedIndexCatalog,
       SearchCommandsRegister.BootstrapperMetadata metadata,
       Supplier<EmbeddingServiceManager> embeddingServiceManagerSupplier,
-      MetricsFactory metricsFactory) {
-    this.metricsFactory = metricsFactory;
-    // The counter for $vectorSearch queries over vector indexes.
-    this.totalCount = metricsFactory.counter("vectorSearchCommandTotalCount");
-    this.invalidQueries = metricsFactory.counter("vectorSearchCommandInvalidQueries");
-    this.wrappedInvalidQueryExceptions =
-        metricsFactory.counter("vectorSearchCommandWrappedInvalidQueryException");
-    this.queriesAgainstView = metricsFactory.counter("queriesAgainstView");
-    this.queriesAgainstViewSourceCollection =
-        metricsFactory.counter("queriesAgainstViewSourceCollection");
-    this.exactVectorSearchQueries = metricsFactory.counter("exactVectorSearchQueries");
-    this.approximateVectorSearchQueries = metricsFactory.counter("approximateVectorSearchQueries");
-    this.autoEmbeddingVectorSearchQueries =
-        metricsFactory.counter("autoEmbeddingVectorSearchQueries");
-    // TODO(CLOUDP-371805): remove autoEmbeddingTextQueries and autoEmbeddingMultiModalQueries after
-    // deprecating TEXT-typed queries
-    this.autoEmbeddingTextQueries = metricsFactory.counter("autoEmbeddingTextVectorSearchQueries");
-    this.autoEmbeddingMultiModalQueries =
-        metricsFactory.counter("autoEmbeddingMultiModalVectorSearchQueries");
-    this.bsonFloatVectorQueries = metricsFactory.counter("bsonFloatVectorQueries");
-    this.bsonByteVectorQueries = metricsFactory.counter("bsonByteVectorQueries");
-    this.bsonBitVectorQueries = metricsFactory.counter("bsonBitVectorQueries");
-    this.vectorStoredSourceQueries = metricsFactory.counter("vectorStoredSourceQueries");
-    this.concurrentExactQueries = metricsFactory.numGauge("concurrentExactQueries");
-    this.concurrentApproximateQueries = metricsFactory.numGauge("concurrentApproximateQueries");
-    this.concurrentAutoEmbeddingQueries = metricsFactory.numGauge("concurrentAutoEmbeddingQueries");
+      Metrics metrics) {
+    this.metricsFactory = metrics.metricsFactory;
     this.definition = definition;
     this.indexCatalog = indexCatalog;
     this.initializedIndexCatalog = initializedIndexCatalog;
     this.metadata = metadata;
+    this.metrics = metrics;
     this.searchEnvoyMetadata = Optional.empty();
     this.embeddingServiceManagerSupplier = embeddingServiceManagerSupplier;
   }
@@ -225,10 +181,10 @@ public class VectorSearchCommand implements Command {
 
     @Var Optional<VectorSearchCriteria.Type> queryTypeOptional = Optional.empty();
     try {
-      this.totalCount.increment();
+      this.metrics.totalCount.increment();
       var query = this.definition.getQuery();
       if (query.userReturnStoredSource()) {
-        this.vectorStoredSourceQueries.increment();
+        this.metrics.vectorStoredSourceQueries.increment();
       }
 
       VectorSearchCriteria criteria = query.criteria();
@@ -268,7 +224,7 @@ public class VectorSearchCommand implements Command {
     } catch (Exception e) {
       // Unwrap RuntimeExceptions to check if they mask a user-facing InvalidQueryException.
       if (e instanceof RuntimeException && e.getCause() instanceof InvalidQueryException) {
-        this.wrappedInvalidQueryExceptions.increment();
+        this.metrics.wrappedInvalidQueryExceptions.increment();
         FLOGGER.atWarning().atMostEvery(1, TimeUnit.HOURS).withCause(e).log(
             "InvalidQueryException wrapped in RuntimeException"
                 + " throw InvalidQueryException directly");
@@ -309,7 +265,7 @@ public class VectorSearchCommand implements Command {
 
   // Utility method to handle invalid query exceptions that are caught explicitly or wrapped.
   private BsonDocument handleInvalidQueryException(Exception e) {
-    this.invalidQueries.increment();
+    this.metrics.invalidQueries.increment();
     FLOGGER.atWarning().atMostEvery(1, TimeUnit.HOURS).withCause(e).log(
         "vectorSearchCommand query is invalid");
     return MessageUtils.createErrorBody(e);
@@ -322,47 +278,47 @@ public class VectorSearchCommand implements Command {
 
   @VisibleForTesting
   public Counter getBsonFloatVectorQueries() {
-    return this.bsonFloatVectorQueries;
+    return this.metrics.bsonFloatVectorQueries;
   }
 
   @VisibleForTesting
   public Counter getBsonByteVectorQueries() {
-    return this.bsonByteVectorQueries;
+    return this.metrics.bsonByteVectorQueries;
   }
 
   @VisibleForTesting
   public Counter getBsonBitVectorQueries() {
-    return this.bsonBitVectorQueries;
+    return this.metrics.bsonBitVectorQueries;
   }
 
   @VisibleForTesting
   public Counter getVectorStoredSourceQueries() {
-    return this.vectorStoredSourceQueries;
+    return this.metrics.vectorStoredSourceQueries;
   }
 
   @VisibleForTesting
   public Counter getExactVectorSearchQueries() {
-    return this.exactVectorSearchQueries;
+    return this.metrics.exactVectorSearchQueries;
   }
 
   @VisibleForTesting
   public Counter getApproximateVectorSearchQueries() {
-    return this.approximateVectorSearchQueries;
+    return this.metrics.approximateVectorSearchQueries;
   }
 
   @VisibleForTesting
   public Counter getAutoEmbeddingVectorSearchQueries() {
-    return this.autoEmbeddingVectorSearchQueries;
+    return this.metrics.autoEmbeddingVectorSearchQueries;
   }
 
   @VisibleForTesting
   public Counter getAutoEmbeddingTextQueries() {
-    return this.autoEmbeddingTextQueries;
+    return this.metrics.autoEmbeddingTextQueries;
   }
 
   @VisibleForTesting
   public Counter getAutoEmbeddingMultiModalQueries() {
-    return this.autoEmbeddingMultiModalQueries;
+    return this.metrics.autoEmbeddingMultiModalQueries;
   }
 
   private BsonDocument getSearchResults(
@@ -545,9 +501,9 @@ public class VectorSearchCommand implements Command {
                             "Index %s not initialized", index.getDefinition().getName())));
     if (initializedIndex.getDefinition().getView().isPresent()) {
       if (this.definition.viewName().isPresent()) {
-        this.queriesAgainstView.increment(); // GA version
+        this.metrics.queriesAgainstView.increment(); // GA version
       } else {
-        this.queriesAgainstViewSourceCollection.increment(); // preview version
+        this.metrics.queriesAgainstViewSourceCollection.increment(); // preview version
       }
     }
 
@@ -578,11 +534,11 @@ public class VectorSearchCommand implements Command {
     switch (queryVector.getVectorType()) {
       case FLOAT -> {
         if (queryVector.asFloatVector().getOriginalType() == FloatVector.OriginalType.BSON) {
-          this.bsonFloatVectorQueries.increment();
+          this.metrics.bsonFloatVectorQueries.increment();
         }
       }
-      case BYTE -> this.bsonByteVectorQueries.increment();
-      case BIT -> this.bsonBitVectorQueries.increment();
+      case BYTE -> this.metrics.bsonByteVectorQueries.increment();
+      case BIT -> this.metrics.bsonBitVectorQueries.increment();
     }
   }
 
@@ -653,18 +609,19 @@ public class VectorSearchCommand implements Command {
 
   private void updateVectorSearchQueryCounters(VectorSearchCriteria criteria) {
     switch (criteria.getVectorSearchType()) {
-      case EXACT -> this.exactVectorSearchQueries.increment();
-      case APPROXIMATE -> this.approximateVectorSearchQueries.increment();
+      case EXACT -> this.metrics.exactVectorSearchQueries.increment();
+      case APPROXIMATE -> this.metrics.approximateVectorSearchQueries.increment();
       case AUTO_EMBEDDING -> {
-        this.autoEmbeddingVectorSearchQueries.increment();
+        this.metrics.autoEmbeddingVectorSearchQueries.increment();
         criteria
             .query()
             .ifPresent(
                 queryInput -> {
                   switch (queryInput) {
-                    case VectorSearchQueryInput.Text t -> this.autoEmbeddingTextQueries.increment();
+                    case VectorSearchQueryInput.Text t ->
+                        this.metrics.autoEmbeddingTextQueries.increment();
                     case VectorSearchQueryInput.MultiModal m ->
-                        this.autoEmbeddingMultiModalQueries.increment();
+                        this.metrics.autoEmbeddingMultiModalQueries.increment();
                   }
                 });
       }
@@ -673,17 +630,17 @@ public class VectorSearchCommand implements Command {
 
   private void increaseConcurrentQueriesGauge(VectorSearchCriteria.Type queryType) {
     switch (queryType) {
-      case EXACT -> this.concurrentExactQueries.incrementAndGet();
-      case APPROXIMATE -> this.concurrentApproximateQueries.incrementAndGet();
-      case AUTO_EMBEDDING -> this.concurrentAutoEmbeddingQueries.incrementAndGet();
+      case EXACT -> this.metrics.concurrentExactQueries.incrementAndGet();
+      case APPROXIMATE -> this.metrics.concurrentApproximateQueries.incrementAndGet();
+      case AUTO_EMBEDDING -> this.metrics.concurrentAutoEmbeddingQueries.incrementAndGet();
     }
   }
 
   private void decreaseConcurrentQueriesGauge(VectorSearchCriteria.Type queryType) {
     switch (queryType) {
-      case EXACT -> this.concurrentExactQueries.decrementAndGet();
-      case APPROXIMATE -> this.concurrentApproximateQueries.decrementAndGet();
-      case AUTO_EMBEDDING -> this.concurrentAutoEmbeddingQueries.decrementAndGet();
+      case EXACT -> this.metrics.concurrentExactQueries.decrementAndGet();
+      case APPROXIMATE -> this.metrics.concurrentApproximateQueries.decrementAndGet();
+      case AUTO_EMBEDDING -> this.metrics.concurrentAutoEmbeddingQueries.decrementAndGet();
     }
   }
 
@@ -692,8 +649,8 @@ public class VectorSearchCommand implements Command {
     private final IndexCatalog indexCatalog;
     private final InitializedIndexCatalog initializedIndexCatalog;
     private final SearchCommandsRegister.BootstrapperMetadata metadata;
-    private final MetricsFactory metricsFactory;
     private final Supplier<EmbeddingServiceManager> embeddingServiceManagerSupplier;
+    private final Metrics metrics;
 
     public Factory(
         IndexCatalog indexCatalog,
@@ -705,7 +662,7 @@ public class VectorSearchCommand implements Command {
       this.initializedIndexCatalog = initializedIndexCatalog;
       this.metadata = metadata;
       this.embeddingServiceManagerSupplier = embeddingServiceManagerSupplier;
-      this.metricsFactory = metricsFactory;
+      this.metrics = new Metrics(metricsFactory);
     }
 
     @Override
@@ -720,7 +677,7 @@ public class VectorSearchCommand implements Command {
             this.initializedIndexCatalog,
             this.metadata,
             this.embeddingServiceManagerSupplier,
-            this.metricsFactory);
+            this.metrics);
       } catch (BsonParseException e) {
         // we have no way of throwing checked exceptions beyond this method
         // (called directly by opmsg)
@@ -735,7 +692,64 @@ public class VectorSearchCommand implements Command {
           this.initializedIndexCatalog,
           this.metadata,
           this.embeddingServiceManagerSupplier,
-          this.metricsFactory);
+          this.metrics);
+    }
+  }
+
+  /**
+   * This class caches Counter/Gauge references in the CommandFactory to avoid repeated lookups per
+   * query.
+   */
+  static class Metrics {
+
+    private final Counter totalCount;
+    private final Counter invalidQueries;
+    private final Counter wrappedInvalidQueryExceptions;
+    private final Counter queriesAgainstView;
+    private final Counter queriesAgainstViewSourceCollection;
+    private final Counter exactVectorSearchQueries;
+    private final Counter approximateVectorSearchQueries;
+    private final Counter autoEmbeddingVectorSearchQueries;
+    private final Counter autoEmbeddingTextQueries;
+    private final Counter autoEmbeddingMultiModalQueries;
+    private final Counter bsonFloatVectorQueries;
+    private final Counter bsonByteVectorQueries;
+    private final Counter bsonBitVectorQueries;
+    private final Counter vectorStoredSourceQueries;
+    private final AtomicLong concurrentExactQueries;
+    private final AtomicLong concurrentApproximateQueries;
+    private final AtomicLong concurrentAutoEmbeddingQueries;
+    private final MetricsFactory metricsFactory;
+
+    Metrics(MetricsFactory metricsFactory) {
+      // The counter for $vectorSearch queries over vector indexes.
+      this.totalCount = metricsFactory.counter("vectorSearchCommandTotalCount");
+      this.invalidQueries = metricsFactory.counter("vectorSearchCommandInvalidQueries");
+      this.wrappedInvalidQueryExceptions =
+          metricsFactory.counter("vectorSearchCommandWrappedInvalidQueryException");
+      this.queriesAgainstView = metricsFactory.counter("queriesAgainstView");
+      this.queriesAgainstViewSourceCollection =
+          metricsFactory.counter("queriesAgainstViewSourceCollection");
+      this.exactVectorSearchQueries = metricsFactory.counter("exactVectorSearchQueries");
+      this.approximateVectorSearchQueries =
+          metricsFactory.counter("approximateVectorSearchQueries");
+      this.autoEmbeddingVectorSearchQueries =
+          metricsFactory.counter("autoEmbeddingVectorSearchQueries");
+      // TODO(CLOUDP-371805): remove autoEmbeddingTextQueries and autoEmbeddingMultiModalQueries
+      // after deprecating TEXT-typed queries
+      this.autoEmbeddingTextQueries =
+          metricsFactory.counter("autoEmbeddingTextVectorSearchQueries");
+      this.autoEmbeddingMultiModalQueries =
+          metricsFactory.counter("autoEmbeddingMultiModalVectorSearchQueries");
+      this.bsonFloatVectorQueries = metricsFactory.counter("bsonFloatVectorQueries");
+      this.bsonByteVectorQueries = metricsFactory.counter("bsonByteVectorQueries");
+      this.bsonBitVectorQueries = metricsFactory.counter("bsonBitVectorQueries");
+      this.vectorStoredSourceQueries = metricsFactory.counter("vectorStoredSourceQueries");
+      this.concurrentExactQueries = metricsFactory.numGauge("concurrentExactQueries");
+      this.concurrentApproximateQueries = metricsFactory.numGauge("concurrentApproximateQueries");
+      this.concurrentAutoEmbeddingQueries =
+          metricsFactory.numGauge("concurrentAutoEmbeddingQueries");
+      this.metricsFactory = metricsFactory;
     }
   }
 }

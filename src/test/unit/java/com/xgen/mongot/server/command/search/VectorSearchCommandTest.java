@@ -154,7 +154,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
 
@@ -197,7 +197,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     command.handleSearchEnvoyMetadata(
         SearchEnvoyMetadata.newBuilder().setRoutedFromAnotherShard(true).build());
@@ -222,7 +222,7 @@ public class VectorSearchCommandTest {
             new InitializedIndexCatalog(),
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
     Assert.assertEquals(
@@ -261,7 +261,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
     mocks.verifyEmptyBatchReturned(result, command);
@@ -293,7 +293,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
     mocks.verifyEmptyBatchReturned(result, command);
@@ -344,7 +344,7 @@ public class VectorSearchCommandTest {
             initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
     Assert.assertEquals(0, result.getInt32("ok").getValue());
@@ -389,7 +389,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
     Assert.assertEquals(
@@ -439,7 +439,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     try (var ignored =
         FakeExplain.setup(
@@ -495,7 +495,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     try (var ignored =
         FakeExplain.setup(
@@ -542,7 +542,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     try (var unused =
         Explain.setup(
@@ -617,7 +617,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     try (var ignored =
         FakeExplain.setup(
@@ -669,7 +669,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     try (var ignored =
         FakeExplain.setup(
@@ -719,7 +719,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     command.handleSearchEnvoyMetadata(
         SearchEnvoyMetadata.newBuilder().setRoutedFromAnotherShard(true).build());
@@ -762,7 +762,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
     var expected =
@@ -802,7 +802,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
 
@@ -850,7 +850,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
 
@@ -898,7 +898,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
 
@@ -946,7 +946,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory());
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
 
@@ -981,7 +981,6 @@ public class VectorSearchCommandTest {
                     .filter(getFilter())
                     .build())
             .build();
-    var mockMetricsFactory = mockMetricsFactory();
     var command =
         new VectorSearchCommand(
             VectorSearchCommandDefinitionBuilder.builder()
@@ -994,7 +993,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory);
+            new VectorSearchCommand.Metrics(mockMetricsFactory()));
 
     var result = command.run();
 
@@ -1039,7 +1038,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory);
+            new VectorSearchCommand.Metrics(mockMetricsFactory));
 
     var result = command.run();
 
@@ -1101,7 +1100,8 @@ public class VectorSearchCommandTest {
                           .filter(getFilter())
                           .build())
                   .build();
-          default -> throw new IllegalArgumentException("Unsupported query type: " + queryType);
+          case AUTO_EMBEDDING ->
+              throw new IllegalArgumentException("Unsupported query type: " + queryType);
         };
     var mockMetricsFactory = mockMetricsFactory();
     var command =
@@ -1116,16 +1116,16 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            mockMetricsFactory);
+            new VectorSearchCommand.Metrics(mockMetricsFactory));
 
-    var result =
-        CompletableFuture.supplyAsync(() -> command.run(), Executors.newSingleThreadExecutor());
+    var result = CompletableFuture.supplyAsync(command::run, Executors.newSingleThreadExecutor());
 
     var gaugeName =
         switch (queryType) {
           case EXACT -> "concurrentExactQueries";
           case APPROXIMATE -> "concurrentApproximateQueries";
-          default -> throw new IllegalArgumentException("Unsupported query type: " + queryType);
+          case AUTO_EMBEDDING ->
+              throw new IllegalArgumentException("Unsupported query type: " + queryType);
         };
     // wait for the query thread reaching synchronization point.
     testCountDown.await();
@@ -1180,7 +1180,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            metricsFactory);
+            new VectorSearchCommand.Metrics(metricsFactory));
 
     Assert.assertThrows(AssertionError.class, command::run);
     assertThat(
@@ -1229,7 +1229,7 @@ public class VectorSearchCommandTest {
             mocks.initializedIndexCatalog,
             BOOTSTRAPPER_METADATA,
             MOCK_EMBEDDING_SERVICE,
-            metricsFactory);
+            new VectorSearchCommand.Metrics(metricsFactory));
 
     var result = command.run();
 
