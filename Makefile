@@ -156,36 +156,6 @@ test.unit.mutate:
 	@$(DIR)/scripts/java/run-mutation-test.sh $(CLASS)
 
 
-.PHONY: test.e2e.community
-test.e2e.community:
-	@$(call BAZEL) test \
-	               --test_tag_filters='e2e_community' \
-	               --test_output=errors \
-	               --experimental_ui_max_stdouterr_bytes=100000000 \
-	               --test_summary=testcase \
-	               --cache_test_results=no \
-	               --test_keep_going=no \
-	               --action_env=CLUSTER_TYPE \
-	               --test_env=CLUSTER_TYPE=community \
-	               --test_env=VOYAGE_QUERY_API_KEY=${VOYAGE_QUERY_API_KEY} \
-	               --test_env=VOYAGE_INDEXING_API_KEY=${VOYAGE_INDEXING_API_KEY} \
-	               //src/test/e2e/java/com/xgen/mongot/community/autoembedding/...
-
-.PHONY: test.e2e.community.replicaset
-test.e2e.community.replicaset:
-	@$(call BAZEL) test \
-	               --test_tag_filters='e2e_community_replicaset' \
-	               --test_output=errors \
-	               --experimental_ui_max_stdouterr_bytes=100000000 \
-	               --test_summary=testcase \
-	               --cache_test_results=no \
-	               --test_keep_going=no \
-	               --action_env=CLUSTER_TYPE \
-	               --test_env=CLUSTER_TYPE=community \
-	               --test_env=VOYAGE_QUERY_API_KEY=${VOYAGE_QUERY_API_KEY} \
-	               --test_env=VOYAGE_INDEXING_API_KEY=${VOYAGE_INDEXING_API_KEY} \
-	               //src/test/e2e/java/com/xgen/mongot/community/autoembedding/...
-
 .PHONY: test.burn
 test.burn: RUNS ?= 1000
 test.burn:
