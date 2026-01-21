@@ -31,6 +31,7 @@ import com.xgen.mongot.index.InitializedSearchIndex;
 import com.xgen.mongot.index.MetaResults;
 import com.xgen.mongot.index.MeteredSearchIndexReader;
 import com.xgen.mongot.index.ReaderClosedException;
+import com.xgen.mongot.index.SearchIndexReader;
 import com.xgen.mongot.index.SearchIndexReader.SearchProducerAndMetaProducer;
 import com.xgen.mongot.index.SearchIndexReader.SearchProducerAndMetaResults;
 import com.xgen.mongot.index.definition.FieldDefinition;
@@ -39,6 +40,7 @@ import com.xgen.mongot.index.lucene.directory.IndexDirectoryFactory;
 import com.xgen.mongot.index.lucene.directory.IndexDirectoryHelper;
 import com.xgen.mongot.index.lucene.explain.information.CollectorExplainInformation;
 import com.xgen.mongot.index.lucene.explain.tracing.Explain;
+import com.xgen.mongot.index.lucene.searcher.LuceneIndexSearcher;
 import com.xgen.mongot.index.lucene.searcher.QueryCacheProvider;
 import com.xgen.mongot.index.query.CollectorQuery;
 import com.xgen.mongot.index.query.InvalidQueryException;
@@ -76,6 +78,7 @@ import com.xgen.testing.mongot.mock.index.IndexGeneration;
 import com.xgen.testing.mongot.mock.index.SearchIndex;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -161,9 +164,14 @@ public class TestMultiLuceneSearchIndexReader {
         .thenAnswer(invocation -> invocation.getArgument(1));
 
     // Always enable drill-sideways, regardless of default
-    Mockito.when(registry.evaluateClusterInvariant(
-            eq(DynamicFeatureFlags.DRILL_SIDEWAYS_FACETING.getName()),
-            anyBoolean()))
+    Mockito.when(
+            registry.evaluateClusterInvariant(
+                eq(DynamicFeatureFlags.DRILL_SIDEWAYS_FACETING.getName()), anyBoolean()))
+        .thenReturn(true);
+    Mockito.when(
+            registry.evaluateClusterInvariant(
+                eq(DynamicFeatureFlags.COLLECT_MULTI_PARTITION_EMPTY_SEARCH_PRODUCER.getName()),
+                anyBoolean()))
         .thenReturn(true);
 
     return registry;
@@ -895,5 +903,52 @@ public class TestMultiLuceneSearchIndexReader {
         .setTimeZone(TimeZone.getTimeZone("GMT"))
         .build()
         .getTime();
+  }
+
+  @Test
+  public void testOmitResultsClosesSearcherReferencesForAllPartitions() throws Exception {
+    @Var SearchIndexReader reader = this.searchIndexWithPartitions.getReader();
+    if (reader instanceof MeteredSearchIndexReader meteredReader) {
+      reader = meteredReader.unwrap();
+    }
+    assertTrue(reader instanceof MultiLuceneSearchIndexReader);
+    MultiLuceneSearchIndexReader multiReader = (MultiLuceneSearchIndexReader) reader;
+
+    List<LuceneSearchIndexReader> underlyingReaders = getUnderlyingReaders(multiReader);
+    List<Integer> refCountsBefore = new ArrayList<>(underlyingReaders.size());
+    for (LuceneSearchIndexReader partitionReader : underlyingReaders) {
+      refCountsBefore.add(getCurrentSearcherRefCount(partitionReader));
+    }
+
+    SearchProducerAndMetaResults result =
+        multiReader.query(
+            QUERY_DEFINITION,
+            QueryCursorOptions.empty(),
+            BatchSizeStrategySelector.forQuery(QUERY_DEFINITION, QueryCursorOptions.empty()),
+            new QueryOptimizationFlags(true));
+    result.searchBatchProducer.close();
+
+    for (int i = 0; i < underlyingReaders.size(); i++) {
+      int refCountAfter = getCurrentSearcherRefCount(underlyingReaders.get(i));
+      assertEquals((int) refCountsBefore.get(i), refCountAfter);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<LuceneSearchIndexReader> getUnderlyingReaders(
+      MultiLuceneSearchIndexReader multiReader) throws Exception {
+    Field readersField = MultiLuceneSearchIndexReader.class.getDeclaredField("readers");
+    readersField.setAccessible(true);
+    return (List<LuceneSearchIndexReader>) readersField.get(multiReader);
+  }
+
+  private static int getCurrentSearcherRefCount(LuceneSearchIndexReader reader) throws Exception {
+    Field managerField = LuceneSearchIndexReader.class.getDeclaredField("searcherManager");
+    managerField.setAccessible(true);
+    Object manager = managerField.get(reader);
+    Field currentField = manager.getClass().getSuperclass().getDeclaredField("current");
+    currentField.setAccessible(true);
+    LuceneIndexSearcher searcher = (LuceneIndexSearcher) currentField.get(manager);
+    return searcher.getIndexReader().getRefCount();
   }
 }

@@ -30,7 +30,9 @@ package com.xgen.mongot.featureflag.dynamic;
 public enum DynamicFeatureFlags {
   DRILL_SIDEWAYS_CONCURRENCY("mongot.featureFlag.enableDrillSidewaysConcurrency", false),
   DRILL_SIDEWAYS_FACETING("mongot.featureFlag.enableDrillSidewaysFaceting", false),
-  NUM_FIELDS_PER_DATATYPE_METRIC("mongot.featureFlag.enableNumFieldsPerDatatypeMetric", false);
+  NUM_FIELDS_PER_DATATYPE_METRIC("mongot.featureFlag.enableNumFieldsPerDatatypeMetric", false),
+  COLLECT_MULTI_PARTITION_EMPTY_SEARCH_PRODUCER(
+      "mongot.featureFlag.collectMultiPartitionEmptySearchProducer", false);
 
   private final String name;
   private final boolean fallback;
