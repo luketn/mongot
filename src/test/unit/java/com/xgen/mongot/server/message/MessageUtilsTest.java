@@ -3,10 +3,13 @@ package com.xgen.mongot.server.message;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import org.bson.BsonArray;
 import org.bson.BsonDocument;
 import org.bson.RawBsonDocument;
 import org.junit.Test;
@@ -90,5 +93,35 @@ public class MessageUtilsTest {
     BsonDocument result = MessageUtils.createErrorBody(new Exception("message"));
 
     assertEquals(expected, result);
+  }
+
+  @Test
+  public void createErrorBodyWithLabels_containsAllLabels() {
+    List<String> labels = List.of("SystemOverloadedError", "RetryableError");
+
+    BsonDocument result = MessageUtils.createErrorBodyWithLabels("error message", labels);
+
+    assertEquals(0, result.getInt32("ok").getValue());
+    assertEquals("error message", result.getString("errmsg").getValue());
+    assertTrue(result.containsKey("errorLabels"));
+
+    BsonArray errorLabels = result.getArray("errorLabels");
+    assertEquals(2, errorLabels.size());
+    assertEquals("SystemOverloadedError", errorLabels.get(0).asString().getValue());
+    assertEquals("RetryableError", errorLabels.get(1).asString().getValue());
+  }
+
+  @Test
+  public void createErrorBodyWithLabels_emptyLabels() {
+    List<String> labels = List.of();
+
+    BsonDocument result = MessageUtils.createErrorBodyWithLabels("error message", labels);
+
+    assertEquals(0, result.getInt32("ok").getValue());
+    assertEquals("error message", result.getString("errmsg").getValue());
+    assertTrue(result.containsKey("errorLabels"));
+
+    BsonArray errorLabels = result.getArray("errorLabels");
+    assertEquals(0, errorLabels.size());
   }
 }

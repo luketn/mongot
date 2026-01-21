@@ -9,6 +9,7 @@ import com.xgen.mongot.lifecycle.LifecycleConfig;
 import com.xgen.mongot.replication.mongodb.DurabilityConfig;
 import com.xgen.mongot.replication.mongodb.common.MongoDbReplicationConfig;
 import com.xgen.mongot.replication.mongodb.initialsync.config.InitialSyncConfig;
+import com.xgen.mongot.server.executors.RegularBlockingRequestSettings;
 import com.xgen.mongot.util.bson.parser.SanitizableDocumentEncodable;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -25,6 +26,7 @@ public class MongotConfigs implements SanitizableDocumentEncodable {
   public final LifecycleConfig lifecycleConfig;
   public final FeatureFlags featureFlags;
   public final EnvironmentVariantPerfConfig environmentVariantPerfConfig;
+  public final RegularBlockingRequestSettings regularBlockingRequestSettings;
 
   public MongotConfigs(
       LuceneConfig luceneConfig,
@@ -35,7 +37,9 @@ public class MongotConfigs implements SanitizableDocumentEncodable {
       IndexDefinitionConfig indexDefinitionConfig,
       LifecycleConfig lifecycleConfig,
       FeatureFlags featureFlags,
-      EnvironmentVariantPerfConfig environmentVariantPerfConfig) {
+      EnvironmentVariantPerfConfig environmentVariantPerfConfig,
+      RegularBlockingRequestSettings regularBlockingRequestSettings
+  ) {
     this.luceneConfig = luceneConfig;
     this.replicationConfig = replicationConfig;
     this.initialSyncConfig = initialSyncConfig;
@@ -45,6 +49,7 @@ public class MongotConfigs implements SanitizableDocumentEncodable {
     this.lifecycleConfig = lifecycleConfig;
     this.featureFlags = featureFlags;
     this.environmentVariantPerfConfig = environmentVariantPerfConfig;
+    this.regularBlockingRequestSettings = regularBlockingRequestSettings;
   }
 
   /** Initializes a MongotConfig with all default values. */
@@ -91,6 +96,7 @@ public class MongotConfigs implements SanitizableDocumentEncodable {
     var lifecycleConfig = LifecycleConfig.getDefault();
     var featureFlags = FeatureFlags.withQueryFeaturesEnabled();
     var environmentVariantPerfConfig = EnvironmentVariantPerfConfig.getDefault();
+    var regularBlockingRequestSettings = RegularBlockingRequestSettings.defaults();
     return new MongotConfigs(
         luceneConfig,
         replicationConfig,
@@ -100,7 +106,8 @@ public class MongotConfigs implements SanitizableDocumentEncodable {
         indexDefinitionConfig,
         lifecycleConfig,
         featureFlags,
-        environmentVariantPerfConfig);
+        environmentVariantPerfConfig,
+        regularBlockingRequestSettings);
   }
 
   @Override

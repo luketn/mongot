@@ -5,6 +5,7 @@ java_test_suite(
     srcs = [
         "DeprecatedVectorSearchCommandTest.java",
         "GetMoreCommandTest.java",
+        "KillCursorsCommandTest.java",
         "PlanShardedSearchCommandTest.java",
         "SearchCommandTest.java",
         "ShardedSearchPlannerTest.java",

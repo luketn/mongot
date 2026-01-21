@@ -5,6 +5,8 @@ java_library(
     srcs = [
         "BulkheadCommandExecutor.java",
         "ExecutorManager.java",
+        "LoadSheddingRejectedException.java",
+        "RegularBlockingRequestSettings.java",
     ],
     visibility = ["//visibility:public"],
     exports = [

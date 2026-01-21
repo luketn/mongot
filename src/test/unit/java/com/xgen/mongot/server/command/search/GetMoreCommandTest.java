@@ -283,4 +283,20 @@ public class GetMoreCommandTest {
                 .count())
         .isEqualTo(1.0);
   }
+
+  @Test
+  public void maybeLoadShed_returnsFalse() throws Exception {
+    BsonDocument mockArgs =
+        new BsonDocument()
+            .append(GetMoreCommandDefinition.NAME, new BsonInt64(MOCK_SEARCH_CURSOR_ID));
+
+    CommandFactory commandFactory =
+        new GetMoreCommand.Factory(
+            getCursorManager(), CursorConfig.DEFAULT_BSON_SIZE_SOFT_LIMIT, mockMetricsFactory());
+
+    Command command = commandFactory.create(mockArgs);
+    Assert.assertFalse(
+        "GetMoreCommand should not be load shed to ensure cursor operations always complete",
+        command.maybeLoadShed());
+  }
 }

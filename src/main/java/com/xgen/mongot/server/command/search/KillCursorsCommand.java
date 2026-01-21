@@ -58,6 +58,11 @@ public class KillCursorsCommand implements Command {
     return true;
   }
 
+  @Override
+  public boolean maybeLoadShed() {
+    return false;
+  }
+
   public static class Factory implements CommandFactory {
 
     private final MongotCursorManager cursorManager;

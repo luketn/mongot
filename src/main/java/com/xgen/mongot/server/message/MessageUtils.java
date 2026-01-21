@@ -3,8 +3,10 @@ package com.xgen.mongot.server.message;
 import com.xgen.mongot.util.mongodb.Errors.Error;
 import io.netty.buffer.ByteBuf;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
+import org.bson.BsonArray;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonString;
@@ -65,5 +67,27 @@ public class MessageUtils {
         .append("code", new BsonInt32(error.code))
         .append("codeName", new BsonString(error.name))
         .append("errmsg", new BsonString(text));
+  }
+
+  /**
+   * Create a generic error response with a message body and error labels.
+   *
+   * <p>Error labels follow the MongoDB wire protocol convention defined in error_labels.h. Labels
+   * like "SystemOverloadedError" and "RetryableError" allow clients to appropriately handle and
+   * retry transient errors.
+   *
+   * @param text the error message
+   * @param errorLabels list of error label strings to include in the response
+   */
+  public static BsonDocument createErrorBodyWithLabels(
+      @Nonnull String text, @Nonnull List<String> errorLabels) {
+    BsonArray labelsArray = new BsonArray();
+    for (String label : errorLabels) {
+      labelsArray.add(new BsonString(label));
+    }
+    return new BsonDocument()
+        .append("ok", new BsonInt32(0))
+        .append("errmsg", new BsonString(text))
+        .append("errorLabels", labelsArray);
   }
 }

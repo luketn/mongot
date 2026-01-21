@@ -18,6 +18,7 @@ import com.xgen.mongot.server.command.CommandFactory;
 import com.xgen.mongot.server.command.CommandFactoryMarker;
 import com.xgen.mongot.server.command.registry.CommandRegistry;
 import com.xgen.mongot.server.executors.ExecutorManager;
+import com.xgen.mongot.server.executors.RegularBlockingRequestSettings;
 import com.xgen.mongot.server.message.MessageHeader;
 import com.xgen.mongot.server.message.MessageMessage;
 import com.xgen.mongot.server.message.MessageSection;
@@ -31,7 +32,9 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
@@ -548,5 +551,140 @@ public class StreamingMessageHandlerTest {
     verifyServerResponse(new BsonDocument());
     this.messageHandler.onCompleted();
     verifyServerHalfClosed();
+  }
+
+  @Test
+  public void onNext_executorRejectsCommand_returnsRejectionErrorToClient()
+      throws InterruptedException {
+    // Create a bounded executor with minimal pool/queue size to trigger rejection.
+    // The 0.001 multiplier ensures poolSize=1 and queueCapacity=1 regardless of CPU count
+    // (poolSize = ceil(0.001 * numCpus) = 1), making it easy to fill and trigger rejection.
+    SimpleMeterRegistry boundedMeterRegistry = new SimpleMeterRegistry();
+    CommandRegistry boundedCommandRegistry = CommandRegistry.create(boundedMeterRegistry);
+    RegularBlockingRequestSettings settings =
+        RegularBlockingRequestSettings.create(
+            Optional.of(0.001), Optional.of(0.001), Optional.of(false));
+    ExecutorManager boundedExecutorManager =
+        new ExecutorManager(boundedMeterRegistry, settings);
+
+    StreamObserver<MessageMessage> boundedResponseObserver =
+        mock(MessageMessageStreamObserver.class);
+    WireMessageCallHandler boundedHandler =
+        new WireMessageCallHandler(
+            boundedCommandRegistry,
+            boundedExecutorManager.commandExecutor,
+            this.cursorManager,
+            SearchEnvoyMetadata.getDefaultInstance(),
+            boundedResponseObserver);
+
+    CountDownLatch blockingLatch = new CountDownLatch(1);
+    CountDownLatch taskStartedLatch = new CountDownLatch(1);
+
+    // Register a blocking command that signals when it starts
+    boundedCommandRegistry.registerCommand(
+        "blockingCommand",
+        (CommandFactory)
+            ignored ->
+                new Command() {
+                  @Override
+                  public String name() {
+                    return "blockingCommand";
+                  }
+
+                  @Override
+                  public BsonDocument run() {
+                    taskStartedLatch.countDown();
+                    try {
+                      blockingLatch.await(30, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                      Thread.currentThread().interrupt();
+                    }
+                    return new BsonDocument();
+                  }
+
+                  @Override
+                  public ExecutionPolicy getExecutionPolicy() {
+                    return ExecutionPolicy.ASYNC;
+                  }
+                },
+        true);
+
+    // Register a simple async command that will be rejected
+    boundedCommandRegistry.registerCommand(
+        IdentityCommand.Name,
+        (CommandFactory) args -> new IdentityCommand(args, Command.ExecutionPolicy.ASYNC),
+        true);
+
+    try {
+      // Send first command to occupy the single worker thread
+      BsonDocument blockingDoc = new BsonDocument().append("blockingCommand", BsonBoolean.TRUE);
+      boundedHandler.onNext(createOpMsgFromBsonDocument(blockingDoc));
+      taskStartedLatch.await(5, TimeUnit.SECONDS);
+
+      // Send second command to fill the queue
+      BsonDocument queueFillerDoc =
+          new BsonDocument().append(IdentityCommand.Name, BsonBoolean.TRUE);
+      boundedHandler.onNext(createOpMsgFromBsonDocument(queueFillerDoc));
+
+      // Small delay to ensure queue is populated
+      Thread.sleep(50);
+
+      // Send third command that should be rejected
+      BsonDocument rejectedDoc =
+          new BsonDocument().append(IdentityCommand.Name, new BsonString("should_be_rejected"));
+      boundedHandler.onNext(createOpMsgFromBsonDocument(rejectedDoc));
+
+      // Verify the rejection error is returned to the client
+      ArgumentCaptor<MessageMessage> captor = ArgumentCaptor.forClass(MessageMessage.class);
+      verify(boundedResponseObserver, timeout(5000).atLeast(1)).onNext(captor.capture());
+
+      // Find the rejection error response and verify error labels
+      @Var BsonDocument rejectionErrorDoc = null;
+      for (MessageMessage msg : captor.getAllValues()) {
+        BsonDocument bsonDocument = ((MessageSectionBody) msg.sections().get(0)).body;
+        if (bsonDocument.containsKey("ok")
+            && bsonDocument.getInt32("ok").getValue() == 0
+            && bsonDocument.containsKey("errmsg")) {
+          String errorMsg = bsonDocument.getString("errmsg").getValue();
+          if (errorMsg.contains("Query rejected")
+              && errorMsg.contains("currently at capacity")) {
+            rejectionErrorDoc = bsonDocument;
+            break;
+          }
+        }
+      }
+      Assert.assertNotNull(
+          "Expected rejection error message to be returned to client", rejectionErrorDoc);
+
+      // Verify error labels are present for load shedding rejections
+      Assert.assertTrue(
+          "Expected errorLabels field in rejection response",
+          rejectionErrorDoc.containsKey("errorLabels"));
+      var errorLabels = rejectionErrorDoc.getArray("errorLabels");
+      Assert.assertEquals(
+          "Expected exactly 2 error labels (SystemOverloadedError and RetryableError)",
+          2,
+          errorLabels.size());
+
+      // Verify both labels are present
+      @Var boolean hasSystemOverloadedError = false;
+      @Var boolean hasRetryableError = false;
+      for (int i = 0; i < errorLabels.size(); i++) {
+        String label = errorLabels.get(i).asString().getValue();
+        if ("SystemOverloadedError".equals(label)) {
+          hasSystemOverloadedError = true;
+        }
+        if ("RetryableError".equals(label)) {
+          hasRetryableError = true;
+        }
+      }
+      Assert.assertTrue(
+          "Expected SystemOverloadedError label in rejection response", hasSystemOverloadedError);
+      Assert.assertTrue(
+          "Expected RetryableError label in rejection response", hasRetryableError);
+    } finally {
+      blockingLatch.countDown();
+      boundedExecutorManager.commandExecutor.close();
+    }
   }
 }

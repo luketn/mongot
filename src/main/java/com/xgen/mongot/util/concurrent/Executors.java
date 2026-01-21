@@ -43,6 +43,7 @@ public class Executors {
 
     return new DefaultNamedExecutorService(
         ExecutorServiceMetrics.monitor(meterRegistry, executor, "executorMetrics", name),
+        executor,
         name,
         meterRegistry);
   }
@@ -77,8 +78,14 @@ public class Executors {
             handler);
     return new DefaultNamedExecutorService(
         ExecutorServiceMetrics.monitor(meterRegistry, executor, "executorMetrics", name),
+        executor,
         name,
         meterRegistry);
+  }
+
+  /** Exposes a counting thread factory so other components can create named pools with counters. */
+  public static ThreadFactory countingNamedThreadFactory(String name) {
+    return new CountingNamedThreadFactory(name);
   }
 
   /**
@@ -101,6 +108,7 @@ public class Executors {
 
     return new DefaultNamedExecutorService(
         ExecutorServiceMetrics.monitor(meterRegistry, executor, "executorMetrics", name),
+        executor,
         name,
         meterRegistry);
   }
@@ -146,6 +154,7 @@ public class Executors {
       String name, ExecutorService executor, MeterRegistry meterRegistry) {
     return new DefaultNamedExecutorService(
         ExecutorServiceMetrics.monitor(meterRegistry, executor, "executorMetrics", name),
+        executor,
         name,
         meterRegistry);
   }

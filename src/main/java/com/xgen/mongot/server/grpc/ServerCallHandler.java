@@ -12,6 +12,7 @@ import com.xgen.mongot.server.command.CommandFactory;
 import com.xgen.mongot.server.command.ParsedCommand;
 import com.xgen.mongot.server.command.registry.CommandRegistry;
 import com.xgen.mongot.server.executors.BulkheadCommandExecutor;
+import com.xgen.mongot.server.executors.LoadSheddingRejectedException;
 import com.xgen.mongot.server.message.MessageUtils;
 import io.grpc.stub.StreamObserver;
 import java.util.Collections;
@@ -26,6 +27,14 @@ import org.slf4j.LoggerFactory;
 abstract class ServerCallHandler<T> implements StreamObserver<T> {
 
   private static final Logger LOG = LoggerFactory.getLogger(ServerCallHandler.class);
+
+  /**
+   * Error labels for load shedding rejection responses. These labels follow the MongoDB wire
+   * protocol convention defined in error_labels.h, allowing clients to identify transient overload
+   * conditions and retry appropriately.
+   */
+  private static final List<String> LOAD_SHEDDING_ERROR_LABELS =
+      List.of("SystemOverloadedError", "RetryableError");
 
   private final CommandRegistry commandRegistry;
   private final BulkheadCommandExecutor commandExecutor;
@@ -157,6 +166,15 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
         exception instanceof ExecutionException && exception.getCause() != null
             ? exception.getCause()
             : exception;
+
+    // Load shedding rejection should include error labels for client retry handling
+    if (cause instanceof LoadSheddingRejectedException) {
+      String message =
+          cause.getMessage() == null ? "Server is at capacity" : cause.getMessage();
+      BsonDocument error =
+          MessageUtils.createErrorBodyWithLabels(message, LOAD_SHEDDING_ERROR_LABELS);
+      return serializeError(request, error);
+    }
 
     if (!(cause instanceof InvalidQueryException)) {
       LOG.warn("unexpected exception", cause);

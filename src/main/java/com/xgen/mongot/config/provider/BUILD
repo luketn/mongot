@@ -41,6 +41,7 @@ java_library(
         "//src/main/java/com/xgen/mongot/replication/mongodb/autoembedding",
         "//src/main/java/com/xgen/mongot/replication/mongodb/common",
         "//src/main/java/com/xgen/mongot/replication/mongodb/initialsync/config",
+        "//src/main/java/com/xgen/mongot/server/executors",
         "//src/main/java/com/xgen/mongot/util",
         "//src/main/java/com/xgen/mongot/util/bson/parser",
         "//src/main/java/com/xgen/mongot/util/mongodb",

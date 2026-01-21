@@ -1,12 +1,19 @@
 package com.xgen.mongot.server.executors;
 
 import com.xgen.mongot.server.command.Command;
+import com.xgen.mongot.util.Runtime;
 import com.xgen.mongot.util.concurrent.Executors;
 import com.xgen.mongot.util.concurrent.NamedExecutorService;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.io.Closeable;
+import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionHandler;
 import org.bson.BsonDocument;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Executes provided commands on corresponding thread pools, implementing the Bulkhead pattern. This
@@ -15,11 +22,127 @@ import org.bson.BsonDocument;
  */
 public class BulkheadCommandExecutor implements Closeable {
 
-  private final NamedExecutorService blockingCommandExecutor;
+  private static final Logger LOG = LoggerFactory.getLogger(BulkheadCommandExecutor.class);
+  private static final String REGULAR_EXECUTOR_NAME = "blocking-server-worker";
+  private static final String GUARANTEED_EXECUTOR_NAME = "guaranteed-blocking-server-worker";
+
+  private final NamedExecutorService regularBlockingCommandExecutor;
+  private final NamedExecutorService guaranteedBlockingCommandExecutor;
+  private final OptionalInt virtualQueueCapacity;
+  private final Optional<Counter> wouldHaveRejectedCounter;
+
+  /** Holds the regular executor configuration created during construction. */
+  private record RegularExecutorConfig(
+      NamedExecutorService executor,
+      OptionalInt virtualQueueCapacity,
+      Optional<Counter> wouldHaveRejectedCounter) {}
 
   public BulkheadCommandExecutor(MeterRegistry meterRegistry) {
-    this.blockingCommandExecutor =
-        Executors.unboundedCachingThreadPool("blocking-server-worker", meterRegistry);
+    this(meterRegistry, RegularBlockingRequestSettings.defaults());
+  }
+
+  /**
+   * Creates a bulkhead executor using the provided sizing settings.
+   *
+   * @param meterRegistry registry for executor metrics
+   * @param settings pool/queue sizing configuration
+   */
+  public BulkheadCommandExecutor(
+      MeterRegistry meterRegistry, RegularBlockingRequestSettings settings) {
+    int numCpus = Runtime.INSTANCE.getNumCpus();
+    int poolSize = settings.resolvedPoolSize(numCpus);
+    OptionalInt queueCapacity = settings.maybeResolvedQueueCapacity(numCpus);
+
+    // Initialize the guaranteed command executor - always unbounded to ensure guaranteed execution
+    this.guaranteedBlockingCommandExecutor =
+        Executors.unboundedCachingThreadPool(GUARANTEED_EXECUTOR_NAME, meterRegistry);
+
+    // Use switch expression to satisfy both Java's definite assignment and Error Prone's
+    // exhaustiveness check (no default case needed for enum switch expressions)
+    RegularExecutorConfig config =
+        switch (settings.getMode()) {
+          case FIXED_POOL_BOUNDED_QUEUE -> {
+            int boundedQueue =
+                queueCapacity.orElseThrow(
+                    () ->
+                        new IllegalStateException(
+                            "Queue capacity required for bounded queue mode"));
+            Counter rejectionCounter =
+                meterRegistry.counter("loadShedding.rejected", "executor", REGULAR_EXECUTOR_NAME);
+            LOG.info(
+                "Regular blocking bulkhead executor configured: mode=FIXED_POOL_BOUNDED_QUEUE,"
+                    + " poolSize={}, queueCapacity={}",
+                poolSize,
+                boundedQueue);
+            yield new RegularExecutorConfig(
+                Executors.fixedSizeThreadPool(
+                    REGULAR_EXECUTOR_NAME,
+                    poolSize,
+                    boundedQueue,
+                    rejectionHandler(rejectionCounter, poolSize, boundedQueue),
+                    meterRegistry),
+                OptionalInt.empty(),
+                Optional.empty());
+          }
+          case FIXED_POOL_UNBOUNDED_QUEUE -> {
+            // Virtual queue capacity is optional - only record wouldHaveRejected if configured
+            LOG.info(
+                "Regular blocking bulkhead executor configured: mode=FIXED_POOL_UNBOUNDED_QUEUE,"
+                    + " poolSize={}, virtualQueueCapacity={}",
+                poolSize,
+                queueCapacity.isPresent() ? queueCapacity.getAsInt() : "not configured");
+            yield new RegularExecutorConfig(
+                Executors.fixedSizeThreadPool(REGULAR_EXECUTOR_NAME, poolSize, meterRegistry),
+                queueCapacity,
+                queueCapacity.isPresent()
+                    ? Optional.of(
+                        meterRegistry.counter(
+                            "loadShedding.wouldHaveRejected", "executor", REGULAR_EXECUTOR_NAME))
+                    : Optional.empty());
+          }
+          case UNBOUNDED_CACHING -> {
+            LOG.info("Bulkhead executor configured: mode=UNBOUNDED_CACHING");
+            yield new RegularExecutorConfig(
+                Executors.unboundedCachingThreadPool(REGULAR_EXECUTOR_NAME, meterRegistry),
+                OptionalInt.empty(),
+                Optional.empty());
+          }
+        };
+
+    this.regularBlockingCommandExecutor = config.executor();
+    this.virtualQueueCapacity = config.virtualQueueCapacity();
+    this.wouldHaveRejectedCounter = config.wouldHaveRejectedCounter();
+  }
+
+  private RejectedExecutionHandler rejectionHandler(
+      Counter rejectionCounter, int poolSize, int queueCapacity) {
+    return (r, executor) -> {
+      rejectionCounter.increment();
+      LOG.warn(
+          "Query rejected due to executor capacity limits: poolSize={}, queueCapacity={}",
+          poolSize,
+          queueCapacity);
+      throw new LoadSheddingRejectedException(
+          "Query rejected: search server is currently at capacity. Please try again later.");
+    };
+  }
+
+  private void recordWouldHaveRejectedIfNeeded() {
+    if (this.wouldHaveRejectedCounter.isEmpty() || this.virtualQueueCapacity.isEmpty()) {
+      return;
+    }
+
+    OptionalInt activeCount = this.regularBlockingCommandExecutor.getActiveCount();
+    OptionalInt maxPoolSize = this.regularBlockingCommandExecutor.getMaxPoolSize();
+    OptionalInt queueSize = this.regularBlockingCommandExecutor.getQueueSize();
+
+    if (activeCount.isPresent()
+        && maxPoolSize.isPresent()
+        && queueSize.isPresent()
+        && activeCount.getAsInt() >= maxPoolSize.getAsInt()
+        && queueSize.getAsInt() >= this.virtualQueueCapacity.getAsInt()) {
+      this.wouldHaveRejectedCounter.get().increment();
+    }
   }
 
   /**
@@ -29,10 +152,25 @@ public class BulkheadCommandExecutor implements Closeable {
    * returned object will wrap the exception as {@code cause}. Calling {@link CompletableFuture#get}
    * on the returned object will throw a {@link java.util.concurrent.ExecutionException} that wraps
    * the exception in {@link Command#run}.
+   *
+   * <p>`recordWouldHaveRejectedIfNeeded()` will be called if the queue is unbounded but there is a
+   * virtual capacity configured. This event will be recorded as if the command was rejected.
+   *
+   * <p>Commands that return {@code false} from {@link Command#maybeLoadShed()} will be executed on
+   * a dedicated unbounded thread pool to ensure they are never rejected due to load shedding.
+   *
+   * @throws RejectedExecutionException if the executor is configured with a bounded queue and the
+   *     queue is full, or if the executor has been shut down
    */
   public CompletableFuture<BsonDocument> execute(Command command) {
     return switch (command.getExecutionPolicy()) {
-      case ASYNC -> CompletableFuture.supplyAsync(command::run, this.blockingCommandExecutor);
+      case ASYNC -> {
+        if (!command.maybeLoadShed()) {
+          yield CompletableFuture.supplyAsync(command::run, this.guaranteedBlockingCommandExecutor);
+        }
+        recordWouldHaveRejectedIfNeeded();
+        yield CompletableFuture.supplyAsync(command::run, this.regularBlockingCommandExecutor);
+      }
       case SYNC -> {
         try {
           yield CompletableFuture.completedFuture(command.run());
@@ -45,6 +183,7 @@ public class BulkheadCommandExecutor implements Closeable {
 
   @Override
   public void close() {
-    Executors.shutdownOrFail(this.blockingCommandExecutor);
+    Executors.shutdownOrFail(this.regularBlockingCommandExecutor);
+    Executors.shutdownOrFail(this.guaranteedBlockingCommandExecutor);
   }
 }

@@ -31,7 +31,13 @@ public class ExecutorManager implements Closeable {
       eventLoopGroups;
 
   public ExecutorManager(MeterRegistry meterRegistry) {
-    this.commandExecutor = new BulkheadCommandExecutor(meterRegistry);
+    this(meterRegistry, RegularBlockingRequestSettings.defaults());
+  }
+
+  public ExecutorManager(
+      MeterRegistry meterRegistry, RegularBlockingRequestSettings regularBlockingRequestSettings) {
+    this.commandExecutor =
+        new BulkheadCommandExecutor(meterRegistry, regularBlockingRequestSettings);
     this.eventLoopGroups = HashBasedTable.create();
   }
 

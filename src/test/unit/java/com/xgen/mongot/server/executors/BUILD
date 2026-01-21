@@ -5,12 +5,14 @@ java_test_suite(
     srcs = [
         "BulkheadCommandExecutorTest.java",
         "ExecutorManagerTest.java",
+        "RegularBlockingRequestSettingsTest.java",
     ],
     tags = ["unit"],
     deps = [
         "//src/main/java/com/xgen/mongot/server/command",
         "//src/main/java/com/xgen/mongot/server/executors",
         "//src/main/java/com/xgen/mongot/server/util",
+        "@maven//:com_google_truth_truth",
         "@maven//:io_micrometer_micrometer_core",
         "@maven//:io_netty_netty_transport",
         "@maven//:junit_junit",

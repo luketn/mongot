@@ -56,6 +56,7 @@ import com.xgen.mongot.server.auth.SecurityConfig;
 import com.xgen.mongot.server.command.search.SearchCommandsRegister;
 import com.xgen.mongot.server.command.search.SearchCommandsRegister.BootstrapperMetadata;
 import com.xgen.mongot.server.executors.ExecutorManager;
+import com.xgen.mongot.server.executors.RegularBlockingRequestSettings;
 import com.xgen.mongot.server.grpc.GrpcStreamingServer;
 import com.xgen.mongot.server.grpc.HealthManager;
 import com.xgen.mongot.server.http.HealthCheckServer;
@@ -241,6 +242,7 @@ public class CommunityMongotBootstrapper {
             indexCatalog,
             initializedIndexCatalog,
             commandRegisterMetadata,
+            mongotConfigs.regularBlockingRequestSettings,
             meterRegistry,
             healthManager,
             metadataService.getAuthoritativeIndexCatalog(),
@@ -686,6 +688,7 @@ public class CommunityMongotBootstrapper {
       IndexCatalog indexCatalog,
       InitializedIndexCatalog initializedIndexCatalog,
       BootstrapperMetadata metadata,
+      RegularBlockingRequestSettings regularBlockingRequestSettings,
       MeterRegistry meterRegistry,
       HealthManager healthManager,
       AuthoritativeIndexCatalog authoritativeIndexCatalog,
@@ -693,7 +696,7 @@ public class CommunityMongotBootstrapper {
       Supplier<EmbeddingServiceManager> embeddingServiceManagerSupplier) {
     // Create the ExecutorManager that can serve requests for the tcpServer (and the grpcServer).
     // noinspection resource
-    var executorManager = new ExecutorManager(meterRegistry);
+    var executorManager = new ExecutorManager(meterRegistry, regularBlockingRequestSettings);
 
     var grpcServer =
         GrpcStreamingServer.createCommunity(
@@ -810,6 +813,7 @@ public class CommunityMongotBootstrapper {
     var lifecycleConfig = LifecycleConfig.getDefault();
     var featureFlags = FeatureFlags.withQueryFeaturesEnabled();
     var environmentVariantPerfConfig = EnvironmentVariantPerfConfig.getDefault();
+    var regularBlockingRequestSettings = RegularBlockingRequestSettings.defaults();
     return new MongotConfigs(
         luceneConfig,
         replicationConfig,
@@ -819,6 +823,7 @@ public class CommunityMongotBootstrapper {
         indexDefinitionConfig,
         lifecycleConfig,
         featureFlags,
-        environmentVariantPerfConfig);
+        environmentVariantPerfConfig,
+        regularBlockingRequestSettings);
   }
 }

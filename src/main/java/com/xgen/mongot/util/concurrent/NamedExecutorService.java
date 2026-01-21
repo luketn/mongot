@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.concurrent.ExecutorService;
 
 public interface NamedExecutorService extends ExecutorService {
@@ -43,5 +44,32 @@ public interface NamedExecutorService extends ExecutorService {
               gaugeType);
       meterRegistry.remove(idToRemove);
     }
+  }
+
+  /**
+   * Returns the approximate number of threads that are actively executing tasks.
+   *
+   * @return the number of active threads, or empty if not supported by the underlying executor
+   */
+  default OptionalInt getActiveCount() {
+    return OptionalInt.empty();
+  }
+
+  /**
+   * Returns the maximum allowed number of threads.
+   *
+   * @return the maximum number of threads, or empty if not supported by the underlying executor
+   */
+  default OptionalInt getMaxPoolSize() {
+    return OptionalInt.empty();
+  }
+
+  /**
+   * Returns the current number of tasks in the queue.
+   *
+   * @return the queue size, or empty if not supported by the underlying executor
+   */
+  default OptionalInt getQueueSize() {
+    return OptionalInt.empty();
   }
 }

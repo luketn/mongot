@@ -54,4 +54,18 @@ public interface Command {
    * <p>This method is called before {@code Command::run}.
    */
   default void handleSearchEnvoyMetadata(SearchEnvoyMetadata searchEnvoyMetadata) {}
+
+  /**
+   * Indicates whether this command may be load shed under high load conditions.
+   *
+   * <p>Commands that return {@code false} are executed on a dedicated unbounded thread pool to
+   * ensure they are never rejected due to load shedding. This is useful for critical commands that
+   * must always succeed, such as killCursors.
+   *
+   * @return true if this command may be rejected due to load shedding, false if it must always
+   *     execute
+   */
+  default boolean maybeLoadShed() {
+    return true;
+  }
 }

@@ -3,21 +3,33 @@ package com.xgen.mongot.util.concurrent;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Collection;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 class DefaultNamedExecutorService implements NamedExecutorService {
 
   private final ExecutorService delegate;
+  private final ExecutorService originalExecutor;
   private final String name;
   private final MeterRegistry meterRegistry;
 
   DefaultNamedExecutorService(ExecutorService delegate, String name, MeterRegistry meterRegistry) {
+    this(delegate, delegate, name, meterRegistry);
+  }
+
+  DefaultNamedExecutorService(
+      ExecutorService delegate,
+      ExecutorService originalExecutor,
+      String name,
+      MeterRegistry meterRegistry) {
     this.delegate = delegate;
+    this.originalExecutor = originalExecutor;
     this.name = name;
     this.meterRegistry = meterRegistry;
   }
@@ -101,5 +113,29 @@ class DefaultNamedExecutorService implements NamedExecutorService {
   @Override
   public void execute(Runnable command) {
     this.delegate.execute(command);
+  }
+
+  @Override
+  public OptionalInt getActiveCount() {
+    if (this.originalExecutor instanceof ThreadPoolExecutor tpe) {
+      return OptionalInt.of(tpe.getActiveCount());
+    }
+    return OptionalInt.empty();
+  }
+
+  @Override
+  public OptionalInt getMaxPoolSize() {
+    if (this.originalExecutor instanceof ThreadPoolExecutor tpe) {
+      return OptionalInt.of(tpe.getMaximumPoolSize());
+    }
+    return OptionalInt.empty();
+  }
+
+  @Override
+  public OptionalInt getQueueSize() {
+    if (this.originalExecutor instanceof ThreadPoolExecutor tpe) {
+      return OptionalInt.of(tpe.getQueue().size());
+    }
+    return OptionalInt.empty();
   }
 }
