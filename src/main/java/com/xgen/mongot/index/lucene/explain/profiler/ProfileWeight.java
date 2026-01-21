@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.search.BulkScorer;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
@@ -50,10 +51,16 @@ public class ProfileWeight extends Weight {
   /** Get a ScorerSupplier, but return an empty optional (instead of null). */
   private Optional<ScorerSupplier> optionalScorerSupplier(LeafReaderContext context)
       throws IOException {
+    Check.argNotNull(context, "context");
     Optional<ScorerSupplier> maybeSubqueryScorerSupplier;
     try (var ignored = this.timings.split(ExplainTimings.Type.CREATE_SCORER)) {
-      maybeSubqueryScorerSupplier =
-          Optional.ofNullable(this.subQueryWeight.scorerSupplier(context));
+      try {
+        maybeSubqueryScorerSupplier =
+            Optional.ofNullable(this.subQueryWeight.scorerSupplier(context));
+      } catch (UnsupportedOperationException e) {
+        // Some query types (e.g., DrillSidewaysQuery) don't support scorerSupplier()
+        return Optional.empty();
+      }
     }
 
     if (maybeSubqueryScorerSupplier.isEmpty()) {
@@ -80,6 +87,26 @@ public class ProfileWeight extends Weight {
             }
           }
         });
+  }
+
+  @Override
+  @Nullable
+  public BulkScorer bulkScorer(LeafReaderContext context) throws IOException {
+    var bulkScorer = super.bulkScorer(context);
+    if (bulkScorer != null) {
+      return bulkScorer;
+    }
+
+    // Lucene's DrillSidewaysQuery does not implement scorer()/scorerSupplier(), so
+    // Weight#bulkScorer() returns null. In this case, we must explicitly
+    // delegate to the subQueryWeight's bulkScorer for scoring to proceed.
+    if (this.parentQuery
+        .getClass()
+        .getName()
+        .equals("org.apache.lucene.facet.DrillSidewaysQuery")) {
+      return this.subQueryWeight.bulkScorer(context);
+    }
+    return null;
   }
 
   @Override

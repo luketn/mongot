@@ -223,6 +223,7 @@ public class ProfilingIndexSearcher extends LuceneIndexSearcher {
       BitSet liveDocsBitSet = bitSetFromBits(liveDocs.get());
       // This Scorer instance is instrumented for profiling.
       Scorer scorer = weight.scorer(ctx);
+
       if (scorer != null) {
         try {
           // Find the intersection of live docs and documents to iterate over from the scorer.
