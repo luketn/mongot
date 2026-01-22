@@ -3,6 +3,7 @@ package com.xgen.mongot.index.lucene.explain.information.creator;
 import static com.xgen.mongot.util.Check.checkState;
 
 import com.xgen.mongot.index.lucene.explain.information.DocAndScoreQuerySpec;
+import com.xgen.mongot.index.lucene.explain.information.DrillSidewaysQuerySpec;
 import com.xgen.mongot.index.lucene.explain.information.LatLonPointDistanceQuerySpec;
 import com.xgen.mongot.index.lucene.explain.information.LatLonShapeQuerySpec;
 import com.xgen.mongot.index.lucene.explain.information.LongDistanceFeatureQuerySpec;
@@ -72,6 +73,7 @@ public class LuceneQuerySpecificationCreator {
           tryCast(query, org.apache.lucene.search.DisjunctionMaxQuery.class)
               .map(q -> DisjunctionMaxQuerySpecCreator.fromQuery(q, children, verbosity));
       case DOC_AND_SCORE_QUERY -> Optional.of(new DocAndScoreQuerySpec());
+      case DRILL_SIDEWAYS_QUERY -> Optional.of(new DrillSidewaysQuerySpec());
       case EXACT_VECTOR_SEARCH_QUERY ->
           tryCast(query, ExactVectorSearchQuery.class)
               .map(

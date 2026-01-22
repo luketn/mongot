@@ -18,6 +18,7 @@ java_library(
         "DefaultQuerySpec.java",
         "DisjunctionMaxQuerySpec.java",
         "DocAndScoreQuerySpec.java",
+        "DrillSidewaysQuerySpec.java",
         "EqualsWithTimingEquator.java",
         "ExactVectorSearchQuerySpec.java",
         "FacetStats.java",

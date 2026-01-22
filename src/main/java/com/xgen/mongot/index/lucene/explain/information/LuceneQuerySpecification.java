@@ -29,6 +29,7 @@ public interface LuceneQuerySpecification extends DocumentEncodable {
     DEFAULT_QUERY(Optional.empty()),
     DISJUNCTION_MAX_QUERY(DisjunctionMaxQuery.class.getSimpleName()),
     DOC_AND_SCORE_QUERY("DocAndScoreQuery"),
+    DRILL_SIDEWAYS_QUERY("DrillSidewaysQuery"),
     EXACT_VECTOR_SEARCH_QUERY("ExactVectorSearchQuery"),
     FUNCTION_SCORE_QUERY("FunctionScoreQuery"),
     FUZZY_QUERY(FuzzyQuery.class.getSimpleName()),
@@ -140,6 +141,7 @@ public interface LuceneQuerySpecification extends DocumentEncodable {
       case CONSTANT_SCORE_QUERY -> builder.classField(ConstantScoreQuerySpec::fromBson);
       case DISJUNCTION_MAX_QUERY -> builder.classField(DisjunctionMaxQuerySpec::fromBson);
       case DOC_AND_SCORE_QUERY -> builder.classField(DocAndScoreQuerySpec::fromBson);
+      case DRILL_SIDEWAYS_QUERY -> builder.classField(DrillSidewaysQuerySpec::fromBson);
       case EXACT_VECTOR_SEARCH_QUERY -> builder.classField(ExactVectorSearchQuerySpec::fromBson);
       case FUNCTION_SCORE_QUERY -> builder.classField(FunctionScoreQuerySpec::fromBson);
       case FUZZY_QUERY -> builder.classField(FuzzyQuerySpec::fromBson);
