@@ -33,6 +33,7 @@ java_library(
         "OptionalField.java",
         "ParsedField.java",
         "ParsedFieldGroup.java",
+        "PermissiveBsonParseContext.java",
         "ProtoField.java",
         "SanitizableDocumentEncodable.java",
         "StringField.java",
