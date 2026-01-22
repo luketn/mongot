@@ -129,19 +129,18 @@ public class MongoDbNoOpReplicationManager implements ReplicationManager {
             index -> {
               index.setStatus(IndexStatus.doesNotExist(IndexStatus.Reason.INDEX_DROPPED));
               return CompletableFuture.runAsync(
-                  () -> killCursors(generationId, index), this.lifeCycleExecutor);
+                  () -> killCursors(generationId), this.lifeCycleExecutor);
             })
         .orElseGet(() -> CompletableFuture.completedFuture(null));
   }
 
-  private void killCursors(GenerationId generationId, InitializedIndex index) {
+  private void killCursors(GenerationId generationId) {
     Crash.because("failed to kill index cursors")
         .ifThrows(
             () -> {
-              // Then kill existing cursors so no searches are run on the Index after it's closed.
+              // Kill existing cursors so no searches are run on the Index after it's closed.
+              // Note: Physical close() and drop() are handled by IndexActions after this completes.
               this.cursorManager.killIndexCursors(generationId);
-              index.close();
-              index.drop();
             });
   }
 

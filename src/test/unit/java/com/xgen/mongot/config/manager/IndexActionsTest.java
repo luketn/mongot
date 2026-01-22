@@ -2,6 +2,7 @@ package com.xgen.mongot.config.manager;
 
 import static com.xgen.testing.mongot.mock.index.IndexGeneration.mockDefinitionGeneration;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -10,6 +11,7 @@ import com.xgen.mongot.index.InitializedIndex;
 import com.xgen.mongot.index.analyzer.InvalidAnalyzerDefinitionException;
 import com.xgen.mongot.index.autoembedding.AutoEmbeddingIndexGeneration;
 import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
+import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.testing.TestUtils;
 import com.xgen.testing.mongot.config.manager.ConfigStateMocks;
 import com.xgen.testing.mongot.mock.index.IndexGeneration;
@@ -17,6 +19,8 @@ import com.xgen.testing.mongot.mock.index.SearchIndex;
 import com.xgen.testing.mongot.mock.index.VectorIndex;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -252,5 +256,43 @@ public class IndexActionsTest {
     Assert.assertTrue(this.mocks.indexCatalog.getIndexById(VectorIndex.MOCK_INDEX_ID).isPresent());
     this.mocks.waitAndGetInitializedIndex(definitionGeneration.getGenerationId());
     verify(this.mocks.lifecycleManager).add(any(AutoEmbeddingIndexGeneration.class));
+  }
+
+  /**
+   * Verifies that the index is present in the catalog when the replication flow drops the index.
+   * Otherwise, the replication flow will fail to kill the cursors before the index is removed from
+   * the catalog.
+   */
+  @Test
+  public void testDropIndexKeepsIndexInCatalogDuringReplicationDrop() throws Exception {
+    this.actions.addNewIndexes(List.of(SearchIndex.MOCK_INDEX_DEFINITION_GENERATION));
+    var indexes = List.copyOf(this.mocks.indexCatalog.getIndexes());
+    GenerationId generationId = indexes.get(0).getGenerationId();
+    this.mocks.waitAndGetInitializedIndex(generationId);
+
+    AtomicReference<Boolean> isIndexInCatalog = new AtomicReference<>(false);
+
+    doAnswer(
+            invocation -> {
+              GenerationId droppedGenerationId = invocation.getArgument(0);
+              boolean isPresent =
+                  this.mocks.initializedIndexCatalog.getIndex(droppedGenerationId).isPresent();
+              isIndexInCatalog.set(isPresent);
+              return CompletableFuture.completedFuture(null);
+            })
+        .when(this.mocks.lifecycleManager)
+        .dropIndex(any());
+
+    this.actions.dropFromCatalog(indexes);
+
+    verify(this.mocks.lifecycleManager).dropIndex(generationId);
+
+    Assert.assertTrue(
+        "Index must be present in Catalog when lifecycleManager.dropIndex() runs",
+        isIndexInCatalog.get());
+
+    Assert.assertFalse(
+        "Index must be removed from Catalog after drop completes",
+        this.mocks.initializedIndexCatalog.getIndex(generationId).isPresent());
   }
 }

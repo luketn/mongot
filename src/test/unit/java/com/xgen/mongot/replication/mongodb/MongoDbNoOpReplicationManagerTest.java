@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,10 +56,12 @@ public class MongoDbNoOpReplicationManagerTest {
   public void testDropIndex() throws Exception {
     Mocks mocks = Mocks.create();
 
-    // Drop it, ensure that ReplicationIndexManager::drop was called.
+    // Drop it, ensure that cursors are killed. Physical close/drop is handled by IndexActions.
     mocks.manager.dropIndex(MOCK_INDEX_GENERATION_ID).get(5, TimeUnit.SECONDS);
     verify(mocks.cursorManager).killIndexCursors(MOCK_INDEX_GENERATION_ID);
-    verify(mocks.initializedIndex).drop();
+    // Ensure that index drop and close are not invoked.
+    verify(mocks.initializedIndex, never()).drop();
+    verify(mocks.initializedIndex, never()).drop();
   }
 
   @Test

@@ -192,39 +192,55 @@ public class IndexActions {
         .addKeyValue("indexId", generationId.indexId)
         .addKeyValue("generationId", generationId)
         .log("dropping index");
-    var initializedIndex = this.configState.initializedIndexCatalog.removeIndex(generationId);
 
     Index index = indexGeneration.getIndex();
-    // Stop replication to the Index, then close the Index and drop it.
     CompletableFuture<Void> replicationDropFuture;
+
     if (this.withReplication) {
+      // This will look up the index in InitializedIndexCatalog to kill cursors
       replicationDropFuture = this.configState.getLifecycleManager().dropIndex(generationId);
     } else {
       replicationDropFuture = CompletableFuture.completedFuture(null);
     }
-    return replicationDropFuture.thenRun(
-        () ->
-            Crash.because("failed to close and drop index")
-                .ifThrows(
-                    () -> {
-                      try {
-                        if (initializedIndex.isPresent()) {
-                          initializedIndex.get().close();
-                        }
-                      } catch (Exception e) {
-                        // TODO(CLOUDP-231027): In rare cases, index could be dropped
-                        //  asynchronously as part of LifecycleManager::dropIndex. Can revisit
-                        //  drop logic after separating out ReplicationManager from
-                        //  LifecycleManager.
-                        LOG.atError()
-                            .addKeyValue("indexId", generationId.indexId)
-                            .addKeyValue("generationId", generationId)
-                            .addKeyValue("exceptionMessage", e.getMessage())
-                            .log("Exception while closing index");
+
+    return replicationDropFuture.handle(
+        (result, exception) -> {
+          if (exception != null) {
+            LOG.atError()
+                .addKeyValue("indexId", generationId.indexId)
+                .addKeyValue("generationId", generationId)
+                .setCause(exception)
+                .log("Replication drop failed, proceeding with physical drop");
+          }
+
+          // Remove the index from the catalog.
+          var initializedIndex = this.configState.initializedIndexCatalog.removeIndex(generationId);
+
+          Crash.because("failed to close and drop index")
+              .ifThrows(
+                  () -> {
+                    try {
+                      if (initializedIndex.isPresent()) {
+                        initializedIndex.get().close();
                       }
+                    } catch (Exception e) {
+                      LOG.atError()
+                          .addKeyValue("indexId", generationId.indexId)
+                          .addKeyValue("generationId", generationId)
+                          .addKeyValue("exceptionMessage", e.getMessage())
+                          .log("Exception while closing index");
+                    }
+                    // Drop and close the index on any exception.
+                    try {
                       index.close();
-                      index.drop();
-                    }));
+                    } catch (Exception e) {
+                      LOG.atDebug().log(
+                          "Ignored exception during redundant close: " + e.getMessage());
+                    }
+                    index.drop();
+                  });
+          return null;
+        });
   }
 
   private void validateAllInCatalogAndNoPendingSwaps(List<IndexGeneration> indexes) {
