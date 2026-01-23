@@ -3,6 +3,7 @@ package com.xgen.mongot.index.lucene;
 import static com.xgen.mongot.util.Check.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.flogger.FluentLogger;
 import com.google.errorprone.annotations.Var;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.xgen.mongot.cursor.batch.BatchSizeStrategy;
@@ -64,6 +65,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.facet.DrillSideways.DrillSidewaysResult;
@@ -79,6 +81,7 @@ import org.apache.lucene.search.TopDocs;
 /** This class reads from a single Lucene index. */
 @SuppressWarnings("GuardedBy") // Uses LockGuard instead
 public class LuceneSearchIndexReader implements SearchIndexReader {
+  private static final FluentLogger FLOGGER = FluentLogger.forEnclosingClass();
 
   private final DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry;
 
@@ -1357,5 +1360,53 @@ public class LuceneSearchIndexReader implements SearchIndexReader {
     return switch (collector) {
       case FacetCollector facetCollector -> facetCollector.operator();
     };
+  }
+
+  /**
+   * Returns whether the MAX_STRING_FACET_CARDINALITY_METRIC feature flag is enabled.
+   *
+   * @return true if the feature flag is enabled, false otherwise
+   */
+  public boolean maxFacetCardinalityMetricEnabled() {
+    return this.featureFlags.isEnabled(Feature.MAX_STRING_FACET_CARDINALITY_METRIC);
+  }
+
+  /**
+   * Returns the maximum cardinality across all stringFacet fields for the per index metric.
+   *
+   * @return the maximum cardinality, or 0 if no stringFacet fields are indexed or if the reader is
+   *     closed
+   */
+  public int getMaxStringFacetCardinality() {
+    try (LockGuard ignored = LockGuard.with(this.shutdownSharedLock)) {
+      if (!maxFacetCardinalityMetricEnabled()) {
+        return 0;
+      }
+      if (this.closed) {
+        return 0;
+      }
+      try {
+        LuceneIndexSearcher searcher = this.searcherManager.acquire();
+        try {
+          return searcher
+              .getFacetsState()
+              .map(
+                  state ->
+                      state.getPrefixToOrdRange().values().stream()
+                          // get cardinality of each field using the range of ordinal numbers
+                          // representing the unique values for a facet field
+                          .mapToInt(ordRange -> ordRange.end - ordRange.start + 1)
+                          .max()
+                          .orElse(0))
+              .orElse(0);
+        } finally {
+          this.searcherManager.release(searcher);
+        }
+      } catch (IOException e) {
+        FLOGGER.atWarning().atMostEvery(5, TimeUnit.MINUTES).withCause(e).log(
+            "IOException while computing max facet cardinality, returning 0");
+        return 0;
+      }
+    }
   }
 }

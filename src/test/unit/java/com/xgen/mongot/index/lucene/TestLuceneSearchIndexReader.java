@@ -28,6 +28,7 @@ import com.xgen.mongot.index.MeteredIndexWriter;
 import com.xgen.mongot.index.SearchIndexReader.SearchProducerAndMetaResults;
 import com.xgen.mongot.index.analyzer.wrapper.LuceneAnalyzer;
 import com.xgen.mongot.index.definition.IndexDefinition;
+import com.xgen.mongot.index.definition.SearchIndexDefinitionGeneration;
 import com.xgen.mongot.index.lucene.directory.IndexDirectoryFactory;
 import com.xgen.mongot.index.lucene.directory.IndexDirectoryHelper;
 import com.xgen.mongot.index.lucene.field.FieldName;
@@ -59,6 +60,7 @@ import com.xgen.testing.mongot.index.lucene.synonym.SynonymRegistryBuilder;
 import com.xgen.testing.mongot.index.query.OperatorQueryBuilder;
 import com.xgen.testing.mongot.index.query.operators.OperatorBuilder;
 import com.xgen.testing.mongot.index.query.scores.ScoreBuilder;
+import com.xgen.testing.mongot.mock.index.IndexGeneration;
 import com.xgen.testing.mongot.mock.index.IndexMetricsSupplier;
 import com.xgen.testing.mongot.mock.index.SearchIndex;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -70,6 +72,8 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.StringField;
+import org.apache.lucene.facet.FacetsConfig;
+import org.apache.lucene.facet.sortedset.SortedSetDocValuesFacetField;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.NoMergePolicy;
@@ -694,5 +698,193 @@ public class TestLuceneSearchIndexReader {
             BatchSizeStrategySelector.forQuery(queryDefinition, QueryCursorOptions.empty()),
             QueryOptimizationFlags.DEFAULT_OPTIONS)
         .searchBatchProducer;
+  }
+
+  @Test
+  public void testGetMaxStringFacetCardinality_featureFlagDisabled() {
+    // When feature flag is disabled, should return 0
+    assertEquals(0, this.reader.getMaxStringFacetCardinality());
+  }
+
+  @Test
+  public void testGetMaxStringFacetCardinality_featureFlagEnabled_noFacets() throws Exception {
+    // Create a new reader with the feature flag enabled
+    var featureFlagsWithMetric =
+        FeatureFlags.withDefaults()
+            .enable(Feature.ACCURATE_NUM_EMBEDDED_ROOT_DOCS_METRIC)
+            .enable(Feature.MAX_STRING_FACET_CARDINALITY_METRIC)
+            .build();
+
+    LuceneSearchIndexReader readerWithFlag =
+        createReaderWithFeatureFlags(
+            MOCK_INDEX_DEFINITION_GENERATION, null, featureFlagsWithMetric);
+
+    // With no facets indexed, should return 0
+    assertEquals(0, readerWithFlag.getMaxStringFacetCardinality());
+  }
+
+  @Test
+  public void testGetMaxStringFacetCardinality_featureFlagEnabled_closedReader() throws Exception {
+    // Create a new reader with the feature flag enabled
+    var featureFlagsWithMetric =
+        FeatureFlags.withDefaults()
+            .enable(Feature.ACCURATE_NUM_EMBEDDED_ROOT_DOCS_METRIC)
+            .enable(Feature.MAX_STRING_FACET_CARDINALITY_METRIC)
+            .build();
+
+    LuceneSearchIndexReader readerWithFlag =
+        createReaderWithFeatureFlags(
+            MOCK_INDEX_DEFINITION_GENERATION, null, featureFlagsWithMetric);
+
+    // Close the reader
+    readerWithFlag.close();
+
+    // Closed reader should return 0
+    assertEquals(0, readerWithFlag.getMaxStringFacetCardinality());
+  }
+
+  @Test
+  public void testGetMaxStringFacetCardinality_withSingleFacetField() throws Exception {
+    // Test with actual facet data - single field with cardinality 3
+    // Add documents with facet field "color" having 3 unique values
+    addFacetDocument(this.writer, "color", "red");
+    addFacetDocument(this.writer, "color", "blue");
+    addFacetDocument(this.writer, "color", "green");
+    addFacetDocument(this.writer, "color", "red"); // duplicate
+    this.writer.commit();
+
+    // Use the mock facet index definition which has string facets enabled
+    var mockIndexWithFacets =
+        IndexGeneration.mockDefinitionGeneration(SearchIndex.MOCK_FACET_INDEX_DEFINITION);
+
+    // Create searcher factory with string facets enabled
+    var searcherFactory =
+        new LuceneSearcherFactory(
+            mockIndexWithFacets.getIndexDefinition(),
+            false, // enableFacetingOverTokenFields (we're testing string facets, not token facets)
+            new QueryCacheProvider.DefaultQueryCacheProvider(),
+            Optional.empty(),
+            SearchIndex.mockQueryMetricsUpdater(IndexDefinition.Type.SEARCH));
+
+    var featureFlagsWithMetric =
+        FeatureFlags.withDefaults().enable(Feature.MAX_STRING_FACET_CARDINALITY_METRIC).build();
+
+    LuceneSearchIndexReader readerWithFacets =
+        createReaderWithFeatureFlags(mockIndexWithFacets, searcherFactory, featureFlagsWithMetric);
+
+    // Should return cardinality of 3 (red, blue, green)
+    assertEquals(3, readerWithFacets.getMaxStringFacetCardinality());
+  }
+
+  @Test
+  public void testGetMaxStringFacetCardinality_withMultipleFacetFields() throws Exception {
+    // Test with multiple facet fields - should return the maximum cardinality
+    // Add documents with multiple facet fields
+    // Field "color" has cardinality 3
+    addFacetDocument(this.writer, "color", "red");
+    addFacetDocument(this.writer, "color", "blue");
+    addFacetDocument(this.writer, "color", "green");
+
+    // Field "size" has cardinality 5 (this should be the max)
+    addFacetDocument(this.writer, "size", "small");
+    addFacetDocument(this.writer, "size", "medium");
+    addFacetDocument(this.writer, "size", "large");
+    addFacetDocument(this.writer, "size", "xlarge");
+    addFacetDocument(this.writer, "size", "xxlarge");
+
+    // Field "brand" has cardinality 2
+    addFacetDocument(this.writer, "brand", "nike");
+    addFacetDocument(this.writer, "brand", "adidas");
+
+    this.writer.commit();
+
+    // Use the mock facet index definition which has string facets enabled
+    var mockIndexWithFacets =
+        IndexGeneration.mockDefinitionGeneration(SearchIndex.MOCK_FACET_INDEX_DEFINITION);
+
+    // Create searcher factory with string facets enabled
+    var searcherFactory =
+        new LuceneSearcherFactory(
+            mockIndexWithFacets.getIndexDefinition(),
+            false, // enableFacetingOverTokenFields (we're testing string facets, not token facets)
+            new QueryCacheProvider.DefaultQueryCacheProvider(),
+            Optional.empty(),
+            SearchIndex.mockQueryMetricsUpdater(IndexDefinition.Type.SEARCH));
+
+    var featureFlagsWithMetric =
+        FeatureFlags.withDefaults().enable(Feature.MAX_STRING_FACET_CARDINALITY_METRIC).build();
+
+    LuceneSearchIndexReader readerWithFacets =
+        createReaderWithFeatureFlags(mockIndexWithFacets, searcherFactory, featureFlagsWithMetric);
+
+    // Should return 5 (max cardinality from "size" field)
+    assertEquals(5, readerWithFacets.getMaxStringFacetCardinality());
+  }
+
+  private LuceneSearchIndexReader createReaderWithFeatureFlags(
+      SearchIndexDefinitionGeneration indexDefinitionGeneration,
+      LuceneSearcherFactory searcherFactory,
+      FeatureFlags featureFlags)
+      throws Exception {
+    var metricsFactory = SearchIndex.mockMetricsFactory();
+    IndexMetricsUpdater indexMetricsUpdater =
+        IndexMetricsUpdaterBuilder.builder()
+            .metricsFactory(metricsFactory)
+            .indexMetricsSupplier(IndexMetricsSupplier.mockEmptyIndexMetricsSupplier())
+            .build();
+
+    LuceneSearcherManager searcherManager =
+        new LuceneSearcherManager(
+            this.writer,
+            searcherFactory != null ? searcherFactory : this.searcherFactory,
+            SearchIndex.mockMetricsFactory());
+
+    Analyzer analyzer =
+        LuceneAnalyzer.indexAnalyzer(
+            indexDefinitionGeneration.getIndexDefinition(), AnalyzerRegistryBuilder.empty());
+    LuceneHighlighterContext highlighterContext =
+        new LuceneHighlighterContext(
+            indexDefinitionGeneration
+                .getIndexDefinition()
+                .createFieldDefinitionResolver(
+                    indexDefinitionGeneration.generation().indexFormatVersion),
+            analyzer);
+    LuceneFacetContext facetContext =
+        new LuceneFacetContext(
+            indexDefinitionGeneration
+                .getIndexDefinition()
+                .createFieldDefinitionResolver(
+                    indexDefinitionGeneration.generation().indexFormatVersion),
+            indexDefinitionGeneration
+                .getIndexDefinition()
+                .getIndexCapabilities(indexDefinitionGeneration.generation().indexFormatVersion));
+
+    return LuceneSearchIndexReader.create(
+        this.queryFactory,
+        searcherManager,
+        indexDefinitionGeneration.getIndexDefinition(),
+        highlighterContext,
+        facetContext,
+        indexMetricsUpdater.getQueryingMetricsUpdater(),
+        new LuceneSearchManagerFactory(
+            indexDefinitionGeneration
+                .getIndexDefinition()
+                .createFieldDefinitionResolver(
+                    indexDefinitionGeneration.generation().indexFormatVersion),
+            new BinaryQuantizedVectorRescorer(Optional.of(this.concurrentRescoringExecutor)),
+            indexMetricsUpdater.getQueryingMetricsUpdater()),
+        Optional.of(this.concurrentSearchExecutor),
+        0,
+        featureFlags,
+        new DynamicFeatureFlagRegistry(
+            Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()));
+  }
+
+  private void addFacetDocument(IndexWriter writer, String dimension, String value)
+      throws IOException {
+    Document doc = new Document();
+    doc.add(new SortedSetDocValuesFacetField(dimension, value));
+    FacetsConfig config = new FacetsConfig();
+    writer.addDocument(config.build(doc));
   }
 }

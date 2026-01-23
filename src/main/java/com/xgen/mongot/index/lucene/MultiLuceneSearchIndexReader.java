@@ -244,6 +244,19 @@ public class MultiLuceneSearchIndexReader implements SearchIndexReader {
   }
 
   /**
+   * Returns the maximum cardinality across all cached stringFacet fields across all underlying
+   * index partitions.
+   *
+   * @return the maximum cardinality across all partitions
+   */
+  public int getMaxStringFacetCardinality() {
+    return this.readers.stream()
+        .mapToInt(LuceneSearchIndexReader::getMaxStringFacetCardinality)
+        .max()
+        .orElse(0);
+  }
+
+  /**
    * The merge path retains only {@link LuceneSearchBatchProducer} instances, so any other producer
    * types (e.g., {@link EmptySearchBatchProducer}) must be tracked separately to ensure they are
    * properly closed.

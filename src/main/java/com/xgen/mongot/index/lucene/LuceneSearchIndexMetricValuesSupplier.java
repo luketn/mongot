@@ -19,7 +19,9 @@ import com.xgen.mongot.index.lucene.field.FieldName;
 import com.xgen.mongot.index.path.string.StringMultiFieldPath;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.version.IndexFormatVersion;
+import com.xgen.mongot.metrics.CachedGauge;
 import com.xgen.mongot.metrics.PerIndexMetricsFactory;
+import com.xgen.mongot.util.FunctionalUtils;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collections;
@@ -160,6 +162,16 @@ public class LuceneSearchIndexMetricValuesSupplier extends LuceneIndexMetricValu
           MetricNames.NUM_EMBEDDED_ROOT_DOCS,
           this,
           LuceneSearchIndexMetricValuesSupplier::getNumEmbeddedRootDocs);
+    }
+
+    if (this.indexReader instanceof LuceneSearchIndexReader reader
+        && reader.maxFacetCardinalityMetricEnabled()) {
+      indexStatsMetricFactory.perIndexObjectValueGauge(
+          MetricNames.MAX_STRING_FACET_CARDINALITY,
+          this,
+          CachedGauge.of(
+              LuceneSearchIndexMetricValuesSupplier::getMaxStringFacetCardinality,
+              Duration.ofMinutes(1)));
     }
   }
 
@@ -327,5 +339,19 @@ public class LuceneSearchIndexMetricValuesSupplier extends LuceneIndexMetricValu
     } catch (IOException | ReaderClosedException ignored) {
       return 0L;
     }
+  }
+
+  private int getMaxStringFacetCardinality() {
+    return FunctionalUtils.getOrDefaultIfThrows(
+        () -> {
+          if (this.indexReader instanceof LuceneSearchIndexReader luceneSearchIndexReader) {
+            return luceneSearchIndexReader.getMaxStringFacetCardinality();
+          } else if (this.indexReader instanceof MultiLuceneSearchIndexReader multiReader) {
+            return multiReader.getMaxStringFacetCardinality();
+          }
+          return 0;
+        },
+        Exception.class,
+        0);
   }
 }

@@ -67,7 +67,8 @@ public enum Feature {
   VECTOR_STORED_SOURCE("vectorStoredSource", State.DISABLED),
   INSTRUMENTED_QUERY_CACHE("instrumentedQueryCache", State.DISABLED),
   PHANTOM_REFERENCE_CLEANUP("phantomReferenceCleanup", State.DISABLED),
-  FTDC_EXECUTOR_METRICS_TO_PROMETHEUS("ftdcExecutorMetricsToPrometheus", State.DISABLED);
+  FTDC_EXECUTOR_METRICS_TO_PROMETHEUS("ftdcExecutorMetricsToPrometheus", State.DISABLED),
+  MAX_STRING_FACET_CARDINALITY_METRIC("enableMaxStringFacetCardinalityMetric", State.DISABLED);
 
   private final String name;
   private final State defaultState;
