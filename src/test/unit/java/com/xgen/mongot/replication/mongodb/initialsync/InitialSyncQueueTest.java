@@ -425,11 +425,8 @@ public class InitialSyncQueueTest {
     startedLatch0.await(5, TimeUnit.SECONDS);
     verify(mocks.mockInitialSyncManagerFactory.getManager(index0), timeout(1000)).sync();
 
-    assertEquals(mongoClient0, mocks.mockInitialSyncManagerFactory.getClient(index0));
-
     startedLatch1.await(5, TimeUnit.SECONDS);
     verify(mocks.mockInitialSyncManagerFactory.getManager(index1), timeout(1000)).sync();
-    assertEquals(mongoClient1, mocks.mockInitialSyncManagerFactory.getClient(index1));
 
     // Complete the first initial sync.
     mocks.mockInitialSyncManagerFactory.completeSync(index0);
@@ -438,6 +435,10 @@ public class InitialSyncQueueTest {
     // Complete the remaining initial syncs.
     mocks.mockInitialSyncManagerFactory.completeSync(index1);
     FutureUtils.swallowedFuture(future1).get(5, TimeUnit.SECONDS);
+
+    // verify index0 and index1 are using different clients
+    assertEquals(mongoClient0, mocks.mockInitialSyncManagerFactory.getClient(index0));
+    assertEquals(mongoClient1, mocks.mockInitialSyncManagerFactory.getClient(index1));
   }
 
   @Test

@@ -191,6 +191,7 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
         .addKeyValue("indexId", this.context.getIndexId())
         .addKeyValue("generationId", this.context.getGenerationId())
         .addKeyValue("lastScannedToken", this.resumeInfo.map(InitialSyncResumeInfo::getResumeToken))
+        .addKeyValue("hostName", this.resumeInfo.map(InitialSyncResumeInfo::getSyncSourceHost))
         .log("Beginning initial sync.");
 
     try (changeStreamApplier) {

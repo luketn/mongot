@@ -590,6 +590,8 @@ public class InitialSyncQueue {
 
     private final Map<GenerationId, Long> initialSyncStartTimeMap = new HashMap<>();
 
+    private final MetricsFactory metricsFactory;
+
     InitialSyncDispatcher(
         MeterRegistry meterRegistry,
         InitialSyncManagerFactory initialSyncManagerFactory,
@@ -603,16 +605,17 @@ public class InitialSyncQueue {
       this.pauseAllInitialSync = replicationConfig.pauseAllInitialSyncs;
       this.embeddingGetMoreBatchSize = replicationConfig.embeddingGetMoreBatchSize;
 
-      MetricsFactory metricsFactory = new MetricsFactory("initialsync.dispatcher", meterRegistry);
+      this.metricsFactory = new MetricsFactory("initialsync.dispatcher", meterRegistry);
       String inProgressSyncsName = "inProgressSyncs";
       this.inProgressSyncs =
           Map.of(
               TAG_SEARCH,
-              getNumGauge(metricsFactory, inProgressSyncsName, TAG_SEARCH),
+              getNumGauge(this.metricsFactory, inProgressSyncsName, TAG_SEARCH),
               TAG_VECTOR_SEARCH,
-              getNumGauge(metricsFactory, inProgressSyncsName, TAG_VECTOR_SEARCH),
+              getNumGauge(this.metricsFactory, inProgressSyncsName, TAG_VECTOR_SEARCH),
               TAG_VECTOR_SEARCH_AUTO_EMBEDDING,
-              getNumGauge(metricsFactory, inProgressSyncsName, TAG_VECTOR_SEARCH_AUTO_EMBEDDING));
+              getNumGauge(
+                  this.metricsFactory, inProgressSyncsName, TAG_VECTOR_SEARCH_AUTO_EMBEDDING));
 
       Tags naturalOrderScanTag = Tags.of("scan_type", "natural_order");
       Tags idOrderScanTag = Tags.of("scan_type", "id_order");
@@ -621,42 +624,41 @@ public class InitialSyncQueue {
       this.collectionScansFeatureFlagMapping =
           Map.of(
               true,
-              metricsFactory.numGauge(collectionScanName, naturalOrderScanTag),
+              this.metricsFactory.numGauge(collectionScanName, naturalOrderScanTag),
               false,
-              metricsFactory.numGauge(collectionScanName, idOrderScanTag));
-      this.inProgressResumedSyncs = metricsFactory.numGauge("inProgressResumedSyncs");
+              this.metricsFactory.numGauge(collectionScanName, idOrderScanTag));
+      this.inProgressResumedSyncs = this.metricsFactory.numGauge("inProgressResumedSyncs");
       String initialSyncLongTimerName = "syncDuration";
       this.initialSyncLongTimerFeatureFlagMapping =
           Map.of(
               true,
-              metricsFactory.longTaskTimer(initialSyncLongTimerName, naturalOrderScanTag),
+              this.metricsFactory.longTaskTimer(initialSyncLongTimerName, naturalOrderScanTag),
               false,
-              metricsFactory.longTaskTimer(initialSyncLongTimerName, idOrderScanTag));
+              this.metricsFactory.longTaskTimer(initialSyncLongTimerName, idOrderScanTag));
       String initialSyncTimerName = "completedSyncDuration";
-
       this.initialSyncTimerFeatureFlagMapping =
           Map.of(
               true,
-              metricsFactory.timer(initialSyncTimerName, naturalOrderScanTag),
+              this.metricsFactory.timer(initialSyncTimerName, naturalOrderScanTag),
               false,
-              metricsFactory.timer(initialSyncTimerName, idOrderScanTag));
+              this.metricsFactory.timer(initialSyncTimerName, idOrderScanTag));
       // TODO(CLOUDP-335647): remove queuedSyncs after switching to the new one in InitialSyncQueue.
-      metricsFactory.collectionSizeGauge("queuedSyncs", InitialSyncQueue.this.requestQueue);
-      metricsFactory.timeGauge(
+      this.metricsFactory.collectionSizeGauge("queuedSyncs", InitialSyncQueue.this.requestQueue);
+      this.metricsFactory.timeGauge(
           "inProgressInitialSyncDurationMax",
           this.initialSyncStartTimeMap,
           map -> {
             var now = Clock.systemUTC().millis();
             return map.values().stream().mapToLong(ts -> now - ts).max().orElse(0L);
           });
-      metricsFactory.timeGauge(
+      this.metricsFactory.timeGauge(
           "inProgressInitialSyncDurationMin",
           this.initialSyncStartTimeMap,
           map -> {
             var now = Clock.systemUTC().millis();
             return map.values().stream().mapToLong(ts -> now - ts).min().orElse(0L);
           });
-      metricsFactory.timeGauge(
+      this.metricsFactory.timeGauge(
           "inProgressInitialSyncDurationSum",
           this.initialSyncStartTimeMap,
           map -> {
@@ -665,7 +667,7 @@ public class InitialSyncQueue {
           });
       try {
         this.indexDirectoryHelper =
-            Optional.of(IndexDirectoryHelper.create(dataPath, metricsFactory));
+            Optional.of(IndexDirectoryHelper.create(dataPath, this.metricsFactory));
       } catch (IOException e) {
         LOG.error("Failed to create IndexDirectoryHelper", e);
         this.indexDirectoryHelper = Optional.empty();
@@ -838,9 +840,7 @@ public class InitialSyncQueue {
       try {
         // The default mongoClient should be constructed from syncSource.mongodURI, it is mapped to
         // the host InitialSyncQueue.this.syncSourceHost
-        @Var
-        InitialSyncMongoClient mongoClient =
-            InitialSyncQueue.this.mongoClients.get(InitialSyncQueue.this.syncSourceHost);
+        @Var String syncSourceHost = InitialSyncQueue.this.syncSourceHost;
         LOG.atInfo()
             .addKeyValue("host", InitialSyncQueue.this.syncSourceHost)
             .log("using default mongoClient");
@@ -850,25 +850,25 @@ public class InitialSyncQueue {
             && request.getResumeInfo().isPresent()
             && request.getResumeInfo().get().isBufferlessNaturalOrderInitialSyncResumeInfo()) {
           var resumeInfo = request.getResumeInfo().get();
-          // make sure getSyncSourceHost() is in connection string mappings
+          // check resumeInfo.getSyncSourceHost() is in connection string mappings and is different
+          // from the default one
           if (resumeInfo.getSyncSourceHost().isPresent()
               && InitialSyncQueue.this.mongoClients.containsKey(
                   resumeInfo.getSyncSourceHost().get())
-              && !resumeInfo
-                  .getSyncSourceHost()
-                  .get()
-                  .equals(InitialSyncQueue.this.syncSourceHost)) {
-            // Replace mongoClient if according sync source could be found./
-            mongoClient =
-                InitialSyncQueue.this.mongoClients.get(resumeInfo.getSyncSourceHost().get());
+              && !resumeInfo.getSyncSourceHost().get().equals(syncSourceHost)) {
+            // Replace mongoClient if corresponding sync source could be found./
+            syncSourceHost = resumeInfo.getSyncSourceHost().get();
             LOG.atInfo()
-                .addKeyValue("host", resumeInfo.getSyncSourceHost().get())
+                .addKeyValue("originalHostname", resumeInfo.getSyncSourceHost().get())
+                .addKeyValue("defaultHostname", InitialSyncQueue.this.syncSourceHost)
                 .addKeyValue("indexId", request.getIndexDefinitionGeneration().getIndexId())
                 .addKeyValue(
                     "generationId", request.getIndexDefinitionGeneration().getGenerationId())
                 .log("switching to original mongoClient from initial sync resume info");
           }
         }
+        InitialSyncMongoClient mongoClient = InitialSyncQueue.this.mongoClients.get(syncSourceHost);
+        recordSyncSource(syncSourceHost);
 
         // Here namespace resolution is first performed, right before the actual sync occurs below
         // in syncManager.sync(). This method will throw an exception if the collection
@@ -930,6 +930,11 @@ public class InitialSyncQueue {
           this.concurrentSyncs.release();
         }
       }
+    }
+
+    public void recordSyncSource(String hostName) {
+      var tags = Tags.of("hostName", hostName);
+      this.metricsFactory.counter("syncSource", tags).increment();
     }
   }
 }

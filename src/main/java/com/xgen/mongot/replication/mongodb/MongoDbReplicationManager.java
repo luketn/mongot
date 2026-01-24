@@ -499,8 +499,23 @@ public class MongoDbReplicationManager implements ReplicationManager {
   }
 
   public static String getSyncSourceHost(SyncSourceConfig syncSourceConfig) {
-    // There should only be one sync source host
-    return syncSourceConfig.mongodUri.getHosts().getFirst();
+    Optional<String> hostName =
+        syncSourceConfig.mongodUris.flatMap(
+            map ->
+                map.entrySet().stream()
+                    .filter(e -> syncSourceConfig.mongodUri.equals(e.getValue()))
+                    .map(Map.Entry::getKey)
+                    .findFirst());
+
+    if (hostName.isEmpty()) {
+      // There should only be one host from mongodUri for Atlas that's using a direct connection for
+      // initial sync
+      String host = syncSourceConfig.mongodUri.getHosts().getFirst();
+      // return the host name excluding port.
+      return host.split(":")[0];
+    }
+
+    return hostName.get();
   }
 
   private static com.mongodb.client.MongoClient getSynonymsMongoClient(

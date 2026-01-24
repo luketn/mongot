@@ -520,7 +520,7 @@ public class MongoDbReplicationManagerTest {
 
   @Test
   public void testGetClientSessionRecords() {
-    SyncSourceConfig syncSourceConfig =
+    SyncSourceConfig syncSourceConfig1 =
         new SyncSourceConfig(
             new ConnectionString("mongodb://localhost1:27017"),
             Optional.of(
@@ -532,16 +532,84 @@ public class MongoDbReplicationManagerTest {
             Optional.empty(),
             new ConnectionString("mongodb://localhost1:27017"));
 
-    var result =
+    var result1 =
         MongoDbReplicationManager.getClientSessionRecords(
-            syncSourceConfig,
+            syncSourceConfig1,
             MongoDbReplicationConfig.getDefault(),
             new SimpleMeterRegistry(),
             spy(Executors.fixedSizeThreadScheduledExecutor("test", 1, new SimpleMeterRegistry())),
             "localhost1");
-    Assert.assertEquals(2, result.size());
-    Assert.assertTrue(result.containsKey("localhost1"));
-    Assert.assertTrue(result.containsKey("localhost2"));
+    Assert.assertEquals(2, result1.size());
+    Assert.assertTrue(result1.containsKey("localhost1"));
+    Assert.assertTrue(result1.containsKey("localhost2"));
+
+    SyncSourceConfig syncSourceConfig2 =
+        new SyncSourceConfig(
+            new ConnectionString("mongodb://localhost1:27017"),
+            Optional.of(
+                Map.of(
+                    "localhost2",
+                    new ConnectionString("mongodb://localhost2:27017"),
+                    "localhost3",
+                    new ConnectionString("mongodb://localhost3:27018"))),
+            Optional.empty(),
+            new ConnectionString("mongodb://localhost1:27017"));
+
+    var result2 =
+        MongoDbReplicationManager.getClientSessionRecords(
+            syncSourceConfig2,
+            MongoDbReplicationConfig.getDefault(),
+            new SimpleMeterRegistry(),
+            spy(Executors.fixedSizeThreadScheduledExecutor("test", 1, new SimpleMeterRegistry())),
+            MongoDbReplicationManager.getSyncSourceHost(syncSourceConfig2));
+    Assert.assertEquals(3, result2.size());
+    Assert.assertTrue(result2.containsKey("localhost1"));
+    Assert.assertTrue(result2.containsKey("localhost2"));
+    Assert.assertTrue(result2.containsKey("localhost3"));
+  }
+
+  @Test
+  public void testGetSyncSourceHost() {
+    // when there is a match
+    Assert.assertEquals(
+        "localhost1",
+        MongoDbReplicationManager.getSyncSourceHost(
+            new SyncSourceConfig(
+                new ConnectionString("mongodb://localhost1:27017"),
+                Optional.of(
+                    Map.of(
+                        "localhost1",
+                        new ConnectionString("mongodb://localhost1:27017"),
+                        "localhost2",
+                        new ConnectionString("mongodb://localhost2:27018"))),
+                Optional.empty(),
+                new ConnectionString("mongodb://localhost1:27017"))));
+
+    // when connecting string mapping is empty
+    Assert.assertEquals(
+        "localhost1",
+        MongoDbReplicationManager.getSyncSourceHost(
+            new SyncSourceConfig(
+                new ConnectionString("mongodb://localhost1:27017"),
+                Optional.empty(),
+                Optional.empty(),
+                new ConnectionString("mongodb://localhost1:27017"))));
+
+    // when there is no match
+    SyncSourceConfig syncSourceConfig3 =
+        new SyncSourceConfig(
+            new ConnectionString("mongodb://localhost1:27017"),
+            Optional.of(
+                Map.of(
+                    "localhost2",
+                    new ConnectionString("mongodb://localhost2:27017"),
+                    "localhost3",
+                    new ConnectionString("mongodb://localhost3:27018"))),
+            Optional.empty(),
+            new ConnectionString("mongodb://localhost1:27017"));
+
+    Assert.assertEquals(
+        "localhost1", MongoDbReplicationManager.getSyncSourceHost(syncSourceConfig3));
   }
 
   private static class Mocks {
