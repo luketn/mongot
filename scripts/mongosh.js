@@ -70,8 +70,8 @@ function compare(runnable_list, n = 1, names = []) {
         timings.map(x => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / (n
             - 1))
     const errorMargin = 1.96 * stddev / Math.sqrt(n)
-    console.log(final_names[i], ": Average time taken:", mean.toFixed(2), "±",
-        errorMargin.toFixed(2), "ms (95% CI)", "; stddev:", stddev.toFixed(2));
+    console.log(final_names[i] + ": Average time taken: " + mean.toFixed(2) + " ± " +
+        errorMargin.toFixed(2) + " ms (95% CI); stddev: " + stddev.toFixed(2));
   }
 }
 
