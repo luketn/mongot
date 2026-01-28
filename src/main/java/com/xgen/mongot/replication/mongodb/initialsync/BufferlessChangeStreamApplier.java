@@ -83,6 +83,13 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
 
   private final boolean avoidNaturalOrderScanSyncSourceChangeResync;
 
+  // If true, this is a fresh initial sync (not resuming from a crash). The change stream will
+  // start at highWaterMark + 1 since the collection scan already captured everything at
+  // highWaterMark. If false, we're resuming from a crash and must use highWaterMark (inclusive)
+  // to avoid missing events from multi-document transactions where multiple events share the
+  // same optime.
+  private final boolean isFreshStart;
+
   public static final String SKIPPED_DOCUMENTS_WITHOUT_METADATA_NAMESPACE =
       "skippedInitialSyncDocumentsWithoutMetadataNamespace";
 
@@ -101,7 +108,8 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
       MongoNamespace namespace,
       BsonTimestamp highWaterMark,
       MetricsFactory metricsFactory,
-      boolean avoidNaturalOrderScanSyncSourceChangeResync) {
+      boolean avoidNaturalOrderScanSyncSourceChangeResync,
+      boolean isFreshStart) {
     HashMap<String, Object> defaultKeyValues = new HashMap<>();
     defaultKeyValues.put("indexId", context.getIndexId());
     defaultKeyValues.put("generationId", context.getGenerationId());
@@ -123,6 +131,7 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
     this.resumeInfo = Optional.empty();
 
     this.shutdown = false;
+    this.isFreshStart = isFreshStart;
 
     Tags replicationTag = Tags.of(ServerStatusDataExtractor.Scope.REPLICATION.getTag());
     this.witnessedUpdatesCounter =
@@ -210,6 +219,15 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
     }
   }
 
+  // Builds the MongoDB aggregation command used to open or resume a change stream.
+  //
+  // The logic distinguishes between two cases:
+  // 1. Fresh start (isFreshStart=true): Use highWaterMark + 1. This is safe because the collection
+  //    scan snapshot already includes everything at the highWaterMark tick. The +1 avoids
+  //    reprocessing events that were already captured by the collection scan.
+  // 2. Resuming from crash (isFreshStart=false): Use highWaterMark (inclusive) to ensure we don't
+  //    miss any events from multi-document transactions where many events share the same optime.
+  //    Reprocessing is safe because the replication logic is idempotent.
   private ChangeStreamAggregateCommand getAggregateCommand() {
     // this.context.removeMatchCollectionUuid will be true if change stream commands are failing
     // because matchCollectionUuidForUpdateLookup is unrecognized.
@@ -221,22 +239,29 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
             !this.context.isRemoveMatchCollectionUuid() && this.matchCollectionUuidForUpdateLookup);
     ChangeStreamMode mode = ChangeStreamMode.getDefault();
 
-    // If we're opening a change stream from an opTime, we assume that we actually want to start
-    // immediately AFTER the write at the current opTime. This mimics mongod's behavior for starting
-    // unpinned change streams (i.e. starting at the current majority committed opTime plus one
-    // tick), which ensures that the last event in the oplog is excluded from the change stream (see
-    // https://tinyurl.com/ypjn3dxe).
-    //
-    // This workaround is necessary to correctly initial sync collections whose most recent oplog
-    // entry is an invalidate event.
-    BsonTimestamp startOpTime =
-        new BsonTimestamp(this.highWaterMark.getTime(), this.highWaterMark.getInc() + 1);
-    this.logger
-        .atInfo()
-        .addKeyValue("opTime", startOpTime)
-        .log("Starting change stream from opTime");
-    return factory.fromOperationTime(
-        startOpTime, this.context.getIndexDefinition().getIndexId(), mode);
+    if (this.isFreshStart) {
+      // For a fresh start, use highWaterMark + 1. The collection scan already captured everything
+      // at highWaterMark, so we start after it to avoid reprocessing.
+      BsonTimestamp startOpTime =
+          new BsonTimestamp(this.highWaterMark.getTime(), this.highWaterMark.getInc() + 1);
+      this.logger
+          .atInfo()
+          .addKeyValue("opTime", startOpTime)
+          .addKeyValue("isFreshStart", true)
+          .log("Starting change stream from opTime (+1 tick for fresh start)");
+      return factory.fromOperationTime(
+          startOpTime, this.context.getIndexDefinition().getIndexId(), mode);
+    } else {
+      // For resuming from a crash, use highWaterMark (inclusive) to ensure we don't miss events
+      // from multi-document transactions. Reprocessing is safe because replication is idempotent.
+      this.logger
+          .atInfo()
+          .addKeyValue("opTime", this.highWaterMark)
+          .addKeyValue("isFreshStart", false)
+          .log("Starting change stream from opTime (inclusive for resume)");
+      return factory.fromOperationTime(
+          this.highWaterMark, this.context.getIndexDefinition().getIndexId(), mode);
+    }
   }
 
   private CompletableFuture<Void> processEventsUpToScan(
@@ -300,7 +325,7 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
       throws InitialSyncException {
     DocumentEventBatch batch;
     try {
-      batch = getNextBatch(lastScannedToken);
+      batch = getNextBatch();
     } catch (InitialSyncException e) {
       // Wait for the last indexing to complete before rethrowing.
       InitialSyncException.getOrWrapThrowable(
@@ -324,7 +349,7 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
   /**
    * Gets the next batch and preprocesses it through ChangeStreamDocumentUtils.handleDocumentEvents.
    */
-  private DocumentEventBatch getNextBatch(BsonValue lastScannedToken) throws InitialSyncException {
+  private DocumentEventBatch getNextBatch() throws InitialSyncException {
     checkState(
         this.changeStreamMongoClient.isPresent(),
         "ChangeStreamMongoClient has not been instantiated");
@@ -343,7 +368,7 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
     ChangeStreamDocumentUtils.DocumentEventBatch documentEventBatch =
         ChangeStreamDocumentUtils.handleDocumentEvents(
             // Inapplicable updates are already filtered out in processBatch.
-            processBatch(batch, lastScannedToken),
+            processBatch(batch),
             this.context.getIndexDefinition(),
             this.context
                 .getIndexDefinition()
@@ -376,7 +401,7 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
   }
 
   private List<ChangeStreamDocument<RawBsonDocument>> processBatch(
-      ChangeStreamBatch batch, BsonValue lastScannedToken) throws InitialSyncException {
+      ChangeStreamBatch batch) throws InitialSyncException {
     List<ChangeStreamDocument<RawBsonDocument>> documentEventsToApply = new ArrayList<>();
 
     for (ChangeStreamDocument<RawBsonDocument> event :
@@ -432,15 +457,13 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
               .addKeyValue("namespace", event.getNamespace())
               .addKeyValue("database", event.getDatabaseName())
               .addKeyValue("clusterTime", event.getClusterTime())
-              .log("Witnessed invalidate event");
-          throw InitialSyncException.createInvalidated(
-              InitialSyncResumeInfo.create(
-                  this.context.useNaturalOrderScan(),
-                  event.getClusterTime(),
-                  lastScannedToken,
-                  this.avoidNaturalOrderScanSyncSourceChangeResync
-                      ? Optional.of(this.mongoClient.getSyncSourceHost())
-                      : Optional.empty()));
+              .log("Witnessed invalidate event. Performing a full resync.");
+          // For an invalidate event, for simplicity, perform a full resync of the index build
+          // Resume is not possible when we use highwater mark inclusively as that would result in
+          // an infinite loop. If we don't issue a full re-sync, then there is a chance we are
+          // struck in a loop because we process the same event again as we are not advancing the
+          // high water mark while we resume after a crash from processing change stream update.
+          throw InitialSyncException.createRequiresResync("witnessed invalidate event");
 
         default:
           // Apply all other operation types.

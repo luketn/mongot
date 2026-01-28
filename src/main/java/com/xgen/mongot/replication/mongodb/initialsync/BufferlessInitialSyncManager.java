@@ -119,7 +119,7 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
           }
         };
     BufferlessChangeStreamApplierFactory changeStreamApplierFactory =
-        (BsonTimestamp highWaterMark) ->
+        (BsonTimestamp highWaterMark, boolean isFreshStart) ->
             new BufferlessChangeStreamApplier(
                 Clock.systemUTC(),
                 changeStreamCatchupTimeout,
@@ -131,7 +131,8 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
                 namespace,
                 highWaterMark,
                 metricsFactory,
-                avoidNaturalOrderScanSyncSourceChangeResync);
+                avoidNaturalOrderScanSyncSourceChangeResync,
+                isFreshStart);
 
     return new BufferlessInitialSyncManager(
         initialSyncContext,
@@ -178,8 +179,13 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
       lastScannedToken =
           this.context.useNaturalOrderScan() ? new BsonDocument() : BsonUtils.MIN_KEY;
     }
+    // isFreshStart is true when we're not resuming from a crash (resumeInfo is empty).
+    // For fresh starts, we can safely use highWaterMark + 1 since the collection scan already
+    // captured everything at highWaterMark. For resumes, we must use highWaterMark (inclusive)
+    // to avoid missing events from multi-document transactions.
+    boolean isFreshStart = this.resumeInfo.isEmpty();
     BufferlessChangeStreamApplier changeStreamApplier =
-        this.changeStreamApplierFactory.create(highWaterMark);
+        this.changeStreamApplierFactory.create(highWaterMark, isFreshStart);
 
     Stopwatch stopwatch = Stopwatch.createStarted();
     this.logger

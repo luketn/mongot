@@ -139,7 +139,8 @@ public class MongoDbNoOpReplicationManager implements ReplicationManager {
         .ifThrows(
             () -> {
               // Kill existing cursors so no searches are run on the Index after it's closed.
-              // Note: Physical close() and drop() are handled by IndexActions after this completes.
+              // Note: We do NOT close or drop the index here because IndexActions.dropIndex()
+              // handles closing and dropping the index after this future completes.
               this.cursorManager.killIndexCursors(generationId);
             });
   }

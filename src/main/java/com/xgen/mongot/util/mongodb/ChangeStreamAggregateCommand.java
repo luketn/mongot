@@ -2,6 +2,7 @@ package com.xgen.mongot.util.mongodb;
 
 import static com.xgen.mongot.util.Check.checkArg;
 
+import com.mongodb.internal.VisibleForTesting;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.mongodb.serialization.AggregateCommandProxy;
 import com.xgen.mongot.util.mongodb.serialization.ChangeStreamPipelineStageOptionsProxy;
@@ -257,5 +258,10 @@ public class ChangeStreamAggregateCommand {
 
   public OptionalLong getBatchSize() {
     return this.batchSize;
+  }
+
+  @VisibleForTesting(otherwise = VisibleForTesting.AccessModifier.PRIVATE)
+  public Optional<BsonTimestamp> getStartAtOperationTime() {
+    return this.startAtOperationTime;
   }
 }
