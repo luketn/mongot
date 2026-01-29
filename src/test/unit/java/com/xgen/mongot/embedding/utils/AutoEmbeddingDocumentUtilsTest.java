@@ -276,7 +276,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         DocumentEvent.createInsert(
             DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
 
-    ImmutableMap<FieldPath, Map<String, Vector>> allEmbeddingsFromBatchResponse =
+    ImmutableMap<FieldPath, ImmutableMap<String, Vector>> allEmbeddingsFromBatchResponse =
         ImmutableMap.of(
             FieldPath.parse("root.b"), embeddings, FieldPath.parse("root.a"), embeddings);
     DocumentEvent result =
@@ -316,7 +316,8 @@ public class AutoEmbeddingDocumentUtilsTest {
             DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
 
     DocumentEvent result =
-        buildMaterializedViewDocumentEvent(rawDocumentEvent, mappings, embeddings);
+        buildMaterializedViewDocumentEvent(
+            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
 
     assertEquals(
         createBasicMaterializedViewBson(bsonDoc, embeddings, mappings), result.getDocument().get());
@@ -340,7 +341,8 @@ public class AutoEmbeddingDocumentUtilsTest {
             DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
 
     DocumentEvent result =
-        buildMaterializedViewDocumentEvent(rawDocumentEvent, mappings, embeddings);
+        buildMaterializedViewDocumentEvent(
+            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
 
     var comparisonResult =
         compareDocuments(
@@ -368,7 +370,8 @@ public class AutoEmbeddingDocumentUtilsTest {
             DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
 
     DocumentEvent result =
-        buildMaterializedViewDocumentEvent(rawDocumentEvent, mappings, embeddings);
+        buildMaterializedViewDocumentEvent(
+            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
 
     var comparisonResult =
         compareDocuments(
@@ -395,7 +398,8 @@ public class AutoEmbeddingDocumentUtilsTest {
             DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
 
     DocumentEvent result =
-        buildMaterializedViewDocumentEvent(rawDocumentEvent, mappings, embeddings);
+        buildMaterializedViewDocumentEvent(
+            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
 
     @Var
     var comparisonResult =
@@ -439,7 +443,8 @@ public class AutoEmbeddingDocumentUtilsTest {
             DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
 
     DocumentEvent result =
-        buildMaterializedViewDocumentEvent(rawDocumentEvent, mappings, embeddings);
+        buildMaterializedViewDocumentEvent(
+            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
 
     var comparisonResult =
         compareDocuments(
@@ -466,7 +471,8 @@ public class AutoEmbeddingDocumentUtilsTest {
             DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
 
     DocumentEvent result =
-        buildMaterializedViewDocumentEvent(rawDocumentEvent, mappings, embeddings);
+        buildMaterializedViewDocumentEvent(
+            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
 
     // Update one of the array fields to an empty string.
     bsonDoc = createArrayBsonWithGivenString("");
@@ -508,7 +514,8 @@ public class AutoEmbeddingDocumentUtilsTest {
             DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
 
     DocumentEvent result =
-        buildMaterializedViewDocumentEvent(rawDocumentEvent, mappings, embeddings);
+        buildMaterializedViewDocumentEvent(
+            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
 
     var comparisonResult =
         compareDocuments(
@@ -543,7 +550,8 @@ public class AutoEmbeddingDocumentUtilsTest {
             DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
 
     DocumentEvent result =
-        buildMaterializedViewDocumentEvent(rawDocumentEvent, mappings, embeddings);
+        buildMaterializedViewDocumentEvent(
+            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
 
     // add a new filter field and update the source collection doc.
     var newFields =
@@ -591,7 +599,8 @@ public class AutoEmbeddingDocumentUtilsTest {
             DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
 
     DocumentEvent result =
-        buildMaterializedViewDocumentEvent(rawDocumentEvent, mappings, embeddings);
+        buildMaterializedViewDocumentEvent(
+            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
 
     // remove a filter field and update the source collection doc.
     var newFields =
@@ -676,6 +685,18 @@ public class AutoEmbeddingDocumentUtilsTest {
     embeddings.put("arrayString1", vector1);
     embeddings.put("arrayString2", vector2);
     return embeddings.build();
+  }
+
+  /**
+   * Creates per-field embeddings map from flat embeddings. Each field gets the same embeddings map.
+   */
+  private ImmutableMap<FieldPath, ImmutableMap<String, Vector>> createEmbeddingsPerField(
+      VectorIndexFieldMapping mappings, ImmutableMap<String, Vector> embeddings) {
+    ImmutableMap.Builder<FieldPath, ImmutableMap<String, Vector>> builder = ImmutableMap.builder();
+    for (FieldPath fieldPath : mappings.fieldMap().keySet()) {
+      builder.put(fieldPath, embeddings);
+    }
+    return builder.build();
   }
 
   private BsonDocument createEmbeddedBson() {

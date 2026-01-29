@@ -355,4 +355,43 @@ public class FutureUtilsTest {
     Assert.assertTrue(future.isCompletedExceptionally());
     Assert.assertFalse(future.isCancelled());
   }
+
+  @Test
+  public void testTransposeMapFromMapCompletedFuture() throws Exception {
+    Map<String, CompletableFuture<Integer>> futureMap =
+        ImmutableMap.of(
+            "a", CompletableFuture.supplyAsync(() -> 1),
+            "b", CompletableFuture.supplyAsync(() -> 2));
+    CompletableFuture<Map<String, Integer>> future = FutureUtils.transposeMap(futureMap);
+    Map<String, Integer> actual = future.get();
+    Assert.assertTrue(future.isDone());
+    Assert.assertFalse(future.isCompletedExceptionally());
+    Assert.assertFalse(future.isCancelled());
+    assertEquals(ImmutableMap.of("a", 1, "b", 2), actual);
+  }
+
+  @Test
+  public void testTransposeMapFromMapFailedFuture() {
+    Map<String, CompletableFuture<Integer>> futureMap =
+        ImmutableMap.of(
+            "a", CompletableFuture.supplyAsync(() -> 1),
+            "b", CompletableFuture.failedFuture(new RuntimeException("Computation failed.")));
+    CompletableFuture<Map<String, Integer>> future = FutureUtils.transposeMap(futureMap);
+    var exception = Assert.assertThrows(ExecutionException.class, future::get);
+    Assert.assertEquals("Computation failed.", exception.getCause().getMessage());
+    Assert.assertTrue(future.isDone());
+    Assert.assertTrue(future.isCompletedExceptionally());
+    Assert.assertFalse(future.isCancelled());
+  }
+
+  @Test
+  public void testTransposeMapFromMapEmptyMap() throws Exception {
+    Map<String, CompletableFuture<Integer>> futureMap = ImmutableMap.of();
+    CompletableFuture<Map<String, Integer>> future = FutureUtils.transposeMap(futureMap);
+    Map<String, Integer> actual = future.get();
+    Assert.assertTrue(future.isDone());
+    Assert.assertFalse(future.isCompletedExceptionally());
+    Assert.assertFalse(future.isCancelled());
+    assertEquals(ImmutableMap.of(), actual);
+  }
 }

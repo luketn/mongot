@@ -26,7 +26,6 @@ public class AutoEmbeddingIndexValidator {
    *
    * <ul>
    *   <li>IndexDefinition can only contain registered models
-   *   <li>Single IndexDefinition can only contain one model
    *   <li>IndexDefinition cannot mix regular vector fields with auto-embedding fields
    * </ul>
    *
@@ -41,7 +40,6 @@ public class AutoEmbeddingIndexValidator {
     }
 
     validateEmbeddingModelsAreRegistered(vectorIndex);
-    validateSingleEmbeddingModel(vectorIndex);
     validateNoMixedVectorTypes(vectorIndex);
   }
 
@@ -104,25 +102,6 @@ public class AutoEmbeddingIndexValidator {
           String.format(
               "The following embedding model(s) are not supported: %s. " + "Supported models: %s.",
               String.join(", ", unregisteredModels), supportedModelsList));
-    }
-  }
-
-  /**
-   * Validates that the index uses only a single embedding model.
-   *
-   * @param vectorIndex the vector index to validate
-   * @throws InvalidIndexDefinitionException if multiple embedding models are used
-   */
-  private static void validateSingleEmbeddingModel(VectorIndexDefinition vectorIndex)
-      throws InvalidIndexDefinitionException {
-    Set<String> modelNames = collectModelNames(vectorIndex);
-
-    if (modelNames.size() > 1) {
-      throw new InvalidIndexDefinitionException(
-          String.format(
-              "Index can only use one embedding model. Found multiple models: %s. "
-                  + "Please use a single embedding model across all auto-embedding fields.",
-              String.join(", ", modelNames)));
     }
   }
 

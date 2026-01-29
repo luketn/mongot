@@ -21,6 +21,8 @@ import com.xgen.mongot.embedding.exceptions.EmbeddingProviderTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.providers.EmbeddingServiceManager;
 import com.xgen.mongot.embedding.providers.EmbeddingServiceRegistry;
+import com.xgen.mongot.embedding.providers.configs.EmbeddingModelCatalog;
+import com.xgen.mongot.embedding.providers.configs.EmbeddingModelConfig;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig;
 import com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils;
 import com.xgen.mongot.index.DocumentEvent;
@@ -29,6 +31,7 @@ import com.xgen.mongot.index.FieldExceededLimitsException;
 import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
+import com.xgen.mongot.index.definition.VectorIndexFieldMapping;
 import com.xgen.mongot.index.version.Generation;
 import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.mongot.index.version.IndexFormatVersion;
@@ -45,7 +48,6 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -95,10 +97,10 @@ public class EmbeddingIndexingWorkSchedulerTest {
   @Test
   public void testSingleDocumentRequiresAutoEmbedding()
       throws ExecutionException,
-          InterruptedException,
-          TimeoutException,
-          FieldExceededLimitsException,
-          IOException {
+      InterruptedException,
+      TimeoutException,
+      FieldExceededLimitsException,
+      IOException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     EmbeddingIndexingWorkScheduler scheduler =
         scheduler(
@@ -274,10 +276,10 @@ public class EmbeddingIndexingWorkSchedulerTest {
   @Test
   public void testSingleDocumentRequiresAutoEmbeddingForMaterializedView()
       throws ExecutionException,
-          InterruptedException,
-          TimeoutException,
-          FieldExceededLimitsException,
-          IOException {
+      InterruptedException,
+      TimeoutException,
+      FieldExceededLimitsException,
+      IOException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     EmbeddingIndexingWorkScheduler scheduler =
         schedulerForMaterializedViewIndex(
@@ -313,7 +315,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
     indexingFuture.get(5, TimeUnit.SECONDS);
     DocumentEvent expected =
         AutoEmbeddingDocumentUtils.buildMaterializedViewDocumentEvent(
-            event, vectorIndexDefinition.getMappings(), expectedAutoEmbeddings());
+            event,
+            vectorIndexDefinition.getMappings(),
+            expectedAutoEmbeddingsPerField(vectorIndexDefinition.getMappings()));
     verify(indexer, times(1)).indexDocumentEvent(expected);
   }
 
@@ -363,10 +367,10 @@ public class EmbeddingIndexingWorkSchedulerTest {
   @Test
   public void testSingleDocumentWithReusableEmbeddings()
       throws ExecutionException,
-          InterruptedException,
-          TimeoutException,
-          FieldExceededLimitsException,
-          IOException {
+      InterruptedException,
+      TimeoutException,
+      FieldExceededLimitsException,
+      IOException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     var embeddingServiceManager =
         spy(
@@ -411,7 +415,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
     indexingFuture.get(5, TimeUnit.SECONDS);
     DocumentEvent expected =
         AutoEmbeddingDocumentUtils.buildMaterializedViewDocumentEvent(
-            event, vectorIndexDefinition.getMappings(), expectedAutoEmbeddings());
+            event,
+            vectorIndexDefinition.getMappings(),
+            expectedAutoEmbeddingsPerField(vectorIndexDefinition.getMappings()));
     verify(indexer, times(1)).indexDocumentEvent(expected);
     // only one field should have been embedded.
     verify(embeddingServiceManager, times(1))
@@ -482,6 +488,140 @@ public class EmbeddingIndexingWorkSchedulerTest {
         .indexDocumentEvent(argThat(event -> event.getFilterFieldUpdates().isPresent()));
   }
 
+  @Test
+  public void testMultipleFieldsWithDifferentModels()
+      throws ExecutionException,
+          InterruptedException,
+          TimeoutException,
+          FieldExceededLimitsException,
+          IOException {
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    var embeddingServiceManager =
+        spy(
+            new EmbeddingServiceManager(
+                List.of(TEST_EMBEDDING_CONFIG_V3_LARGE, TEST_EMBEDDING_CONFIG_V3_LITE),
+                new FakeEmbeddingClientFactory(),
+                Executors.singleThreadScheduledExecutor("indexing", meterRegistry),
+                meterRegistry));
+    EmbeddingIndexingWorkScheduler scheduler =
+        schedulerForMaterializedViewIndex(Suppliers.ofInstance(embeddingServiceManager));
+
+    ObjectId indexId = new ObjectId();
+    // Create index with two fields using DIFFERENT models
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder()
+            .withAutoEmbedField(indexId + ".a", "voyage-3-large")
+            .withAutoEmbedField(indexId + ".b", "voyage-3-lite")
+            .build();
+    DocumentIndexer indexer = mockDocumentRequiresAutoEmbedding(vectorIndexDefinition);
+
+    // Create document with both fields
+    BsonDocument innerDoc =
+        new BsonDocument()
+            .append("_id", new BsonString("anId"))
+            .append("a", new BsonString("textForLargeModel"))
+            .append("b", new BsonString("textForLiteModel"));
+    BsonDocument bsonDoc = new BsonDocument(indexId.toString(), innerDoc);
+    RawBsonDocument rawBsonDoc = BsonUtils.documentToRaw(bsonDoc);
+
+    DocumentEvent event =
+        DocumentEvent.createInsert(
+            DocumentMetadata.fromMetadataNamespace(Optional.of(rawBsonDoc), indexId), rawBsonDoc);
+    List<DocumentEvent> batch = new ArrayList<>(List.of(event));
+    CompletableFuture<Void> indexingFuture =
+        scheduler.schedule(
+            batch,
+            SchedulerQueue.Priority.STEADY_STATE_CHANGE_STREAM,
+            indexer,
+            new GenerationId(new ObjectId(), Generation.CURRENT),
+            Optional.of(new ObjectId()),
+            Optional.of(COMMIT_USER_DATA),
+            IGNORE_METRICS);
+    indexingFuture.get(5, TimeUnit.SECONDS);
+
+    // Verify embedAsync was called twice - once for each model
+    verify(embeddingServiceManager, times(2)).embedAsync(any(), any(), any(), any());
+
+    // Verify each model received the correct text
+    verify(embeddingServiceManager)
+        .embedAsync(
+            argThat(strings -> strings.size() == 1 && strings.contains("textForLargeModel")),
+            argThat(config -> config.name().equals("voyage-3-large")),
+            any(),
+            any());
+    verify(embeddingServiceManager)
+        .embedAsync(
+            argThat(strings -> strings.size() == 1 && strings.contains("textForLiteModel")),
+            argThat(config -> config.name().equals("voyage-3-lite")),
+            any(),
+            any());
+
+    // Verify the document was indexed
+    verify(indexer, times(1)).indexDocumentEvent(any());
+  }
+
+  @Test
+  public void testGetTextValueBundles_GroupsByModel() throws IOException {
+    // Initialize the embedding service manager to register models in the catalog
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    new EmbeddingServiceManager(
+        List.of(TEST_EMBEDDING_CONFIG_V3_LARGE, TEST_EMBEDDING_CONFIG_V3_LITE),
+        new FakeEmbeddingClientFactory(),
+        Executors.singleThreadScheduledExecutor("indexing", meterRegistry),
+        meterRegistry);
+
+    // Create field mapping with two fields using different models
+    ObjectId indexId = new ObjectId();
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder()
+            .withAutoEmbedField(indexId + ".a", "voyage-3-large")
+            .withAutoEmbedField(indexId + ".b", "voyage-3-lite")
+            .build();
+    VectorIndexFieldMapping fieldMapping = vectorIndexDefinition.getMappings();
+
+    // Get model configs from the catalog (now registered)
+    EmbeddingModelConfig largeModelConfig =
+        EmbeddingModelCatalog.getModelConfig("voyage-3-large");
+    EmbeddingModelConfig liteModelConfig = EmbeddingModelCatalog.getModelConfig("voyage-3-lite");
+
+    ImmutableMap<FieldPath, EmbeddingModelConfig> modelConfigPerPath =
+        ImmutableMap.of(
+            FieldPath.parse(indexId + ".a"), largeModelConfig,
+            FieldPath.parse(indexId + ".b"), liteModelConfig);
+
+    // Create a document with both fields
+    BsonDocument innerDoc =
+        new BsonDocument()
+            .append("_id", new BsonString("anId"))
+            .append("a", new BsonString("textA"))
+            .append("b", new BsonString("textB"));
+    BsonDocument bsonDoc = new BsonDocument(indexId.toString(), innerDoc);
+    RawBsonDocument rawBsonDoc = BsonUtils.documentToRaw(bsonDoc);
+    DocumentEvent event =
+        DocumentEvent.createInsert(
+            DocumentMetadata.fromMetadataNamespace(Optional.of(rawBsonDoc), indexId), rawBsonDoc);
+
+    // Call getTextValueBundles
+    var bundles =
+        EmbeddingIndexingWorkScheduler.getTextValueBundles(
+            List.of(event), fieldMapping, modelConfigPerPath, 100);
+
+    // Should have one bundle with the document
+    assertThat(bundles).hasSize(1);
+    var bundle = bundles.get(0);
+
+    // The bundle should have the document
+    assertThat(bundle.getLeft()).hasSize(1);
+
+    // The texts should be grouped by model
+    var textsPerModel = bundle.getRight();
+    assertThat(textsPerModel).hasSize(2);
+
+    // Verify each model has the correct text
+    assertThat(textsPerModel.get(largeModelConfig)).containsExactly("textA");
+    assertThat(textsPerModel.get(liteModelConfig)).containsExactly("textB");
+  }
+
   @After
   public void clearStaticRegistries() {
     EmbeddingServiceRegistry.clearRegistry();
@@ -516,10 +656,10 @@ public class EmbeddingIndexingWorkSchedulerTest {
     return bsonDoc;
   }
 
-  private ImmutableMap<FieldPath, Map<String, Vector>> expectedAutoEmbeddingsByPath(
+  private ImmutableMap<FieldPath, ImmutableMap<String, Vector>> expectedAutoEmbeddingsByPath(
       ObjectId indexId) {
     var autoEmbeddings = expectedAutoEmbeddings();
-    ImmutableMap.Builder<FieldPath, Map<String, Vector>> builder = ImmutableMap.builder();
+    ImmutableMap.Builder<FieldPath, ImmutableMap<String, Vector>> builder = ImmutableMap.builder();
     return builder
         .put(
             FieldPath.parse(indexId + ".a"),
@@ -530,22 +670,36 @@ public class EmbeddingIndexingWorkSchedulerTest {
         .build();
   }
 
+  /**
+   * Creates per-field embeddings map for materialized view tests.
+   * Each field in the mapping gets the same flat embeddings map.
+   */
+  private ImmutableMap<FieldPath, ImmutableMap<String, Vector>> expectedAutoEmbeddingsPerField(
+      VectorIndexFieldMapping mappings) {
+    var autoEmbeddings = expectedAutoEmbeddings();
+    ImmutableMap.Builder<FieldPath, ImmutableMap<String, Vector>> builder = ImmutableMap.builder();
+    for (FieldPath fieldPath : mappings.fieldMap().keySet()) {
+      builder.put(fieldPath, autoEmbeddings);
+    }
+    return builder.build();
+  }
+
   private ImmutableMap<String, Vector> expectedAutoEmbeddings() {
     ImmutableMap.Builder<String, Vector> builder = ImmutableMap.builder();
     return builder
         .put(
             "aString",
             Vector.fromBytes(
-                new byte[] {
-                  -83, -56, 64, 59, -50, 50, 122, 21, -77, -83, -41, -104, -57, 36, -17, -121,
-                  -40, 57, -100, -45, 10, 94, -72, -48, -63, -22, 8, -27, -5, 2, -110, 104
+                new byte[]{
+                    -83, -56, 64, 59, -50, 50, 122, 21, -77, -83, -41, -104, -57, 36, -17, -121,
+                    -40, 57, -100, -45, 10, 94, -72, -48, -63, -22, 8, -27, -5, 2, -110, 104
                 }))
         .put(
             "bString",
             Vector.fromBytes(
-                new byte[] {
-                  12, 104, 54, 121, -82, 90, 3, -18, 32, 16, 20, -92, -40, 55, 75, -28, -26, -93,
-                  72, 76, -67, 26, 82, 6, -54, -57, -106, 57, -60, 20, -4, -118
+                new byte[]{
+                    12, 104, 54, 121, -82, 90, 3, -18, 32, 16, 20, -92, -40, 55, 75, -28, -26, -93,
+                    72, 76, -67, 26, 82, 6, -54, -57, -106, 57, -60, 20, -4, -118
                 }))
         .build();
   }

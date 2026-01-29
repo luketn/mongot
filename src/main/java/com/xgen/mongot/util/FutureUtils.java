@@ -266,4 +266,22 @@ public class FutureUtils {
                             Map.Entry::getValue,
                             (existing, updated) -> existing)));
   }
+
+  /**
+   * Returns a transposed CompletableFuture that collects all completed results into a future of Map
+   * when all of the supplied futures completes. If there is any exception in input futures, *
+   * exception will be passed to the returned future to be handled by caller.
+   */
+  public static <K, V> CompletableFuture<Map<K, V>> transposeMap(
+      Map<K, CompletableFuture<V>> futures) {
+    return CompletableFuture.allOf(futures.values().toArray(CompletableFuture[]::new))
+        .thenApply(
+            v ->
+                futures.entrySet().stream()
+                    .collect(
+                        Collectors.toUnmodifiableMap(
+                            Map.Entry::getKey,
+                            entry -> entry.getValue().join(),
+                            (existing, replacement) -> existing)));
+  }
 }

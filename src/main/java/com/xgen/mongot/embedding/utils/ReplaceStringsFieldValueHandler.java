@@ -12,7 +12,6 @@ import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.bson.BsonVectorParser;
 import com.xgen.mongot.util.bson.Vector;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -40,24 +39,25 @@ import org.bson.types.ObjectId;
  * the text value is not a String or the embedding entry is not found, then nothing is added. *
  */
 public class ReplaceStringsFieldValueHandler implements FieldValueHandler {
+
   public static final String HASH_FIELD_SUFFIX = "_hash";
 
   private final VectorIndexFieldMapping mapping;
   private final FieldPath path;
   private final BsonValue bsonValue;
-  private final Map<String, Vector> embeddings;
+  private final ImmutableMap<FieldPath, ImmutableMap<String, Vector>> embeddingsPerField;
   private final ImmutableMap<FieldPath, ImmutableMap<String, Vector>> existingEmbeddings;
 
   private ReplaceStringsFieldValueHandler(
       VectorIndexFieldMapping mapping,
       FieldPath path,
       BsonValue bsonValue,
-      Map<String, Vector> embeddings,
+      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> embeddingsPerField,
       ImmutableMap<FieldPath, ImmutableMap<String, Vector>> existingEmbeddings) {
     this.mapping = mapping;
     this.path = path;
     this.bsonValue = bsonValue;
-    this.embeddings = embeddings;
+    this.embeddingsPerField = embeddingsPerField;
     this.existingEmbeddings = existingEmbeddings;
   }
 
@@ -65,13 +65,13 @@ public class ReplaceStringsFieldValueHandler implements FieldValueHandler {
       VectorIndexFieldMapping mapping,
       FieldPath path,
       BsonValue bsonValue,
-      Map<String, Vector> embeddings,
+      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> embeddingsPerField,
       ImmutableMap<FieldPath, ImmutableMap<String, Vector>> existingEmbeddings) {
     Check.checkArg(
         (bsonValue instanceof BsonDocument) || (bsonValue instanceof BsonArray),
         "bsonValue input must be either BsonDocument or BsonArray");
     return new ReplaceStringsFieldValueHandler(
-        mapping, path, bsonValue, embeddings, existingEmbeddings);
+        mapping, path, bsonValue, embeddingsPerField, existingEmbeddings);
   }
 
   @Override
@@ -104,7 +104,8 @@ public class ReplaceStringsFieldValueHandler implements FieldValueHandler {
   }
 
   @Override
-  public void handleGeometry(Supplier<Optional<Geometry>> supplier) {}
+  public void handleGeometry(Supplier<Optional<Geometry>> supplier) {
+  }
 
   @Override
   public void handleInt32(Supplier<Integer> supplier) {
@@ -152,8 +153,9 @@ public class ReplaceStringsFieldValueHandler implements FieldValueHandler {
           && this.existingEmbeddings.get(this.path).containsKey(textValue)) {
         add(BsonVectorParser.encode(this.existingEmbeddings.get(this.path).get(textValue)));
         addContentHash(textValue);
-      } else if (this.embeddings.containsKey(textValue)) {
-        add(BsonVectorParser.encode(this.embeddings.get(textValue)));
+      } else if (this.embeddingsPerField.containsKey(this.path)
+          && this.embeddingsPerField.get(this.path).containsKey(textValue)) {
+        add(BsonVectorParser.encode(this.embeddingsPerField.get(this.path).get(textValue)));
         addContentHash(textValue);
       } // else ignore if embedding not found
     } else {
@@ -179,14 +181,16 @@ public class ReplaceStringsFieldValueHandler implements FieldValueHandler {
   }
 
   @Override
-  public void markFieldNameExists() {}
+  public void markFieldNameExists() {
+  }
 
   @Override
   public Optional<FieldValueHandler> arrayFieldValueHandler() {
     BsonArray childBsonArray = new BsonArray();
     add(childBsonArray);
     return Optional.of(
-        create(this.mapping, this.path, childBsonArray, this.embeddings, this.existingEmbeddings));
+        create(this.mapping, this.path, childBsonArray, this.embeddingsPerField,
+            this.existingEmbeddings));
   }
 
   @Override
@@ -199,7 +203,7 @@ public class ReplaceStringsFieldValueHandler implements FieldValueHandler {
               this.mapping,
               Optional.of(this.path),
               childBsonDocument,
-              this.embeddings,
+              this.embeddingsPerField,
               this.existingEmbeddings));
     }
     return Optional.empty();
@@ -209,9 +213,8 @@ public class ReplaceStringsFieldValueHandler implements FieldValueHandler {
     switch (this.bsonValue) {
       case BsonDocument bsonDocument -> bsonDocument.append(this.path.getLeaf(), childValue);
       case BsonArray bsonArray -> bsonArray.add(childValue);
-      default ->
-          throw new IllegalStateException(
-              "Unexpected bsonValue type: " + this.bsonValue.getBsonType());
+      default -> throw new IllegalStateException(
+          "Unexpected bsonValue type: " + this.bsonValue.getBsonType());
     }
   }
 
@@ -234,7 +237,7 @@ public class ReplaceStringsFieldValueHandler implements FieldValueHandler {
             vectorFieldDefinition ->
                 vectorFieldDefinition.getType() == VectorIndexFieldDefinition.Type.TEXT
                     || vectorFieldDefinition.getType()
-                        == VectorIndexFieldDefinition.Type.AUTO_EMBED)
+                    == VectorIndexFieldDefinition.Type.AUTO_EMBED)
         .isPresent();
   }
 

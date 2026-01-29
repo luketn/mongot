@@ -111,7 +111,8 @@ public class AutoEmbeddingIndexValidatorTest {
   }
 
   @Test
-  public void validateIndexWithMultipleEmbeddingModels_throwsException() {
+  public void validateIndexWithMultipleEmbeddingModels_succeeds()
+      throws InvalidIndexDefinitionException {
     // Register a second model
     EmbeddingModelConfig secondModelConfig =
         EmbeddingModelConfig.create(
@@ -144,15 +145,8 @@ public class AutoEmbeddingIndexValidatorTest {
     VectorIndexDefinition indexWithMultipleModels =
         createVectorIndexWithFields(List.of(field1, field2));
 
-    InvalidIndexDefinitionException exception =
-        assertThrows(
-            InvalidIndexDefinitionException.class,
-            () -> AutoEmbeddingIndexValidator.validate(indexWithMultipleModels));
-
-    assertTrue(exception.getMessage().contains("only use one embedding model"));
-    assertTrue(exception.getMessage().contains("Found multiple models"));
-    assertTrue(exception.getMessage().contains(REGISTERED_MODEL));
-    assertTrue(exception.getMessage().contains("second-model"));
+    // Multi-model indexes are now supported - validation should pass
+    AutoEmbeddingIndexValidator.validate(indexWithMultipleModels);
   }
 
   @Test

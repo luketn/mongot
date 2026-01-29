@@ -1,6 +1,5 @@
 package com.xgen.mongot.replication.mongodb.common;
 
-import static com.xgen.mongot.embedding.VectorOrError.EMPTY_INPUT_ERROR;
 import static com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig.ServiceTier;
 import static com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils.buildAutoEmbeddingDocumentEvent;
 import static com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils.buildMaterializedViewDocumentEvent;
@@ -22,7 +21,6 @@ import com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils;
 import com.xgen.mongot.index.DocumentEvent;
 import com.xgen.mongot.index.FieldExceededLimitsException;
 import com.xgen.mongot.index.definition.IndexDefinition;
-import com.xgen.mongot.index.definition.VectorIndexFieldDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFieldMapping;
 import com.xgen.mongot.replication.mongodb.common.SchedulerQueue.Priority;
 import com.xgen.mongot.util.Check;
@@ -107,37 +105,30 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
     // Replace text fields in event documents with embedded vectors for VectorText indexes.
     IndexDefinition indexDefinition = batch.indexer.getIndexDefinition();
 
-    String modelName =
-        indexDefinition.asVectorDefinition().getFields().stream()
-            .filter(
-                e ->
-                    e.getType() == VectorIndexFieldDefinition.Type.AUTO_EMBED
-                        || e.getType() == VectorIndexFieldDefinition.Type.TEXT)
-            .map(
-                field -> {
-                  if (field.getType() == VectorIndexFieldDefinition.Type.AUTO_EMBED) {
-                    return field.asVectorAutoEmbedField().specification().modelName();
-                  } else {
-                    return field.asVectorTextField().specification().modelName();
-                  }
-                })
-            .findFirst()
-            .orElse(EmbeddingModelConfig.DEFAULT_EMBEDDING_MODEL_CONFIG.name());
-    // If we have an unregistered modelName, we fail the request
-    if (!EmbeddingModelCatalog.isModelRegistered(modelName.toLowerCase())) {
-      return CompletableFuture.failedFuture(
-          new EmbeddingProviderNonTransientException(
-              String.format(
-                  "CanonicalModel: %s not registered yet, supported models are: [%s]",
-                  modelName, String.join(", ", EmbeddingModelCatalog.getAllSupportedModels()))));
+    ImmutableMap<FieldPath, String> modelNamePerPath =
+        indexDefinition.asVectorDefinition().getModelNamePerPath();
+
+    // Look up all configs and verify models are registered
+    ImmutableMap.Builder<FieldPath, EmbeddingModelConfig> modelConfigPerPathBuilder =
+        ImmutableMap.builder();
+    for (var entry : modelNamePerPath.entrySet()) {
+      String modelName = entry.getValue();
+      if (!EmbeddingModelCatalog.isModelRegistered(modelName.toLowerCase())) {
+        return CompletableFuture.failedFuture(
+            new EmbeddingProviderNonTransientException(
+                String.format(
+                    "CanonicalModel: %s not registered yet, supported models are: [%s]",
+                    modelName, String.join(", ", EmbeddingModelCatalog.getAllSupportedModels()))));
+      }
+      modelConfigPerPathBuilder.put(entry.getKey(),
+          EmbeddingModelCatalog.getModelConfig(modelName));
     }
-    EmbeddingModelConfig registeredModelConfig = EmbeddingModelCatalog.getModelConfig(modelName);
     List<CompletableFuture<List<DocumentEvent>>> indexingBundles =
         embed(
             batch.events,
             indexDefinition.asVectorDefinition().getMappings(),
             batch.priority,
-            registeredModelConfig,
+            modelConfigPerPathBuilder.build(),
             indexDefinition);
 
     return FutureUtils.allOf(
@@ -212,29 +203,32 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
       List<DocumentEvent> allEventsInBatch,
       VectorIndexFieldMapping fieldMapping,
       SchedulerQueue.Priority priority,
-      EmbeddingModelConfig modelConfig,
+      ImmutableMap<FieldPath, EmbeddingModelConfig> modelConfigPerPath,
       IndexDefinition indexDefinition) {
-    List<Pair<List<DocumentEvent>, Set<String>>> embedBundles =
-        getTextValueBundles(allEventsInBatch, fieldMapping, MAX_AUTO_EMBED_DOCUMENT_BUNDLE_SIZE);
+    List<Pair<List<DocumentEvent>, Map<EmbeddingModelConfig, Set<String>>>> embedBundles =
+        getTextValueBundles(allEventsInBatch, fieldMapping, modelConfigPerPath,
+            MAX_AUTO_EMBED_DOCUMENT_BUNDLE_SIZE);
     List<CompletableFuture<List<DocumentEvent>>> resultFutures = new ArrayList<>();
-    for (Pair<List<DocumentEvent>, Set<String>> bundle : embedBundles) {
+    for (Pair<List<DocumentEvent>, Map<EmbeddingModelConfig, Set<String>>> bundle : embedBundles) {
       // Needs to create a shallow copy for List<DocumentEvent> to avoid original list to be
       // referenced by CompletableFuture::UniApply even after completing futures, which may cause
       // memory leak.
       var events = new ArrayList<>(bundle.getLeft());
-      CompletableFuture<Map<String, Vector>> embeddings =
-          getEmbeddings(bundle.getRight(), priority, modelConfig, indexDefinition);
+      CompletableFuture<Map<EmbeddingModelConfig, Map<String, Vector>>> embeddingsFuture =
+          getEmbeddings(bundle.getRight(), priority, indexDefinition);
       resultFutures.add(
           // Change executor to use indexing executor here for better chaining with indexer.
-          embeddings.thenApplyAsync(
-              embeddingMap -> {
-                // TODO(CLOUDP-332187): Supports per-FieldPath embedding processing for multi-model
-                // indexes.
+          embeddingsFuture.thenApplyAsync(
+              embeddingsPerModel -> {
+                // Only include auto-embed fields (those with model configs), not filter fields
                 var embeddingMapPerField =
-                    fieldMapping.fieldMap().keySet().stream()
+                    modelConfigPerPath.keySet().stream()
                         .collect(
                             ImmutableMap.toImmutableMap(
-                                Function.identity(), ignored -> embeddingMap));
+                                Function.identity(),
+                                fieldPath -> ImmutableMap.copyOf(
+                                    embeddingsPerModel.getOrDefault(
+                                        modelConfigPerPath.get(fieldPath), ImmutableMap.of()))));
                 for (int i = 0; i < events.size(); i++) {
                   DocumentEvent event = events.get(i);
                   if (!containsValidDocument(event)) {
@@ -252,7 +246,8 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
                     DocumentEvent autoEmbeddingDocumentEvent;
                     if (this.isMaterializedViewIndex) {
                       autoEmbeddingDocumentEvent =
-                          buildMaterializedViewDocumentEvent(event, fieldMapping, embeddingMap);
+                          buildMaterializedViewDocumentEvent(
+                              event, fieldMapping, embeddingMapPerField);
                     } else {
                       autoEmbeddingDocumentEvent =
                           buildAutoEmbeddingDocumentEvent(
@@ -275,17 +270,20 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
    * Splits Documents events by bundle size, deletion and non-autoembedding(no matching text) events
    * are not limited by bundle size.
    */
-  static List<Pair<List<DocumentEvent>, Set<String>>> getTextValueBundles(
-      List<DocumentEvent> events, VectorIndexFieldMapping fieldMapping, int maxDocumentBundleSize) {
-    // Step 1: Gets all (document, autoEmbeddingTextSet) pairs
-    List<Pair<DocumentEvent, Set<String>>> documentTextPairs =
+  static List<Pair<List<DocumentEvent>, Map<EmbeddingModelConfig, Set<String>>>>
+      getTextValueBundles(
+          List<DocumentEvent> events, VectorIndexFieldMapping fieldMapping,
+          ImmutableMap<FieldPath, EmbeddingModelConfig> modelConfigPerPath,
+          int maxDocumentBundleSize) {
+    // Step 1: Gets all (document, Map<EmbeddingModelConfig, Set<String>>) pairs
+    List<Pair<DocumentEvent, Map<EmbeddingModelConfig, Set<String>>>> documentModelTextMapPairs =
         events.stream()
             .map(
                 event -> {
                   // Skip text extraction for filter-only updates - they don't need embeddings
                   if (containsValidDocument(event)
                       && event.getFilterFieldUpdates().isEmpty()) {
-                    Set<String> stringValues = new HashSet<>();
+                    Map<EmbeddingModelConfig, Set<String>> textsPerModel = new HashMap<>();
                     try {
                       var autoEmbeddingTextPathMap =
                           AutoEmbeddingDocumentUtils.getVectorTextPathMap(
@@ -301,7 +299,8 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
                         // Only add texts that don't have reusable embeddings
                         for (String text : textsInField) {
                           if (!reusableForField.containsKey(text)) {
-                            stringValues.add(text);
+                            textsPerModel.computeIfAbsent(modelConfigPerPath.get(fieldPath),
+                                k -> new HashSet<>()).add(text);
                           }
                         }
                       }
@@ -309,9 +308,9 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
                       FLOGGER.atSevere().atMostEvery(1, TimeUnit.MINUTES).withCause(e).log(
                           "Failed to get string values");
                     }
-                    return Pair.of(event, stringValues);
+                    return Pair.of(event, textsPerModel);
                   } else {
-                    return Pair.of(event, Set.<String>of());
+                    return Pair.of(event, Map.<EmbeddingModelConfig, Set<String>>of());
                   }
                 })
             .toList();
@@ -319,38 +318,36 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
     // TODO(CLOUDP-331321): Move batching logic into embedding service manager
     // Step 2: For all pair with non empty autoEmbedding text set, partition them by max document
     // bundle size, and aggregate their autoEmbedding text set into one set per partition
-    List<Pair<List<DocumentEvent>, Set<String>>> documentEventBundles =
+    List<Pair<List<DocumentEvent>, Map<EmbeddingModelConfig, Set<String>>>> documentEventBundles =
         Lists.partition(
-                documentTextPairs.stream().filter(pair -> !pair.getRight().isEmpty()).toList(),
+                documentModelTextMapPairs.stream().filter(
+                    pair -> !pair.getRight().isEmpty()).toList(),
                 maxDocumentBundleSize)
             .stream()
             .map(
                 eventBundle ->
                     Pair.of(
                         eventBundle.stream().map(Pair::getLeft).toList(),
-                        eventBundle.stream()
-                            .flatMap(eventPair -> eventPair.getRight().stream())
-                            .collect(Collectors.toSet())))
+                        mergeTextsByModel(eventBundle)))
             .collect(Collectors.toList());
 
     // Step 3: Append all no-op document events without any auto embedding text.
     List<DocumentEvent> noAutoEmbeddingEvents =
-        documentTextPairs.stream()
+        documentModelTextMapPairs.stream()
             .filter(eventPair -> eventPair.getRight().isEmpty())
             .map(Pair::getLeft)
             .toList();
     if (!noAutoEmbeddingEvents.isEmpty()) {
-      documentEventBundles.add(Pair.of(noAutoEmbeddingEvents, Set.of()));
+      documentEventBundles.add(Pair.of(noAutoEmbeddingEvents, Map.of()));
     }
     return documentEventBundles;
   }
 
-  private CompletableFuture<Map<String, Vector>> getEmbeddings(
-      Set<String> stringsToEmbed,
+  private CompletableFuture<Map<EmbeddingModelConfig, Map<String, Vector>>> getEmbeddings(
+      Map<EmbeddingModelConfig, Set<String>> stringsToEmbedPerModel,
       Priority priority,
-      EmbeddingModelConfig modelConfig,
       IndexDefinition indexDefinition) {
-    if (stringsToEmbed.isEmpty()) {
+    if (stringsToEmbedPerModel.isEmpty()) {
       return CompletableFuture.completedFuture(Map.of());
     }
 
@@ -362,36 +359,60 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
             indexDefinition.getCollectionUuid());
 
     EmbeddingServiceManager serviceManager = this.embeddingServiceManagerSupplier.get();
-    List<String> orderedStrings = new ArrayList<>(stringsToEmbed);
-
     ServiceTier tier =
         priority == Priority.INITIAL_SYNC_COLLECTION_SCAN
             ? ServiceTier.COLLECTION_SCAN
             : ServiceTier.CHANGE_STREAM;
-    return serviceManager
-        .embedAsync(orderedStrings, modelConfig, tier, context)
-        .thenApply(
-            embeddingList -> {
-              Map<String, Vector> embeddings = new HashMap<>();
-              Check.checkState(
-                  embeddingList.size() == orderedStrings.size(),
-                  "Result vectors size doesn't match input text size");
-              for (int i = 0; i < embeddingList.size(); i++) {
-                VectorOrError result = embeddingList.get(i);
-                if (result.vector.isPresent()) {
-                  embeddings.put(orderedStrings.get(i), result.vector.get());
-                } else if (result != EMPTY_INPUT_ERROR && result.errorMessage.isPresent()) {
-                  FLOGGER.atWarning().atMostEvery(1, TimeUnit.MINUTES).log(
-                      "No embedding for %s due to error: %s",
-                      orderedStrings.get(i), result.errorMessage.get());
-                }
+    Map<EmbeddingModelConfig, CompletableFuture<Map<String, Vector>>> futuresPerModel =
+        new HashMap<>();
+
+    for (var entry : stringsToEmbedPerModel.entrySet()) {
+      EmbeddingModelConfig modelConfig = entry.getKey();
+      Set<String> stringsToEmbed = entry.getValue();
+
+      if (stringsToEmbed.isEmpty()) {
+        continue;
+      }
+
+      List<String> orderedStrings = new ArrayList<>(stringsToEmbed);
+      CompletableFuture<Map<String, Vector>> embeddingsFuture = serviceManager
+          .embedAsync(orderedStrings, modelConfig, tier, context)
+          .thenApply(embeddingList -> {
+            Map<String, Vector> embeddings = new HashMap<>();
+            Check.checkState(
+                embeddingList.size() == orderedStrings.size(),
+                "Result vectors size doesn't match input text size");
+            for (int i = 0; i < embeddingList.size(); i++) {
+              VectorOrError result = embeddingList.get(i);
+              if (result.vector.isPresent()) {
+                embeddings.put(orderedStrings.get(i), result.vector.get());
+              } else if (result != VectorOrError.EMPTY_INPUT_ERROR
+                  && result.errorMessage.isPresent()) {
+                FLOGGER.atWarning().atMostEvery(1, TimeUnit.MINUTES).log(
+                    "No embedding for %s due to error: %s",
+                    orderedStrings.get(i), result.errorMessage.get());
               }
-              return embeddings;
-            });
+            }
+            return embeddings;
+          });
+      futuresPerModel.put(modelConfig, embeddingsFuture);
+    }
+    return FutureUtils.transposeMap(futuresPerModel);
   }
 
   private static boolean containsValidDocument(DocumentEvent event) {
     return event.getEventType() != DocumentEvent.EventType.DELETE
         && event.getDocument().isPresent();
+  }
+
+  private static Map<EmbeddingModelConfig, Set<String>> mergeTextsByModel(
+      List<Pair<DocumentEvent, Map<EmbeddingModelConfig, Set<String>>>> eventBundle) {
+    Map<EmbeddingModelConfig, Set<String>> merged = new HashMap<>();
+    for (var pair : eventBundle) {
+      for (var entry : pair.getRight().entrySet()) {
+        merged.computeIfAbsent(entry.getKey(), k -> new HashSet<>()).addAll(entry.getValue());
+      }
+    }
+    return merged;
   }
 }

@@ -53,7 +53,7 @@ public class AutoEmbeddingDocumentUtils {
   public static DocumentEvent buildAutoEmbeddingDocumentEvent(
       DocumentEvent rawDocumentEvent,
       VectorIndexFieldMapping fieldMapping,
-      ImmutableMap<FieldPath, Map<String, Vector>> allVectorsFromBatchResponse)
+      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> allVectorsFromBatchResponse)
       throws IOException {
     if (rawDocumentEvent.getDocument().isEmpty()) {
       return rawDocumentEvent;
@@ -67,7 +67,7 @@ public class AutoEmbeddingDocumentUtils {
       if (!allVectorsFromBatchResponse.containsKey(fieldAndTexts.getKey())) {
         continue;
       }
-      Map<String, Vector> sourceEmbeddings =
+      ImmutableMap<String, Vector> sourceEmbeddings =
           allVectorsFromBatchResponse.get(fieldAndTexts.getKey());
       ImmutableMap.Builder<String, Vector> filteredEmbeddingBuilder = ImmutableMap.builder();
       for (String text : fieldAndTexts.getValue()) {
@@ -85,15 +85,16 @@ public class AutoEmbeddingDocumentUtils {
   }
 
   /**
-   * Constructs a new document, replaces given string fields by looking up string-to-vector mappings
-   * in the embedding map, skips the string field if string value is not found in embeddings map. It
-   * only replaces fields defined in VectorTextFieldDefinition, keeps all other fields unchanged.
-   * Also computes and inserts SHA-256 hashes of the original text values for each embedded field.
+   * Constructs a new document, replaces given string fields by looking up fieldPath,
+   * string-to-vector mappings in the embeddingsPerField map, skips the string field if string value
+   * is not found in embeddingsPerField map. It only replaces fields defined in
+   * VectorTextFieldDefinition, keeps all other fields unchanged. Also computes and inserts SHA-256
+   * hashes of the original text values for each embedded field.
    */
   public static DocumentEvent buildMaterializedViewDocumentEvent(
       DocumentEvent rawDocumentEvent,
       VectorIndexFieldMapping fieldMapping,
-      Map<String, Vector> embeddings)
+      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> embeddingsPerField)
       throws IOException {
     if (rawDocumentEvent.getDocument().isEmpty()) {
       return rawDocumentEvent;
@@ -104,7 +105,7 @@ public class AutoEmbeddingDocumentUtils {
             fieldMapping,
             Optional.empty(),
             bsonDoc,
-            embeddings,
+            embeddingsPerField,
             rawDocumentEvent.getAutoEmbeddings());
     BsonDocumentProcessor.process(rawDocumentEvent.getDocument().get(), handler);
 
@@ -258,24 +259,25 @@ public class AutoEmbeddingDocumentUtils {
 
   public record DocumentComparisonResult(
       boolean needsReIndexing,
-      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> reusableEmbeddings) {}
+      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> reusableEmbeddings) {
+  }
 
   /**
    * Determines if an update requires embedding generation (i.e., any AUTO_EMBED or TEXT field
    * changed). When this returns false, we can skip the embedding service call and use a partial
    * update for filter-only changes.
    *
-   * <p>This method uses positive assertion (checking if embedding IS required) rather than negative
-   * assertion (checking if it's NOT required) for fail-safe behavior: if there's a bug, we make
-   * extra embedding calls (performance issue) rather than skip necessary ones (data correctness
-   * issue).
+   * <p>This method uses positive assertion (checking if embedding IS required) rather than
+   * negative assertion (checking if it's NOT required) for fail-safe behavior: if there's a bug, we
+   * make extra embedding calls (performance issue) rather than skip necessary ones (data
+   * correctness issue).
    *
-   * <p>Note: Fields not in the index definition (non-indexed fields) are treated the same as filter
-   * fields - they don't require embedding generation. These fields are simply not propagated to the
-   * materialized view.
+   * <p>Note: Fields not in the index definition (non-indexed fields) are treated the same as
+   * filter fields - they don't require embedding generation. These fields are simply not propagated
+   * to the materialized view.
    *
    * @param updateDescription the update description from the change stream event
-   * @param fieldMapping the vector index field mapping
+   * @param fieldMapping      the vector index field mapping
    * @return true if any AUTO_EMBED/TEXT fields changed and embedding is required, false if only
    *     filter fields or non-indexed fields were updated
    */

@@ -34,7 +34,9 @@ public final class VectorIndexDefinition implements IndexDefinition {
             .mustNotBeEmpty()
             .required();
 
-    /** See {@link VectorIndexCapabilities} for reason for default value to be 3 */
+    /**
+     * See {@link VectorIndexCapabilities} for reason for default value to be 3
+     */
     public static final Field.WithDefault<Integer> INDEX_FEATURE_VERSION =
         Field.builder("indexFeatureVersion").intField().optional().withDefault(3);
   }
@@ -57,7 +59,9 @@ public final class VectorIndexDefinition implements IndexDefinition {
 
   private final VectorIndexFieldMapping mappings;
 
-  /** Constructs a new VectorIndexDefinition for a MongoDB Atlas Search vector index. */
+  /**
+   * Constructs a new VectorIndexDefinition for a MongoDB Atlas Search vector index.
+   */
   public VectorIndexDefinition(
       ObjectId indexId,
       String name,
@@ -190,14 +194,17 @@ public final class VectorIndexDefinition implements IndexDefinition {
    * reserved for future Mat View collection schemas .
    *
    * <p>Auto-embedding is only supported in {@link VectorIndexDefinition}. A vector index field
-   * requires auto-embedding if it is specified with type {@link
-   * VectorIndexFieldDefinition.Type#TEXT} or {@link VectorIndexFieldDefinition.Type#AUTO_EMBED}.
+   * requires auto-embedding if it is specified with type
+   * {@link VectorIndexFieldDefinition.Type#TEXT} or
+   * {@link VectorIndexFieldDefinition.Type#AUTO_EMBED}.
    */
   public int getParsedAutoEmbeddingFeatureVersion() {
     return this.parsedAutoEmbeddingFeatureVersion;
   }
 
-  /** Returns embedding model per FieldPath */
+  /**
+   * Returns embedding model per FieldPath
+   */
   public ImmutableMap<FieldPath, String> getModelNamePerPath() {
     return this.modelNamePerPath;
   }
@@ -226,7 +233,8 @@ public final class VectorIndexDefinition implements IndexDefinition {
     return builder.build();
   }
 
-  public static VectorIndexDefinition fromBson(BsonDocument document) throws BsonParseException {
+  public static VectorIndexDefinition fromBson(BsonDocument document)
+      throws BsonParseException {
     // Atlas sends extra fields that we don't care about, such as "createdDate" and
     // "lastUpdatedDate", so ignore any extra fields.
     try (var parser = BsonDocumentParser.fromRoot(document).allowUnknownFields(true).build()) {
@@ -234,7 +242,8 @@ public final class VectorIndexDefinition implements IndexDefinition {
     }
   }
 
-  public static VectorIndexDefinition fromBson(DocumentParser parser) throws BsonParseException {
+  public static VectorIndexDefinition fromBson(DocumentParser parser)
+      throws BsonParseException {
     Type type = parser.getField(IndexDefinition.Fields.TYPE).unwrap();
     if (!type.equals(Type.VECTOR_SEARCH)) {
       parser.getContext().handleSemanticError("Expected index of type vectorSearch");
@@ -384,9 +393,8 @@ public final class VectorIndexDefinition implements IndexDefinition {
             vectorFieldDefinition ->
                 (vectorFieldDefinition.getType() == VectorIndexFieldDefinition.Type.TEXT
                     || vectorFieldDefinition.getType()
-                        == VectorIndexFieldDefinition.Type.AUTO_EMBED))
+                    == VectorIndexFieldDefinition.Type.AUTO_EMBED))
         .forEach(
-            // TODO(CLOUDP-332187): Support multiple models on same paths.
             vectorTextDef ->
                 builder.put(
                     vectorTextDef.path,
