@@ -22,17 +22,12 @@ public class KnnVectorParser {
 
     while (reader.readBsonType() != BsonType.END_OF_DOCUMENT) {
       switch (reader.getCurrentBsonType()) {
-        case INT32:
-          vector.add((float) reader.readInt32());
-          break;
-        case INT64:
-          vector.add((float) reader.readInt64());
-          break;
-        case DOUBLE:
-          vector.add((float) reader.readDouble());
-          break;
-        default:
+        case INT32 -> vector.add((float) reader.readInt32());
+        case INT64 -> vector.add((float) reader.readInt64());
+        case DOUBLE -> vector.add((float) reader.readDouble());
+        default -> {
           return Optional.empty();
+        }
       }
     }
     reader.readEndArray();

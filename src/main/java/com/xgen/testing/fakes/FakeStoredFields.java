@@ -44,34 +44,24 @@ public class FakeStoredFields extends StoredFields {
     for (IndexableField field : doc) {
       FieldInfo info = createFieldInfo(field);
       switch (visitor.needsField(info)) {
-        case YES:
-          break;
-        case NO:
+        case YES -> {
+        }
+        case NO -> {
           continue;
-        case STOP:
+        }
+        case STOP -> {
           return;
+        }
       }
 
       var stored = field.storedValue();
       switch (stored.getType()) {
-        case INTEGER:
-          visitor.intField(info, stored.getIntValue());
-          break;
-        case LONG:
-          visitor.longField(info, stored.getLongValue());
-          break;
-        case FLOAT:
-          visitor.floatField(info, stored.getFloatValue());
-          break;
-        case DOUBLE:
-          visitor.doubleField(info, stored.getDoubleValue());
-          break;
-        case BINARY:
-          visitor.binaryField(info, toArray(stored.getBinaryValue()));
-          break;
-        case STRING:
-          visitor.stringField(info, stored.getStringValue());
-          break;
+        case INTEGER -> visitor.intField(info, stored.getIntValue());
+        case LONG -> visitor.longField(info, stored.getLongValue());
+        case FLOAT -> visitor.floatField(info, stored.getFloatValue());
+        case DOUBLE -> visitor.doubleField(info, stored.getDoubleValue());
+        case BINARY -> visitor.binaryField(info, toArray(stored.getBinaryValue()));
+        case STRING -> visitor.stringField(info, stored.getStringValue());
       }
     }
   }

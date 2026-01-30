@@ -36,21 +36,10 @@ public class ChildClauses implements QueryChildren<QueryVisitorQueryExecutionCon
   @Override
   public void addClause(QueryVisitorQueryExecutionContextNode child, BooleanClause.Occur occur) {
     switch (occur) {
-      case MUST:
-        this.mustChildren.add(child);
-        break;
-
-      case SHOULD:
-        this.shouldChildren.add(child);
-        break;
-
-      case MUST_NOT:
-        this.mustNotChildren.add(child);
-        break;
-
-      case FILTER:
-        this.filterChildren.add(child);
-        break;
+      case MUST -> this.mustChildren.add(child);
+      case SHOULD -> this.shouldChildren.add(child);
+      case MUST_NOT -> this.mustNotChildren.add(child);
+      case FILTER -> this.filterChildren.add(child);
     }
   }
 
@@ -115,21 +104,18 @@ public class ChildClauses implements QueryChildren<QueryVisitorQueryExecutionCon
     }
 
     switch (childOccur.get()) {
-      case MUST:
+      case MUST -> {
         must().remove(child);
-        return;
-
-      case MUST_NOT:
+      }
+      case MUST_NOT -> {
         mustNot().remove(child);
-        return;
-
-      case FILTER:
+      }
+      case FILTER -> {
         filter().remove(child);
-        return;
-
-      case SHOULD:
+      }
+      case SHOULD -> {
         should().remove(child);
-        return;
+      }
     }
   }
 

@@ -219,34 +219,32 @@ public class TestMultiLuceneIndexWriter {
     // The actual indexPartition will be decided by the following hash function.
     HashFunction hashFunction = Hashing.murmur3_128(hashSeed);
     return (int)
-        (Integer.toUnsignedLong(hashFunction.hashBytes(encodedDocumentId).asInt())
-            % numPartitions);
+        (Integer.toUnsignedLong(hashFunction.hashBytes(encodedDocumentId).asInt()) % numPartitions);
   }
 
   // Generates random encoded document IDs for testing.
   private byte[] generateRandomEncodedDocumentId(Random random) {
     // Generate different types of BSON document IDs
     switch (random.nextInt(4)) {
-      case 0: // Random ObjectId
+      case 0 -> {
         byte[] objectIdBytes = new byte[12];
         random.nextBytes(objectIdBytes);
         return LuceneDocumentIdEncoder.encodeDocumentId(
             new BsonObjectId(new ObjectId(objectIdBytes)));
-
-      case 1: // Random string ID
+      }
+      case 1 -> {
         String randomString = generateRandomString(random, random.nextInt(50) + 1);
         return LuceneDocumentIdEncoder.encodeDocumentId(new BsonString(randomString));
-
-      case 2: // Random integer ID
+      }
+      case 2 -> {
         int randomInt = random.nextInt();
         return LuceneDocumentIdEncoder.encodeDocumentId(new BsonInt32(randomInt));
-
-      case 3: // Random long ID
+      }
+      case 3 -> {
         long randomLong = random.nextLong();
         return LuceneDocumentIdEncoder.encodeDocumentId(new BsonInt64(randomLong));
-
-      default:
-        throw new IllegalStateException("Unexpected case");
+      }
+      default -> throw new IllegalStateException("Unexpected case");
     }
   }
 
@@ -280,12 +278,13 @@ public class TestMultiLuceneIndexWriter {
         int newPartitionId = MultiLuceneIndexWriter.getIndexPartitionId(bytesRef, numPartitions);
 
         Assert.assertEquals(
-            String
-                .format("Partition mapping changed for encodedId (length=%d)=%s, numPartitions=%d",
-                    encodedDocumentId.length,
-                    HexFormat.of().formatHex(encodedDocumentId),
-                    numPartitions),
-            oldPartitionId, newPartitionId);
+            String.format(
+                "Partition mapping changed for encodedId (length=%d)=%s, numPartitions=%d",
+                encodedDocumentId.length,
+                HexFormat.of().formatHex(encodedDocumentId),
+                numPartitions),
+            oldPartitionId,
+            newPartitionId);
       }
     }
   }

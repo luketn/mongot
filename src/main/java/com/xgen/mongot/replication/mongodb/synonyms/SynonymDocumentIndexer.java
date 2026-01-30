@@ -94,8 +94,7 @@ public class SynonymDocumentIndexer {
 
   static SynonymDocumentIndexerFactory factory(GenerationId generationId) {
     return (synRegistry, synDefinition) -> {
-      var synonymMappingId =
-          SynonymMappingId.from(generationId, synDefinition.name());
+      var synonymMappingId = SynonymMappingId.from(generationId, synDefinition.name());
       HashMap<String, Object> defaultKeyValues = new HashMap<>();
       defaultKeyValues.put("indexId", generationId.indexId);
       defaultKeyValues.put("generationId", generationId);
@@ -162,29 +161,28 @@ public class SynonymDocumentIndexer {
         "synonym mapping completed exceptionally with {} type exception", exception.getType());
 
     switch (exception.getType()) {
-      case FIELD_EXCEEDED:
-      case INVALID:
+      case FIELD_EXCEEDED, INVALID -> {
         this.synonymRegistry.invalidate(
             this.synonymMappingDefinition.name(), exception.getMessage());
         return;
-
-      case FAILED:
+      }
+      case FAILED -> {
         this.synonymRegistry.fail(this.synonymMappingDefinition.name(), exception.getMessage());
         return;
-
-      case DROPPED:
+      }
+      case DROPPED -> {
         this.synonymRegistry.clear(this.synonymMappingDefinition);
         return;
-
-      case SHUTDOWN:
+      }
       // Don't fail/clear the mapping in case of shutdowns. The replication subsystem may be
       // restarting, and synonyms need to be queryable when replication is down. Mappings get
       // cleared by the garbage collector when the index gets dropped (or when mongot entirely
       // shuts down).
-      case TRANSIENT:
+      case SHUTDOWN, TRANSIENT -> {
         // Don't drop or update the synonym registry in this case; the error was transient, and
         // doesn't indicate an invalid document or other synonym-mapping-invalidating circumstances.
         return;
+      }
     }
   }
 }

@@ -46,12 +46,8 @@ public class LuceneSortFactory {
       throws InvalidQueryException {
     for (var sortField : sortSpec.getSortFields()) {
       switch (sortSpec) {
-        case Sort sort:
-          this.validate(sortField, embeddedRoot);
-          break;
-        case SortBetaV1 sortBetaV1:
-          this.validateBeta(sortField);
-          break;
+        case Sort sort -> this.validate(sortField, embeddedRoot);
+        case SortBetaV1 sortBetaV1 -> this.validateBeta(sortField);
       }
     }
   }
@@ -147,8 +143,12 @@ public class LuceneSortFactory {
 
     org.apache.lucene.search.Sort luceneSort = new org.apache.lucene.search.Sort(sortFields);
     if (sortFeatureExplainer.isPresent()) {
-      indexSort.ifPresent(is -> sortFeatureExplainer.get().setCanBenefitFromIndexSort(
-          IndexSortUtils.canBenefitFromIndexSort(luceneSort, is)));
+      indexSort.ifPresent(
+          is ->
+              sortFeatureExplainer
+                  .get()
+                  .setCanBenefitFromIndexSort(
+                      IndexSortUtils.canBenefitFromIndexSort(luceneSort, is)));
     }
     return luceneSort;
   }
@@ -161,11 +161,11 @@ public class LuceneSortFactory {
     return mongotSortField.options() instanceof MetaSortOptions metaOptions
         ? metaOptions.getMetaSort()
         : createOptimizedSortField(
-            mongotSortField,
-            typeFields,
-            afterFieldValue,
-            embeddedRoot,
-            this.context.getIndexCapabilities())
+                mongotSortField,
+                typeFields,
+                afterFieldValue,
+                embeddedRoot,
+                this.context.getIndexCapabilities())
             .orElseGet(() -> new MqlMixedSort(mongotSortField, embeddedRoot));
   }
 
@@ -208,55 +208,64 @@ public class LuceneSortFactory {
 
     FieldName.TypeField typeField = typeFields.iterator().next();
     switch (typeField) {
-      case TOKEN:
+      case TOKEN -> {
         return afterFieldValue.isEmpty() || afterFieldValue.get() instanceof BsonString
             ? Optional.of(
                 MqlSortedSetSortField.stringSort(
                     FieldName.TypeField.TOKEN, mongotSortField, true, embeddedRoot))
             : Optional.empty();
-      case DATE_V2:
+      }
+      case DATE_V2 -> {
         return afterFieldValue.isEmpty() || afterFieldValue.get() instanceof BsonDateTime
             ? Optional.of(
                 new MqlDateSort(FieldName.TypeField.DATE_V2, mongotSortField, true, embeddedRoot))
             : Optional.empty();
-      case NUMBER_DOUBLE_V2:
+      }
+      case NUMBER_DOUBLE_V2 -> {
         return afterFieldValue.isEmpty() || afterFieldValue.get() instanceof BsonDouble
             ? Optional.of(
                 new MqlDoubleSort(
                     FieldName.TypeField.NUMBER_DOUBLE_V2, mongotSortField, true, embeddedRoot))
             : Optional.empty();
-      case NUMBER_INT64_V2:
+      }
+      case NUMBER_INT64_V2 -> {
         return afterFieldValue.isEmpty() || afterFieldValue.get() instanceof BsonInt64
             ? Optional.of(
                 new MqlLongSort(
                     FieldName.TypeField.NUMBER_INT64_V2, mongotSortField, true, embeddedRoot))
             : Optional.empty();
-      case UUID:
+      }
+      case UUID -> {
         return afterFieldValue.isEmpty()
                 || (afterFieldValue.get() instanceof BsonBinary
                     && ((BsonBinary) afterFieldValue.get()).getType()
                         == BsonBinarySubType.UUID_STANDARD.getValue())
             ? Optional.of(MqlSortedSetSortField.uuidSort(mongotSortField, embeddedRoot))
             : Optional.empty();
-      case NULL:
+      }
+      case NULL -> {
         // MixedSort handles this case optimally
         return Optional.empty();
-      case OBJECT_ID:
+        // MixedSort handles this case optimally
+      }
+      case OBJECT_ID -> {
         return indexCapabilities.supportsObjectIdAndBooleanDocValues()
                 && (afterFieldValue.isEmpty() || afterFieldValue.get() instanceof BsonObjectId)
             ? Optional.of(MqlSortedSetSortField.objectIdSort(mongotSortField, embeddedRoot))
             : Optional.empty();
-      case BOOLEAN:
+      }
+      case BOOLEAN -> {
         return indexCapabilities.supportsObjectIdAndBooleanDocValues()
                 && (afterFieldValue.isEmpty() || afterFieldValue.get() instanceof BsonBoolean)
             ? Optional.of(MqlSortedSetSortField.booleanSort(mongotSortField, embeddedRoot))
             : Optional.empty();
+      }
 
       /*
        Creates a SortField for sortBeta. We are explicitly disabling pruning here in order to
        not add new functionality to a feature that is planned to be deprecated.
       */
-      case SORTABLE_DATE_BETA_V1:
+      case SORTABLE_DATE_BETA_V1 -> {
         Check.isEmpty(embeddedRoot, "returnScope");
         return Optional.of(
             new MqlDateSort(
@@ -264,7 +273,8 @@ public class LuceneSortFactory {
                 mongotSortField,
                 false,
                 Optional.empty()));
-      case SORTABLE_NUMBER_BETA_V1:
+      }
+      case SORTABLE_NUMBER_BETA_V1 -> {
         Check.isEmpty(embeddedRoot, "returnScope");
         return Optional.of(
             new MqlDoubleSort(
@@ -272,7 +282,8 @@ public class LuceneSortFactory {
                 mongotSortField,
                 false,
                 Optional.empty()));
-      case SORTABLE_STRING_BETA_V1:
+      }
+      case SORTABLE_STRING_BETA_V1 -> {
         Check.isEmpty(embeddedRoot, "returnScope");
         return Optional.of(
             MqlSortedSetSortField.stringSort(
@@ -280,25 +291,27 @@ public class LuceneSortFactory {
                 mongotSortField,
                 false,
                 Optional.empty()));
-
-      case AUTOCOMPLETE:
-      case DATE:
-      case DATE_MULTIPLE:
-      case DATE_FACET:
-      case GEO_POINT:
-      case GEO_SHAPE:
-      case KNN_VECTOR:
-      case KNN_BYTE:
-      case KNN_BIT:
-      case KNN_F32_Q7:
-      case KNN_F32_Q1:
-      case NUMBER_DOUBLE:
-      case NUMBER_DOUBLE_MULTIPLE:
-      case NUMBER_DOUBLE_FACET:
-      case NUMBER_INT64:
-      case NUMBER_INT64_MULTIPLE:
-      case NUMBER_INT64_FACET:
-      case STRING:
+      }
+      case AUTOCOMPLETE,
+          DATE,
+          DATE_MULTIPLE,
+          DATE_FACET,
+          GEO_POINT,
+          GEO_SHAPE,
+          KNN_VECTOR,
+          KNN_BYTE,
+          KNN_BIT,
+          KNN_F32_Q7,
+          KNN_F32_Q1,
+          NUMBER_DOUBLE,
+          NUMBER_DOUBLE_MULTIPLE,
+          NUMBER_DOUBLE_FACET,
+          NUMBER_INT64,
+          NUMBER_INT64_MULTIPLE,
+          NUMBER_INT64_FACET,
+          STRING -> {
+        // do nothing
+      }
     }
     logger.error("Unexpected IndexedType: {}", typeField);
     return Check.unreachable("Unexpected IndexedType");

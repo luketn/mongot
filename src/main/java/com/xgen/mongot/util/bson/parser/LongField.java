@@ -53,13 +53,13 @@ public class LongField {
     @Override
     public Long parse(BsonParseContext context, BsonValue value) throws BsonParseException {
       switch (value.getBsonType()) {
-        case INT32:
+        case INT32 -> {
           return value.asInt32().longValue();
-
-        case INT64:
+        }
+        case INT64 -> {
           return value.asInt64().longValue();
-
-        case DOUBLE:
+        }
+        case DOUBLE -> {
           double doubleValue = value.asDouble().doubleValue();
           if (doubleValue > Long.MAX_VALUE) {
             context.handleOverflow(TypeDescription.INT_64);
@@ -76,9 +76,10 @@ public class LongField {
           }
 
           return (long) doubleValue;
-
-        default:
+        }
+        default -> {
           return context.handleUnexpectedType(TypeDescription.NUMBER, value.getBsonType());
+        }
       }
     }
   }

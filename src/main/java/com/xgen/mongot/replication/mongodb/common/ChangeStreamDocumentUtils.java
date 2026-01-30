@@ -276,11 +276,11 @@ public class ChangeStreamDocumentUtils {
         metadata.isDeleted() ? OperationType.DELETE : event.getOperationType();
 
     switch (operation) {
-      case INSERT:
+      case INSERT -> {
         incrementApplicableDocumentMetrics(metrics, event);
         return Optional.of(DocumentEvent.createInsert(metadata, event.getFullDocument()));
-
-      case UPDATE:
+      }
+      case UPDATE -> {
         if (metadata.getId().isEmpty()) {
           // when updateLookup happens after the doc is already deleted, we can get an update event
           // that does not contain fullDocument._id. we should treat such documents as a
@@ -325,21 +325,21 @@ public class ChangeStreamDocumentUtils {
           return Optional.empty();
         }
 
-      case REPLACE:
+        // We can skip the updateDescriptionAppliesToIndex check if the updates have already been
+        // filtered at an earlier iteration.
+      }
+      case REPLACE -> {
         incrementApplicableDocumentMetrics(metrics, event);
         return Optional.of(DocumentEvent.createUpdate(metadata, event.getFullDocument()));
-
-      case DELETE:
+      }
+      case DELETE -> {
         return Optional.of(
             DocumentEvent.createDelete(DocumentMetadata.extractId(event.getDocumentKey())));
-
-      case INVALIDATE:
-      case DROP:
-      case DROP_DATABASE:
-      case RENAME:
-      case OTHER:
+      }
+      case INVALIDATE, DROP, DROP_DATABASE, RENAME, OTHER -> {
         logger.error("Unexpected OperationType: {}", event.getOperationType());
         return Check.unreachable("Unexpected OperationType");
+      }
     }
     logger.error("Unhandled OperationType: {}", event.getOperationType());
     return Check.unreachable("Unhandled OperationType");
@@ -379,19 +379,10 @@ public class ChangeStreamDocumentUtils {
     while (lastIndex > 0) {
 
       switch (bsonDocumentToChangeStreamDocument(events.get(lastIndex - 1)).getOperationType()) {
-        case INSERT:
-        case UPDATE:
-        case REPLACE:
-        case DELETE:
+        case INSERT, UPDATE, REPLACE, DELETE -> {
           return lastIndex;
-
-        case DROP:
-        case DROP_DATABASE:
-        case RENAME:
-        case INVALIDATE:
-        case OTHER:
-          lastIndex--;
-          break;
+        }
+        case DROP, DROP_DATABASE, RENAME, INVALIDATE, OTHER -> lastIndex--;
       }
     }
 

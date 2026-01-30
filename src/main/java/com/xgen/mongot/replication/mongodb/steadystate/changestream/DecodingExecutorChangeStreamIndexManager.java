@@ -381,12 +381,11 @@ class DecodingExecutorChangeStreamIndexManager extends ChangeStreamIndexManager 
     }
 
     switch (event.getOperationType()) {
-      case DROP:
-      case DROP_DATABASE:
+      case DROP, DROP_DATABASE -> {
         logChangeStreamEventDetails(event);
         return Optional.of(SteadyStateException.createDropped());
-
-      case RENAME:
+      }
+      case RENAME -> {
         logChangeStreamEventDetails(event);
         if (Objects.isNull(event.getDestinationNamespace())) {
           return Optional.of(
@@ -415,29 +414,26 @@ class DecodingExecutorChangeStreamIndexManager extends ChangeStreamIndexManager 
         // If this event is a RENAME, flag that so that the next event (which should be an
         // INVALIDATE) can be handled.
         this.renameNamespace = Optional.of(destinationNamespace);
-        break;
-
-      case INVALIDATE:
+      }
+      case INVALIDATE -> {
         // If we saw an INVALIDATE event without a preceding RENAME event, get the resumeToken to
         // be used in startAfter.
         logChangeStreamEventDetails(event);
         return Optional.of(
             SteadyStateException.createInvalidated(
                 ChangeStreamResumeInfo.create(this.namespace, event.getResumeToken())));
-
-      case OTHER:
+      }
+      case OTHER -> {
         // If we saw an event we can't process, then there's no use in trying to restart
         // the change stream. Resync and hope for the best.
         logChangeStreamEventDetails(event);
         return Optional.of(
             SteadyStateException.createRequiresResync(
                 String.format("witnessed unknown change stream event: %s", event)));
-
-      case INSERT:
-      case UPDATE:
-      case REPLACE:
-      case DELETE:
-        break;
+      }
+      case INSERT, UPDATE, REPLACE, DELETE -> {
+        // No-op
+      }
     }
 
     return Optional.empty();

@@ -35,23 +35,21 @@ public class EmbeddingConfigFactory {
       throws BsonParseException {
     EmbeddingProvider provider =
         EmbeddingProvider.valueOf(parser.getField(Fields.PROVIDER).unwrap());
-    switch (provider) {
-      case VOYAGE -> {
-        return VoyageEmbeddingCredentials.fromBson(parser);
-      }
-      default -> throw new IllegalStateException("Unsupported provider: " + provider);
-    }
+    return switch (provider) {
+      case VOYAGE -> VoyageEmbeddingCredentials.fromBson(parser);
+      case AWS_BEDROCK, COHERE ->
+          throw new IllegalStateException("Unsupported provider: " + provider);
+    };
   }
 
   public static EmbeddingServiceConfig.ModelConfig getModelConfig(DocumentParser parser)
       throws BsonParseException {
     EmbeddingProvider provider =
         EmbeddingProvider.valueOf(parser.getField(Fields.PROVIDER).unwrap());
-    switch (provider) {
-      case VOYAGE -> {
-        return VoyageModelConfig.fromBson(parser);
-      }
-      default -> throw new IllegalStateException("Unsupported provider: " + provider);
-    }
+    return switch (provider) {
+      case VOYAGE -> VoyageModelConfig.fromBson(parser);
+      case AWS_BEDROCK, COHERE ->
+          throw new IllegalStateException("Unsupported provider: " + provider);
+    };
   }
 }

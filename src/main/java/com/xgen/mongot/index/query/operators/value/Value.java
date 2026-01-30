@@ -20,40 +20,41 @@ public sealed interface Value extends Encodable permits NonNullValue, NullValue 
   /** Deserializes a Value from BSON. */
   static Value fromBson(BsonParseContext context, BsonValue value) throws BsonParseException {
     switch (value.getBsonType()) {
-      case BOOLEAN:
+      case BOOLEAN -> {
         return new BooleanValue(value.asBoolean().getValue());
-
-      case OBJECT_ID:
+      }
+      case OBJECT_ID -> {
         return new ObjectIdValue(value.asObjectId().getValue());
-
-      case INT32:
+      }
+      case INT32 -> {
         return new NumericValue(new LongPoint((long) value.asInt32().getValue()));
-
-      case INT64:
+      }
+      case INT64 -> {
         return new NumericValue(new LongPoint(value.asInt64().getValue()));
-
-      case DOUBLE:
+      }
+      case DOUBLE -> {
         return new NumericValue(new DoublePoint(value.asDouble().getValue()));
-
-      case DATE_TIME:
+      }
+      case DATE_TIME -> {
         return new DateValue(new DatePoint(new Date(value.asDateTime().getValue())));
-
-      case STRING:
+      }
+      case STRING -> {
         return new StringValue(value.asString().getValue());
-
-      case BINARY:
+      }
+      case BINARY -> {
         byte currentBinarySubType = value.asBinary().getType();
         if (currentBinarySubType != BsonBinarySubType.UUID_STANDARD.getValue()) {
           context.handleSemanticError("binary value must be UUID subtype 4");
         }
         return new UuidValue(value.asBinary().asUuid());
-
-      case NULL:
+      }
+      case NULL -> {
         return new NullValue();
-
-      default:
+      }
+      default -> {
         return context.handleUnexpectedType(
             "boolean, objectId, number, string, date, uuid, or null", value.getBsonType());
+      }
     }
   }
 

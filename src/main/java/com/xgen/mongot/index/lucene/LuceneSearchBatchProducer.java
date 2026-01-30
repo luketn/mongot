@@ -170,7 +170,7 @@ class LuceneSearchBatchProducer implements BatchProducer {
     boolean luceneExhausted;
     int batchSize;
     switch (this.state) {
-      case INITIALIZED:
+      case INITIALIZED -> {
         // We have been initialized with metaResults and cachedInitialDocs already.  Use the
         // cached docs for topDocs, clear the cached docs, and moved to GET_MORE state.
         topDocs = this.initInfo.topDocs;
@@ -180,8 +180,8 @@ class LuceneSearchBatchProducer implements BatchProducer {
         this.firstBatchCursorOptions
             .getDocsRequested()
             .ifPresent(unused -> this.metricsUpdater.getExtractableLimitQueryCounter().increment());
-        break;
-      case GET_MORE:
+      }
+      case GET_MORE -> {
         // When the docsRequested field is present, re-create a new batchSizeStrategy for this
         // getMore query. Otherwise, fallback to the previous available batchSizeStrategy. The
         // batchSizeStrategy in the ctor arg is for the first batch.
@@ -196,10 +196,8 @@ class LuceneSearchBatchProducer implements BatchProducer {
             this.searchManager.getMoreTopDocs(
                 this.searcherReference, this.lastIterValue.get().scoreDoc, batchSize);
         luceneExhausted = isLuceneExhausted(topDocs, batchSize);
-
-        break;
-      default:
-        throw Check.unreachableError();
+      }
+      default -> throw Check.unreachableError();
     }
 
     this.searchResultsIter =

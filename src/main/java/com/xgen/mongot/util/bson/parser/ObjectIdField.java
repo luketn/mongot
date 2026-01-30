@@ -80,19 +80,20 @@ public class ObjectIdField {
     @Override
     public ObjectId parse(BsonParseContext context, BsonValue value) throws BsonParseException {
       switch (value.getBsonType()) {
-        case OBJECT_ID:
+        case OBJECT_ID -> {
           return value.asObjectId().getValue();
-
-        case STRING:
+        }
+        case STRING -> {
           String stringValue = value.asString().getValue();
           if (!ObjectId.isValid(stringValue)) {
             return context.handleSemanticError("is invalid ObjectId format");
           }
 
           return new ObjectId(stringValue);
-
-        default:
+        }
+        default -> {
           return context.handleUnexpectedType(TypeDescription.OBJECT_ID, value.getBsonType());
+        }
       }
     }
   }

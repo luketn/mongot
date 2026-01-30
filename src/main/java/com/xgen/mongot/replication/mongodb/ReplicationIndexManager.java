@@ -430,29 +430,21 @@ public class ReplicationIndexManager {
 
     InitAction initAction = determineInitAction(userData);
     switch (initAction) {
-      case RUN_INITIAL_SYNC:
-        enqueueInitialSync(IndexStatus.initialSync());
-        break;
-
-      case RESUME_INITIAL_SYNC:
-        enqueueInitialSyncResume(
-            userData
-                .getInitialSyncResumeInfo()
-                .orElseThrow(
-                    () ->
-                        new IllegalStateException(
-                            "initial sync resume info should be present to resume initial sync")));
-        break;
-
-      case RESUME_STEADY_STATE:
-        resumeSteadyState(
-            userData
-                .getResumeInfo()
-                .orElseThrow(
-                    () ->
-                        new IllegalStateException(
-                            "resume info should be present to resume steady state.")));
-        break;
+      case RUN_INITIAL_SYNC -> enqueueInitialSync(IndexStatus.initialSync());
+      case RESUME_INITIAL_SYNC -> enqueueInitialSyncResume(
+          userData
+              .getInitialSyncResumeInfo()
+              .orElseThrow(
+                  () ->
+                      new IllegalStateException(
+                          "initial sync resume info should be present to resume initial sync")));
+      case RESUME_STEADY_STATE -> resumeSteadyState(
+          userData
+              .getResumeInfo()
+              .orElseThrow(
+                  () ->
+                      new IllegalStateException(
+                          "resume info should be present to resume steady state.")));
     }
   }
 
@@ -639,26 +631,23 @@ public class ReplicationIndexManager {
         .getInitialSyncExceptionCounter()
         .increment();
     switch (initialSyncException.getType()) {
-      case DROPPED:
+      case DROPPED -> {
         this.logger.info(
             "Collection dropped or does not exist. Stopping replication and dropping index: {}",
             initialSyncException.getMessage());
         dropIndex();
         return;
-
-      case FAILED:
+      }
+      case FAILED -> {
         if (InitialSyncException.isNotablescanError(throwable.getCause())) {
           this.metricsFactory.counter("failedInitialSyncDueToNotablescan").increment();
         }
-        failAndDropIndex(throwable, IndexStatus.Reason.INITIAL_SYNC_REPLICATION_FAILED);
+        failAndDropIndex(throwable, Reason.INITIAL_SYNC_REPLICATION_FAILED);
         return;
-
-      case FIELD_EXCEEDED:
-      case DOCS_EXCEEDED:
-        exceededIndex(String.valueOf(initialSyncException.getMessage()));
-        break;
-
-      case SHUT_DOWN:
+      }
+      case FIELD_EXCEEDED, DOCS_EXCEEDED ->
+          exceededIndex(String.valueOf(initialSyncException.getMessage()));
+      case SHUT_DOWN -> {
         // If the initial sync was shut down, there are 3 possible reasons:
         // - The InitialSyncQueue is being shut down
         // - This ReplicationIndexManager is being shut down
@@ -667,8 +656,8 @@ public class ReplicationIndexManager {
         this.logger.info("Initial sync was shut down. Not scheduling any more work.");
         transitionState(State.SHUT_DOWN);
         return;
-
-      case REQUIRES_RESYNC:
+      }
+      case REQUIRES_RESYNC -> {
         if (InitialSyncException.isInitialSyncIdMismatched(throwable.getCause())) {
           Tags tags = Tags.of("reason", "initialSyncIdMismatched", "useNaturalOrderScan", "true");
           this.metricsFactory.counter("naturalOrderScanRetry", tags).increment();
@@ -711,8 +700,8 @@ public class ReplicationIndexManager {
         }
         scheduleResync(throwable, IndexStatus.initialSync());
         return;
-
-      case RESUMABLE_TRANSIENT:
+      }
+      case RESUMABLE_TRANSIENT -> {
         Optional<Throwable> cause = Optional.ofNullable(initialSyncException.getCause());
         Duration operationBackoff = getTransientBackoffDuration(cause, this.resyncBackoff);
         if (cause.isPresent() && isMatchCollectionUuidUnsupportedException(cause.get())) {
@@ -721,15 +710,15 @@ public class ReplicationIndexManager {
         }
         scheduleResumableResync(throwable, operationBackoff);
         return;
-
-      case INVALIDATED:
+      }
+      case INVALIDATED -> {
         // this.isNaturalOrderScanSupported should always be paired with correct resumeInfo when
         // requests are enqueued. This ideally should never happen, but adding this here to cover
         // unforeseen corner cases
         if ((initialSyncException.getResumeInfo().isBufferlessIdOrderInitialSyncResumeInfo()
-                && this.isNaturalOrderScanSupported)
+            && this.isNaturalOrderScanSupported)
             || (initialSyncException.getResumeInfo().isBufferlessNaturalOrderInitialSyncResumeInfo()
-                && !this.isNaturalOrderScanSupported)) {
+            && !this.isNaturalOrderScanSupported)) {
           this.isNaturalOrderScanSupported =
               !initialSyncException.getResumeInfo().isBufferlessIdOrderInitialSyncResumeInfo();
           Tags tags =
@@ -742,13 +731,14 @@ public class ReplicationIndexManager {
         }
         scheduleResumeSync(initialSyncException.getResumeInfo());
         return;
-
-      case DOES_NOT_EXIST:
+      }
+      case DOES_NOT_EXIST -> {
         if (this.featureFlags.isEnabled(Feature.SHUT_DOWN_REPLICATION_WHEN_COLLECTION_NOT_FOUND)) {
           shutDownReplicationBecauseCollectionDoesNotExist();
         } else {
           scheduleInitialSyncRetry();
         }
+      }
     }
   }
 
@@ -911,19 +901,19 @@ public class ReplicationIndexManager {
         .getSteadyStateExceptionCounter()
         .increment();
     switch (steadyStateException.getType()) {
-      case DROPPED:
+      case DROPPED -> {
         this.logger.info("Collection was dropped. Stopping replication and dropping index.");
         dropIndex();
         return;
-
-      case REQUIRES_RESYNC:
+      }
+      case REQUIRES_RESYNC -> {
         this.logger.info(
             "Exception requiring resync occurred during steady state replication.",
             steadyStateException);
         enqueueInitialSync(IndexStatus.initialSync());
         return;
-
-      case TRANSIENT:
+      }
+      case TRANSIENT -> {
         Optional<Throwable> cause = Optional.ofNullable(steadyStateException.getCause());
         Duration operationBackoff = getTransientBackoffDuration(cause, this.transientBackoff);
 
@@ -935,7 +925,6 @@ public class ReplicationIndexManager {
         checkState(
             resumeInfo.isPresent(),
             "TRANSIENT SteadyStateException thrown but no ChangeStreamResumeInfo present");
-
 
         if (this.indexGeneration.getDefinition().getView().isPresent()) {
           if (MongoViewExceptionUtils.isViewPipelineRelated(cause)) {
@@ -961,20 +950,14 @@ public class ReplicationIndexManager {
 
         scheduleResumeSteadyState(resumeInfo.get(), operationBackoff);
         return;
-
-      case NON_INVALIDATING_RESYNC:
+      }
+      case NON_INVALIDATING_RESYNC -> {
         handleSteadyStateNonInvalidatingResync(steadyStateException);
         return;
-
-      case FIELD_EXCEEDED:
-        exceededIndex(String.valueOf(steadyStateException.getMessage()));
-        break;
-
-      case DOCS_EXCEEDED:
-        staleIndex(StaleStatusReason.DOCS_EXCEEDED, Optional.empty());
-        break;
-
-      case RENAMED:
+      }
+      case FIELD_EXCEEDED -> exceededIndex(String.valueOf(steadyStateException.getMessage()));
+      case DOCS_EXCEEDED -> staleIndex(StaleStatusReason.DOCS_EXCEEDED, Optional.empty());
+      case RENAMED -> {
         this.logger.info("Witnessed rename event. Resuming immediately.");
         ChangeStreamResumeInfo renameResumeInfo = steadyStateException.getResumeInfo();
         IndexDefinition indexDefinition = this.index.getDefinition();
@@ -986,16 +969,17 @@ public class ReplicationIndexManager {
             renameResumeInfo.getNamespace().getCollectionName());
         resumeSteadyState(steadyStateException.getResumeInfo());
         return;
-
-      case INVALIDATED:
+      }
+      case INVALIDATED -> {
         this.logger.info("Witnessed invalidate event. Opening new change stream.");
         resumeSteadyState(steadyStateException.getResumeInfo());
         return;
-
-      case SHUT_DOWN:
+      }
+      case SHUT_DOWN -> {
         this.logger.info("Steady state was shut down. Not scheduling any more work.");
         transitionState(State.SHUT_DOWN);
         return;
+      }
     }
   }
 

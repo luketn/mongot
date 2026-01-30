@@ -43,17 +43,18 @@ public abstract class StringPath implements Encodable {
   public static StringPath fromBson(BsonParseContext context, BsonValue bsonValue)
       throws BsonParseException {
     switch (bsonValue.getBsonType()) {
-      case STRING:
+      case STRING -> {
         FieldPath fieldPath = FieldPath.parse(bsonValue.asString().getValue());
         return new StringFieldPath(fieldPath);
-
-      case DOCUMENT:
+      }
+      case DOCUMENT -> {
         try (var parser = BsonDocumentParser.withContext(context, bsonValue.asDocument()).build()) {
           return fromBsonDocument(parser);
         }
-
-      default:
+      }
+      default -> {
         return context.handleUnexpectedType(EXPECTED_TYPE, bsonValue.getBsonType());
+      }
     }
   }
 

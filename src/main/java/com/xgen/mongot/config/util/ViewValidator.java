@@ -52,12 +52,8 @@ public class ViewValidator {
       }
 
       switch (type.get()) {
-        case ADD_FIELDS:
-        case SET:
-          validateAddFields(stage.getDocument(stageName));
-          break;
-        case MATCH:
-          validateMatch(stage.getDocument(stageName));
+        case ADD_FIELDS, SET -> validateAddFields(stage.getDocument(stageName));
+        case MATCH -> validateMatch(stage.getDocument(stageName));
       }
     }
   }

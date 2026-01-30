@@ -150,14 +150,12 @@ public class MaterializedViewWriter implements IndexWriter {
       ensureOpen("updateIndex");
       var bulkOperations = this.bulkOperationsRef.get();
       switch (event.getEventType()) {
-        case INSERT:
-          bulkOperations.add(
-              new ReplaceOneModel<>(
-                  new BsonDocument("_id", event.getDocumentId()),
-                  event.getDocument().get(), // only returns empty when event is a delete
-                  new ReplaceOptions().upsert(true)));
-          break;
-        case UPDATE:
+        case INSERT -> bulkOperations.add(
+            new ReplaceOneModel<>(
+                new BsonDocument("_id", event.getDocumentId()),
+                event.getDocument().get(), // only returns empty when event is a delete
+                new ReplaceOptions().upsert(true)));
+        case UPDATE -> {
           // For filter-only updates, use $set to update only the filter fields.
           // This preserves existing embeddings in the materialized view document.
           if (event.getFilterFieldUpdates().isPresent()) {
@@ -172,9 +170,9 @@ public class MaterializedViewWriter implements IndexWriter {
                     event.getDocument().get(), // only returns empty when event is a delete
                     new ReplaceOptions().upsert(true)));
           }
-          break;
-        case DELETE:
-          bulkOperations.add(new DeleteOneModel<>(new BsonDocument("_id", event.getDocumentId())));
+        }
+        case DELETE -> bulkOperations.add(
+            new DeleteOneModel<>(new BsonDocument("_id", event.getDocumentId())));
       }
     }
   }

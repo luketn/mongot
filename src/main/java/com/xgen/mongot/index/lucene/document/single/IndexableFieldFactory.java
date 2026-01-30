@@ -487,7 +487,7 @@ public class IndexableFieldFactory {
 
     try {
       switch (vector.getVectorType()) {
-        case FLOAT:
+        case FLOAT -> {
           String floatVectorFieldName =
               quantization.toTypeField().getLuceneFieldName(field, document.getEmbeddedRoot());
           document.addVectorField(
@@ -496,8 +496,8 @@ public class IndexableFieldFactory {
                   vector.asFloatVector().getFloatVector(),
                   similarityFunction),
               checkFieldName);
-          break;
-        case BYTE:
+        }
+        case BYTE -> {
           if (isQuantizationEnabled(quantization)) {
             FLOGGER.atWarning().atMostEvery(10, TimeUnit.MINUTES).log(
                 "Quantization is only supported for FLOAT vectors but found BYTE vector, "
@@ -511,8 +511,8 @@ public class IndexableFieldFactory {
               new KnnByteVectorField(
                   byteVectorFieldName, vector.asByteVector().getByteVector(), similarityFunction),
               checkFieldName);
-          break;
-        case BIT:
+        }
+        case BIT -> {
           if (isQuantizationEnabled(quantization)) {
             FLOGGER.atWarning().atMostEvery(10, TimeUnit.MINUTES).log(
                 "Quantization is only supported for FLOAT vectors but found BIT vector, "
@@ -532,7 +532,7 @@ public class IndexableFieldFactory {
               new KnnByteVectorField(
                   bitVectorFieldName, vector.asBitVector().getBitVector(), similarityFunction),
               checkFieldName);
-          break;
+        }
       }
     } catch (IllegalArgumentException e) {
       FLOGGER.atWarning().atMostEvery(1, TimeUnit.HOURS).withCause(e).log(

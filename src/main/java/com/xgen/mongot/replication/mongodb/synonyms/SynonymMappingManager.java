@@ -232,21 +232,15 @@ public class SynonymMappingManager {
 
     this.index.getSynonymRegistry().beginUpdate(this.definition.name());
     switch (this.state) {
-      case INVALID:
-      case SYNC_ENQUEUED:
-      case INITIAL_SYNC:
+      case INVALID, SYNC_ENQUEUED, INITIAL_SYNC -> {
         transitionState(State.INITIAL_SYNC);
-        return;
-
-      case READY:
-      case READY_UPDATING:
+      }
+      case READY, READY_UPDATING -> {
         transitionState(State.READY_UPDATING);
-        return;
-
-      case INITIALIZING:
-      case SHUTDOWN:
-      case FAILED:
-        throw new AssertionError("cannot start sync from INITIALIZING, SHUTDOWN, or FAILED states");
+      }
+      case INITIALIZING, SHUTDOWN, FAILED ->
+          throw new AssertionError(
+              "cannot start sync from INITIALIZING, SHUTDOWN, or FAILED states");
     }
   }
 
@@ -411,8 +405,7 @@ public class SynonymMappingManager {
             .orElseGet(SynonymMappingHighWaterMark::createEmpty);
 
     switch (exception.getType()) {
-      case FIELD_EXCEEDED:
-      case INVALID:
+      case FIELD_EXCEEDED, INVALID -> {
         transitionState(State.INVALID);
         if (this.synonymMappingHighWaterMark.isPresent()) {
           // If we have a high water mark, we can watch for changes that occur after the invalid or
@@ -425,8 +418,8 @@ public class SynonymMappingManager {
           scheduleOrFail(this::enqueueCollectionScan, this.schedulingDelay, this.lifecycleExecutor);
         }
         return;
-
-      case DROPPED:
+      }
+      case DROPPED -> {
         // A dropped collection is the same as a synonym source collection that defines zero synonym
         // mappings; it doesn't define any synonyms, but is not invalid either. This is a legal
         // state for a synonym mapping to be in.
@@ -443,19 +436,20 @@ public class SynonymMappingManager {
           enqueueCollectionScan();
         }
         return;
-
-      case FAILED:
+      }
+      case FAILED -> {
         failMapping(exception);
         return;
-
-      case SHUTDOWN:
+      }
+      case SHUTDOWN -> {
         transitionState(State.SHUTDOWN);
         return;
-
-      case TRANSIENT:
+      }
+      case TRANSIENT -> {
         // remain in previous state
         scheduleOrFail(this::enqueueCollectionScan, this.transientBackoff, this.lifecycleExecutor);
         return;
+      }
     }
     this.logger.error("unknown exception type {}", exception.getType());
     Check.unreachable("Unknown exception type");

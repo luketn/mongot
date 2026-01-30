@@ -21,57 +21,45 @@ public class MappingCompatibilityValidator {
 
     boolean hasFilter = mappingChecks.supportsFilter();
     switch (type) {
-      case DATE:
-        InvalidQueryException.validate(
-            mappingChecks.indexedAsDate(path, embeddedRoot),
-            "Path '%s' needs to be indexed as %s",
-            path,
-            hasFilter ? "filter" : "date");
-        break;
-
-      case NUMBER:
-        InvalidQueryException.validate(
-            mappingChecks.indexedAsNumber(path, embeddedRoot),
-            "Path '%s' needs to be indexed as %s",
-            path,
-            hasFilter ? "filter" : "number");
-        break;
-
-      case STRING:
-        InvalidQueryException.validate(
-            mappingChecks.indexedAsToken(path, embeddedRoot),
-            "Path '%s' needs to be indexed as %s",
-            path,
-            hasFilter ? "filter" : "token");
-        break;
-
-      case BOOLEAN:
-        InvalidQueryException.validate(
-            mappingChecks.indexedAsBoolean(path, embeddedRoot),
-            "Path '%s' needs to be indexed as %s",
-            path,
-            hasFilter ? "filter" : "boolean");
-        break;
-
-      case OBJECT_ID:
-        InvalidQueryException.validate(
-            mappingChecks.indexedAsObjectId(path, embeddedRoot),
-            "Path '%s' needs to be indexed as %s",
-            path,
-            hasFilter ? "filter" : "objectId");
-        break;
-
-      case UUID:
-        InvalidQueryException.validate(
-            mappingChecks.indexedAsUuid(path, embeddedRoot),
-            "Path '%s' needs to be indexed as %s",
-            path,
-            hasFilter ? "filter" : "uuid");
-        break;
-
-      case NULL:
+      case DATE ->
+          InvalidQueryException.validate(
+              mappingChecks.indexedAsDate(path, embeddedRoot),
+              "Path '%s' needs to be indexed as %s",
+              path,
+              hasFilter ? "filter" : "date");
+      case NUMBER ->
+          InvalidQueryException.validate(
+              mappingChecks.indexedAsNumber(path, embeddedRoot),
+              "Path '%s' needs to be indexed as %s",
+              path,
+              hasFilter ? "filter" : "number");
+      case STRING ->
+          InvalidQueryException.validate(
+              mappingChecks.indexedAsToken(path, embeddedRoot),
+              "Path '%s' needs to be indexed as %s",
+              path,
+              hasFilter ? "filter" : "token");
+      case BOOLEAN ->
+          InvalidQueryException.validate(
+              mappingChecks.indexedAsBoolean(path, embeddedRoot),
+              "Path '%s' needs to be indexed as %s",
+              path,
+              hasFilter ? "filter" : "boolean");
+      case OBJECT_ID ->
+          InvalidQueryException.validate(
+              mappingChecks.indexedAsObjectId(path, embeddedRoot),
+              "Path '%s' needs to be indexed as %s",
+              path,
+              hasFilter ? "filter" : "objectId");
+      case UUID ->
+          InvalidQueryException.validate(
+              mappingChecks.indexedAsUuid(path, embeddedRoot),
+              "Path '%s' needs to be indexed as %s",
+              path,
+              hasFilter ? "filter" : "uuid");
+      case NULL -> {
         // Do nothing since null values are indexed automatically for all fields
-        break;
+      }
     }
   }
 }

@@ -45,17 +45,18 @@ public abstract sealed class UnresolvedStringPath implements Encodable
       throws BsonParseException {
     FieldPath path;
     switch (bsonValue.getBsonType()) {
-      case STRING:
+      case STRING -> {
         path = FieldPath.parse(bsonValue.asString().getValue());
         return new UnresolvedStringFieldPath(path);
-
-      case DOCUMENT:
+      }
+      case DOCUMENT -> {
         try (var parser = BsonDocumentParser.withContext(context, bsonValue.asDocument()).build()) {
           return handlePathAsDocument(parser);
         }
-
-      default:
+      }
+      default -> {
         return context.handleUnexpectedType(EXPECTED_TYPE, bsonValue.getBsonType());
+      }
     }
   }
 

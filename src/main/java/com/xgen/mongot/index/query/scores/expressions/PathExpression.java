@@ -25,18 +25,19 @@ public record PathExpression(FieldPath path, double undefined) implements Expres
   public static PathExpression fromBson(BsonParseContext context, BsonValue bsonValue)
       throws BsonParseException {
     switch (bsonValue.getBsonType()) {
-      case STRING:
+      case STRING -> {
         return new PathExpression(FieldPath.parse(bsonValue.asString().getValue()), 0.0d);
-
-      case DOCUMENT:
+      }
+      case DOCUMENT -> {
         try (var parser = BsonDocumentParser.withContext(context, bsonValue.asDocument()).build()) {
           return new PathExpression(
               FieldPath.parse(parser.getField(Fields.VALUE).unwrap()),
               parser.getField(Fields.UNDEFINED).unwrap());
         }
-
-      default:
+      }
+      default -> {
         return context.handleUnexpectedType(EXPECTED_TYPE, bsonValue.getBsonType());
+      }
     }
   }
 

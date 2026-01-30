@@ -130,7 +130,7 @@ class LuceneFunctionScoreQueryFactory {
                             path)));
 
     return switch (representation) {
-      case INT64:
+      case INT64 -> {
         String longLuceneFieldName =
             FieldName.TypeField.NUMBER_INT64.getLuceneFieldName(
                 path, singleQueryContext.getEmbeddedRoot());
@@ -139,7 +139,8 @@ class LuceneFunctionScoreQueryFactory {
             DoubleValuesSource.fromLongField(longLuceneFieldName);
 
         yield PathValuesSource.create(doubleValuesSourceFromLongField, undefinedValue, path);
-      case DOUBLE:
+      }
+      case DOUBLE -> {
         String doubleLuceneFieldName =
             FieldName.TypeField.NUMBER_DOUBLE.getLuceneFieldName(
                 path, singleQueryContext.getEmbeddedRoot());
@@ -149,6 +150,7 @@ class LuceneFunctionScoreQueryFactory {
                 doubleLuceneFieldName, LuceneDoubleConversionUtils::fromLong);
 
         yield PathValuesSource.create(doubleValuesSourceFromDoubleField, undefinedValue, path);
+      }
     };
   }
 }

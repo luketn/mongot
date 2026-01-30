@@ -55,21 +55,21 @@ class ExclusiveBlobProjection implements ProjectionTransform<RawBsonDocument, Ra
 
     while (reader.readBsonType() != BsonType.END_OF_DOCUMENT) {
       switch (reader.getCurrentBsonType()) {
-        case ARRAY:
+        case ARRAY -> {
           // Unlike $match, we expand any number of nested arrays
           out.put(raw, spanStart, reader.getBsonInput().getPosition() - spanStart);
           copyPartialArray(reader, raw, out, trie);
           spanStart = reader.getBsonInput().getPosition();
-          break;
-        case DOCUMENT:
+        }
+        case DOCUMENT -> {
           // $project paths don't include array indices, so we just forward the call to the document
           out.put(raw, spanStart, reader.getBsonInput().getPosition() - spanStart);
           copyWithExclusions(reader, raw, out, trie);
           spanStart = reader.getBsonInput().getPosition();
-          break;
-        default:
-          // Leaf values can't contain paths, so we can just skip this value
-          reader.skipValue();
+        }
+        default ->
+            // Leaf values can't contain paths, so we can just skip this value
+            reader.skipValue();
       }
     }
     reader.readEndArray();
@@ -115,7 +115,7 @@ class ExclusiveBlobProjection implements ProjectionTransform<RawBsonDocument, Ra
         boolean excludeEntireValue = child.getValue().orElse(false);
 
         switch (type) {
-          case DOCUMENT:
+          case DOCUMENT -> {
             if (excludeEntireValue) {
               out.put(raw, spanStart, fieldOffset - spanStart);
               reader.skipValue();
@@ -125,8 +125,8 @@ class ExclusiveBlobProjection implements ProjectionTransform<RawBsonDocument, Ra
               copyWithExclusions(reader, raw, out, child);
               spanStart = reader.getBsonInput().getPosition();
             }
-            break;
-          case ARRAY:
+          }
+          case ARRAY -> {
             if (excludeEntireValue) {
               out.put(raw, spanStart, fieldOffset - spanStart);
               reader.skipValue();
@@ -136,8 +136,8 @@ class ExclusiveBlobProjection implements ProjectionTransform<RawBsonDocument, Ra
               copyPartialArray(reader, raw, out, child);
               spanStart = reader.getBsonInput().getPosition();
             }
-            break;
-          default:
+          }
+          default -> {
             if (excludeEntireValue) {
               out.put(raw, spanStart, fieldOffset - spanStart);
               reader.skipValue();
@@ -145,6 +145,7 @@ class ExclusiveBlobProjection implements ProjectionTransform<RawBsonDocument, Ra
             } else {
               reader.skipValue();
             }
+          }
         }
       } else {
         reader.skipValue();

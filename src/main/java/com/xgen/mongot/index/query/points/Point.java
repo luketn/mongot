@@ -34,43 +34,44 @@ public sealed interface Point extends Encodable
 
   static Point fromBson(BsonParseContext context, BsonValue value) throws BsonParseException {
     switch (value.getBsonType()) {
-      case BOOLEAN:
+      case BOOLEAN -> {
         return new BooleanPoint(value.asBoolean().getValue());
-
-      case DATE_TIME:
+      }
+      case DATE_TIME -> {
         return new DatePoint(new Date(value.asDateTime().getValue()));
-
-      case DOUBLE:
+      }
+      case DOUBLE -> {
         return new DoublePoint(value.asDouble().getValue());
-
-      case INT32:
+      }
+      case INT32 -> {
         return new LongPoint((long) value.asInt32().getValue());
-
-      case INT64:
+      }
+      case INT64 -> {
         return new LongPoint(value.asInt64().getValue());
-
-      case OBJECT_ID:
+      }
+      case OBJECT_ID -> {
         return new ObjectIdPoint(value.asObjectId().getValue());
-
-      case BINARY:
+      }
+      case BINARY -> {
         // NOTE: possible issue if value is not uuid type
         var binary = value.asBinary();
         if (binary.getType() != BsonBinarySubType.UUID_STANDARD.getValue()) {
           context.handleUnexpectedType(TypeDescription.UUID, BsonType.BINARY);
         }
         return new UuidPoint(binary.asUuid());
-
-      case STRING:
+      }
+      case STRING -> {
         return new StringPoint(value.asString().getValue());
-
-      case DOCUMENT:
+      }
+      case DOCUMENT -> {
         try (BsonDocumentParser parser =
             BsonDocumentParser.withContext(context, value.asDocument()).build()) {
           return new GeoPoint(GeoJsonParser.parsePoint(parser));
         }
-
-      default:
+      }
+      default -> {
         return context.handleSemanticError("Type is not supported: " + value.getBsonType());
+      }
     }
   }
 }

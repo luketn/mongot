@@ -275,18 +275,13 @@ public class LuceneSearchIndex implements SearchIndex {
   public void throwIfUnavailableForQuerying() throws IndexUnavailableException {
     IndexStatus.StatusCode statusCode = this.getStatus().getStatusCode();
     switch (statusCode) {
-      case UNKNOWN:
-      case NOT_STARTED:
-      case INITIAL_SYNC:
-      case FAILED:
-        throw new IndexUnavailableException(
-            String.format(
-                "cannot query search index %s while in state %s", this.definition, statusCode));
-      case STEADY:
-      case STALE:
-      case RECOVERING_TRANSIENT:
-      case RECOVERING_NON_TRANSIENT:
-      case DOES_NOT_EXIST:
+      case UNKNOWN, NOT_STARTED, INITIAL_SYNC, FAILED ->
+          throw new IndexUnavailableException(
+              String.format(
+                  "cannot query search index %s while in state %s", this.definition, statusCode));
+      case STEADY, STALE, RECOVERING_TRANSIENT, RECOVERING_NON_TRANSIENT, DOES_NOT_EXIST -> {
+        // do nothing
+      }
     }
   }
 

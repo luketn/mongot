@@ -133,7 +133,7 @@ public class Projection {
       }
 
       switch (storedSource.getMode()) {
-        case INCLUSION:
+        case INCLUSION -> {
           // Perform inclusive $project by merging indexed and stored source paths
           var configuredIncludedPaths =
               Stream.of(indexedPaths, storedSource.getDottedPaths())
@@ -143,15 +143,15 @@ public class Projection {
 
           var includes =
               filterPathCollisions(
-                      CollectionUtils.concat(
-                          configuredIncludedPaths, type.getDefaultIncludedPaths(definition)))
+                  CollectionUtils.concat(
+                      configuredIncludedPaths, type.getDefaultIncludedPaths(definition)))
                   .stream()
                   .map(Projections::include)
                   .collect(toList());
 
           return Optional.of(Projections.fields(includes));
-
-        case EXCLUSION:
+        }
+        case EXCLUSION -> {
           Set<FieldPath> pathsToMaybeExclude =
               storedSource.getDottedPaths().stream()
                   .map(FieldPath::parse)
@@ -183,6 +183,7 @@ public class Projection {
           }
 
           return Optional.of(Projections.fields(excludes));
+        }
       }
       logger.error("Unhandled projection type: {}", type);
       return Check.unreachable("Unhandled projection type");

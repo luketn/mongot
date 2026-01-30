@@ -135,41 +135,40 @@ public class GeoJsonParser {
         BsonDocumentBuilder.builder().field(Fields.TYPE, geometry.getType());
 
     return switch (geometry.getType()) {
-      case GEOMETRY_COLLECTION:
+      case GEOMETRY_COLLECTION -> {
         List<Geometry> geometries =
             new ArrayList<>(((GeometryCollection) geometry).getGeometries());
         yield builder.field(Fields.GEOMETRIES, geometries).build();
+      }
 
-      case LINE_STRING:
-        yield builder
-            .field(Fields.LINE_POSITIONS, ((LineString) geometry).getCoordinates())
-            .build();
+      case LINE_STRING -> builder
+          .field(Fields.LINE_POSITIONS, ((LineString) geometry).getCoordinates())
+          .build();
 
-      case MULTI_LINE_STRING:
-        yield builder
-            .field(Fields.MULTILINE_POSITIONS, ((MultiLineString) geometry).getCoordinates())
-            .build();
+      case MULTI_LINE_STRING -> builder
+          .field(Fields.MULTILINE_POSITIONS, ((MultiLineString) geometry).getCoordinates())
+          .build();
 
-      case MULTI_POINT:
-        yield builder
-            .field(Fields.MULTIPOINT_POSITIONS, ((MultiPoint) geometry).getCoordinates())
-            .build();
+      case MULTI_POINT -> builder
+          .field(Fields.MULTIPOINT_POSITIONS, ((MultiPoint) geometry).getCoordinates())
+          .build();
 
-      case MULTI_POLYGON:
+      case MULTI_POLYGON -> {
         MultiPolygon multiPolygon = (MultiPolygon) geometry;
         List<List<List<Position>>> multiPositions =
             multiPolygon.getCoordinates().stream()
                 .map(GeoJsonParser::positionsFromPolygonCoordinates)
                 .collect(Collectors.toList());
         yield builder.field(Fields.MULTIPOLYGON_POSITIONS, multiPositions).build();
+      }
 
-      case POINT:
-        yield builder.field(Fields.POSITION, ((Point) geometry).getPosition()).build();
+      case POINT -> builder.field(Fields.POSITION, ((Point) geometry).getPosition()).build();
 
-      case POLYGON:
+      case POLYGON -> {
         Polygon polygon = (Polygon) geometry;
         List<List<Position>> positions = positionsFromPolygonCoordinates(polygon.getCoordinates());
         yield builder.field(Fields.POLYGON_POSITIONS, positions).build();
+      }
     };
   }
 

@@ -362,7 +362,7 @@ public class ConfigStateMocks {
       throws Exception {
 
     switch (state) {
-      case STAGED:
+      case STAGED -> {
         IndexActions.withReplication(this.configState).addStagedIndex(definitionGeneration);
         if (this.waitUntilInitialized) {
           waitAndGetInitializedIndex(definitionGeneration.getGenerationId());
@@ -370,8 +370,8 @@ public class ConfigStateMocks {
         return this.staged
             .getIndex(definitionGeneration.getIndexDefinition().getIndexId())
             .orElseThrow();
-
-      case LIVE:
+      }
+      case LIVE -> {
         IndexActions.withReplication(this.configState).addNewIndexes(List.of(definitionGeneration));
         if (this.waitUntilInitialized) {
           waitAndGetInitializedIndex(definitionGeneration.getGenerationId());
@@ -380,13 +380,14 @@ public class ConfigStateMocks {
         return this.indexCatalog
             .getIndexById(definitionGeneration.getIndexDefinition().getIndexId())
             .orElseThrow();
-
-      case PHASE_OUT:
+      }
+      case PHASE_OUT -> {
         var index =
             IndexGenerationFactory.getIndexGeneration(this.indexFactory, definitionGeneration);
         this.lifecycleManager.add(index);
         phaseOutIndex(index);
         return index;
+      }
     }
     throw new IllegalStateException("Unexpected value: " + state);
   }

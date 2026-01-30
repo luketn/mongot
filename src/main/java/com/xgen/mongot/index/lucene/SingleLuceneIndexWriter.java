@@ -294,14 +294,8 @@ class SingleLuceneIndexWriter implements LuceneIndexWriter {
       ensureOpen("updateIndex");
 
       switch (event.getEventType()) {
-        case DELETE:
-          handleDelete(encodedDocumentId, event);
-          break;
-
-        case INSERT:
-        case UPDATE:
-          handleInsertOrUpdate(encodedDocumentId, event);
-          break;
+        case DELETE -> handleDelete(encodedDocumentId, event);
+        case INSERT, UPDATE -> handleInsertOrUpdate(encodedDocumentId, event);
       }
     }
   }

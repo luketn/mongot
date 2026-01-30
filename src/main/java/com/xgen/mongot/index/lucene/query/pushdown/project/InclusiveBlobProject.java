@@ -87,17 +87,16 @@ class InclusiveBlobProject implements ProjectionTransform<RawBsonDocument, RawBs
 
     while (reader.readBsonType() != BsonType.END_OF_DOCUMENT) {
       switch (reader.getCurrentBsonType()) {
-        case ARRAY:
-          // Unlike $match, we expand any number of nested arrays
-          copyPartialArray(reader, writer, trie);
-          break;
-        case DOCUMENT:
-          // $project paths don't include array indices, so we just forward the call to the document
-          copyPartialDocument(reader, writer, trie);
-          break;
-        default:
-          // Leaf values can't contain paths, so we can just skip this value
-          reader.skipValue();
+        case ARRAY ->
+            // Unlike $match, we expand any number of nested arrays
+            copyPartialArray(reader, writer, trie);
+        case DOCUMENT ->
+            // $project paths don't include array indices, so we just forward the call to the
+            // document
+            copyPartialDocument(reader, writer, trie);
+        default ->
+            // Leaf values can't contain paths, so we can just skip this value
+            reader.skipValue();
       }
     }
     reader.readEndArray();
@@ -127,28 +126,29 @@ class InclusiveBlobProject implements ProjectionTransform<RawBsonDocument, RawBs
         boolean includeEntireValue = child.getValue().orElse(false);
 
         switch (reader.getCurrentBsonType()) {
-          case DOCUMENT:
+          case DOCUMENT -> {
             if (includeEntireValue) {
               copyValue(reader, writer, BsonUtils.BSON_DOCUMENT_CODEC, field);
             } else {
               writer.writeName(field);
               copyPartialDocument(reader, writer, child);
             }
-            break;
-          case ARRAY:
+          }
+          case ARRAY -> {
             if (includeEntireValue) {
               copyValue(reader, writer, BsonUtils.BSON_ARRAY_CODEC, field);
             } else {
               writer.writeName(field);
               copyPartialArray(reader, writer, child);
             }
-            break;
-          default:
+          }
+          default -> {
             if (includeEntireValue) {
               copyValue(reader, writer, BsonUtils.BSON_VALUE_CODEC, field);
             } else {
               reader.skipValue();
             }
+          }
         }
       } else {
         reader.skipValue();

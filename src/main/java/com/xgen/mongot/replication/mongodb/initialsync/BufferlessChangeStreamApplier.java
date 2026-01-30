@@ -407,7 +407,7 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
     for (ChangeStreamDocument<RawBsonDocument> event :
         ChangeStreamDocumentUtils.asLazyDecodableChangeStreamDocuments(batch.getRawEvents())) {
       switch (event.getOperationType()) {
-        case UPDATE:
+        case UPDATE -> {
           // Only buffer updates that actually impact fields that we're indexing.
           UpdateDescription updateDescription = event.getUpdateDescription();
           Check.argNotNull(updateDescription, "updateDescription");
@@ -419,15 +419,11 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
               this.context.getIndexDefinition().getView())) {
             continue;
           }
-
-          break;
-
-        case DROP:
-        case DROP_DATABASE:
-          throw InitialSyncException.createDropped(
-              String.format("from change stream event: %s", event.getOperationType().getValue()));
-
-        case RENAME:
+        }
+        case DROP, DROP_DATABASE ->
+            throw InitialSyncException.createDropped(
+                String.format("from change stream event: %s", event.getOperationType().getValue()));
+        case RENAME -> {
           if (ChangeStreams.renameCausedCollectionDrop(event, this.namespace)) {
             this.logger
                 .atInfo()
@@ -445,13 +441,17 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
           // now we'll restart the sync.
           throw InitialSyncException.createRequiresResync("collection was renamed");
 
-        case OTHER:
-          throw InitialSyncException.createRequiresResync(
-              String.format(
-                  "witnessed unknown change stream event: %s",
-                  event.getOperationType().getValue()));
-
-        case INVALIDATE:
+          // If the collection scan was going on still, that cursor will have been invalidated.
+          // If the scan was done, then we're still applying events because we haven't reached
+          // minValidOpTime. We could potentially try to follow the rename in the future, but for
+          // now we'll restart the sync.
+        }
+        case OTHER ->
+            throw InitialSyncException.createRequiresResync(
+                String.format(
+                    "witnessed unknown change stream event: %s",
+                    event.getOperationType().getValue()));
+        case INVALIDATE -> {
           this.logger
               .atInfo()
               .addKeyValue("namespace", event.getNamespace())
@@ -464,9 +464,10 @@ public class BufferlessChangeStreamApplier implements AutoCloseable {
           // struck in a loop because we process the same event again as we are not advancing the
           // high water mark while we resume after a crash from processing change stream update.
           throw InitialSyncException.createRequiresResync("witnessed invalidate event");
-
-        default:
+        }
+        default -> {
           // Apply all other operation types.
+        }
       }
 
       documentEventsToApply.add(event);

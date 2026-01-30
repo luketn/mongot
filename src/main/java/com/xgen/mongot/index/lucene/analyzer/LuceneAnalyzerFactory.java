@@ -79,14 +79,14 @@ public class LuceneAnalyzerFactory {
   public static class CharFilterFactory {
     public static AnalysisStep<Reader> build(CharFilterDefinition definition) {
       return switch (definition.getType()) {
-        case HTML_STRIP:
-          yield reader ->
-              new HTMLStripCharFilter(reader, definition.asHtmlCharFilterDefinition().ignoredTags);
+        case HTML_STRIP ->
+            reader ->
+                new HTMLStripCharFilter(
+                    reader, definition.asHtmlCharFilterDefinition().ignoredTags);
 
-        case ICU_NORMALIZE:
-          yield reader -> new ICUNormalizer2CharFilter(reader);
+        case ICU_NORMALIZE -> reader -> new ICUNormalizer2CharFilter(reader);
 
-        case MAPPING:
+        case MAPPING -> {
           NormalizeCharMap.Builder builder = new NormalizeCharMap.Builder();
           for (var mapping : definition.asMappingCharFilterDefinition().mappings.entrySet()) {
             builder.add(mapping.getKey(), mapping.getValue());
@@ -96,9 +96,9 @@ public class LuceneAnalyzerFactory {
           // "cleaning this up"!
           var charMap = builder.build();
           yield reader -> new MappingCharFilter(charMap, reader);
+        }
 
-        case PERSIAN:
-          yield reader -> new PersianCharFilter(reader);
+        case PERSIAN -> reader -> new PersianCharFilter(reader);
       };
     }
   }
@@ -158,19 +158,21 @@ public class LuceneAnalyzerFactory {
     /** build */
     public static AnalysisStep<TokenStream> build(TokenFilterDefinition definition) {
       return switch (definition.getType()) {
-        case ASCII_FOLDING:
+        case ASCII_FOLDING -> {
           boolean preserveOriginal =
               definition.asAsciiFoldingTokenFilterDefinition().outputOption
                   == OriginalTokens.INCLUDE;
           yield input -> new ASCIIFoldingFilter(input, preserveOriginal);
+        }
 
-        case DAITCH_MOKOTOFF_SOUNDEX:
+        case DAITCH_MOKOTOFF_SOUNDEX -> {
           boolean includeOriginalTokens =
               definition.asDaitchMokotoffSoundexFilterDefinition().outputOption
                   == OriginalTokens.INCLUDE;
           yield input -> new DaitchMokotoffSoundexFilter(input, includeOriginalTokens);
+        }
 
-        case EDGE_GRAM:
+        case EDGE_GRAM -> {
           EdgeGramTokenFilterDefinition edgeGramFilter =
               definition.asEdgeGramTokenFilterDefinition();
           yield input ->
@@ -180,28 +182,24 @@ public class LuceneAnalyzerFactory {
                   edgeGramFilter.maxGram,
                   edgeGramFilter.termNotInBounds
                       == EdgeGramTokenFilterDefinition.TermNotInBounds.INCLUDE);
+        }
 
-        case ENGLISH_POSSESSIVE:
-          yield input -> new EnglishPossessiveFilter(input);
+        case ENGLISH_POSSESSIVE -> input -> new EnglishPossessiveFilter(input);
 
-        case FLATTEN_GRAPH:
-          yield input -> new FlattenGraphFilter(input);
+        case FLATTEN_GRAPH -> input -> new FlattenGraphFilter(input);
 
-        case ICU_FOLDING:
-          yield input -> new ICUFoldingFilter(input);
+        case ICU_FOLDING -> input -> new ICUFoldingFilter(input);
 
-        case ICU_NORMALIZER:
-          yield input ->
-              new ICUNormalizer2Filter(
-                  input, definition.asIcuNormalizerTokenFilterDefinition().getNormalizer());
+        case ICU_NORMALIZER ->
+            input ->
+                new ICUNormalizer2Filter(
+                    input, definition.asIcuNormalizerTokenFilterDefinition().getNormalizer());
 
-        case K_STEMMING:
-          yield input -> new KStemFilter(input);
+        case K_STEMMING -> input -> new KStemFilter(input);
 
-        case KEYWORD_REPEAT:
-          yield input -> new KeywordRepeatFilter(input);
+        case KEYWORD_REPEAT -> input -> new KeywordRepeatFilter(input);
 
-        case N_GRAM:
+        case N_GRAM -> {
           NGramTokenFilterDefinition ngramFilter = definition.asNGramTokenFilterDefinition();
           yield input ->
               new NGramTokenFilter(
@@ -210,18 +208,18 @@ public class LuceneAnalyzerFactory {
                   ngramFilter.maxGram,
                   ngramFilter.termNotInBounds
                       == NGramTokenFilterDefinition.TermNotInBounds.INCLUDE);
+        }
 
-        case PORTER_STEMMING:
-          yield input -> new PorterStemFilter(input);
+        case PORTER_STEMMING -> input -> new PorterStemFilter(input);
 
-        case LENGTH:
+        case LENGTH -> {
           LengthTokenFilterDefinition lengthFilter = definition.asLengthTokenFilterDefinition();
           yield input -> new LengthFilter(input, lengthFilter.min, lengthFilter.max);
+        }
 
-        case LOWERCASE:
-          yield input -> new LowerCaseFilter(input);
+        case LOWERCASE -> input -> new LowerCaseFilter(input);
 
-        case REGEX:
+        case REGEX -> {
           RegexTokenFilterDefinition regexFilter = definition.asRegexTokenFilterDefinition();
           yield input ->
               new PatternReplaceFilter(
@@ -229,11 +227,11 @@ public class LuceneAnalyzerFactory {
                   regexFilter.pattern,
                   regexFilter.replacement,
                   regexFilter.matches == RegexTokenFilterDefinition.Matches.ALL);
+        }
 
-        case REMOVE_DUPLICATES:
-          yield input -> new RemoveDuplicatesTokenFilter(input);
+        case REMOVE_DUPLICATES -> input -> new RemoveDuplicatesTokenFilter(input);
 
-        case SHINGLE:
+        case SHINGLE -> {
           ShingleTokenFilterDefinition shingleFilter = definition.asShingleTokenFilterDefinition();
           yield input -> {
             ShingleFilter filter =
@@ -242,33 +240,32 @@ public class LuceneAnalyzerFactory {
             filter.setOutputUnigrams(false);
             return filter;
           };
+        }
 
-        case SNOWBALL_STEMMING:
-          yield input ->
-              SnowballTokenFilterFactory.build(definition.asSnowballTokenFilterDefinition(), input);
+        case SNOWBALL_STEMMING ->
+            input ->
+                SnowballTokenFilterFactory.build(
+                    definition.asSnowballTokenFilterDefinition(), input);
 
-        case SPANISH_PLURAL_STEMMING:
-          yield input -> new SpanishPluralStemFilter(input);
+        case SPANISH_PLURAL_STEMMING -> input -> new SpanishPluralStemFilter(input);
 
-        case STEMPEL:
-          yield input ->
-              new StempelFilter(input, new StempelStemmer(PolishAnalyzer.getDefaultTable()));
+        case STEMPEL ->
+            input -> new StempelFilter(input, new StempelStemmer(PolishAnalyzer.getDefaultTable()));
 
-        case STOPWORD:
+        case STOPWORD -> {
           StopwordTokenFilterDefinition stopwordFilter =
               definition.asStopwordTokenFilterDefinition();
           var stopSet =
               StopFilter.makeStopSet(
                   stopwordFilter.tokens.toArray(new String[0]), stopwordFilter.ignoreCase);
           yield input -> new StopFilter(input, stopSet);
+        }
 
-        case TRIM:
-          yield input -> new TrimFilter(input);
+        case TRIM -> input -> new TrimFilter(input);
 
-        case REVERSE:
-          yield input -> new ReverseStringFilter(input);
+        case REVERSE -> input -> new ReverseStringFilter(input);
 
-        case WORD_DELIMITER_GRAPH:
+        case WORD_DELIMITER_GRAPH -> {
           WordDelimiterGraphTokenFilterDefinition wordDelimiterGraphTokenFilter =
               definition.asWordDelimiterGraphTokenFilterDefinition();
           int configurationFlags =
@@ -278,6 +275,7 @@ public class LuceneAnalyzerFactory {
                   wordDelimiterGraphTokenFilter.protectedWords.words,
                   wordDelimiterGraphTokenFilter.protectedWords.ignoreCase);
           yield input -> new WordDelimiterGraphFilter(input, configurationFlags, protectedWords);
+        }
       };
     }
   }

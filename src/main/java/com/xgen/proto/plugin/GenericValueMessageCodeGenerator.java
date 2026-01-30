@@ -60,7 +60,7 @@ public class GenericValueMessageCodeGenerator implements CodeGenerator {
 
   private static void validateMessageType(Descriptor messageDescriptor) {
     switch (messageDescriptor.getRealOneofs().size()) {
-      case 0:
+      case 0 -> {
         if (messageDescriptor.getFields().size() != 1) {
           throw new IllegalArgumentException(
               String.format(
@@ -84,8 +84,8 @@ public class GenericValueMessageCodeGenerator implements CodeGenerator {
                   "allow_single_value not supported for repeated value in %s",
                   messageDescriptor.getFullName()));
         }
-        break;
-      case 1:
+      }
+      case 1 -> {
         if (messageDescriptor.getRealOneofs().get(0).getFields().size()
             != messageDescriptor.getFields().size()) {
           throw new IllegalArgumentException(
@@ -93,12 +93,11 @@ public class GenericValueMessageCodeGenerator implements CodeGenerator {
                   "Value message %s oneof must cover all fields in the message.",
                   messageDescriptor.getFullName()));
         }
-        break;
-      default:
-        throw new IllegalArgumentException(
-            String.format(
-                "Value message %s has multiple oneofs, only one is allowed for type unions.",
-                messageDescriptor.getFullName()));
+      }
+      default -> throw new IllegalArgumentException(
+          String.format(
+              "Value message %s has multiple oneofs, only one is allowed for type unions.",
+              messageDescriptor.getFullName()));
     }
 
     var fields =
@@ -158,34 +157,23 @@ public class GenericValueMessageCodeGenerator implements CodeGenerator {
 
   // Like getFieldValueType() but we ignore "repeated" and get any underlying type.
   private static BsonType getUnderlyingFieldValueType(FieldDescriptor field) {
-    switch (field.getJavaType()) {
-      case BOOLEAN:
-        return BsonType.BOOLEAN;
-      case INT:
-        return BsonType.INT32;
-      case LONG:
-        return BsonType.INT64;
-      case FLOAT:
-      case DOUBLE:
-        return BsonType.DOUBLE;
-      case ENUM:
-      case STRING:
-        return BsonType.STRING;
-      case BYTE_STRING:
-        return BsonType.BINARY;
-      case MESSAGE:
-        {
-          var bsonTypes = getMessageValueTypes(field.getMessageType());
-          if (bsonTypes.size() != 1) {
-            throw new IllegalArgumentException(
-                String.format(
-                    "Values message field %s may not be a type union", field.getFullName()));
-          }
-          return bsonTypes.iterator().next();
+    return switch (field.getJavaType()) {
+      case BOOLEAN -> BsonType.BOOLEAN;
+      case INT -> BsonType.INT32;
+      case LONG -> BsonType.INT64;
+      case FLOAT, DOUBLE -> BsonType.DOUBLE;
+      case ENUM, STRING -> BsonType.STRING;
+      case BYTE_STRING -> BsonType.BINARY;
+      case MESSAGE -> {
+        var bsonTypes = getMessageValueTypes(field.getMessageType());
+        if (bsonTypes.size() != 1) {
+          throw new IllegalArgumentException(
+              String.format(
+                  "Values message field %s may not be a type union", field.getFullName()));
         }
-      default:
-        throw new IllegalStateException(String.format("unknown java type %s", field.getJavaType()));
-    }
+        yield bsonTypes.iterator().next();
+      }
+    };
   }
 
   private void generateTypeUnion(OneofDescriptor typeUnion) {

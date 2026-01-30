@@ -81,20 +81,21 @@ public class UuidField {
     @Override
     public UUID parse(BsonParseContext context, BsonValue value) throws BsonParseException {
       switch (value.getBsonType()) {
-        case BINARY:
+        case BINARY -> {
           var binary = value.asBinary();
           if (binary.getType() != BsonBinarySubType.UUID_STANDARD.getValue()) {
             context.handleUnexpectedType(TypeDescription.UUID, BsonType.BINARY);
           }
 
           return binary.asUuid();
-
-        case STRING:
+        }
+        case STRING -> {
           var string = value.asString().getValue();
           return fromString(context, string);
-
-        default:
+        }
+        default -> {
           return context.handleUnexpectedType(TypeDescription.UUID, value.getBsonType());
+        }
       }
     }
 

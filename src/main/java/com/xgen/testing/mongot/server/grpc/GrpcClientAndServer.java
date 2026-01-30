@@ -169,14 +169,16 @@ public class GrpcClientAndServer implements ClientAndServer {
   // need to obtain the address from the server to get the actual port.
   private SocketAddress createSocketAddress(Mocks mocks) {
     switch (this.socketType) {
-      case TCP:
+      case TCP -> {
         return new InetSocketAddress("0.0.0.0", 0);
-      case UNIX_DOMAIN:
+      }
+      case UNIX_DOMAIN -> {
         try {
           return new DomainSocketAddress(mocks.temporaryFolder.newFile("grpc.sock"));
         } catch (IOException e) {
           throw new RuntimeException("failed to create tmp file", e);
         }
+      }
     }
     return Check.unreachable();
   }

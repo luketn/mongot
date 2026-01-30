@@ -78,10 +78,10 @@ public class IntegerField {
     @Override
     public Integer parse(BsonParseContext context, BsonValue value) throws BsonParseException {
       switch (value.getBsonType()) {
-        case INT32:
+        case INT32 -> {
           return value.asInt32().getValue();
-
-        case INT64:
+        }
+        case INT64 -> {
           long longValue = value.asInt64().longValue();
           if (longValue > Integer.MAX_VALUE) {
             context.handleOverflow(TypeDescription.INT_32);
@@ -90,8 +90,8 @@ public class IntegerField {
           }
 
           return (int) longValue;
-
-        case DOUBLE:
+        }
+        case DOUBLE -> {
           double doubleValue = value.asDouble().doubleValue();
           if (doubleValue > Integer.MAX_VALUE) {
             context.handleOverflow(TypeDescription.INT_32);
@@ -106,9 +106,10 @@ public class IntegerField {
           }
 
           return (int) doubleValue;
-
-        default:
+        }
+        default -> {
           return context.handleUnexpectedType(TypeDescription.INTEGER, value.getBsonType());
+        }
       }
     }
   }

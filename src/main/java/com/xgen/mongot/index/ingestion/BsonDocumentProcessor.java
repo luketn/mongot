@@ -68,7 +68,7 @@ public class BsonDocumentProcessor {
       throws IOException {
     // The bson type of the next value is indexed, so deserialize it.
     switch (bsonReader.getCurrentBsonType()) {
-      case ARRAY:
+      case ARRAY -> {
         // Check if we should iterate the BsonArray for each deserialization strategy.
         try (var supplier = ResettingLazySupplier.create(bsonReader, KnnVectorParser::parse)) {
           fieldValueHandler.handleKnnVector(supplier);
@@ -85,10 +85,8 @@ public class BsonDocumentProcessor {
         } else {
           bsonReader.skipValue();
         }
-
-        return;
-
-      case DOCUMENT:
+      }
+      case DOCUMENT -> {
         // Check if we should deserialize the BsonDocument for each deserialization strategy.
         try (var supplier = ResettingLazySupplier.create(bsonReader, GeometryParser::parse)) {
           fieldValueHandler.handleGeometry(supplier);
@@ -100,10 +98,8 @@ public class BsonDocumentProcessor {
         } else {
           bsonReader.skipValue();
         }
-
-        return;
-
-      case BINARY:
+      }
+      case BINARY -> {
         byte binarySubtype = bsonReader.peekBinarySubType();
         if (binarySubtype == BsonBinarySubType.UUID_STANDARD.getValue()) {
           try (var supplier =
@@ -125,63 +121,54 @@ public class BsonDocumentProcessor {
           // Will store the binary value, but not index it
           fieldValueHandler.handleBinary(supplier);
         }
-
-        return;
-
-      case BOOLEAN:
+      }
+      case BOOLEAN -> {
         try (var supplier = SkippingLazySupplier.create(bsonReader, BsonReader::readBoolean)) {
           fieldValueHandler.handleBoolean(supplier);
         }
-        return;
-
-      case DATE_TIME:
+      }
+      case DATE_TIME -> {
         try (var supplier = SkippingLazySupplier.create(bsonReader, BsonReader::readDateTime)) {
           fieldValueHandler.handleDateTime(supplier);
         }
-        return;
-
-      case DOUBLE:
+      }
+      case DOUBLE -> {
         try (var supplier = SkippingLazySupplier.create(bsonReader, BsonReader::readDouble)) {
           fieldValueHandler.handleDouble(supplier);
         }
-        return;
-
-      case INT32:
+      }
+      case INT32 -> {
         try (var supplier = SkippingLazySupplier.create(bsonReader, BsonReader::readInt32)) {
           fieldValueHandler.handleInt32(supplier);
         }
-        return;
-
-      case INT64:
+      }
+      case INT64 -> {
         try (var supplier = SkippingLazySupplier.create(bsonReader, BsonReader::readInt64)) {
           fieldValueHandler.handleInt64(supplier);
         }
-        return;
-
-      case OBJECT_ID:
+      }
+      case OBJECT_ID -> {
         try (var supplier = SkippingLazySupplier.create(bsonReader, BsonReader::readObjectId)) {
           fieldValueHandler.handleObjectId(supplier);
         }
-        return;
-
-      case STRING:
+      }
+      case STRING -> {
         try (var supplier = SkippingLazySupplier.create(bsonReader, BsonReader::readString)) {
           fieldValueHandler.handleString(supplier);
         }
-        return;
-
-      case NULL:
+      }
+      case NULL -> {
         // Read the null value eagerly since its value will not be used for indexing
         bsonReader.readNull();
 
         fieldValueHandler.handleNull();
-        return;
-
-      default:
+      }
+      default -> {
         try (var supplier =
             SkippingLazySupplier.create(bsonReader, BsonDocumentProcessor::bsonValueReader)) {
           fieldValueHandler.handleRawBsonValue(supplier);
         }
+      }
     }
   }
 

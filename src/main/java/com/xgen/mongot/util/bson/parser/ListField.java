@@ -53,8 +53,8 @@ public class ListField {
      *
      * <p>When this is enabled, if an element in the BSON array fails to parse, it will be omitted
      * from the resulting list, and parsing will continue with the next element. If not enabled, a
-     * parsing failure on any element will cause an exception to be thrown for the entire list
-     * field at top level.
+     * parsing failure on any element will cause an exception to be thrown for the entire list field
+     * at top level.
      *
      * @return a new {@link FieldBuilder} with the skip-invalid-elements behavior enabled.
      */
@@ -189,11 +189,11 @@ public class ListField {
     }
 
     /**
-     * Sets `skipInvalidElements`. When it's set, parser will skip a problematic element
-     * instead of throwing an exception. This is helpful when user is providing invalid input (e.g.
-     * unknown elements). Note that this will take effect at top level, meaning, we will not
-     * partially preserve valid elements in deeply nested lists when the parents themselves
-     * are problematic in the upper level.
+     * Sets `skipInvalidElements`. When it's set, parser will skip a problematic element instead of
+     * throwing an exception. This is helpful when user is providing invalid input (e.g. unknown
+     * elements). Note that this will take effect at top level, meaning, we will not partially
+     * preserve valid elements in deeply nested lists when the parents themselves are problematic in
+     * the upper level.
      */
     public void skipInvalidElements() {
       this.skipInvalidElements = true;
@@ -202,7 +202,7 @@ public class ListField {
     @Override
     public List<T> parse(BsonParseContext context, BsonValue value) throws BsonParseException {
       switch (value.getBsonType()) {
-        case ARRAY:
+        case ARRAY -> {
           // beware of using BsonArray::get or other random access methods.
           // It could be a RawBsonArray which will deserialize all the array up to index
           BsonArray array = value.asArray();
@@ -220,13 +220,14 @@ public class ListField {
             idx++;
           }
           return result;
-
-        default:
+        }
+        default -> {
           if (this.singleValuePresence == SingleValuePresence.MUST_BE_LIST) {
             context.handleUnexpectedType(TypeDescription.ARRAY, value.getBsonType());
           }
 
           return Collections.singletonList(this.elementParser.parse(context, value));
+        }
       }
     }
   }

@@ -36,9 +36,10 @@ public class NumericUtils {
   public static int readIntValue(String fieldName, BsonReader reader)
       throws BsonProtoParseException {
     switch (reader.getCurrentBsonType()) {
-      case INT32:
+      case INT32 -> {
         return reader.readInt32();
-      case INT64:
+      }
+      case INT64 -> {
         long longValue = reader.readInt64();
         if (longValue > Integer.MAX_VALUE) {
           handleOverflow(INT32_TYPE, fieldName);
@@ -46,7 +47,8 @@ public class NumericUtils {
           handleUnderflow(INT32_TYPE, fieldName);
         }
         return (int) longValue;
-      case DOUBLE:
+      }
+      case DOUBLE -> {
         double doubleValue = reader.readDouble();
         if (doubleValue > Integer.MAX_VALUE) {
           handleOverflow(INT32_TYPE, fieldName);
@@ -63,9 +65,10 @@ public class NumericUtils {
         }
 
         return (int) doubleValue;
-      default:
-        throw BsonProtoParseException.createTypeMismatchException(
-            BsonType.INT32, reader.getCurrentBsonType(), fieldName);
+      }
+      default ->
+          throw BsonProtoParseException.createTypeMismatchException(
+              BsonType.INT32, reader.getCurrentBsonType(), fieldName);
     }
   }
 
@@ -80,11 +83,13 @@ public class NumericUtils {
   public static long readLongValue(String fieldName, BsonReader reader)
       throws BsonProtoParseException {
     switch (reader.getCurrentBsonType()) {
-      case INT32:
+      case INT32 -> {
         return reader.readInt32();
-      case INT64:
+      }
+      case INT64 -> {
         return reader.readInt64();
-      case DOUBLE:
+      }
+      case DOUBLE -> {
         double doubleValue = reader.readDouble();
         if (doubleValue > Long.MAX_VALUE) {
           handleOverflow(INT64_TYPE, fieldName);
@@ -101,9 +106,10 @@ public class NumericUtils {
         }
 
         return (int) doubleValue;
-      default:
-        throw BsonProtoParseException.createTypeMismatchException(
-            BsonType.INT64, reader.getCurrentBsonType(), fieldName);
+      }
+      default ->
+          throw BsonProtoParseException.createTypeMismatchException(
+              BsonType.INT64, reader.getCurrentBsonType(), fieldName);
     }
   }
 
@@ -118,11 +124,13 @@ public class NumericUtils {
   public static float readFloatValue(String fieldName, BsonReader reader)
       throws BsonProtoParseException {
     switch (reader.getCurrentBsonType()) {
-      case INT32:
+      case INT32 -> {
         return (float) reader.readInt32();
-      case INT64:
+      }
+      case INT64 -> {
         return (float) reader.readInt64();
-      case DOUBLE:
+      }
+      case DOUBLE -> {
         double doubleValue = reader.readDouble();
 
         // Explicitly map special values before checking for over-/underflow.
@@ -141,9 +149,10 @@ public class NumericUtils {
         }
 
         return (float) doubleValue;
-      default:
-        throw BsonProtoParseException.createTypeMismatchException(
-            BsonType.DOUBLE, reader.getCurrentBsonType(), fieldName);
+      }
+      default ->
+          throw BsonProtoParseException.createTypeMismatchException(
+              BsonType.DOUBLE, reader.getCurrentBsonType(), fieldName);
     }
   }
 

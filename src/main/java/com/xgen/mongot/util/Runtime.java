@@ -105,16 +105,16 @@ public abstract class Runtime {
         if (i == 0 && threadInfo.getLockInfo() != null) {
           Thread.State ts = threadInfo.getThreadState();
           switch (ts) {
-            case BLOCKED:
+            case BLOCKED -> {
               sb.append("\t-  blocked on ").append(threadInfo.getLockInfo());
               sb.append('\n');
-              break;
-            case WAITING:
-            case TIMED_WAITING:
+            }
+            case WAITING, TIMED_WAITING -> {
               sb.append("\t-  waiting on ").append(threadInfo.getLockInfo());
               sb.append('\n');
-              break;
-            default:
+            }
+            default -> {
+            }
           }
         }
 

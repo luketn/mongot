@@ -223,7 +223,7 @@ class DesiredConfigStateUpdater {
       throws IOException, Invariants.InvariantException, InvalidAnalyzerDefinitionException {
 
     switch (modification.getType()) {
-      case DIFFERENT_FROM_LIVE_NO_STAGED:
+      case DIFFERENT_FROM_LIVE_NO_STAGED -> {
         // There hasn't been a previous swap for this index, we only need to stage one.
         LOG.atInfo()
             .addKeyValue("indexId", modification.getIndexId())
@@ -231,32 +231,30 @@ class DesiredConfigStateUpdater {
                 "Index modification: no existing staged index,"
                     + " staging new index with desired definition.");
         stageSwap(modification.getDesiredDefinition());
-        break;
-
-      case SAME_AS_LIVE_DIFFERENT_FROM_STAGED:
+      }
+      case SAME_AS_LIVE_DIFFERENT_FROM_STAGED -> {
         // The index definition was changed back to the one we happen to have in the catalog
         // already. all we need is to drop the staged one:
         LOG.atInfo()
             .addKeyValue("indexId", modification.getIndexId())
             .log("Index modification: desired definition matches live, dropping staged.");
         dropStaged(modification.asSameAsLiveDifferentFromStaged().getStagedIndex());
-        break;
-
-      case DIFFERENT_FROM_BOTH:
+      }
+      case DIFFERENT_FROM_BOTH -> {
         // Definition differs from a swap we currently have running, we re-create the staged index.
         LOG.atInfo()
             .addKeyValue("indexId", modification.getIndexId())
             .log("Index modification: re-creating staged index with desired definition.");
         dropStaged(modification.asDifferentFromBoth().getStagedIndex());
         stageSwap(modification.getDesiredDefinition());
-        break;
+      }
     }
   }
 
   private void stageSwapForModifiedOutdatedFormatLiveIndex(ModifiedIndexInformation modification)
       throws Invariants.InvariantException, IOException, InvalidAnalyzerDefinitionException {
     switch (modification.getType()) {
-      case DIFFERENT_FROM_LIVE_NO_STAGED:
+      case DIFFERENT_FROM_LIVE_NO_STAGED -> {
         // If the live index is outdated, we should have staged an index with upgraded format
         // version at startup via IndexFormatVersionUpgrader. If there's no staged index, this means
         // we somehow dropped the staged index or never staged one. Either way, this is a bug.
@@ -267,9 +265,8 @@ class DesiredConfigStateUpdater {
                     + " live index has outdated format version but no staged index exists!"
                     + " Staging new current index.");
         stageSwap(modification.getDesiredDefinition());
-        break;
-
-      case SAME_AS_LIVE_DIFFERENT_FROM_STAGED:
+      }
+      case SAME_AS_LIVE_DIFFERENT_FROM_STAGED -> {
         // Since the live index is an outdated format version, we still need to stage a new index.
         LOG.atInfo()
             .addKeyValue("indexId", modification.getIndexId())
@@ -279,16 +276,15 @@ class DesiredConfigStateUpdater {
                     + " Staging new index with desired definition.");
         dropStaged(modification.asSameAsLiveDifferentFromStaged().getStagedIndex());
         stageSwap(modification.getDesiredDefinition());
-        break;
-
-      case DIFFERENT_FROM_BOTH:
+      }
+      case DIFFERENT_FROM_BOTH -> {
         // Definition differs from a swap we currently have running, we re-create the staged index.
         LOG.atInfo()
             .addKeyValue("indexId", modification.getIndexId())
             .log("Index modification: re-creating staged index with desired definition.");
         dropStaged(modification.asDifferentFromBoth().getStagedIndex());
         stageSwap(modification.getDesiredDefinition());
-        break;
+      }
     }
   }
 

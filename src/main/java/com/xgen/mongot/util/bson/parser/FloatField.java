@@ -73,13 +73,13 @@ public class FloatField {
     @Override
     public Float parse(BsonParseContext context, BsonValue value) throws BsonParseException {
       switch (value.getBsonType()) {
-        case INT32:
+        case INT32 -> {
           return (float) value.asInt32().getValue();
-
-        case INT64:
+        }
+        case INT64 -> {
           return (float) value.asInt64().getValue();
-
-        case DOUBLE:
+        }
+        case DOUBLE -> {
           double doubleValue = value.asDouble().doubleValue();
 
           // Explicitly handle special cases before checking for over-/underflow.
@@ -98,9 +98,10 @@ public class FloatField {
           }
 
           return (float) doubleValue;
-
-        default:
+        }
+        default -> {
           return context.handleUnexpectedType(TypeDescription.NUMBER, value.getBsonType());
+        }
       }
     }
   }

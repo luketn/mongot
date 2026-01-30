@@ -68,8 +68,7 @@ public class ViewPipeline {
           SupportedStage.byStageName(stageName).orElseThrow(IllegalArgumentException::new);
 
       switch (type) {
-        case ADD_FIELDS:
-        case SET:
+        case ADD_FIELDS, SET -> {
           BsonDocument addFieldsStage = stage.get(stageName).asDocument();
           // Single $addFields might contain multiple fields. We keep the same grouping as
           // flattening them affects the behavior
@@ -98,9 +97,8 @@ public class ViewPipeline {
                   .collect(Collectors.toList());
 
           queryPipeline.add(Aggregates.addFields(fields).toBsonDocument());
-          break;
-
-        case MATCH:
+        }
+        case MATCH -> {
           BsonDocument matchStage = stage.get(stageName).asDocument();
 
           if (matchStage.isEmpty()) {
@@ -140,8 +138,7 @@ public class ViewPipeline {
               new BsonDocument("$addFields", new BsonDocument(deletedFlagField, cond));
 
           queryPipeline.add(addFields);
-
-          break;
+        }
       }
     }
 

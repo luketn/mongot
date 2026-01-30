@@ -128,7 +128,7 @@ class AutocompleteQueryFactory {
     Function<String, BytesRef> normalize = token -> indexAnalyzer.normalize(luceneFieldPath, token);
 
     return switch (operator.tokenOrder()) {
-      case ANY:
+      case ANY -> {
         try {
           yield ListUtils.union(
                   AnalyzedText.applyAnalyzer(
@@ -144,9 +144,10 @@ class AutocompleteQueryFactory {
         } catch (IOException e) {
           throw new InvalidQueryException("error expanding query to order-agnostic form");
         }
+      }
 
-      case SEQUENTIAL:
-        yield operator.query().stream().map(normalize).distinct().collect(Collectors.toList());
+      case SEQUENTIAL ->
+          operator.query().stream().map(normalize).distinct().collect(Collectors.toList());
     };
   }
 

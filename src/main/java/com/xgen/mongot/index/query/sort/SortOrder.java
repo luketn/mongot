@@ -21,9 +21,7 @@ public enum SortOrder implements Encodable {
     return this == DESC;
   }
 
-  /**
-   * Returns the opposite SortOrder (i.e. ASC -> DESC, DESC -> ASC).
-   */
+  /** Returns the opposite SortOrder (i.e. ASC -> DESC, DESC -> ASC). */
   public SortOrder invert() {
     return this == ASC ? DESC : ASC;
   }
@@ -32,13 +30,10 @@ public enum SortOrder implements Encodable {
       throws BsonParseException {
     int intValue;
     switch (value.getBsonType()) {
-      case INT32:
-      case INT64:
-      case DOUBLE:
-        intValue = value.asNumber().intValue();
-        break;
-      default:
+      case INT32, INT64, DOUBLE -> intValue = value.asNumber().intValue();
+      default -> {
         return context.handleUnexpectedType("number", value.getBsonType());
+      }
     }
 
     if (intValue == 1) {

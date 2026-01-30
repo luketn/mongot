@@ -124,13 +124,15 @@ public class ChangeStreamIndexManagerTest {
 
     private ChangeStreamIndexManagerFactory getChangeStreamIndexManagerFactory() {
       switch (this.testParameter) {
-        case DEFAULT:
+        case DEFAULT -> {
           this.decodingScheduler = Optional.empty();
           return ChangeStreamIndexManager::createDefault;
-        case DECODING_SCHEDULER:
+        }
+        case DECODING_SCHEDULER -> {
           var scheduler = spy(DecodingWorkScheduler.create(2, new SimpleMeterRegistry()));
           this.decodingScheduler = Optional.of(scheduler);
           return ChangeStreamManager.indexManagerFactoryWithDecodingScheduler(scheduler);
+        }
       }
 
       Check.unreachable();

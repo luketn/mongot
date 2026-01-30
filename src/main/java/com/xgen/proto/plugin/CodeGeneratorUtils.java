@@ -317,31 +317,15 @@ public class CodeGeneratorUtils {
    */
   public static void generateWriteOneValue(FieldDescriptor field, CodeOutput.Scope scope) {
     switch (field.getJavaType()) {
-      case MESSAGE:
-        scope.writeLine("value.writeBsonTo(writer);");
-        break;
-      case STRING:
-        scope.writeLine("writer.writeString(value);");
-        break;
-      case BYTE_STRING:
-        scope.writeLine("writer.writeBinaryData(new org.bson.BsonBinary(value.toByteArray()));");
-        break;
-      case ENUM:
-        scope.writeLine("writer.writeString(value.toBsonString());");
-        break;
-      case BOOLEAN:
-        scope.writeLine("writer.writeBoolean(value);");
-        break;
-      case INT:
-        scope.writeLine("writer.writeInt32(value);");
-        break;
-      case LONG:
-        scope.writeLine("writer.writeInt64(value);");
-        break;
-      case FLOAT:
-      case DOUBLE:
-        scope.writeLine("writer.writeDouble(value);");
-        break;
+      case MESSAGE -> scope.writeLine("value.writeBsonTo(writer);");
+      case STRING -> scope.writeLine("writer.writeString(value);");
+      case BYTE_STRING ->
+          scope.writeLine("writer.writeBinaryData(new org.bson.BsonBinary(value.toByteArray()));");
+      case ENUM -> scope.writeLine("writer.writeString(value.toBsonString());");
+      case BOOLEAN -> scope.writeLine("writer.writeBoolean(value);");
+      case INT -> scope.writeLine("writer.writeInt32(value);");
+      case LONG -> scope.writeLine("writer.writeInt64(value);");
+      case FLOAT, DOUBLE -> scope.writeLine("writer.writeDouble(value);");
     }
   }
 
@@ -374,7 +358,7 @@ public class CodeGeneratorUtils {
     // there is no need to do type validation or numeric type coercion.
     final boolean inValueMessage = getMessageType(field.getContainingType()) == MessageType.VALUE;
     switch (field.getJavaType()) {
-      case MESSAGE:
+      case MESSAGE -> {
         // Messages are typically documents but if they are marked 'as_value' they could be any
         // other type and operate through slightly different interfaces.
         boolean isValueMessage = getMessageType(field.getMessageType()) == MessageType.VALUE;
@@ -393,14 +377,14 @@ public class CodeGeneratorUtils {
           }
           scope.writeLine("var value = %s.newBuilder().mergeBsonFrom(reader);", javaName);
         }
-        break;
-      case STRING:
+      }
+      case STRING -> {
         if (!inValueMessage) {
           generateValidateReaderType(BsonType.STRING, field.getFullName(), scope);
         }
         scope.writeLine("var value = reader.readString();");
-        break;
-      case BYTE_STRING:
+      }
+      case BYTE_STRING -> {
         if (!inValueMessage) {
           generateValidateReaderType(BsonType.BINARY, field.getFullName(), scope);
         }
@@ -411,8 +395,8 @@ public class CodeGeneratorUtils {
               field.getFullName());
         }
         scope.writeLine("var value = com.google.protobuf.ByteString.copyFrom(binValue.getData());");
-        break;
-      case ENUM:
+      }
+      case ENUM -> {
         // TODO: accept integer values as well; map invalid values to UNRECOGNIZED for open enums.
         if (!inValueMessage) {
           generateValidateReaderType(BsonType.STRING, field.getFullName(), scope);
@@ -420,14 +404,14 @@ public class CodeGeneratorUtils {
         scope.writeLine(
             "var value = %s.fromBsonString(reader.readString());",
             getJavaFullName(field.getEnumType()));
-        break;
-      case BOOLEAN:
+      }
+      case BOOLEAN -> {
         if (!inValueMessage) {
           generateValidateReaderType(BsonType.BOOLEAN, field.getFullName(), scope);
         }
         scope.writeLine("var value = reader.readBoolean();");
-        break;
-      case INT:
+      }
+      case INT -> {
         if (inValueMessage) {
           scope.writeLine("int value = reader.readInt32();");
         } else {
@@ -435,8 +419,8 @@ public class CodeGeneratorUtils {
               "int value = com.xgen.proto.NumericUtils.readIntValue(\"%s\", reader);",
               field.getJsonName());
         }
-        break;
-      case LONG:
+      }
+      case LONG -> {
         if (inValueMessage) {
           scope.writeLine("long value = reader.readInt64();");
         } else {
@@ -444,8 +428,8 @@ public class CodeGeneratorUtils {
               "long value = com.xgen.proto.NumericUtils.readLongValue(\"%s\", reader);",
               field.getJsonName());
         }
-        break;
-      case FLOAT:
+      }
+      case FLOAT -> {
         if (inValueMessage) {
           scope.writeLine("float value = (float)reader.readDouble();");
         } else {
@@ -453,8 +437,8 @@ public class CodeGeneratorUtils {
               "float value = com.xgen.proto.NumericUtils.readFloatValue(\"%s\", reader);",
               field.getJsonName());
         }
-        break;
-      case DOUBLE:
+      }
+      case DOUBLE -> {
         if (inValueMessage) {
           scope.writeLine("double value = reader.readDouble();");
         } else {
@@ -462,7 +446,7 @@ public class CodeGeneratorUtils {
               "double value = com.xgen.proto.NumericUtils.readDoubleValue(\"%s\", reader);",
               field.getJsonName());
         }
-        break;
+      }
     }
   }
 

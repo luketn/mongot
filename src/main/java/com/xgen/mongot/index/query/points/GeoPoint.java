@@ -12,13 +12,15 @@ public record GeoPoint(com.mongodb.client.model.geojson.Point value) implements 
   public static GeoPoint fromBson(BsonParseContext context, BsonValue value)
       throws BsonParseException {
     switch (value.getBsonType()) {
-      case DOCUMENT:
+      case DOCUMENT -> {
         try (BsonDocumentParser parser =
             BsonDocumentParser.withContext(context, value.asDocument()).build()) {
           return new GeoPoint(GeoJsonParser.parsePoint(parser));
         }
-      default:
+      }
+      default -> {
         return context.handleUnexpectedType("geoPoint", value.getBsonType());
+      }
     }
   }
 

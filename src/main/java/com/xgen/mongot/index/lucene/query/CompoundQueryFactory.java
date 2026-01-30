@@ -118,13 +118,14 @@ public class CompoundQueryFactory {
       CompoundClause clause, BooleanClause.Occur occur, SingleQueryContext singleQueryContext)
       throws InvalidQueryException, IOException {
     return switch (singleQueryContext.getQueryAssociation()) {
-      case NONE:
+      case NONE -> {
         List<Query> result = new ArrayList<>(clause.operators().size());
         for (Operator operator : clause.operators()) {
           result.add(this.queryCreator.create(operator, singleQueryContext));
         }
         yield result;
-      case WITH_OPERATOR:
+      }
+      case WITH_OPERATOR -> {
         List<? extends Operator> operators = clause.operators();
 
         // Special case when just one clause - no need to include an array index in the new child
@@ -151,6 +152,7 @@ public class CompoundQueryFactory {
                   operators.get(i), singleQueryContext.withOperatorPath(childOperatorPath)));
         }
         yield queries;
+      }
     };
   }
 
