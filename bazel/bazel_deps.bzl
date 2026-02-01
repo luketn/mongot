@@ -4,6 +4,7 @@ load("//bazel/go:bazel_deps.bzl", "go_bazel_deps")
 load("//bazel/java:bazel_deps.bzl", "java_bazel_deps")
 load("//bazel/proto:bazel_deps.bzl", "proto_bazel_deps")
 load("//bazel/python:bazel_deps.bzl", "python_bazel_deps")
+load("//bazel/rust:bazel_deps.bzl", "rust_bazel_deps")
 load("//bazel/shell:bazel_deps.bzl", "shell_bazel_deps")
 
 def mongot_bazel_deps():
@@ -13,4 +14,5 @@ def mongot_bazel_deps():
     java_bazel_deps()
     proto_bazel_deps()
     python_bazel_deps()
+    rust_bazel_deps()
     shell_bazel_deps()
