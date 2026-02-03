@@ -402,7 +402,7 @@ public class MaterializedViewManagerTest {
 
     // Verify the actual heartbeat log is emitted
     boolean foundHeartbeatLog =
-        logEvents.stream()
+        new ArrayList<>(logEvents).stream()
             .anyMatch(
                 event -> event.getFormattedMessage().equals("Auto-embedding leader heartbeat"));
     assertTrue("Expected heartbeat log to be emitted", foundHeartbeatLog);

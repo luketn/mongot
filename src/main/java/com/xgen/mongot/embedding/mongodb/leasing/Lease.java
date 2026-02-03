@@ -3,6 +3,12 @@ package com.xgen.mongot.embedding.mongodb.leasing;
 import com.google.common.annotations.VisibleForTesting;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.status.IndexStatus;
+import com.xgen.mongot.index.version.IndexFormatVersion;
+import com.xgen.mongot.replication.mongodb.common.BufferlessIdOrderInitialSyncResumeInfo;
+import com.xgen.mongot.replication.mongodb.common.IndexCommitUserData;
+import com.xgen.mongot.replication.mongodb.common.InitialSyncResumeInfo;
+import com.xgen.mongot.replication.mongodb.common.ResumeTokenUtils;
+import com.xgen.mongot.util.BsonUtils;
 import com.xgen.mongot.util.bson.parser.BsonDocumentBuilder;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
 import com.xgen.mongot.util.bson.parser.DocumentEncodable;
@@ -12,9 +18,12 @@ import com.xgen.mongot.util.bson.parser.Value;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import org.apache.commons.codec.DecoderException;
 import org.bson.BsonDateTime;
 import org.bson.BsonDocument;
+import org.bson.BsonTimestamp;
 import org.bson.codecs.pojo.annotations.BsonId;
 
 /**
@@ -200,17 +209,27 @@ public record Lease(
         this.indexDefinitionVersionStatusMap);
   }
 
+  /**
+   * Creates a new lease with a new index definition version, preserving the highWaterMark.
+   */
   public Lease withNewIndexDefinitionVersion(
       String indexDefinitionVersion, IndexStatus initialIndexStatus) {
     // this method creates a new lease with the following changes
     // 1. it adds the new index definition version to the indexDefinitionVersionStatusMap
     // 2. it sets the latestIndexDefinitionVersion to the new index definition version
-    // 3. it resets the commitInfo to the empty state
+    // 3. it preserves the highWaterMark from the previous commitInfo but resets scan position.
     Map<String, IndexDefinitionVersionStatus> newVersionStatus =
         new HashMap<>(this.indexDefinitionVersionStatusMap);
     newVersionStatus.put(
         indexDefinitionVersion,
         new IndexDefinitionVersionStatus(false, initialIndexStatus.getStatusCode()));
+    String newCommitInfo = extractHighWaterMark().map(highWaterMark -> {
+      InitialSyncResumeInfo resumeInfo =
+          new BufferlessIdOrderInitialSyncResumeInfo(highWaterMark, BsonUtils.MIN_KEY);
+      // MaterializedViewGeneration always uses CURRENT, so this will match the expected version.
+      return IndexCommitUserData.createInitialSyncResume(IndexFormatVersion.CURRENT, resumeInfo)
+          .toEncodedData().asString();
+    }).orElse(EncodedUserData.EMPTY.asString());
     return new Lease(
         this.id,
         SCHEMA_VERSION,
@@ -219,7 +238,7 @@ public record Lease(
         this.leaseOwner,
         Instant.now().plusMillis(LEASE_EXPIRATION_MS),
         this.leaseVersion,
-        EncodedUserData.EMPTY.asString(),
+        newCommitInfo,
         indexDefinitionVersion,
         newVersionStatus);
   }
@@ -242,6 +261,27 @@ public record Lease(
         this.commitInfo,
         this.latestIndexDefinitionVersion,
         newVersionStatus);
+  }
+
+  /**
+   * Extracts the highWaterMark from the commit info.
+   * - If V1 is in steady state: return opTime from resumeToken
+   * - Otherwise (initial sync or not started): return empty
+   */
+  public Optional<BsonTimestamp> extractHighWaterMark() {
+    EncodedUserData encodedUserData = EncodedUserData.fromString(this.commitInfo);
+    IndexCommitUserData userData =
+        IndexCommitUserData.fromEncodedData(encodedUserData, Optional.empty());
+    if (userData.getResumeInfo().isPresent()) {
+      try {
+        BsonDocument resumeToken = userData.getResumeInfo().get().getResumeToken();
+        return Optional.of(ResumeTokenUtils.opTimeFromResumeToken(resumeToken));
+      } catch (DecoderException e) {
+        return Optional.empty();
+      }
+    } else {
+      return Optional.empty();
+    }
   }
 
   @Override
