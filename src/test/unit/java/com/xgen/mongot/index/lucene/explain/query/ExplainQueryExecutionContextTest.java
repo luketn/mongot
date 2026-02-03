@@ -1,10 +1,12 @@
 package com.xgen.mongot.index.lucene.explain.query;
 
+import com.xgen.mongot.index.IndexMetricsUpdater;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
+import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.util.Optional;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
@@ -12,6 +14,9 @@ import org.junit.Assert;
 import org.junit.Test;
 
 public class ExplainQueryExecutionContextTest {
+
+  private static final IndexMetricsUpdater.QueryingMetricsUpdater metrics =
+      new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory());
 
   @Test
   public void testSimple() throws Exception {
@@ -222,7 +227,7 @@ public class ExplainQueryExecutionContextTest {
     float[] target = {1, 2, 3};
     int k = 100;
     var executionContext = new QueryVisitorQueryExecutionContext();
-    Query knnQuery = new KnnFloatVectorQuery(path, target, k);
+    Query knnQuery = new MongotKnnFloatQuery(metrics, path, target, k);
     Query rewritten = new MatchNoDocsQuery();
     executionContext.getOrCreateNode(knnQuery);
     assertNodesForQueries(executionContext, knnQuery);
@@ -247,7 +252,7 @@ public class ExplainQueryExecutionContextTest {
         new BooleanQuery.Builder()
             .add(new BooleanClause(subQuery, BooleanClause.Occur.MUST))
             .build();
-    Query knnQuery = new KnnFloatVectorQuery(path, target, k, filter);
+    Query knnQuery = new MongotKnnFloatQuery(metrics, path, target, k, filter);
     Query rewritten = new MatchNoDocsQuery();
     executionContext.getOrCreateNode(knnQuery);
     assertNodesForQueries(executionContext, knnQuery);

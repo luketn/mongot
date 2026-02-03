@@ -2,10 +2,12 @@ package com.xgen.mongot.index.lucene.query;
 
 import static com.xgen.mongot.util.bson.FloatVector.OriginalType.NATIVE;
 
+import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.VectorIndexFilterFieldDefinition;
 import com.xgen.mongot.index.definition.VectorQuantization;
 import com.xgen.mongot.index.definition.VectorSimilarity;
 import com.xgen.mongot.index.lucene.field.FieldName;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.lucene.query.util.BooleanComposer;
 import com.xgen.mongot.index.query.VectorSearchQuery;
 import com.xgen.mongot.index.query.operators.VectorSearchFilter;
@@ -19,6 +21,7 @@ import com.xgen.testing.mongot.index.query.VectorQueryBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.ClauseBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.MqlFilterOperatorBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.ValueBuilder;
+import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Optional;
@@ -29,11 +32,13 @@ import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.IndexOrDocValuesQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.junit.Test;
 
 public class DateRangeVectorQueryFactoryTest {
+
+  private static final IndexMetricsUpdater.QueryingMetricsUpdater metrics =
+      new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory());
 
   private static final String FILTER_PATH = "start";
   private static final String VECTOR_FIELD_NAME = "vector";
@@ -153,7 +158,8 @@ public class DateRangeVectorQueryFactoryTest {
       builder.add(query, BooleanClause.Occur.MUST);
     }
     Query dateQuery = builder.build();
-    return new KnnFloatVectorQuery(
+    return new MongotKnnFloatQuery(
+        metrics,
         FieldName.TypeField.KNN_VECTOR.getLuceneFieldName(
             FieldPath.parse(VECTOR_FIELD_NAME), Optional.empty()),
         new float[] {1.0f, 2.0f},

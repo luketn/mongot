@@ -4,9 +4,11 @@ import static com.xgen.mongot.util.bson.FloatVector.OriginalType.NATIVE;
 
 import com.xgen.mongot.featureflag.Feature;
 import com.xgen.mongot.featureflag.FeatureFlags;
+import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.VectorIndexFilterFieldDefinition;
 import com.xgen.mongot.index.definition.VectorQuantization;
 import com.xgen.mongot.index.definition.VectorSimilarity;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.lucene.util.AnalyzedText;
 import com.xgen.mongot.index.lucene.util.LuceneDoubleConversionUtils;
 import com.xgen.mongot.index.query.VectorSearchQuery;
@@ -22,6 +24,7 @@ import com.xgen.testing.mongot.index.query.VectorQueryBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.ClauseBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.MqlFilterOperatorBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.ValueBuilder;
+import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
@@ -36,7 +39,6 @@ import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.IndexOrDocValuesQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.TermInSetQuery;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.util.BytesRef;
@@ -44,6 +46,9 @@ import org.bson.types.ObjectId;
 import org.junit.Test;
 
 public class InVectorQueryFactoryTest {
+
+  private static final IndexMetricsUpdater.QueryingMetricsUpdater metrics =
+      new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory());
 
   private static final String FILTER_PATH = "a";
   private static final String VECTOR_PATH = "vector";
@@ -62,7 +67,8 @@ public class InVectorQueryFactoryTest {
             .build();
 
     var expected =
-        new KnnFloatVectorQuery(
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/vector",
             new float[] {1, 2, 3},
             20,
@@ -93,7 +99,8 @@ public class InVectorQueryFactoryTest {
     var operator = MqlFilterOperatorBuilder.in().values(List.copyOf(objectIds)).build();
 
     var expected =
-        new KnnFloatVectorQuery(
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/vector",
             new float[] {1, 2, 3},
             20,
@@ -135,7 +142,8 @@ public class InVectorQueryFactoryTest {
     var operator = MqlFilterOperatorBuilder.in().values(longValues).build();
 
     var expected =
-        new KnnFloatVectorQuery(
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/vector",
             new float[] {1, 2, 3},
             20,
@@ -177,7 +185,8 @@ public class InVectorQueryFactoryTest {
     var operator = MqlFilterOperatorBuilder.in().values(longValues).build();
 
     var expected =
-        new KnnFloatVectorQuery(
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/vector",
             new float[] {1, 2, 3},
             20,
@@ -223,7 +232,8 @@ public class InVectorQueryFactoryTest {
     var operator = MqlFilterOperatorBuilder.in().values(doubleValues).build();
 
     var expected =
-        new KnnFloatVectorQuery(
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/vector",
             new float[] {1, 2, 3},
             20,
@@ -269,7 +279,8 @@ public class InVectorQueryFactoryTest {
     var operator = MqlFilterOperatorBuilder.in().values(doubleValues).build();
 
     var expected =
-        new KnnFloatVectorQuery(
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/vector",
             new float[] {1, 2, 3},
             20,
@@ -308,7 +319,8 @@ public class InVectorQueryFactoryTest {
 
     var operator = MqlFilterOperatorBuilder.in().values(dateValues).build();
     var expected =
-        new KnnFloatVectorQuery(
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/vector",
             new float[] {1, 2, 3},
             20,
@@ -354,7 +366,8 @@ public class InVectorQueryFactoryTest {
     var operator = MqlFilterOperatorBuilder.in().values(stringValues).build();
 
     var expected =
-        new KnnFloatVectorQuery(
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/vector",
             new float[] {1, 2, 3},
             20,

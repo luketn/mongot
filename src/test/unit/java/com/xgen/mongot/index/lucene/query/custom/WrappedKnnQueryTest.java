@@ -1,8 +1,10 @@
 package com.xgen.mongot.index.lucene.query.custom;
 
+import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.query.VectorSearchQuery;
 import com.xgen.mongot.util.FieldPath;
 import com.xgen.testing.TestUtils;
+import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.io.IOException;
 import java.util.Optional;
 import org.apache.lucene.index.DirectoryReader;
@@ -10,7 +12,6 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.store.Directory;
@@ -22,6 +23,9 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 public class WrappedKnnQueryTest {
+
+  private static final IndexMetricsUpdater.QueryingMetricsUpdater metrics =
+      new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory());
 
   private static final String DEFAULT_PATH = "path";
   private static final float[] DEFAULT_TARGET = new float[] {1F, 2F, 3F};
@@ -66,6 +70,6 @@ public class WrappedKnnQueryTest {
   }
 
   private static Query knnQuery(float[] target, int k) {
-    return new KnnFloatVectorQuery(DEFAULT_PATH, target, k);
+    return new MongotKnnFloatQuery(metrics, DEFAULT_PATH, target, k);
   }
 }

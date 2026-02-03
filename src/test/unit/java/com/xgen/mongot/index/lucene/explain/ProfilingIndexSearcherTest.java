@@ -11,6 +11,7 @@ import static org.mockito.Mockito.spy;
 
 import com.google.common.collect.Streams;
 import com.google.common.truth.Truth;
+import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.lucene.explain.explainers.CollectorTimingFeatureExplainer;
 import com.xgen.mongot.index.lucene.explain.explainers.MetadataFeatureExplainer;
@@ -20,6 +21,7 @@ import com.xgen.mongot.index.lucene.explain.query.QueryVisitorQueryExecutionCont
 import com.xgen.mongot.index.lucene.explain.timing.ExplainTimings;
 import com.xgen.mongot.index.lucene.explain.tracing.Explain;
 import com.xgen.mongot.index.lucene.query.custom.ExactVectorSearchQuery;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.lucene.query.util.BooleanComposer;
 import com.xgen.mongot.index.lucene.searcher.LuceneIndexSearcher;
 import com.xgen.mongot.index.lucene.searcher.QueryCacheProvider;
@@ -27,6 +29,7 @@ import com.xgen.mongot.util.bson.Vector;
 import com.xgen.mongot.util.timers.InvocationCountingTimer;
 import com.xgen.testing.LuceneIndexRule;
 import com.xgen.testing.TestUtils;
+import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,7 +52,6 @@ import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
@@ -77,6 +79,10 @@ import org.mockito.Mockito;
       ProfilingIndexSearcherTest.TestConcurrency.class
     })
 public class ProfilingIndexSearcherTest {
+
+  private static final IndexMetricsUpdater.QueryingMetricsUpdater metrics =
+      new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory());
+
   public static class TestClass {
     @Rule public final LuceneIndexRule validator = new LuceneIndexRule();
 
@@ -326,11 +332,11 @@ public class ProfilingIndexSearcherTest {
     }
 
     private static Query knnQuery() {
-      return new KnnFloatVectorQuery("path", new float[] {1F, 2F, 3F}, 100);
+      return new MongotKnnFloatQuery(metrics, "path", new float[] {1F, 2F, 3F}, 100);
     }
 
     private static Query knnQueryWithFilter(Query filter) {
-      return new KnnFloatVectorQuery("path", new float[] {1F, 2F, 3F}, 100, filter);
+      return new MongotKnnFloatQuery(metrics, "path", new float[] {1F, 2F, 3F}, 100, filter);
     }
 
     private static Query termQuery(String value) {
@@ -711,7 +717,8 @@ public class ProfilingIndexSearcherTest {
               Executors.newCachedThreadPool());
 
       try {
-        searcher.search(new KnnFloatVectorQuery("path", new float[] {1F, 2F, 3F}, 100), 50_000);
+        searcher.search(
+            new MongotKnnFloatQuery(metrics, "path", new float[] {1F, 2F, 3F}, 100), 50_000);
       } catch (Exception e) {
         Assert.fail("Expected no exceptions, but got: " + Arrays.toString(e.getStackTrace()));
       }

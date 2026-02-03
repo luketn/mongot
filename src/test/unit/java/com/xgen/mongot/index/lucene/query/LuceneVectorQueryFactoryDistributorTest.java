@@ -10,6 +10,7 @@ import com.xgen.mongot.index.definition.VectorQuantization;
 import com.xgen.mongot.index.definition.VectorSimilarity;
 import com.xgen.mongot.index.lucene.query.context.VectorQueryFactoryContext;
 import com.xgen.mongot.index.lucene.query.custom.ExactVectorSearchQuery;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.lucene.query.custom.WrappedKnnQuery;
 import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.MaterializedVectorSearchQuery;
@@ -42,7 +43,6 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.FieldExistsQuery;
 import org.apache.lucene.search.IndexOrDocValuesQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.store.Directory;
@@ -104,8 +104,8 @@ public class LuceneVectorQueryFactoryDistributorTest {
                     .build())
             .build();
 
-    KnnFloatVectorQuery luceneQuery =
-        new KnnFloatVectorQuery("$type:knnVector/foo.bar", new float[] {1, 2, 3}, 20);
+    MongotKnnFloatQuery luceneQuery =
+        new MongotKnnFloatQuery(metrics, "$type:knnVector/foo.bar", new float[] {1, 2, 3}, 20);
 
     new LuceneVectorTranslation(
             List.of(
@@ -143,8 +143,9 @@ public class LuceneVectorQueryFactoryDistributorTest {
             .index("test")
             .build();
 
-    KnnFloatVectorQuery luceneQuery =
-        new KnnFloatVectorQuery(
+    MongotKnnFloatQuery luceneQuery =
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/foo.vector",
             new float[] {1, 2, 3},
             20,
@@ -204,7 +205,7 @@ public class LuceneVectorQueryFactoryDistributorTest {
 
     var expected =
         new WrappedKnnQuery(
-            new KnnFloatVectorQuery("$type:knnVector/foo.bar", new float[] {1, 2, 3}, 20));
+            new MongotKnnFloatQuery(metrics, "$type:knnVector/foo.bar", new float[] {1, 2, 3}, 20));
 
     try (var reader = DirectoryReader.open(directory)) {
       Query result =

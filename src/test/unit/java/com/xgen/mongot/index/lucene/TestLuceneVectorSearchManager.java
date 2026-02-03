@@ -5,10 +5,12 @@ import static com.xgen.mongot.util.bson.FloatVector.OriginalType.NATIVE;
 import static org.apache.lucene.index.VectorSimilarityFunction.EUCLIDEAN;
 
 import com.xgen.mongot.featureflag.FeatureFlags;
+import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.lucene.codec.LuceneCodec;
 import com.xgen.mongot.index.lucene.extension.KnnFloatVectorField;
 import com.xgen.mongot.index.lucene.field.FieldName;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.lucene.searcher.LuceneSearcherFactory;
 import com.xgen.mongot.index.lucene.searcher.LuceneSearcherManager;
 import com.xgen.mongot.index.lucene.searcher.QueryCacheProvider;
@@ -24,11 +26,13 @@ import java.util.Arrays;
 import java.util.Optional;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.junit.Test;
 
 public class TestLuceneVectorSearchManager {
+
+  private static final IndexMetricsUpdater.QueryingMetricsUpdater metrics =
+      new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory());
 
   private final IndexWriter indexWriter;
 
@@ -61,7 +65,8 @@ public class TestLuceneVectorSearchManager {
 
     var manager =
         new LuceneVectorSearchManager(
-            new KnnFloatVectorQuery(luceneFieldName, queryVector.getFloatVector(), numCandidates),
+            new MongotKnnFloatQuery(
+                metrics, luceneFieldName, queryVector.getFloatVector(), numCandidates),
             query.criteria(),
             Optional.empty());
 

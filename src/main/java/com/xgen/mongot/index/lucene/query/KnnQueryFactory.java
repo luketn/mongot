@@ -2,13 +2,13 @@ package com.xgen.mongot.index.lucene.query;
 
 import com.xgen.mongot.index.lucene.field.FieldName;
 import com.xgen.mongot.index.lucene.query.context.SearchQueryFactoryContext;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.lucene.query.util.BooleanComposer;
 import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.operators.KnnBetaOperator;
 import com.xgen.mongot.util.FloatCollector;
 import java.util.Optional;
 import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.bson.BsonNumber;
 
@@ -50,9 +50,9 @@ public class KnnQueryFactory {
                   FieldName.TypeField.KNN_VECTOR.getLuceneFieldName(
                       path, singleQueryContext.getEmbeddedRoot());
 
-              return filter.isPresent()
-                  ? new KnnFloatVectorQuery(field, vector, operator.k(), filter.get())
-                  : new KnnFloatVectorQuery(field, vector, operator.k());
-            }, BooleanClause.Occur.SHOULD);
+              return new MongotKnnFloatQuery(
+                  this.context.getMetrics(), field, vector, operator.k(), filter.orElse(null));
+            },
+            BooleanClause.Occur.SHOULD);
   }
 }

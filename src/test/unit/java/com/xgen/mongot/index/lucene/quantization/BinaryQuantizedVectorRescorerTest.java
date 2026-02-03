@@ -7,6 +7,7 @@ import static org.apache.lucene.index.VectorSimilarityFunction.DOT_PRODUCT;
 import static org.apache.lucene.index.VectorSimilarityFunction.EUCLIDEAN;
 
 import com.xgen.mongot.featureflag.FeatureFlags;
+import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.definition.VectorFieldSpecification;
 import com.xgen.mongot.index.definition.VectorIndexingAlgorithm;
@@ -17,6 +18,7 @@ import com.xgen.mongot.index.lucene.LuceneVectorSearchManager;
 import com.xgen.mongot.index.lucene.codec.LuceneCodec;
 import com.xgen.mongot.index.lucene.extension.KnnFloatVectorField;
 import com.xgen.mongot.index.lucene.field.FieldName;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.lucene.searcher.LuceneSearcherFactory;
 import com.xgen.mongot.index.lucene.searcher.LuceneSearcherManager;
 import com.xgen.mongot.index.lucene.searcher.QueryCacheProvider;
@@ -66,6 +68,9 @@ import org.junit.runners.Parameterized.Parameters;
 
 @RunWith(Parameterized.class)
 public class BinaryQuantizedVectorRescorerTest {
+
+  private static final IndexMetricsUpdater.QueryingMetricsUpdater metrics =
+      new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory());
 
   private final IndexWriter indexWriter;
   private final String vectorFieldName;
@@ -546,7 +551,7 @@ public class BinaryQuantizedVectorRescorerTest {
             .build();
 
     KnnFloatVectorQuery luceneQuery =
-        new KnnFloatVectorQuery(this.vectorFieldName, queryVector, numCandidates);
+        new MongotKnnFloatQuery(metrics, this.vectorFieldName, queryVector, numCandidates);
 
     return new LuceneVectorSearchManager(luceneQuery, vectorQuery.criteria(), Optional.empty());
   }

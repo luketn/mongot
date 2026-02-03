@@ -1,24 +1,29 @@
 package com.xgen.mongot.index.lucene.query;
 
+import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.DocumentFieldDefinition;
 import com.xgen.mongot.index.definition.VectorSimilarity;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.testing.TestUtils;
 import com.xgen.testing.mongot.index.definition.DocumentFieldDefinitionBuilder;
 import com.xgen.testing.mongot.index.definition.FieldDefinitionBuilder;
 import com.xgen.testing.mongot.index.definition.KnnVectorFieldDefinitionBuilder;
 import com.xgen.testing.mongot.index.query.operators.OperatorBuilder;
+import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.util.List;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.bson.BsonDouble;
 import org.junit.Test;
 
 public class KnnQueryFactoryTest {
+
+  private static final IndexMetricsUpdater.QueryingMetricsUpdater metrics =
+      new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory());
 
   private static final String PATH_A = "a";
   private static final String PATH_B = "b";
@@ -55,7 +60,8 @@ public class KnnQueryFactoryTest {
             .k(10)
             .build();
 
-    var expected = new KnnFloatVectorQuery("$type:knnVector/a", new float[] {0.1f, 0.2f}, 10);
+    var expected =
+        new MongotKnnFloatQuery(metrics, "$type:knnVector/a", new float[] {0.1f, 0.2f}, 10);
 
     LuceneSearchTranslation.mapped(MAPPED_TO_KNN).assertTranslatedTo(definition, expected);
   }
@@ -74,11 +80,13 @@ public class KnnQueryFactoryTest {
         new BooleanQuery.Builder()
             .add(
                 new BooleanClause(
-                    new KnnFloatVectorQuery("$type:knnVector/a", new float[] {0.1f, 0.2f}, 10),
+                    new MongotKnnFloatQuery(
+                        metrics, "$type:knnVector/a", new float[] {0.1f, 0.2f}, 10),
                     BooleanClause.Occur.SHOULD))
             .add(
                 new BooleanClause(
-                    new KnnFloatVectorQuery("$type:knnVector/b", new float[] {0.1f, 0.2f}, 10),
+                    new MongotKnnFloatQuery(
+                        metrics, "$type:knnVector/b", new float[] {0.1f, 0.2f}, 10),
                     BooleanClause.Occur.SHOULD))
             .build();
 
@@ -98,7 +106,8 @@ public class KnnQueryFactoryTest {
             .build();
 
     var expected =
-        new KnnFloatVectorQuery(
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/a",
             new float[] {0.1f, 0.2f},
             10,
@@ -123,7 +132,8 @@ public class KnnQueryFactoryTest {
             LuceneSearchTranslation.get()
                 .assertTranslatedTo(
                     definition,
-                    new KnnFloatVectorQuery("$type:knnVector/a", new float[] {0.1f, 0.2f}, 10)));
+                    new MongotKnnFloatQuery(
+                        metrics, "$type:knnVector/a", new float[] {0.1f, 0.2f}, 10)));
   }
 
   @Test
@@ -142,6 +152,7 @@ public class KnnQueryFactoryTest {
             LuceneSearchTranslation.mapped(MAPPED_TO_KNN)
                 .assertTranslatedTo(
                     definition,
-                    new KnnFloatVectorQuery("$type:knnVector/a", new float[] {0.1f, 0.2f}, 10)));
+                    new MongotKnnFloatQuery(
+                        metrics, "$type:knnVector/a", new float[] {0.1f, 0.2f}, 10)));
   }
 }

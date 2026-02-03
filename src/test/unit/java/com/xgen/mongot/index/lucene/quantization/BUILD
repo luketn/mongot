@@ -23,6 +23,7 @@ java_test_suite(
         "//src/main/java/com/xgen/mongot/index/lucene/extension",
         "//src/main/java/com/xgen/mongot/index/lucene/field",
         "//src/main/java/com/xgen/mongot/index/lucene/quantization",
+        "//src/main/java/com/xgen/mongot/index/lucene/query/custom",
         "//src/main/java/com/xgen/mongot/index/lucene/searcher",
         "//src/main/java/com/xgen/mongot/index/lucene/util",
         "//src/main/java/com/xgen/mongot/index/query",

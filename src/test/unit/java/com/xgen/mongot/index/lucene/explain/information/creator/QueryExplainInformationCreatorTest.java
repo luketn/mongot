@@ -3,6 +3,7 @@ package com.xgen.mongot.index.lucene.explain.information.creator;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.lucene.explain.information.LuceneQuerySpecification;
 import com.xgen.mongot.index.lucene.explain.information.MatchAllDocsQuerySpec;
 import com.xgen.mongot.index.lucene.explain.information.QueryExplainInformation;
@@ -12,6 +13,7 @@ import com.xgen.mongot.index.lucene.explain.query.QueryExecutionContextNode;
 import com.xgen.mongot.index.lucene.explain.timing.ExplainTimingBreakdown;
 import com.xgen.mongot.index.lucene.explain.timing.ExplainTimings;
 import com.xgen.mongot.index.lucene.explain.tracing.Explain;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.lucene.query.custom.WrappedKnnQuery;
 import com.xgen.mongot.index.lucene.query.custom.WrappedQuery;
 import com.xgen.mongot.util.FieldPath;
@@ -19,6 +21,7 @@ import com.xgen.mongot.util.timers.TimingData;
 import com.xgen.testing.mongot.index.lucene.explain.information.ExplainInformationTestUtil;
 import com.xgen.testing.mongot.index.lucene.explain.query.MockQueryExecutionContextNode;
 import com.xgen.testing.mongot.index.lucene.explain.timing.TimingTestUtil;
+import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,7 +32,6 @@ import org.apache.commons.collections4.functors.DefaultEquator;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
@@ -38,6 +40,10 @@ import org.junit.Assert;
 import org.junit.Test;
 
 public class QueryExplainInformationCreatorTest {
+
+  private static final IndexMetricsUpdater.QueryingMetricsUpdater metrics =
+      new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory());
+
   static class EquatorSuite {
     final Equator<LuceneQuerySpecification> queryEquator;
     final Equator<ExplainTimingBreakdown> timingEquator;
@@ -184,7 +190,7 @@ public class QueryExplainInformationCreatorTest {
 
   @Test
   public void testFromWrappedKnn() {
-    Query knnFloatQuery = new KnnFloatVectorQuery("path", new float[] {1, 2, 3}, 100);
+    Query knnFloatQuery = new MongotKnnFloatQuery(metrics, "path", new float[] {1, 2, 3}, 100);
     ExplainTimings knnFloatTimings = TimingTestUtil.randomTimings();
     QueryExecutionContextNode knnFloatNode =
         new MockQueryExecutionContextNode(knnFloatQuery, knnFloatTimings, Optional.empty());

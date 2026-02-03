@@ -50,6 +50,12 @@ public class IndexMetricsUpdater implements Closeable {
 
   private static final String INDEX_FEATURE_VERSION_NAME = "indexFeatureVersion";
 
+  /** Reports the actual method KNN search selected at query time. */
+  public enum KnnSearchMode {
+    APPROXIMATE,
+    FALLBACK_TO_EXACT,
+  }
+
   /**
    * IndexMetricsUpdater takes ownership over queryingMetricsUpdater, indexMetricValuesSupplier,
    * replicationMetricsUpdater and metricsFactory.
@@ -454,6 +460,12 @@ public class IndexMetricsUpdater implements Closeable {
     /** Number of queries where the query sort can benefit from index sort optimization. */
     private final Counter benefitFromIndexSortCounter;
 
+    /**
+     * Tracks dynamic HNSW search method selected per segment. Exported as
+     * mongot_index_stats_query_knnSearchMode_total
+     */
+    private final Map<KnnSearchMode, Counter> knnSearchModeCounter;
+
     @VisibleForTesting
     public QueryingMetricsUpdater(PerIndexMetricsFactory metricsFactory) {
       this(
@@ -549,6 +561,10 @@ public class IndexMetricsUpdater implements Closeable {
               "numCandidatesPerQuery",
               Tags.of("quantization", "binaryQuantized"),
               NUM_CANDIDATES_BUCKETS);
+      this.knnSearchModeCounter =
+          metricsFactory.getEnumCounterMap(
+              KnnSearchMode.class,
+              (String s) -> metricsFactory.counter("knnSearchMode", Tags.of("mode", s)));
       this.limitPerQuery = metricsFactory.histogram("limitPerQuery", LIMIT_BUCKETS);
       this.phantomSearcherCleanupCounter = metricsFactory.counter("phantomSearcherCleanupCount");
       this.benefitFromIndexSortCounter = metricsFactory.counter("benefitFromIndexSortCount");
@@ -572,6 +588,14 @@ public class IndexMetricsUpdater implements Closeable {
 
     public Counter getInternallyFailedQueryCounter() {
       return this.internallyFailedQueryCounter;
+    }
+
+    /**
+     * Increments the search mode that we dynamically selected during query execution on a
+     * per-segment basis.
+     */
+    public void incrementKnnSearchMode(KnnSearchMode type) {
+      this.knnSearchModeCounter.get(type).increment();
     }
 
     @VisibleForTesting

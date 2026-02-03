@@ -2,9 +2,11 @@ package com.xgen.mongot.index.lucene.query;
 
 import static com.xgen.mongot.util.bson.FloatVector.OriginalType.NATIVE;
 
+import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.VectorIndexFilterFieldDefinition;
 import com.xgen.mongot.index.definition.VectorQuantization;
 import com.xgen.mongot.index.definition.VectorSimilarity;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.lucene.query.util.BooleanComposer;
 import com.xgen.mongot.index.lucene.util.LuceneDoubleConversionUtils;
 import com.xgen.mongot.index.query.VectorSearchQuery;
@@ -18,6 +20,7 @@ import com.xgen.testing.mongot.index.query.VectorQueryBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.ClauseBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.MqlFilterOperatorBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.ValueBuilder;
+import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.util.List;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.SortedSetDocValuesField;
@@ -33,6 +36,10 @@ import org.bson.types.ObjectId;
 import org.junit.Test;
 
 public class EqualsVectorQueryFactoryTest {
+
+  private static final IndexMetricsUpdater.QueryingMetricsUpdater metrics =
+      new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory());
+
   private static final String VECTOR_PATH = "vector";
   private static final String FILTER_PATH = "a";
 
@@ -46,7 +53,8 @@ public class EqualsVectorQueryFactoryTest {
                 BooleanClause.Occur.MUST)
             .build();
     KnnFloatVectorQuery luceneVectorQuery =
-        new KnnFloatVectorQuery("$type:knnVector/vector", new float[] {1, 2, 3}, 20, luceneQuery);
+        new MongotKnnFloatQuery(
+            metrics, "$type:knnVector/vector", new float[] {1, 2, 3}, 20, luceneQuery);
 
     Clause filter =
         ClauseBuilder.simpleClause()
@@ -79,7 +87,8 @@ public class EqualsVectorQueryFactoryTest {
                 BooleanClause.Occur.MUST)
             .build();
     KnnFloatVectorQuery luceneVectorQuery =
-        new KnnFloatVectorQuery("$type:knnVector/vector", new float[] {1, 2, 3}, 20, luceneQuery);
+        new MongotKnnFloatQuery(
+            metrics, "$type:knnVector/vector", new float[] {1, 2, 3}, 20, luceneQuery);
 
     Clause filter =
         ClauseBuilder.simpleClause()
@@ -134,7 +143,8 @@ public class EqualsVectorQueryFactoryTest {
             .build();
 
     KnnFloatVectorQuery luceneVectorQuery =
-        new KnnFloatVectorQuery("$type:knnVector/vector", new float[] {1, 2, 3}, 20, luceneQuery);
+        new MongotKnnFloatQuery(
+            metrics, "$type:knnVector/vector", new float[] {1, 2, 3}, 20, luceneQuery);
 
     Clause filter =
         ClauseBuilder.simpleClause()
@@ -169,7 +179,8 @@ public class EqualsVectorQueryFactoryTest {
             .add(new IndexOrDocValuesQuery(indexQuery, docValuesQuery), BooleanClause.Occur.MUST)
             .build();
     KnnFloatVectorQuery luceneVectorQuery =
-        new KnnFloatVectorQuery("$type:knnVector/vector", new float[] {1, 2, 3}, 20, luceneQuery);
+        new MongotKnnFloatQuery(
+            metrics, "$type:knnVector/vector", new float[] {1, 2, 3}, 20, luceneQuery);
 
     Clause filter =
         ClauseBuilder.simpleClause()

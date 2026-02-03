@@ -2,9 +2,11 @@ package com.xgen.mongot.index.lucene.query;
 
 import static com.xgen.mongot.util.bson.FloatVector.OriginalType.NATIVE;
 
+import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.VectorIndexFilterFieldDefinition;
 import com.xgen.mongot.index.definition.VectorQuantization;
 import com.xgen.mongot.index.definition.VectorSimilarity;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.lucene.query.util.BooleanComposer;
 import com.xgen.mongot.index.lucene.util.LuceneDoubleConversionUtils;
 import com.xgen.mongot.index.query.VectorSearchQuery;
@@ -18,17 +20,21 @@ import com.xgen.testing.mongot.index.query.VectorQueryBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.ClauseBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.MqlFilterOperatorBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.ValueBuilder;
+import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.util.List;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery.Builder;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.IndexOrDocValuesQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.junit.Test;
 
 public class NumericRangeVectorQueryFactoriesTest {
+
+  private static final IndexMetricsUpdater.QueryingMetricsUpdater metrics =
+      new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory());
+
   private static final String FILTER_PATH = "a";
   private static final String VECTOR_PATH = "vector";
 
@@ -38,7 +44,8 @@ public class NumericRangeVectorQueryFactoriesTest {
         List.of(MqlFilterOperatorBuilder.lte().value(ValueBuilder.longNumber(1L)).build());
 
     var expected =
-        new KnnFloatVectorQuery(
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/vector",
             new float[] {1, 2, 3},
             20,
@@ -63,7 +70,8 @@ public class NumericRangeVectorQueryFactoriesTest {
         List.of(MqlFilterOperatorBuilder.gte().value(ValueBuilder.intNumber(1)).build());
 
     var expected =
-        new KnnFloatVectorQuery(
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/vector",
             new float[] {1, 2, 3},
             20,
@@ -90,7 +98,8 @@ public class NumericRangeVectorQueryFactoriesTest {
             MqlFilterOperatorBuilder.lte().value(ValueBuilder.doubleNumber(9)).build());
 
     var expected =
-        new KnnFloatVectorQuery(
+        new MongotKnnFloatQuery(
+            metrics,
             "$type:knnVector/vector",
             new float[] {1, 2, 3},
             20,

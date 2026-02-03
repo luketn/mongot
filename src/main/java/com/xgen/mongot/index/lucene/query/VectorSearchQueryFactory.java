@@ -1,5 +1,6 @@
 package com.xgen.mongot.index.lucene.query;
 
+import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.VectorSimilarity;
 import com.xgen.mongot.index.lucene.explain.knn.InstrumentableKnnByteVectorQuery;
 import com.xgen.mongot.index.lucene.explain.knn.InstrumentableKnnFloatVectorQuery;
@@ -8,6 +9,7 @@ import com.xgen.mongot.index.lucene.explain.knn.VectorSearchExplainer;
 import com.xgen.mongot.index.lucene.explain.tracing.Explain;
 import com.xgen.mongot.index.lucene.field.FieldName;
 import com.xgen.mongot.index.lucene.query.context.QueryFactoryContext;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.lucene.query.util.MetaIdRetriever;
 import com.xgen.mongot.index.lucene.util.LuceneDocumentIdEncoder;
 import com.xgen.mongot.index.query.InvalidQueryException;
@@ -31,7 +33,6 @@ import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.FieldExistsQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnByteVectorQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
@@ -99,7 +100,10 @@ class VectorSearchQueryFactory {
         int limit = approximateCriteria.limit();
         ApproximateVectorQueryCreator queryCreator =
             ApproximateVectorQueryCreator.get(
-                approximateCriteria, fieldName, queryContext.getIndexReader());
+                approximateCriteria,
+                fieldName,
+                queryContext.getIndexReader(),
+                this.factoryContext.getMetrics());
         return switch (queryVector) {
           case FloatVector floatVector ->
               queryCreator.query(floatVector, fieldName, numCandidates, limit, luceneFilter);
@@ -133,7 +137,10 @@ class VectorSearchQueryFactory {
     Query query(BitVector vector, String field, int k, int limit, Optional<Query> filter);
 
     static ApproximateVectorQueryCreator get(
-        ApproximateVectorSearchCriteria criteria, String fieldName, IndexReader indexReader)
+        ApproximateVectorSearchCriteria criteria,
+        String fieldName,
+        IndexReader indexReader,
+        IndexMetricsUpdater.QueryingMetricsUpdater metrics)
         throws IOException {
       if (Explain.getQueryInfo().isPresent()) {
         Optional<ApproximateVectorSearchCriteria.ExplainOptions> explainOptions =
@@ -150,7 +157,7 @@ class VectorSearchQueryFactory {
             Explain.getQueryInfo().get(), targets);
       }
 
-      return new RegularApproximateVectorQueryCreator();
+      return new RegularApproximateVectorQueryCreator(metrics);
     }
 
     private static List<VectorSearchExplainer.TracingTarget> resolveTraceTargets(
@@ -190,15 +197,18 @@ class VectorSearchQueryFactory {
 
     class RegularApproximateVectorQueryCreator implements ApproximateVectorQueryCreator {
 
-      private RegularApproximateVectorQueryCreator() {}
+      private final IndexMetricsUpdater.QueryingMetricsUpdater metrics;
+
+      private RegularApproximateVectorQueryCreator(
+          IndexMetricsUpdater.QueryingMetricsUpdater metrics) {
+        this.metrics = metrics;
+      }
 
       @Override
       public Query query(
           FloatVector vector, String field, int k, int limit, Optional<Query> filter) {
         float[] target = vector.getFloatVector();
-        return filter
-            .map(f -> new KnnFloatVectorQuery(field, target, k, f))
-            .orElseGet(() -> new KnnFloatVectorQuery(field, target, k));
+        return new MongotKnnFloatQuery(this.metrics, field, target, k, filter.orElse(null));
       }
 
       @Override

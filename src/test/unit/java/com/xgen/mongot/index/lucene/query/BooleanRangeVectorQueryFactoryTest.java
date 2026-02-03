@@ -5,10 +5,12 @@ import static java.util.Optional.empty;
 import static java.util.Optional.of;
 import static org.mockito.Mockito.mock;
 
+import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.VectorIndexFilterFieldDefinition;
 import com.xgen.mongot.index.definition.VectorQuantization;
 import com.xgen.mongot.index.definition.VectorSimilarity;
 import com.xgen.mongot.index.lucene.query.context.VectorQueryFactoryContext;
+import com.xgen.mongot.index.lucene.query.custom.MongotKnnFloatQuery;
 import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.operators.VectorSearchFilter;
 import com.xgen.mongot.index.query.operators.bound.BooleanRangeBound;
@@ -23,13 +25,13 @@ import com.xgen.testing.mongot.index.query.VectorQueryBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.ClauseBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.MqlFilterOperatorBuilder;
 import com.xgen.testing.mongot.index.query.operators.mql.ValueBuilder;
+import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.junit.Assert;
 import org.junit.Test;
@@ -38,6 +40,9 @@ import org.junit.runners.Parameterized;
 
 @RunWith(Parameterized.class)
 public class BooleanRangeVectorQueryFactoryTest {
+
+  private static final IndexMetricsUpdater.QueryingMetricsUpdater metrics =
+      new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory());
 
   private static final BooleanPoint TRUE = new BooleanPoint(true);
   private static final BooleanPoint FALSE = new BooleanPoint(false);
@@ -180,8 +185,8 @@ public class BooleanRangeVectorQueryFactoryTest {
     }
 
     var expectedLuceneVectorQuery =
-        new KnnFloatVectorQuery(
-            "$type:knnVector/vector", new float[] {1, 2, 3}, 20, rangeBoundQuery);
+        new MongotKnnFloatQuery(
+            metrics, "$type:knnVector/vector", new float[] {1, 2, 3}, 20, rangeBoundQuery);
 
     Assert.assertEquals(expectedLuceneVectorQuery, translatedQuery);
   }

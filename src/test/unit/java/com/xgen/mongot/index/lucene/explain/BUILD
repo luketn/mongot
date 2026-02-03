@@ -5,6 +5,7 @@ java_test_suite(
     srcs = ["ProfilingIndexSearcherTest.java"],
     tags = ["unit"],
     deps = [
+        "//src/main/java/com/xgen/mongot/index",
         "//src/main/java/com/xgen/mongot/index/definition",
         "//src/main/java/com/xgen/mongot/index/lucene/explain",
         "//src/main/java/com/xgen/mongot/index/lucene/explain/explainers",
@@ -18,6 +19,7 @@ java_test_suite(
         "//src/main/java/com/xgen/mongot/util/bson",
         "//src/main/java/com/xgen/mongot/util/timers",
         "//src/main/java/com/xgen/testing",
+        "//src/main/java/com/xgen/testing/mongot/mock/index",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_truth_truth",
         "@maven//:junit_junit",
