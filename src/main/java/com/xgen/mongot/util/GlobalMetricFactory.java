@@ -66,6 +66,29 @@ public final class GlobalMetricFactory {
     unreachableCounter(reason, registry).increment();
   }
 
+  /**
+   * Increments the counter for unloggable ID types.
+   *
+   * @param bsonType the BSON type that could not be logged
+   */
+  public static void incrementUnloggableIdType(String bsonType) {
+    Optional<MeterRegistry> maybeRegistry = meterRegistry;
+    if (maybeRegistry.isEmpty()) {
+      LOGGER
+          .atWarn()
+          .addKeyValue("bsonType", bsonType)
+          .log("GlobalMetricFactory not initialized, cannot record unloggable ID type metric");
+      return;
+    }
+
+    MeterRegistry registry = maybeRegistry.get();
+    Counter.builder("mongot.unloggable_id_types")
+        .description("Counts document IDs with types that cannot be logged")
+        .tags(Tags.of("bsonType", bsonType))
+        .register(registry)
+        .increment();
+  }
+
   @VisibleForTesting
   static void resetForTest() {
     meterRegistry = Optional.empty();

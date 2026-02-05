@@ -23,6 +23,7 @@ java_library(
         "@maven//:com_google_guava_guava",
         "@maven//:org_apache_lucene_lucene_analysis_common",
         "@maven//:org_apache_lucene_lucene_core",
+        "@maven//:org_mongodb_bson",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )

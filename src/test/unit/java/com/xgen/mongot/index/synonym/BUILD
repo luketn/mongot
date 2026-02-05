@@ -10,6 +10,7 @@ java_test_suite(
         "//src/main/java/com/xgen/mongot/util/bson/parser",
         "//src/main/java/com/xgen/testing",
         "//src/main/java/com/xgen/testing/mongot/index/synonym",
+        "@maven//:com_google_truth_truth",
         "@maven//:junit_junit",
         "@maven//:org_mongodb_bson",
     ],

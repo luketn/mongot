@@ -23,6 +23,7 @@ java_test_suite(
         "FunctionalUtilsTest.java",
         "FutureUtilsTest.java",
         "GlobalMetricsFactoryTest.java",
+        "LoggableIdUtilsTest.java",
         "NumericUtilsTest.java",
         "OptionalsTest.java",
         "RuntimeTest.java",

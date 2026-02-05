@@ -4,6 +4,7 @@ import com.xgen.mongot.index.status.SynonymStatus;
 import com.xgen.mongot.util.LoggableException;
 import com.xgen.mongot.util.LoggableIdUtils;
 import java.util.Optional;
+import org.bson.BsonValue;
 
 /** Exceptions related to parsing synonym documents and building synonym artifacts. */
 public class SynonymMappingException extends LoggableException {
@@ -31,13 +32,24 @@ public class SynonymMappingException extends LoggableException {
     return new SynonymMappingException("failed to build synonym map", throwable, Type.BUILD_ERROR);
   }
 
-  /** An exception indicating an invalid document was found in a synonym source collection. */
+  /**
+   * An exception indicating an invalid document was found in a synonym source collection.
+   *
+   * @param id the raw BsonValue document ID
+   * @param throwable the underlying exception
+   * @return a SynonymMappingException with loggable ID information
+   */
   public static SynonymMappingException invalidSynonymDocument(
-      Optional<String> id, Throwable throwable) {
+      Optional<BsonValue> id, Throwable throwable) {
     if (id.isEmpty()) {
       return invalidSynonymDocument(throwable);
     }
-    String loggableId = LoggableIdUtils.getLoggableId(id);
+    String loggableId = LoggableIdUtils.getLoggableId(id.get());
+    // If the ID is not loggable (unknown or unloggable type), omit it from the message
+    if (loggableId.equals(LoggableIdUtils.UNKNOWN_LOGGABLE_ID)
+        || loggableId.equals(LoggableIdUtils.UNLOGGABLE_ID_TYPE)) {
+      return invalidSynonymDocument(throwable);
+    }
     return new SynonymMappingException(
         String.format(
             "failed to analyze string in synonym document with _id %s: %s",

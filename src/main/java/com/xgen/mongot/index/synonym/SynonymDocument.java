@@ -2,6 +2,7 @@ package com.xgen.mongot.index.synonym;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.Var;
+import com.xgen.mongot.util.LoggableIdUtils;
 import com.xgen.mongot.util.bson.parser.BsonDocumentBuilder;
 import com.xgen.mongot.util.bson.parser.BsonDocumentParser;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
@@ -12,7 +13,6 @@ import com.xgen.mongot.util.bson.parser.ListField;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import org.bson.BsonBinarySubType;
 import org.bson.BsonDocument;
 import org.bson.BsonValue;
 
@@ -49,6 +49,13 @@ public class SynonymDocument implements DocumentEncodable {
      * INPUT is a required field for explicit synonym documents.
      */
     static final Field.Required<List<String>> REQUIRED_INPUT = INPUT_BUILDER.required();
+
+    /**
+     * Raw _id field for error reporting. Uses unparsedValueField to preserve the original BsonValue
+     * for LoggableIdUtils without type conversion.
+     */
+    static final Field.Optional<BsonValue> RAW_ID =
+        Field.builder("_id").unparsedValueField().optional().noDefault();
   }
 
   private static class IdField {
@@ -73,10 +80,7 @@ public class SynonymDocument implements DocumentEncodable {
               case INT32 -> Optional.of(String.valueOf(bsonValue.asInt32().getValue()));
               case INT64 -> Optional.of(String.valueOf(bsonValue.asInt64().getValue()));
               case OBJECT_ID -> Optional.of(bsonValue.asObjectId().getValue().toString());
-              case BINARY ->
-                  BsonBinarySubType.isUuid(bsonValue.asBinary().getType())
-                      ? Optional.of(bsonValue.asBinary().asUuid().toString())
-                      : Optional.empty();
+              case BINARY -> LoggableIdUtils.binaryToUuidString(bsonValue.asBinary());
 
               default -> Optional.empty();
             });
@@ -96,15 +100,20 @@ public class SynonymDocument implements DocumentEncodable {
   private final Optional<List<String>> input;
   private final Optional<String> docId;
 
+  /** Raw BsonValue _id for error reporting */
+  private final Optional<BsonValue> rawDocId;
+
   SynonymDocument(
       MappingType mappingType,
       List<String> synonyms,
       Optional<List<String>> input,
-      Optional<String> docId) {
+      Optional<String> docId,
+      Optional<BsonValue> rawDocId) {
     this.mappingType = mappingType;
     this.synonyms = synonyms;
     this.input = input;
     this.docId = docId;
+    this.rawDocId = rawDocId;
   }
 
   public static SynonymDocument create(
@@ -112,28 +121,40 @@ public class SynonymDocument implements DocumentEncodable {
       List<String> synonyms,
       Optional<List<String>> input,
       Optional<String> docId) {
-    return new SynonymDocument(mappingType, synonyms, input, docId);
+    return new SynonymDocument(mappingType, synonyms, input, docId, Optional.empty());
+  }
+
+  static SynonymDocument create(
+      MappingType mappingType,
+      List<String> synonyms,
+      Optional<List<String>> input,
+      Optional<String> docId,
+      Optional<BsonValue> rawDocId) {
+    return new SynonymDocument(mappingType, synonyms, input, docId, rawDocId);
   }
 
   // Used for testing only. Throws error when docId deserialization fails.
   @VisibleForTesting
   static SynonymDocument fromTestBson(BsonDocument document) throws SynonymMappingException {
+    Optional<BsonValue> rawDocId = Optional.ofNullable(document.get("_id"));
     try (var parser = BsonDocumentParser.fromRoot(document).allowUnknownFields(true).build()) {
       Optional<String> docId = idStringFromBson(parser);
-      return fromBson(parser, docId);
+      return fromBson(parser, docId, rawDocId);
     } catch (BsonParseException e) {
-      throw SynonymMappingException.invalidSynonymDocument(e);
+      throw SynonymMappingException.invalidSynonymDocument(rawDocId, e);
     }
   }
 
   /** Deserialize a SynonymDocument from BSON. */
   public static SynonymDocument fromBson(BsonDocument document) throws SynonymMappingException {
-    @Var Optional<String> docId = Optional.empty();
+    @Var Optional<BsonValue> rawDocId = Optional.empty();
     try (var parser = BsonDocumentParser.fromRoot(document).allowUnknownFields(true).build()) {
-      docId = getIdIfPresent(parser);
-      return fromBson(parser, docId);
+      // Get raw _id for error reporting (uses BsonValue-based LoggableIdUtils)
+      rawDocId = parser.getField(Fields.RAW_ID).unwrap();
+      Optional<String> docId = getIdIfPresent(parser);
+      return fromBson(parser, docId, rawDocId);
     } catch (BsonParseException e) {
-      throw SynonymMappingException.invalidSynonymDocument(docId, e);
+      throw SynonymMappingException.invalidSynonymDocument(rawDocId, e);
     }
   }
 
@@ -141,23 +162,26 @@ public class SynonymDocument implements DocumentEncodable {
    * Deserialize a SynonymDocument. This method private to ensure allowUnknownFields is configured
    * to be true on parser, as done in {@link SynonymDocument#fromBson(BsonDocument)}.
    */
-  private static SynonymDocument fromBson(DocumentParser parser, Optional<String> docId)
+  private static SynonymDocument fromBson(
+      DocumentParser parser, Optional<String> docId, Optional<BsonValue> rawDocId)
       throws BsonParseException {
     return switch (parser.getField(Fields.MAPPING_TYPE).unwrap()) {
       case EQUIVALENT ->
           // if mappingType is EQUIVALENT, the "input" field is not considered part of this synonym
           // document and is not validated.
-          SynonymDocument.create(
+          create(
               MappingType.EQUIVALENT,
               parser.getField(Fields.SYNONYMS).unwrap(),
               Optional.empty(),
-              docId);
+              docId,
+              rawDocId);
       case EXPLICIT ->
-          SynonymDocument.create(
+          create(
               MappingType.EXPLICIT,
               parser.getField(Fields.SYNONYMS).unwrap(),
               Optional.of(parser.getField(Fields.REQUIRED_INPUT).unwrap()),
-              docId);
+              docId,
+              rawDocId);
     };
   }
 
@@ -197,6 +221,15 @@ public class SynonymDocument implements DocumentEncodable {
 
   public Optional<String> getDocId() {
     return this.docId;
+  }
+
+  /**
+   * Returns the raw BsonValue document ID for error reporting.
+   *
+   * @return the raw BsonValue _id
+   */
+  public Optional<BsonValue> getRawDocId() {
+    return this.rawDocId;
   }
 
   @Override

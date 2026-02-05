@@ -1,5 +1,6 @@
 package com.xgen.mongot.index.lucene.document.single;
 
+import static com.google.common.flogger.LazyArgs.lazy;
 import static com.xgen.mongot.util.Check.checkState;
 
 import com.google.common.flogger.FluentLogger;
@@ -168,7 +169,7 @@ public class IndexableFieldFactory {
           pathString.length(),
           LuceneConfig.MAX_TERM_CHAR_LENGTH,
           pathString.substring(0, 20),
-          getLoggingId(document));
+          lazy(() -> getLoggingId(document)));
       return;
     }
 
@@ -247,7 +248,7 @@ public class IndexableFieldFactory {
       FLOGGER.atWarning().atMostEvery(1, TimeUnit.HOURS).log(
           "Truncating value for stringFacet field `%s` because it exceeds limit of %s UTF-16 chars."
               + " _id=%s",
-          path, FacetLabel.MAX_CATEGORY_PATH_LENGTH, getLoggingId(document));
+          path, FacetLabel.MAX_CATEGORY_PATH_LENGTH, lazy(() -> getLoggingId(document)));
       // Take prefix of value. If last char is a high surrogate, Lucene will replace it with 0xFFFD
       String truncatedValue = value.substring(0, maxValueLength);
       document.put(new SortedSetDocValuesFacetField(dimension, truncatedValue));
@@ -303,7 +304,7 @@ public class IndexableFieldFactory {
           LuceneConfig.MAX_TERM_CHAR_LENGTH,
           LuceneConfig.MAX_TERM_CHAR_LENGTH,
           path,
-          getLoggingId(document));
+          lazy(() -> getLoggingId(document)));
     }
 
     String truncatedValue = stringValue.substring(0, end);
@@ -459,7 +460,7 @@ public class IndexableFieldFactory {
       FLOGGER.atWarning().atMostEvery(1, TimeUnit.HOURS).log(
           "nested embeddings are already indexed or invalid: "
               + "only first valid vector field with lucene field name %s is indexed. _id=%s",
-          checkFieldName, getLoggingId(document));
+          checkFieldName, lazy(() -> getLoggingId(document)));
       return;
     }
 
@@ -470,7 +471,7 @@ public class IndexableFieldFactory {
     if (vector.numDimensions() != dimensions) {
       FLOGGER.atWarning().atMostEvery(1, TimeUnit.HOURS).log(
           "Vector dimension mismatch: expected %d, got %d. Skipping. _id=%s",
-          dimensions, vector.numDimensions(), getLoggingId(document));
+          dimensions, vector.numDimensions(), lazy(() -> getLoggingId(document)));
       document.markVectorFieldInvalid(checkFieldName);
       return;
     }
@@ -478,7 +479,7 @@ public class IndexableFieldFactory {
     if (similarity == VectorSimilarity.COSINE && vector.isZeroVector()) {
       FLOGGER.atWarning().atMostEvery(1, TimeUnit.HOURS).log(
           "Cosine similarity does not support zero vectors. Skipping. _id=%s",
-          getLoggingId(document));
+          lazy(() -> getLoggingId(document)));
       document.markVectorFieldInvalid(checkFieldName);
       return;
     }
@@ -502,7 +503,7 @@ public class IndexableFieldFactory {
             FLOGGER.atWarning().atMostEvery(10, TimeUnit.MINUTES).log(
                 "Quantization is only supported for FLOAT vectors but found BYTE vector, "
                     + "skipping. _id=%s",
-                getLoggingId(document));
+                lazy(() -> getLoggingId(document)));
             return;
           }
           String byteVectorFieldName =
@@ -517,13 +518,13 @@ public class IndexableFieldFactory {
             FLOGGER.atWarning().atMostEvery(10, TimeUnit.MINUTES).log(
                 "Quantization is only supported for FLOAT vectors but found BIT vector, "
                     + "skipping. _id=%s",
-                getLoggingId(document));
+                lazy(() -> getLoggingId(document)));
             return;
           }
           if (similarity != VectorSimilarity.EUCLIDEAN) {
             FLOGGER.atWarning().atMostEvery(10, TimeUnit.MINUTES).log(
                 "Cannot index binary vector with %s similarity, skipping. _id=%s",
-                similarity, getLoggingId(document));
+                similarity, lazy(() -> getLoggingId(document)));
             return;
           }
           String bitVectorFieldName =
@@ -537,7 +538,7 @@ public class IndexableFieldFactory {
     } catch (IllegalArgumentException e) {
       FLOGGER.atWarning().atMostEvery(1, TimeUnit.HOURS).withCause(e).log(
           "Unable to create vector field: %s. _id=%s",
-          e.getMessage(), getLoggingId(document));
+          e.getMessage(), lazy(() -> getLoggingId(document)));
       return;
     }
   }

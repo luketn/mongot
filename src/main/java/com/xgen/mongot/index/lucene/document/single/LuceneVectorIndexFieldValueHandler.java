@@ -1,5 +1,7 @@
 package com.xgen.mongot.index.lucene.document.single;
 
+import static com.google.common.flogger.LazyArgs.lazy;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.FluentLogger;
 import com.mongodb.client.model.geojson.Geometry;
@@ -195,7 +197,7 @@ public class LuceneVectorIndexFieldValueHandler implements FieldValueHandler {
           LuceneConfig.MAX_TERM_CHAR_LENGTH,
           LuceneConfig.MAX_TERM_CHAR_LENGTH,
           this.path,
-          IndexableFieldFactory.getLoggingId(this.documentWrapper));
+          lazy(() -> IndexableFieldFactory.getLoggingId(this.documentWrapper)));
     }
 
     String truncatedValue = stringValue.substring(0, end);

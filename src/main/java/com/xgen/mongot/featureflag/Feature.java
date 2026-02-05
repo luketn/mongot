@@ -69,7 +69,8 @@ public enum Feature {
   PHANTOM_REFERENCE_CLEANUP("phantomReferenceCleanup", State.DISABLED),
   FTDC_EXECUTOR_METRICS_TO_PROMETHEUS("ftdcExecutorMetricsToPrometheus", State.DISABLED),
   MAX_STRING_FACET_CARDINALITY_METRIC("enableMaxStringFacetCardinalityMetric", State.DISABLED),
-  INDEX_SIZE_QUANTIZATION_METRICS("enableIndexSizeQuantizationMetrics", State.DISABLED);
+INDEX_SIZE_QUANTIZATION_METRICS("enableIndexSizeQuantizationMetrics", State.DISABLED),
+  LOGGABLE_DOCUMENT_ID("mongotLoggableDocumentId", State.DISABLED);
 
   private final String name;
   private final State defaultState;

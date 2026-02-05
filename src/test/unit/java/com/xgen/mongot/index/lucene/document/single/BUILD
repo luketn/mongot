@@ -27,6 +27,7 @@ java_test_suite(
         "@maven//:org_apache_lucene_lucene_analysis_common",
         "@maven//:org_apache_lucene_lucene_core",
         "@maven//:org_apache_lucene_lucene_facet",
+        "@maven//:org_mockito_mockito_core",
         "@maven//:org_mongodb_bson",
         "@maven//:org_slf4j_slf4j_api",
     ],

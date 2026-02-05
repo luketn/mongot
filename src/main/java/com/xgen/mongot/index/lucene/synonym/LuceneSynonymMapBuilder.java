@@ -14,6 +14,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.synonym.SynonymMap;
 import org.apache.lucene.util.CharsRef;
 import org.apache.lucene.util.CharsRefBuilder;
+import org.bson.BsonValue;
 
 /**
  * A {@link SynonymMapping.Builder} builds {@link SynonymMapping}s from a series of {@link
@@ -55,11 +56,12 @@ public class LuceneSynonymMapBuilder implements SynonymMapping.Builder {
   public SynonymMapping.Builder addDocument(SynonymDocument document)
       throws SynonymMappingException {
     return switch (document.getMappingType()) {
-      case EQUIVALENT -> this.addEquivalent(document.getSynonyms(), document.getDocId());
+      case EQUIVALENT -> this.addEquivalent(document.getSynonyms(), document.getRawDocId());
       case EXPLICIT ->
           // Explicit documents checked to have input in SynonymDocument construction.
           //noinspection OptionalGetWithoutIsPresent
-          this.addExplicit(document.getInput().get(), document.getSynonyms(), document.getDocId());
+          this.addExplicit(
+              document.getInput().get(), document.getSynonyms(), document.getRawDocId());
     };
   }
 
@@ -92,10 +94,10 @@ public class LuceneSynonymMapBuilder implements SynonymMapping.Builder {
    * Collection Specification</a> for more details.
    */
   LuceneSynonymMapBuilder addExplicit(
-      Collection<String> inputs, Collection<String> outputs, Optional<String> docId)
+      Collection<String> inputs, Collection<String> outputs, Optional<BsonValue> rawDocId)
       throws SynonymMappingException {
-    var analyzedInputs = analyze(inputs, docId);
-    var analyzedOutputs = analyze(outputs, docId);
+    var analyzedInputs = analyze(inputs, rawDocId);
+    var analyzedOutputs = analyze(outputs, rawDocId);
 
     analyzedInputs.forEach(input -> add(input, analyzedOutputs));
     return this;
@@ -108,9 +110,9 @@ public class LuceneSynonymMapBuilder implements SynonymMapping.Builder {
    * href="https://github.com/10gen/mongot/blob/master/docs/syntax/synonym-collection.md">Synonym
    * Collection Specification</a> for more details.
    */
-  LuceneSynonymMapBuilder addEquivalent(Collection<String> synonyms, Optional<String> docId)
-      throws SynonymMappingException {
-    List<CharsRef> analyzedSynonyms = analyze(synonyms, docId);
+  LuceneSynonymMapBuilder addEquivalent(
+      Collection<String> synonyms, Optional<BsonValue> rawDocId) throws SynonymMappingException {
+    List<CharsRef> analyzedSynonyms = analyze(synonyms, rawDocId);
 
     analyzedSynonyms.forEach(synonym -> add(synonym, analyzedSynonyms));
     return this;
@@ -129,14 +131,14 @@ public class LuceneSynonymMapBuilder implements SynonymMapping.Builder {
    *     happen if a string is empty after analysis. An IOException might happen if there is an
    *     error iterating over the input token stream.
    */
-  private List<CharsRef> analyze(Collection<String> texts, Optional<String> docId)
+  private List<CharsRef> analyze(Collection<String> texts, Optional<BsonValue> rawDocId)
       throws SynonymMappingException {
     ArrayList<CharsRef> analyzedTexts = new ArrayList<>(texts.size());
     for (String text : texts) {
       try {
         analyzedTexts.add(this.builder.analyzeToCharRef(text));
       } catch (IOException | IllegalArgumentException e) {
-        throw SynonymMappingException.invalidSynonymDocument(docId, e);
+        throw SynonymMappingException.invalidSynonymDocument(rawDocId, e);
       }
     }
     return analyzedTexts;

@@ -1,5 +1,6 @@
 package com.xgen.mongot.index.synonym;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.xgen.testing.BsonSerializationTestSuite.fromEncodable;
 
 import com.xgen.mongot.util.bson.parser.BsonParseContext;
@@ -8,8 +9,10 @@ import com.xgen.testing.BsonDeserializationTestSuite;
 import com.xgen.testing.BsonSerializationTestSuite;
 import com.xgen.testing.mongot.index.synonym.SynonymDocumentBuilder;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.bson.BsonBinary;
+import org.bson.BsonBinarySubType;
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonObjectId;
@@ -27,7 +30,8 @@ import org.junit.runners.Suite;
 @Suite.SuiteClasses(
     value = {
       SynonymDocumentTest.TestDeserialization.class,
-      SynonymDocumentTest.TestSerialization.class
+      SynonymDocumentTest.TestSerialization.class,
+      SynonymDocumentTest.TestIdStringFromBsonValue.class
     })
 public class SynonymDocumentTest {
 
@@ -181,6 +185,85 @@ public class SynonymDocumentTest {
           "explicit",
           SynonymDocumentBuilder.explicit(
               List.of("vehicle", "transportation"), List.of("car", "truck")));
+    }
+  }
+
+  /** Tests for {@link SynonymDocument#idStringFromBsonValue(Optional)}. */
+  public static class TestIdStringFromBsonValue {
+
+    @Test
+    public void idStringFromBsonValue_withStandardUuid_returnsUuidString() {
+      UUID uuid = UUID.fromString("eb6c40ca-f25e-47e8-b48c-02a05b64a5aa");
+      BsonBinary bsonUuid = new BsonBinary(uuid);
+
+      Optional<String> result = SynonymDocument.idStringFromBsonValue(Optional.of(bsonUuid));
+
+      assertThat(result).isPresent();
+      assertThat(result.get()).isEqualTo(uuid.toString());
+    }
+
+    @Test
+    public void idStringFromBsonValue_withLegacyUuid_returnsEmpty() {
+      byte[] uuidBytes =
+          new byte[] {
+            (byte) 0xeb, (byte) 0x6c, (byte) 0x40, (byte) 0xca,
+            (byte) 0xf2, (byte) 0x5e, (byte) 0x47, (byte) 0xe8,
+            (byte) 0xb4, (byte) 0x8c, (byte) 0x02, (byte) 0xa0,
+            (byte) 0x5b, (byte) 0x64, (byte) 0xa5, (byte) 0xaa
+          };
+      BsonBinary legacyUuid = new BsonBinary(BsonBinarySubType.UUID_LEGACY, uuidBytes);
+
+      Optional<String> result = SynonymDocument.idStringFromBsonValue(Optional.of(legacyUuid));
+
+      assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void idStringFromBsonValue_withGenericBinary_returnsEmpty() {
+      byte[] data = new byte[] {0x01, 0x02, 0x03, 0x04};
+      BsonBinary genericBinary = new BsonBinary(BsonBinarySubType.BINARY, data);
+
+      Optional<String> result = SynonymDocument.idStringFromBsonValue(Optional.of(genericBinary));
+
+      assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void idStringFromBsonValue_withEmptyOptional_returnsEmpty() {
+      Optional<String> result = SynonymDocument.idStringFromBsonValue(Optional.empty());
+
+      assertThat(result).isEmpty();
+    }
+
+    @Test
+    public void idStringFromBsonValue_withObjectId_returnsObjectIdString() {
+      ObjectId objectId = new ObjectId("507f191e810c19729de860ea");
+      BsonObjectId bsonObjectId = new BsonObjectId(objectId);
+
+      Optional<String> result = SynonymDocument.idStringFromBsonValue(Optional.of(bsonObjectId));
+
+      assertThat(result).isPresent();
+      assertThat(result.get()).isEqualTo(objectId.toString());
+    }
+
+    @Test
+    public void idStringFromBsonValue_withString_returnsStringValue() {
+      BsonString bsonString = new BsonString("test-id-123");
+
+      Optional<String> result = SynonymDocument.idStringFromBsonValue(Optional.of(bsonString));
+
+      assertThat(result).isPresent();
+      assertThat(result.get()).isEqualTo("test-id-123");
+    }
+
+    @Test
+    public void idStringFromBsonValue_withInt32_returnsStringRepresentation() {
+      BsonInt32 bsonInt = new BsonInt32(12345);
+
+      Optional<String> result = SynonymDocument.idStringFromBsonValue(Optional.of(bsonInt));
+
+      assertThat(result).isPresent();
+      assertThat(result.get()).isEqualTo("12345");
     }
   }
 }

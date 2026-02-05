@@ -64,6 +64,7 @@ import com.xgen.mongot.util.Bytes;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.Crash;
 import com.xgen.mongot.util.GlobalMetricFactory;
+import com.xgen.mongot.util.LoggableIdUtils;
 import com.xgen.mongot.util.MongotVersionResolver;
 import com.xgen.mongot.util.Runtime;
 import com.xgen.mongot.util.Shutdown;
@@ -153,6 +154,10 @@ public class CommunityMongotBootstrapper {
 
     var mongotVersion = MongotVersionResolver.create().getVersion();
     var mongotConfigs = getMongotConfigs(config.storageConfig().dataPath());
+
+    // Initialize global feature flags for utility classes
+    LoggableIdUtils.initialize(
+        mongotConfigs.featureFlags.isEnabled(Feature.LOGGABLE_DOCUMENT_ID));
 
     // metrics
 

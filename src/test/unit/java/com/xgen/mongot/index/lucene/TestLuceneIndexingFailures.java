@@ -38,12 +38,19 @@ import org.bson.BsonObjectId;
 import org.bson.BsonString;
 import org.bson.types.ObjectId;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.ArgumentCaptor;
 
 public class TestLuceneIndexingFailures {
   private static class TestException extends RuntimeException {}
+
+  @BeforeClass
+  public static void setUpClass() {
+    // Enable the loggable document ID feature for tests
+    LoggableIdUtils.initialize(true);
+  }
 
   /**
    * Reset the static rate limiter before each test to ensure tests don't interfere with each other.
@@ -246,8 +253,7 @@ public class TestLuceneIndexingFailures {
   }
 
   @Test
-  public void logIndexingFailureWithRateLimited_bsonObjectId_logsUnloggable() throws Exception {
-    // TODO(CLOUDP-373690): Add back the right legacy and standard UUID handling
+  public void logIndexingFailureWithRateLimited_bsonObjectId_logsHexString() throws Exception {
     var indexingMetricsUpdater =
         SearchIndex.mockIndexingMetricsUpdater(MOCK_INDEX_DEFINITION.getType());
 
@@ -291,7 +297,8 @@ public class TestLuceneIndexingFailures {
         .when(spyLuceneWriter).updateDocuments(any(org.apache.lucene.index.Term.class), any());
 
     // Test with BsonObjectId _id
-    BsonObjectId objectId = new BsonObjectId(new ObjectId());
+    ObjectId objectIdValue = new ObjectId();
+    BsonObjectId objectId = new BsonObjectId(objectIdValue);
     BsonDocument doc2 = new BsonDocument();
     doc2.append(
         MOCK_INDEX_DEFINITION.getIndexId().toString(), new BsonDocument("_id", objectId));
@@ -305,11 +312,11 @@ public class TestLuceneIndexingFailures {
               rawDoc2));
     });
 
-    // Verify that doLogIndexingFailure was called with "unloggable" due to temporary hotfix
+    // Verify that doLogIndexingFailure was called with the ObjectId hex string
     verify(spyWriter).doLogIndexingFailure(
         any(TestException.class),
         eq("INSERT"),
-        eq(LoggableIdUtils.UNLOGGABLE_ID_TYPE));
+        eq(objectIdValue.toHexString()));
   }
 
   @Test

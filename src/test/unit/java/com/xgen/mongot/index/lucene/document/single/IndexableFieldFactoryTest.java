@@ -7,6 +7,9 @@ import static org.apache.lucene.facet.taxonomy.FacetLabel.MAX_CATEGORY_PATH_LENG
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -39,6 +42,7 @@ import org.bson.BsonInt32;
 import org.bson.BsonObjectId;
 import org.bson.BsonString;
 import org.bson.BsonValue;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.theories.DataPoints;
 import org.junit.experimental.theories.Theories;
@@ -47,8 +51,15 @@ import org.slf4j.LoggerFactory;
 
 @RunWith(Theories.class)
 public class IndexableFieldFactoryTest {
+
+  @BeforeClass
+  public static void setUpClass() {
+    // Enable the loggable document ID feature for tests
+    LoggableIdUtils.initialize(true);
+  }
+
   private static final byte[] DUMMY_ENCODED_BYTES = { // corresponds to BsonInt32(13)
-      14, 0, 0, 0, 16, 95, 105, 100, 0, 13, 0, 0, 0, 0
+    14, 0, 0, 0, 16, 95, 105, 100, 0, 13, 0, 0, 0, 0
   };
 
   // Logger that directly connects to logBack of IndexableFieldFactory to verify that flogger is
@@ -106,6 +117,37 @@ public class IndexableFieldFactoryTest {
 
     // two very-long messages sent, only the first should be logged due to rate-limit
     assertEquals(1L, count);
+  }
+
+  /**
+   * Verifies that getLoggingId is NOT called during normal indexing when no warnings are triggered.
+   *
+   * <p>This validates the lazy evaluation pattern: lazy(() -> getLoggingId(wrapper)) should only
+   * evaluate when a log statement actually fires. During normal indexing with valid data, no
+   * warnings are logged, so the lazy supplier should never be invoked.
+   */
+  @Test
+  public void addFieldNamesField_normalIndexing_getLoggingIdNotCalled() {
+    // Arrange: create a spied wrapper to track method invocations
+    DocumentWrapper realWrapper =
+        DocumentWrapper.createRootStandalone(
+            DUMMY_ENCODED_BYTES,
+            new KeywordAnalyzer(),
+            SearchIndex.MOCK_INDEX_DEFINITION.createFieldDefinitionResolver(
+                IndexFormatVersion.CURRENT),
+            new IndexingMetricsUpdater(
+                SearchIndex.mockMetricsFactory(), IndexDefinition.Type.SEARCH));
+    DocumentWrapper spyWrapper = spy(realWrapper);
+
+    // Normal field name (not exceeding max length) - no warning should be triggered
+    FieldPath normalPath = FieldPath.newRoot("normalFieldName");
+
+    // Act: perform normal indexing
+    IndexableFieldFactory.addFieldNamesField(spyWrapper, normalPath);
+
+    // Assert: getRootId should never be called because no log was emitted,
+    // so the lazy(() -> getLoggingId(wrapper)) supplier was never evaluated
+    verify(spyWrapper, never()).getRootId();
   }
 
   @Test
@@ -947,9 +989,8 @@ public class IndexableFieldFactoryTest {
   }
 
   @Test
-  public void getLoggingId_withObjectId_returnsUnloggable() {
+  public void getLoggingId_withObjectId_returnsHexString() {
     // Test with ObjectId
-    // TODO(CLOUDP-373690): Update this test when proper UUID handling is restored
     org.bson.types.ObjectId objectIdValue = new org.bson.types.ObjectId();
     BsonObjectId objectId = new BsonObjectId(objectIdValue);
     byte[] encodedId = LuceneDocumentIdEncoder.encodeDocumentId(objectId);
@@ -961,10 +1002,10 @@ public class IndexableFieldFactoryTest {
                 SearchIndex.mockMetricsFactory(), IndexDefinition.Type.SEARCH));
 
     String loggingId = IndexableFieldFactory.getLoggingId(wrapper);
-    // ObjectId currently returns unloggable due to temporary hotfix
+    // ObjectId is returned as hex string
     assertThat(loggingId).isNotNull();
     assertThat(loggingId).isNotEmpty();
-    assertThat(loggingId).isEqualTo(LoggableIdUtils.UNLOGGABLE_ID_TYPE);
+    assertThat(loggingId).isEqualTo(objectIdValue.toHexString());
   }
 
   @Test
@@ -990,10 +1031,8 @@ public class IndexableFieldFactoryTest {
 
   @Test
   public void getLoggingId_withLegacyUuid_returnsUnloggable() {
-    // TODO(CLOUDP-373690): Add back the right legacy and standard UUID handling
-    // Test with legacy UUID (subtype 3) - this previously threw a runtime exception
-    // because asUuid() doesn't know the byte order for legacy UUIDs without explicit
-    // UuidRepresentation
+    // Test with legacy UUID (subtype 3) - returns "unloggable" because
+    // asUuid() can't determine byte order for legacy UUIDs without explicit UuidRepresentation
     byte[] uuidBytes = new byte[] {
         (byte) 0xeb, (byte) 0x6c, (byte) 0x40, (byte) 0xca,
         (byte) 0xf2, (byte) 0x5e, (byte) 0x47, (byte) 0xe8,
@@ -1011,7 +1050,51 @@ public class IndexableFieldFactoryTest {
             new IndexingMetricsUpdater(
                 SearchIndex.mockMetricsFactory(), IndexDefinition.Type.SEARCH));
 
-    // This should NOT throw an exception anymore - instead returns "unloggable"
+    // Legacy UUID returns "unloggable" because byte order is ambiguous
+    String loggingId = IndexableFieldFactory.getLoggingId(wrapper);
+    assertThat(loggingId).isNotNull();
+    assertThat(loggingId).isNotEmpty();
+    assertThat(loggingId).isEqualTo(LoggableIdUtils.UNLOGGABLE_ID_TYPE);
+  }
+
+  @Test
+  public void getLoggingId_withStandardUuid_returnsUuidString() {
+    // Test with standard UUID (subtype 4) - should return the UUID string
+    java.util.UUID uuid = java.util.UUID.fromString("eb6c40ca-f25e-47e8-b48c-02a05b64a5aa");
+    BsonBinary standardUuid = new BsonBinary(uuid);
+    byte[] encodedId = LuceneDocumentIdEncoder.encodeDocumentId(standardUuid);
+    DocumentWrapper wrapper =
+        DocumentWrapper.createRootStandalone(
+            encodedId,
+            new KeywordAnalyzer(),
+            SearchIndex.MOCK_INDEX_DEFINITION.createFieldDefinitionResolver(
+                IndexFormatVersion.CURRENT),
+            new IndexingMetricsUpdater(
+                SearchIndex.mockMetricsFactory(), IndexDefinition.Type.SEARCH));
+
+    // Standard UUID should return the UUID string
+    String loggingId = IndexableFieldFactory.getLoggingId(wrapper);
+    assertThat(loggingId).isNotNull();
+    assertThat(loggingId).isNotEmpty();
+    assertThat(loggingId).isEqualTo(uuid.toString());
+  }
+
+  @Test
+  public void getLoggingId_withOtherBinarySubtype_returnsUnloggable() {
+    // Test with generic binary data (subtype 0) - should return "unloggable"
+    byte[] binaryData = new byte[] {0x01, 0x02, 0x03, 0x04};
+    BsonBinary genericBinary = new BsonBinary(BsonBinarySubType.BINARY, binaryData);
+    byte[] encodedId = LuceneDocumentIdEncoder.encodeDocumentId(genericBinary);
+    DocumentWrapper wrapper =
+        DocumentWrapper.createRootStandalone(
+            encodedId,
+            new KeywordAnalyzer(),
+            SearchIndex.MOCK_INDEX_DEFINITION.createFieldDefinitionResolver(
+                IndexFormatVersion.CURRENT),
+            new IndexingMetricsUpdater(
+                SearchIndex.mockMetricsFactory(), IndexDefinition.Type.SEARCH));
+
+    // Non-UUID binary types should return "unloggable"
     String loggingId = IndexableFieldFactory.getLoggingId(wrapper);
     assertThat(loggingId).isNotNull();
     assertThat(loggingId).isNotEmpty();
