@@ -126,7 +126,7 @@ OPEN_TELEMETRY_ARTIFACTS = (
 
 MISC_ARTIFACTS = [
     "com.uber.nullaway:nullaway:0.12.15",
-    "ch.qos.logback:logback-classic:1.5.19",
+    "ch.qos.logback:logback-classic:1.5.25",
     "net.logstash.logback:logstash-logback-encoder:8.1",
     "org.slf4j:slf4j-api:2.0.17",
     "org.slf4j:jul-to-slf4j:2.0.17",
