@@ -74,12 +74,24 @@ def update_test_case(directory, test_file, test_case, actual):
       # Load the JSON data into a Python dictionary
       data = json.load(file)
       for case in data['tests']:
+        # First try exact match
         if case["name"] == test_case:
           updated = json.loads(actual, object_pairs_hook=OrderedDict)
           updated.pop('metadata', None)  # Don't include metadata for testing
           case['result']["explain"] = updated
           done = True
           break
+        # For tests with shardZoneConfigs, the test name includes the zone config name as a suffix.
+        # Try matching by checking if the test_case starts with the case name and has a suffix.
+        # e.g., test_case="numCandidates-higher-than-limit_docsOneShard" should match case name "numCandidates-higher-than-limit"
+        if test_case.startswith(case["name"] + "_") and "shardZoneConfigs" in case:
+          zone_config_suffix = test_case[len(case["name"]) + 1:]
+          if zone_config_suffix in case["shardZoneConfigs"]:
+            updated = json.loads(actual, object_pairs_hook=OrderedDict)
+            updated.pop('metadata', None)  # Don't include metadata for testing
+            case['result']["explain"] = updated
+            done = True
+            break
     if not done:
       print("ERROR: could not find test case in file")
       return

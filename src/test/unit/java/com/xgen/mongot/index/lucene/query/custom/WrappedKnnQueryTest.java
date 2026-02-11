@@ -1,5 +1,6 @@
 package com.xgen.mongot.index.lucene.query.custom;
 
+import com.google.common.truth.Truth;
 import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.query.VectorSearchQuery;
 import com.xgen.mongot.util.FieldPath;
@@ -63,10 +64,13 @@ public class WrappedKnnQueryTest {
     WrappedKnnQuery wrappedKnnQuery = new WrappedKnnQuery(query);
     Query rewritten = wrappedKnnQuery.rewrite(searcher);
     Assert.assertNotEquals("KnnFloatVectorQuery should be rewritten", wrappedKnnQuery, rewritten);
+
+    Truth.assertThat(rewritten).isInstanceOf(WrappedKnnQuery.class);
+    WrappedKnnQuery wrappedRewritten = (WrappedKnnQuery) rewritten;
     Assert.assertEquals(
         "KnnFloatVectorQuery rewrites to MatchNoDocsQuery when there's no documents to return",
         MatchNoDocsQuery.class.getName(),
-        rewritten.getClass().getName());
+        wrappedRewritten.getQuery().getClass().getName());
   }
 
   private static Query knnQuery(float[] target, int k) {

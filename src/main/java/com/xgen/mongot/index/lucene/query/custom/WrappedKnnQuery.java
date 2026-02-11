@@ -30,9 +30,12 @@ public class WrappedKnnQuery extends Query {
 
   @Override
   public Query rewrite(IndexSearcher indexSearcher) throws IOException {
-    // NB: this implementation always result in unwrapping `this`, which is wrong.
-    // It should look more like the implementation below.
-    return this.query.rewrite(indexSearcher);
+    Query rewrittenQuery = this.query.rewrite(indexSearcher);
+    if (!Objects.equals(this.query, rewrittenQuery)) {
+      return new WrappedKnnQuery(rewrittenQuery);
+    }
+
+    return this;
   }
 
   @Override
