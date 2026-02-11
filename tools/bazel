@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Bazelisk hook to retry external repository fetches on transient network failures.
+#
+# GitHub release URLs have no SLA and can return 502/503/504 errors sporadically.
+# Vanilla Bazel only retries on specific exceptions (SocketException, ContentLengthMismatchException),
+# but 502 errors throw generic IOException which it does NOT retry.
+#
+# This wrapper runs `bazel fetch` with retries before the actual command to work around
+# this limitation until we switch to a custom Bazel binary with broader retry logic.
+#
+# TEMPORARY WORKAROUND: This script is a stopgap until we migrate to a custom 8.x-mongo
+# Bazel binary that has proper retry logic for all IOException types.
+#
+# Reference:
+# - MongoDB Bazel fork retry patch: https://github.com/mongodb-forks/bazel/commit/07a4bcb854c686c7a691d0b5b9ec93a3eedbadc3
+# - MMS tools/bazel: https://github.com/10gen/mms/pull/155324
+
+set -eu
+
+# Avoid git confusion when running inside a git repo
+# Only unset if they exist to avoid errors with set -u
+[ -n "${GIT_INDEX_FILE:-}" ] && unset GIT_INDEX_FILE || true
+[ -n "${GIT_DIR:-}" ] && unset GIT_DIR || true
+
+prefetch_targets_with_retries() {
+  # Only prefetch for commands that take target patterns.
+  # This is intentionally conservative to avoid breaking commands like `query` or `info`.
+  local bazel_command="${1:-}"
+  case "$bazel_command" in
+    build|test|run|coverage) ;;
+    *) return 0 ;;
+  esac
+
+  # For `bazel run`, arguments after `--` are passed to the executable and must not be forwarded
+  # to `bazel fetch`. We stop at the first `--` and only pass Bazel flags/targets.
+  local -a fetch_args
+  fetch_args=()
+  local arg
+  for arg in "${@:2}"; do
+    if [ "$arg" = "--" ]; then
+      break
+    fi
+    fetch_args+=("$arg")
+  done
+  if [ "${#fetch_args[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  local -a fetch_command
+  fetch_command=("$BAZEL_REAL" fetch "${fetch_args[@]}")
+
+  local attempt bazel_fetch_exit_code sleep_time
+  echo >&2 "=== Bazel repo prefetch: START ==="
+  for attempt in 1 2 3 4 5; do
+    if "${fetch_command[@]}" 1>&2; then
+      echo >&2 "=== Bazel repo prefetch: DONE ==="
+      return 0
+    fi
+    bazel_fetch_exit_code=$?
+    if [ "$attempt" -eq 5 ]; then
+      echo >&2 "=== Bazel repo prefetch: DONE (failed; continuing) ==="
+      return "$bazel_fetch_exit_code"
+    fi
+    sleep_time=$((attempt * 2))
+    echo >&2 "Bazel repo prefetch: Attempt $attempt failed, retrying in ${sleep_time}s..."
+    sleep "$sleep_time"
+  done
+}
+
+# Verify BAZEL_REAL is set (should be set by Bazelisk)
+if [ -z "${BAZEL_REAL:-}" ]; then
+  echo >&2 "ERROR: BAZEL_REAL is not set. This script must be invoked by Bazelisk."
+  exit 1
+fi
+
+# Detect CI environment (Evergreen, GitHub Actions, GitLab CI, etc.)
+# Evergreen sets task_id, GitHub Actions sets GITHUB_ACTIONS, GitLab sets CI
+if [ -n "${CI:-}" ] || [ -n "${task_id:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
+  prefetch_targets_with_retries "$@" || true
+fi
+
+exec "$BAZEL_REAL" "$@"
