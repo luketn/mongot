@@ -9,10 +9,13 @@
 
 import argparse
 import json
-import os
 import sys
-from datetime import datetime
 from pathlib import Path
+
+# Add the script's directory to the path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+import create_request_util
 
 
 def usage(script_name):
@@ -21,13 +24,13 @@ def usage(script_name):
 Required:
   --generation-id <id>        Index generation ID
   --index-def <path>          Path to JSON file with full index definition
+  --requested-at <string>     Timestamp
+  --requested-by <string>     Who created the request
+  --reason <string>           Reason for the request
 
 Optional:
   --percentage <0.0-100.0>    Force merge deletes percentage. Segments with
                                deletes above this threshold will be force merged.
-  --requested-at <string>     Timestamp
-  --requested-by <string>     Who created the request
-  --reason <string>           Reason for the request
   --output <path>             Output file path (default:
                                ./request_<generation-id>_<timestamp>.json)
 
@@ -88,25 +91,8 @@ def main():
         "--percentage",
         type=str,
         help="Force merge deletes percentage (0.0-100.0)")
-    parser.add_argument(
-        "--requested-at",
-        type=str,
-        help="Timestamp")
-    parser.add_argument(
-        "--requested-by",
-        type=str,
-        help="Who created the request")
-    parser.add_argument(
-        "--reason",
-        type=str,
-        help="Reason for the request")
-    parser.add_argument(
-        "--output",
-        type=Path,
-        help=(
-            "Output file path (default: "
-            "./request_<generation-id>_<timestamp>.json)"))
 
+    create_request_util.add_metadata_arguments(parser)
     args = parser.parse_args()
 
     # Validate percentage if provided
@@ -121,21 +107,6 @@ def main():
         print(
             "Note: --percentage not provided, the default value of the tool will be used",
             file=sys.stderr)
-
-    # Set default output file if not specified
-    if args.output:
-        output_file = args.output
-    else:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        # When running via bazel run, use the repository root if available,
-        # otherwise use current working directory
-        repo_root = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
-        if repo_root:
-            output_file = Path(repo_root) / (
-                f"request_{args.generation_id}_{timestamp}.json")
-        else:
-            output_file = Path(f"request_{args.generation_id}_{timestamp}.json")
-        print(f"Note: Using default output file: {output_file}", file=sys.stderr)
 
     # Validate and load index definition
     index_def_path = args.index_def
@@ -177,38 +148,11 @@ def main():
     if percentage_value is not None:
         request_json["forceMergeDeletesPctAllowed"] = percentage_value
 
-    # Add metadata if any field is provided
-    if args.requested_at or args.requested_by or args.reason:
-        metadata = {}
-        if args.requested_at:
-            metadata["requestedAt"] = args.requested_at
-        if args.requested_by:
-            metadata["requestedBy"] = args.requested_by
-        if args.reason:
-            metadata["reason"] = args.reason
-        request_json["metadata"] = metadata
-    else:
-        print(
-            "Note: No metadata fields provided, request will not include metadata",
-            file=sys.stderr)
+    output_file = create_request_util.set_output_file(args.output,
+                                                      args.generation_id)
 
-    # Write file
-    try:
-        # Ensure parent directory exists
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_file, "w") as f:
-            json.dump(request_json, f, indent=2)
-            f.write("\n")
-    except OSError as e:
-        print(f"Error: Failed to write output file: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    print(f"Request created: {output_file}")
-    print("")
-    print("Next steps:")
-    print("  1. Review the generated JSON file")
-    print("  2. Provide this file to cloud operations engineers")
-    print("  3. COE will place it in: <mongot-data-path>/maintenance/pending/")
+    create_request_util.add_metadata_to_request(request_json, args)
+    create_request_util.write_request_file(request_json, output_file)
 
 
 if __name__ == "__main__":
