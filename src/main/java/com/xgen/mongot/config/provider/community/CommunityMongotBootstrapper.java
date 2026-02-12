@@ -157,8 +157,7 @@ public class CommunityMongotBootstrapper {
     var mongotConfigs = getMongotConfigs(config.storageConfig().dataPath());
 
     // Initialize global feature flags for utility classes
-    LoggableIdUtils.initialize(
-        mongotConfigs.featureFlags.isEnabled(Feature.LOGGABLE_DOCUMENT_ID));
+    LoggableIdUtils.initialize(mongotConfigs.featureFlags.isEnabled(Feature.LOGGABLE_DOCUMENT_ID));
 
     // metrics
 
@@ -236,6 +235,10 @@ public class CommunityMongotBootstrapper {
             embeddingServiceManagerSupplier,
             isAutoEmbeddingViewWriter);
 
+    var metadataUpdater =
+        new CommunityMetadataUpdater(
+            serverInfo, metadataService, configManager, meterRegistry, Duration.ofSeconds(30));
+
     // Create different servers that will service $search requests from the mongod, as
     // well as some other requests (e.g. some from the proxy), but do not start them yet.
     var healthManager = new HealthManager(configManager, meterRegistry);
@@ -274,6 +277,7 @@ public class CommunityMongotBootstrapper {
         () -> systemMetricsInstrumentation.ifPresent(SystemMetricsInstrumentation::stop),
         () -> prometheusServerOptional.ifPresent(PrometheusServer::shutdown),
         () -> ftdcReporterLifecycle.ifPresent(f -> f.stop.run()),
+        metadataUpdater::stop,
         configManager::close,
         healthCheckServer::stop,
         diskMonitor::stop,
@@ -282,6 +286,7 @@ public class CommunityMongotBootstrapper {
 
     // Start our background processes.
     configMonitor.start();
+    metadataUpdater.start();
     serverLifecycles.start.run();
     ftdcReporterLifecycle.ifPresent(f -> f.start.run());
 

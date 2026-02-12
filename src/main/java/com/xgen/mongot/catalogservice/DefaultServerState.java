@@ -24,8 +24,13 @@ public class DefaultServerState implements ServerState {
   }
 
   @Override
-  public void insert(ServerStateEntry serverStatus) throws MetadataServiceException {
-    this.client.insert(serverStatus);
+  public void insert(ServerStateEntry serverState) throws MetadataServiceException {
+    this.client.insert(serverState);
+  }
+
+  @Override
+  public void upsert(ServerStateEntry serverState) throws MetadataServiceException {
+    this.client.replace(serverState.toIdFilter(), serverState, true);
   }
 
   @Override

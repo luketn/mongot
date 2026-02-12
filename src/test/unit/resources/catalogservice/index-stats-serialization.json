@@ -89,7 +89,6 @@
             },
             "indexFeatureVersion": 0
           },
-          "synonymStatus": "READY",
           "synonymDetailedStatusMap": {
             "index1": {
               "statusCode": "INITIAL_SYNC",
@@ -132,7 +131,6 @@
             },
             "indexFeatureVersion": 0
           },
-          "synonymStatus": "READY",
           "synonymDetailedStatusMap": {
             "index1": {
               "statusCode": "INITIAL_SYNC",
@@ -274,7 +272,6 @@
             },
             "indexFeatureVersion": 0
           },
-          "synonymStatus": "READY",
           "synonymDetailedStatusMap": {
             "index1": {
               "statusCode": "INITIAL_SYNC",
@@ -299,7 +296,6 @@
             },
             "indexFeatureVersion": 0
           },
-          "synonymStatus": "READY",
           "synonymDetailedStatusMap": {
             "index1": {
               "statusCode": "INITIAL_SYNC",
@@ -342,7 +338,6 @@
             },
             "indexFeatureVersion": 0
           },
-          "synonymStatus": "READY",
           "synonymDetailedStatusMap": {
             "index1": {
               "statusCode": "INITIAL_SYNC",
@@ -374,7 +369,6 @@
             },
             "indexFeatureVersion": 0
           },
-          "synonymStatus": "READY",
           "synonymDetailedStatusMap": {
             "index1": {
               "statusCode": "INITIAL_SYNC",
@@ -607,6 +601,48 @@
             "indexFeatureVersion": 3
           }
         }
+      }
+    },
+    {
+      "description": "search index with empty main index",
+      "json": {
+        "_id": {
+          "serverId": "695301d3bb11192ef11c42f6",
+          "indexId": "695301d3bb11192ef11c42f7"
+        },
+        "type": "SEARCH"
+      },
+      "bson": {
+        "_id": {
+          "serverId": {
+            "$oid": "695301d3bb11192ef11c42f6"
+          },
+          "indexId": {
+            "$oid": "695301d3bb11192ef11c42f7"
+          }
+        },
+        "type": "SEARCH"
+      }
+    },
+    {
+      "description": "vector index with empty main index",
+      "json": {
+        "_id": {
+          "serverId": "695301d3bb11192ef11c42f6",
+          "indexId": "695301d3bb11192ef11c42f7"
+        },
+        "type": "VECTOR_SEARCH"
+      },
+      "bson": {
+        "_id": {
+          "serverId": {
+            "$oid": "695301d3bb11192ef11c42f6"
+          },
+          "indexId": {
+            "$oid": "695301d3bb11192ef11c42f7"
+          }
+        },
+        "type": "VECTOR_SEARCH"
       }
     }
   ]

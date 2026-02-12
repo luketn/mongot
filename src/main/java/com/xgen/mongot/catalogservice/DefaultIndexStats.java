@@ -7,6 +7,9 @@ import com.mongodb.client.model.Indexes;
 import com.xgen.mongot.util.bson.parser.BsonDocumentParser;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.bson.BsonDocument;
 import org.slf4j.Logger;
@@ -30,8 +33,39 @@ public class DefaultIndexStats implements IndexStats {
   }
 
   @Override
+  public void upsertAll(Set<IndexStatsEntry> indexStats) throws MetadataServiceException {
+    Map<BsonDocument, IndexStatsEntry> replaceMap;
+    try {
+      replaceMap =
+          indexStats.stream()
+              .collect(
+                  Collectors.toMap(
+                      i -> IndexStatsEntry.keyAsBson(i.key()),
+                      i -> i,
+                      (i1, i2) -> {
+                        LOG.atWarn()
+                            .addKeyValue("key", i1.key())
+                            .addKeyValue("entry1", i1)
+                            .addKeyValue("entry2", i2)
+                            .log("Duplicate index stats entries in provided list");
+                        throw new IllegalArgumentException("Duplicate entries in index stats list");
+                      }));
+    } catch (IllegalArgumentException e) {
+      throw MetadataServiceException.createFailed(e);
+    }
+
+    this.client.bulkReplace(replaceMap, false, true);
+  }
+
+  @Override
   public void delete(IndexStatsEntry.IndexStatsKey key) throws MetadataServiceException {
     this.client.delete(IndexStatsEntry.keyAsBson(key));
+  }
+
+  @Override
+  public void deleteAll(Set<IndexStatsEntry.IndexStatsKey> keys) throws MetadataServiceException {
+    List<BsonDocument> deleteFilters = keys.stream().map(IndexStatsEntry::keyAsBson).toList();
+    this.client.bulkDelete(deleteFilters, false);
   }
 
   @Override

@@ -38,7 +38,7 @@ public class DefaultAuthoritativeIndexCatalog implements AuthoritativeIndexCatal
       throws MetadataServiceException {
     IndexEntry entry =
         new IndexEntry(indexKey, definition.getIndexId(), CURRENT_WRITTEN_VERSION, definition);
-    this.aicMongoClient.replace(entry.keyBson(), entry);
+    this.aicMongoClient.replace(entry.keyBson(), entry, false);
   }
 
   @Override

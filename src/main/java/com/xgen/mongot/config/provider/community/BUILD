@@ -5,6 +5,7 @@ java_library(
     srcs = [
         "CommunityConfig.java",
         "CommunityConfigUpdater.java",
+        "CommunityMetadataUpdater.java",
         "CommunityMongotBootstrapper.java",
         "CommunityServerIdProvider.java",
         "CommunityServerInfo.java",
@@ -21,6 +22,7 @@ java_library(
     ],
     visibility = ["//visibility:public"],
     exports = [
+        "//src/main/java/com/xgen/mongot/catalogservice",
         "//src/main/java/com/xgen/mongot/config/util",
         "//src/main/java/com/xgen/mongot/embedding/providers",
         "//src/main/java/com/xgen/mongot/embedding/providers/configs",
@@ -44,6 +46,7 @@ java_library(
         "//src/main/java/com/xgen/mongot/embedding/providers/configs",
         "//src/main/java/com/xgen/mongot/featureflag",
         "//src/main/java/com/xgen/mongot/featureflag/dynamic",
+        "//src/main/java/com/xgen/mongot/index",
         "//src/main/java/com/xgen/mongot/index/definition",
         "//src/main/java/com/xgen/mongot/index/definition/config",
         "//src/main/java/com/xgen/mongot/index/lucene/config",

@@ -12,6 +12,7 @@ java_library(
         "IndexEntry.java",
         "IndexStats.java",
         "IndexStatsEntry.java",
+        "IndexStatsEntryMapper.java",
         "MetadataClient.java",
         "MetadataService.java",
         "MetadataServiceException.java",
@@ -24,6 +25,7 @@ java_library(
         "@maven//:org_mongodb_bson",
     ],
     deps = [
+        "//src/main/java/com/xgen/mongot/index",
         "//src/main/java/com/xgen/mongot/index/definition",
         "//src/main/java/com/xgen/mongot/index/status",
         "//src/main/java/com/xgen/mongot/index/synonym",

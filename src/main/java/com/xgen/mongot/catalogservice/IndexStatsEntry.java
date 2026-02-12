@@ -2,7 +2,6 @@ package com.xgen.mongot.catalogservice;
 
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.status.IndexStatus;
-import com.xgen.mongot.index.status.SynonymStatus;
 import com.xgen.mongot.index.synonym.SynonymDetailedStatus;
 import com.xgen.mongot.util.bson.parser.BsonDocumentBuilder;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
@@ -14,12 +13,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.bson.BsonDocument;
+import org.bson.BsonObjectId;
 import org.bson.types.ObjectId;
 
 public record IndexStatsEntry(
     IndexStatsKey key,
     IndexDefinition.Type type,
-    DetailedIndexStats mainIndex,
+    Optional<DetailedIndexStats> mainIndex,
     Optional<DetailedIndexStats> stagedIndex)
     implements DocumentEncodable {
 
@@ -37,11 +37,12 @@ public record IndexStatsEntry(
     static final Field.Required<IndexDefinition.Type> TYPE =
         Field.builder("type").enumField(IndexDefinition.Type.class).asUpperUnderscore().required();
 
-    static final Field.Required<DetailedIndexStats> MAIN_INDEX =
+    static final Field.Optional<DetailedIndexStats> MAIN_INDEX =
         Field.builder("mainIndex")
             .classField(DetailedIndexStats::fromBson)
             .allowUnknownFields()
-            .required();
+            .optional()
+            .noDefault();
 
     static final Field.Optional<DetailedIndexStats> STAGED_INDEX =
         Field.builder("stagedIndex")
@@ -71,6 +72,13 @@ public record IndexStatsEntry(
 
   public static BsonDocument keyAsBson(IndexStatsKey indexKey) {
     return BsonDocumentBuilder.builder().field(Fields.INDEX_STATS_KEY, indexKey).build();
+  }
+
+  public static BsonDocument serverIdFilter(ObjectId serverId) {
+    return new BsonDocument()
+        .append(
+            Fields.INDEX_STATS_KEY.getName() + "." + IndexStatsKey.Fields.SERVER_ID.getName(),
+            new BsonObjectId(serverId));
   }
 
   @Override
@@ -131,7 +139,6 @@ public record IndexStatsEntry(
   public record DetailedIndexStats(
       IndexStatus status,
       IndexDefinition definition,
-      Optional<SynonymStatus> synonymStatus,
       Optional<Map<String, SynonymDetailedStatus>> synonymDetailedStatusMap)
       implements DocumentEncodable {
 
@@ -144,13 +151,6 @@ public record IndexStatsEntry(
               .classField(IndexDefinition::fromBson)
               .allowUnknownFields()
               .required();
-
-      static final Field.Optional<SynonymStatus> SYNONYM_STATUS =
-          Field.builder("synonymStatus")
-              .enumField(SynonymStatus.class)
-              .asUpperUnderscore()
-              .optional()
-              .noDefault();
 
       static final Field.Optional<Map<String, SynonymDetailedStatus>> SYNONYM_DETAILED_STATUS_MAP =
           Field.builder("synonymDetailedStatusMap")
@@ -167,7 +167,6 @@ public record IndexStatsEntry(
       return new DetailedIndexStats(
           parser.getField(Fields.INDEX_STATUS).unwrap(),
           parser.getField(Fields.INDEX_DEFINITION).unwrap(),
-          parser.getField(Fields.SYNONYM_STATUS).unwrap(),
           parser.getField(Fields.SYNONYM_DETAILED_STATUS_MAP).unwrap());
     }
 
@@ -176,7 +175,6 @@ public record IndexStatsEntry(
       return BsonDocumentBuilder.builder()
           .field(Fields.INDEX_STATUS, this.status)
           .field(Fields.INDEX_DEFINITION, this.definition)
-          .field(Fields.SYNONYM_STATUS, this.synonymStatus)
           .field(Fields.SYNONYM_DETAILED_STATUS_MAP, this.synonymDetailedStatusMap)
           .build();
     }
@@ -189,14 +187,12 @@ public record IndexStatsEntry(
       DetailedIndexStats entry = (DetailedIndexStats) o;
       return Objects.equals(this.status, entry.status)
           && Objects.equals(this.definition, entry.definition)
-          && Objects.equals(this.synonymStatus, entry.synonymStatus)
           && Objects.equals(this.synonymDetailedStatusMap, entry.synonymDetailedStatusMap);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(
-          this.status, this.definition, this.synonymStatus, this.synonymDetailedStatusMap);
+      return Objects.hash(this.status, this.definition, this.synonymDetailedStatusMap);
     }
   }
 }

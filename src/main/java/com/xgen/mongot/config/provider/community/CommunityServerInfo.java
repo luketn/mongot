@@ -1,5 +1,7 @@
 package com.xgen.mongot.config.provider.community;
 
+import com.xgen.mongot.catalogservice.ServerStateEntry;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 import org.bson.types.ObjectId;
@@ -31,6 +33,15 @@ public record CommunityServerInfo(ObjectId id, Optional<String> name) {
    */
   public String getExternalName() {
     return this.name.orElse(this.id.toHexString());
+  }
+
+  /**
+   * Generates a ServerStateEntry based on this server info with the latest heartbeat ts.
+   *
+   * @return A server state entry with the latest heartbeat ts
+   */
+  public ServerStateEntry generateServerStateEntry() {
+    return new ServerStateEntry(this.id, this.getExternalName(), Instant.now());
   }
 
   @Override

@@ -7,7 +7,18 @@ import org.bson.types.ObjectId;
 public interface ServerState {
 
   /** Inserts a new server state entry into the metadata collection */
-  void insert(ServerStateEntry indexStats) throws MetadataServiceException;
+  void insert(ServerStateEntry serverState) throws MetadataServiceException;
+
+  /**
+   * Inserts a server state entry into the collection if it doesn't exist, otherwise replaces the
+   * existing server state entry with the provided one.
+   *
+   * <p>Uses the serverId as the filter to find matches so if there is an entry with the same
+   * serverId but different serverName it will replace the previous entry with the new one.
+   *
+   * @param serverState server state entry to upsert into the collection.
+   */
+  void upsert(ServerStateEntry serverState) throws MetadataServiceException;
 
   /**
    * Deletes a server state entry from the metadata collection.

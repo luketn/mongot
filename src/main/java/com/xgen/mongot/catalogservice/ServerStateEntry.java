@@ -39,6 +39,14 @@ public record ServerStateEntry(ObjectId serverId, String serverName, Instant las
         .build();
   }
 
+  /**
+   * Generates a doc to filter ServerStateEntries based on the unique server-id for the current
+   * server.
+   */
+  public BsonDocument toIdFilter() {
+    return BsonDocumentBuilder.builder().field(Fields.ID, this.serverId).build();
+  }
+
   public static ServerStateEntry fromBson(DocumentParser parser) throws BsonParseException {
     return new ServerStateEntry(
         parser.getField(Fields.ID).unwrap(),

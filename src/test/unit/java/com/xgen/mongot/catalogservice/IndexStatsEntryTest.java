@@ -52,7 +52,9 @@ public class IndexStatsEntryTest {
           simpleSearchIndexWithStaged(),
           simpleSearchIndexWithStagedAndSynonyms(),
           simpleVectorIndex(),
-          simpleVectorIndexWithStaged());
+          simpleVectorIndexWithStaged(),
+          searchIndexWithEmptyMainIndex(),
+          vectorIndexWithEmptyMainIndex());
     }
 
     @Test
@@ -121,6 +123,32 @@ public class IndexStatsEntryTest {
               new ObjectId("695301d3bb11192ef11c42f7"),
               true));
     }
+
+    private static BsonDeserializationTestSuite.ValidSpec<IndexStatsEntry>
+        searchIndexWithEmptyMainIndex() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "search index with empty main index",
+          new IndexStatsEntry(
+              new IndexStatsEntry.IndexStatsKey(
+                  new ObjectId("695301d3bb11192ef11c42f6"),
+                  new ObjectId("695301d3bb11192ef11c42f7")),
+              IndexDefinition.Type.SEARCH,
+              Optional.empty(),
+              Optional.empty()));
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<IndexStatsEntry>
+        vectorIndexWithEmptyMainIndex() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "vector index with empty main index",
+          new IndexStatsEntry(
+              new IndexStatsEntry.IndexStatsKey(
+                  new ObjectId("695301d3bb11192ef11c42f6"),
+                  new ObjectId("695301d3bb11192ef11c42f7")),
+              IndexDefinition.Type.VECTOR_SEARCH,
+              Optional.empty(),
+              Optional.empty()));
+    }
   }
 
   @RunWith(Parameterized.class)
@@ -143,7 +171,9 @@ public class IndexStatsEntryTest {
           simpleSearchIndexWithStaged(),
           simpleSearchIndexWithStagedAndSynonyms(),
           simpleVectorIndex(),
-          simpleVectorIndexWithStaged());
+          simpleVectorIndexWithStaged(),
+          searchIndexWithEmptyMainIndex(),
+          vectorIndexWithEmptyMainIndex());
     }
 
     @Test
@@ -212,6 +242,32 @@ public class IndexStatsEntryTest {
               new ObjectId("695301d3bb11192ef11c42f7"),
               true));
     }
+
+    private static BsonSerializationTestSuite.TestSpec<IndexStatsEntry>
+        searchIndexWithEmptyMainIndex() {
+      return BsonSerializationTestSuite.TestSpec.create(
+          "search index with empty main index",
+          new IndexStatsEntry(
+              new IndexStatsEntry.IndexStatsKey(
+                  new ObjectId("695301d3bb11192ef11c42f6"),
+                  new ObjectId("695301d3bb11192ef11c42f7")),
+              IndexDefinition.Type.SEARCH,
+              Optional.empty(),
+              Optional.empty()));
+    }
+
+    private static BsonSerializationTestSuite.TestSpec<IndexStatsEntry>
+        vectorIndexWithEmptyMainIndex() {
+      return BsonSerializationTestSuite.TestSpec.create(
+          "vector index with empty main index",
+          new IndexStatsEntry(
+              new IndexStatsEntry.IndexStatsKey(
+                  new ObjectId("695301d3bb11192ef11c42f6"),
+                  new ObjectId("695301d3bb11192ef11c42f7")),
+              IndexDefinition.Type.VECTOR_SEARCH,
+              Optional.empty(),
+              Optional.empty()));
+    }
   }
 
   private static IndexStatsEntry createSearchIndex(
@@ -219,7 +275,8 @@ public class IndexStatsEntryTest {
     return new IndexStatsEntry(
         new IndexStatsEntry.IndexStatsKey(serverId, indexId),
         IndexDefinition.Type.SEARCH,
-        createDetailedSearchIndexStats(indexId, IndexStatus.StatusCode.STEADY, withSynonyms),
+        Optional.of(
+            createDetailedSearchIndexStats(indexId, IndexStatus.StatusCode.STEADY, withSynonyms)),
         Optional.ofNullable(
             withStaged
                 ? createDetailedSearchIndexStats(
@@ -239,7 +296,6 @@ public class IndexStatsEntryTest {
             .collectionUuid(UUID.fromString("eb6c40ca-f25e-47e8-b48c-02a05b64a5aa"))
             .mappings(DocumentFieldDefinitionBuilder.builder().dynamic(true).build())
             .build(),
-        Optional.ofNullable(withSynonyms ? SynonymStatus.READY : null),
         Optional.ofNullable(
             withSynonyms
                 ? Map.of(
@@ -253,7 +309,7 @@ public class IndexStatsEntryTest {
     return new IndexStatsEntry(
         new IndexStatsEntry.IndexStatsKey(serverId, indexId),
         IndexDefinition.Type.VECTOR_SEARCH,
-        createDetailedVectorSearchIndex(indexId, IndexStatus.StatusCode.STEADY),
+        Optional.of(createDetailedVectorSearchIndex(indexId, IndexStatus.StatusCode.STEADY)),
         Optional.ofNullable(
             withStaged
                 ? createDetailedVectorSearchIndex(indexId, IndexStatus.StatusCode.INITIAL_SYNC)
@@ -273,7 +329,6 @@ public class IndexStatsEntryTest {
             .withCosineVectorField("my.vector.field", 1)
             .withFilterPath("my.filter.field")
             .build(),
-        Optional.empty(),
         Optional.empty());
   }
 }

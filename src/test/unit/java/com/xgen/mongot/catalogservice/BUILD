@@ -7,6 +7,7 @@ mongot_java_unit_test_suite(
     resources = True,
     deps = [
         "//src/main/java/com/xgen/mongot/catalogservice",
+        "//src/main/java/com/xgen/mongot/index",
         "//src/main/java/com/xgen/mongot/index/status",
         "//src/main/java/com/xgen/mongot/index/synonym",
         "//src/main/java/com/xgen/mongot/util",

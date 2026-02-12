@@ -56,7 +56,6 @@ public class DetailedIndexStatsTest {
       return TEST_SUITE.withExamples(
           simpleSearch(),
           simpleVector(),
-          simpleSearchWithSynonymStatus(),
           simpleSearchWithEmptySynonymStatusMap(),
           simpleSearchWithSynonymStatusMap());
     }
@@ -73,7 +72,6 @@ public class DetailedIndexStatsTest {
           new IndexStatsEntry.DetailedIndexStats(
               new IndexStatus(IndexStatus.StatusCode.INITIAL_SYNC),
               createSearchIndexDef(),
-              Optional.empty(),
               Optional.empty()));
     }
 
@@ -84,18 +82,6 @@ public class DetailedIndexStatsTest {
           new IndexStatsEntry.DetailedIndexStats(
               new IndexStatus(IndexStatus.StatusCode.INITIAL_SYNC),
               createVectorSearchDef(),
-              Optional.empty(),
-              Optional.empty()));
-    }
-
-    private static BsonDeserializationTestSuite.ValidSpec<IndexStatsEntry.DetailedIndexStats>
-        simpleSearchWithSynonymStatus() {
-      return BsonDeserializationTestSuite.TestSpec.valid(
-          "search with synonym status",
-          new IndexStatsEntry.DetailedIndexStats(
-              new IndexStatus(IndexStatus.StatusCode.INITIAL_SYNC),
-              createSearchIndexDef(),
-              Optional.of(SynonymStatus.READY),
               Optional.empty()));
     }
 
@@ -106,7 +92,6 @@ public class DetailedIndexStatsTest {
           new IndexStatsEntry.DetailedIndexStats(
               new IndexStatus(IndexStatus.StatusCode.INITIAL_SYNC),
               createSearchIndexDef(),
-              Optional.empty(),
               Optional.of(Collections.emptyMap())));
     }
 
@@ -117,7 +102,6 @@ public class DetailedIndexStatsTest {
           new IndexStatsEntry.DetailedIndexStats(
               new IndexStatus(IndexStatus.StatusCode.INITIAL_SYNC),
               createSearchIndexDef(),
-              Optional.empty(),
               Optional.of(
                   Map.of(
                       "index1",
@@ -146,7 +130,6 @@ public class DetailedIndexStatsTest {
       return Arrays.asList(
           simpleSearch(),
           simpleVector(),
-          simpleSearchWithSynonymStatus(),
           simpleSearchWithEmptySynonymStatusMap(),
           simpleSearchWithSynonymStatusMap());
     }
@@ -163,7 +146,6 @@ public class DetailedIndexStatsTest {
           new IndexStatsEntry.DetailedIndexStats(
               new IndexStatus(IndexStatus.StatusCode.INITIAL_SYNC),
               createSearchIndexDef(),
-              Optional.empty(),
               Optional.empty()));
     }
 
@@ -174,18 +156,6 @@ public class DetailedIndexStatsTest {
           new IndexStatsEntry.DetailedIndexStats(
               new IndexStatus(IndexStatus.StatusCode.INITIAL_SYNC),
               createVectorSearchDef(),
-              Optional.empty(),
-              Optional.empty()));
-    }
-
-    private static BsonSerializationTestSuite.TestSpec<IndexStatsEntry.DetailedIndexStats>
-        simpleSearchWithSynonymStatus() {
-      return BsonSerializationTestSuite.TestSpec.create(
-          "search with synonym status",
-          new IndexStatsEntry.DetailedIndexStats(
-              new IndexStatus(IndexStatus.StatusCode.INITIAL_SYNC),
-              createSearchIndexDef(),
-              Optional.of(SynonymStatus.READY),
               Optional.empty()));
     }
 
@@ -196,7 +166,6 @@ public class DetailedIndexStatsTest {
           new IndexStatsEntry.DetailedIndexStats(
               new IndexStatus(IndexStatus.StatusCode.INITIAL_SYNC),
               createSearchIndexDef(),
-              Optional.empty(),
               Optional.of(Collections.emptyMap())));
     }
 
@@ -207,7 +176,6 @@ public class DetailedIndexStatsTest {
           new IndexStatsEntry.DetailedIndexStats(
               new IndexStatus(IndexStatus.StatusCode.INITIAL_SYNC),
               createSearchIndexDef(),
-              Optional.empty(),
               Optional.of(
                   Map.of(
                       "index1",
