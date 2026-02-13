@@ -1028,8 +1028,6 @@ public class ReplicationIndexManager {
                 "toState", destination.name()))
         .increment();
 
-    // NOTE: We currently rely on this log message for FCIS E2E MMS tests (CLOUDP-329904).
-    // If this message needs to be changed, please also update the tests accordingly.
     this.logger.info("Transitioning from {} to {}.", this.state, destination);
     this.state = destination;
   }
