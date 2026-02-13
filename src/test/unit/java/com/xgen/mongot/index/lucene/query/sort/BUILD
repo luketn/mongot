@@ -31,6 +31,7 @@ java_test_suite(
         "//src/main/java/com/xgen/mongot/index/lucene/query/sort/mixed",
         "//src/main/java/com/xgen/mongot/index/lucene/searcher",
         "//src/main/java/com/xgen/mongot/index/lucene/util",
+        "//src/main/java/com/xgen/mongot/index/query",
         "//src/main/java/com/xgen/mongot/index/query/sort",
         "//src/main/java/com/xgen/mongot/util",
         "//src/main/java/com/xgen/mongot/util/functionalinterfaces",

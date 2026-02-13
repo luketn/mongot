@@ -108,7 +108,20 @@ public class LuceneSortFactory {
       Optional<SequenceToken> sequenceToken,
       FieldToSortableTypesMapping fieldsToSortableTypesMapping,
       Optional<FieldPath> embeddedRoot,
-      Optional<org.apache.lucene.search.Sort> indexSort) {
+      Optional<org.apache.lucene.search.Sort> indexSort)
+      throws InvalidQueryException {
+
+    if (sequenceToken.isPresent()) {
+      int tokenFieldCount = sequenceToken.get().fieldDoc().fields.length;
+      int sortFieldCount = sortSpec.getSortFields().size();
+      if (tokenFieldCount != sortFieldCount) {
+        throw new InvalidQueryException(
+            String.format(
+                "Sequence token is incompatible with sort specification: "
+                    + "expected %d sort fields but token contains %d",
+                sortFieldCount, tokenFieldCount));
+      }
+    }
 
     Optional<SortFeatureExplainer> sortFeatureExplainer =
         Explain.getQueryInfo()

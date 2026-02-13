@@ -1,5 +1,7 @@
 package com.xgen.mongot.index.lucene.query.sort;
 
+import static org.junit.Assert.assertThrows;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.truth.Truth;
@@ -13,6 +15,7 @@ import com.xgen.mongot.index.lucene.query.context.SearchQueryFactoryContext;
 import com.xgen.mongot.index.lucene.query.sort.common.ExplainSortField;
 import com.xgen.mongot.index.lucene.query.sort.mixed.MqlMixedSort;
 import com.xgen.mongot.index.lucene.searcher.FieldToSortableTypesMapping;
+import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.sort.MetaSortField;
 import com.xgen.mongot.index.query.sort.SequenceToken;
 import com.xgen.mongot.index.query.sort.SortOrder;
@@ -38,7 +41,7 @@ import org.junit.Test;
 public class LuceneSortFactoryTest {
 
   @Test
-  public void testExplain() {
+  public void testExplain() throws InvalidQueryException {
     try (var unused =
         Explain.setup(
             Optional.of(Explain.Verbosity.EXECUTION_STATS),
@@ -78,7 +81,7 @@ public class LuceneSortFactoryTest {
   }
 
   @Test
-  public void testSimple() {
+  public void testSimple() throws InvalidQueryException {
     SortSpec sortSpec =
         SortSpecBuilder.builder()
             .sortField(
@@ -105,7 +108,7 @@ public class LuceneSortFactoryTest {
   }
 
   @Test
-  public void testMultipleDataTypesSameField() {
+  public void testMultipleDataTypesSameField() throws InvalidQueryException {
     SortSpec sortSpec =
         SortSpecBuilder.builder()
             .sortField(
@@ -135,7 +138,7 @@ public class LuceneSortFactoryTest {
   }
 
   @Test
-  public void testFieldMissingValue() {
+  public void testFieldMissingValue() throws InvalidQueryException {
     SortSpec sortSpec =
         SortSpecBuilder.builder()
             .sortField(
@@ -159,7 +162,7 @@ public class LuceneSortFactoryTest {
   }
 
   @Test
-  public void testSortByScore() {
+  public void testSortByScore() throws InvalidQueryException {
     SortSpec sortSpec =
         SortSpecBuilder.builder()
             .sortField(
@@ -193,7 +196,7 @@ public class LuceneSortFactoryTest {
   }
 
   @Test
-  public void testSortWithSameAfter() {
+  public void testSortWithSameAfter() throws InvalidQueryException {
     SortSpec sortSpec =
         SortSpecBuilder.builder()
             .sortField(
@@ -221,7 +224,7 @@ public class LuceneSortFactoryTest {
   }
 
   @Test
-  public void testSortWithDiffAfter() {
+  public void testSortWithDiffAfter() throws InvalidQueryException {
     SortSpec sortSpec =
         SortSpecBuilder.builder()
             .sortField(
@@ -250,7 +253,7 @@ public class LuceneSortFactoryTest {
   }
 
   @Test
-  public void testMultiSortSpecWithMultiAfter() {
+  public void testMultiSortSpecWithMultiAfter() throws InvalidQueryException {
     SortSpec sortSpec =
         SortSpecBuilder.builder()
             .sortField(
@@ -290,6 +293,81 @@ public class LuceneSortFactoryTest {
   }
 
   @Test
+  public void testMultiSortSpecWithFewerFieldsInSequenceToken() {
+    // 2 sort fields in spec
+    SortSpec sortSpec =
+        SortSpecBuilder.builder()
+            .sortField(
+                SortFieldBuilder.builder()
+                    .path("foo")
+                    .sortOption(UserFieldSortOptions.DEFAULT_ASC)
+                    .build())
+            .sortField(
+                SortFieldBuilder.builder()
+                    .path("bar")
+                    .sortOption(UserFieldSortOptions.DEFAULT_DESC)
+                    .build())
+            .buildSort();
+
+    // Only 1 field in SequenceToken (mismatched)
+    BsonValue id = new BsonString("test");
+    SequenceToken token =
+        SequenceToken.of(id, new FieldDoc(0, 0.5f, new Object[] {new BsonInt64(5)}));
+
+    // Should throw InvalidQueryException instead of ArrayIndexOutOfBoundsException
+    assertThrows(
+        InvalidQueryException.class,
+        () ->
+            new LuceneSortFactory(newQueryFactoryContext())
+                .createLuceneSort(
+                    sortSpec,
+                    Optional.of(token),
+                    new FieldToSortableTypesMapping(
+                        ImmutableSetMultimap.of(
+                            FieldPath.newRoot("foo"),
+                            FieldName.TypeField.NUMBER_INT64_V2,
+                            FieldPath.newRoot("bar"),
+                            FieldName.TypeField.TOKEN),
+                        ImmutableMap.of()),
+                    Optional.empty(),
+                    Optional.empty()));
+  }
+
+  @Test
+  public void testMultiSortSpecWithMoreFieldsInSequenceToken() {
+    // 1 sort field in spec
+    SortSpec sortSpec =
+        SortSpecBuilder.builder()
+            .sortField(
+                SortFieldBuilder.builder()
+                    .path("foo")
+                    .sortOption(UserFieldSortOptions.DEFAULT_ASC)
+                    .build())
+            .buildSort();
+
+    // 2 fields in SequenceToken (mismatched)
+    BsonValue id = new BsonString("test");
+    SequenceToken token =
+        SequenceToken.of(
+            id, new FieldDoc(0, 0.5f, new Object[] {new BsonInt64(5), new BsonString("a")}));
+
+    assertThrows(
+        InvalidQueryException.class,
+        () ->
+            new LuceneSortFactory(newQueryFactoryContext())
+                .createLuceneSort(
+                    sortSpec,
+                    Optional.of(token),
+                    new FieldToSortableTypesMapping(
+                        ImmutableSetMultimap.of(
+                            FieldPath.newRoot("foo"),
+                            FieldName.TypeField.NUMBER_INT64_V2),
+                        ImmutableMap.of()),
+                    Optional.empty(),
+                    Optional.empty()));
+  }
+
+  @Test
   public void testEmbeddedDocumentSort() throws Exception {
     SortSpec sortSpec =
         SortSpecBuilder.builder()
@@ -309,7 +387,7 @@ public class LuceneSortFactoryTest {
                     SequenceToken.of(
                         id,
                         new FieldDoc(
-                            0, 0.5f, new Object[] {new BsonInt64(5), new BsonString("a")}))),
+                            0, 0.5f, new Object[] {new BsonInt64(5)}))),
                 new FieldToSortableTypesMapping(
                     ImmutableSetMultimap.of(),
                     ImmutableMap.of(

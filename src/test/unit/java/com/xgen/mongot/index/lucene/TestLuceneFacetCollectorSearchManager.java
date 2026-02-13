@@ -150,7 +150,7 @@ public class TestLuceneFacetCollectorSearchManager {
   }
 
   @Test
-  public void testFacetSortWithSearchAfter() throws IOException {
+  public void testFacetSortWithSearchAfter() throws Exception {
     var config = new FacetsConfig();
     FieldPath fieldPath = FieldPath.newRoot("token");
     String sortableFieldName = TypeField.TOKEN.getLuceneFieldName(fieldPath, Optional.empty());
@@ -236,7 +236,7 @@ public class TestLuceneFacetCollectorSearchManager {
   }
 
   @Test
-  public void testFacetSortWithSearchAfterLargeDocId() throws IOException {
+  public void testFacetSortWithSearchAfterLargeDocId() throws Exception {
     var config = new FacetsConfig();
     FieldPath fieldPath = FieldPath.newRoot("token");
     String sortableFieldName = TypeField.TOKEN.getLuceneFieldName(fieldPath, Optional.empty());
@@ -400,7 +400,7 @@ public class TestLuceneFacetCollectorSearchManager {
   }
 
   @Test
-  public void testFacetSearchWithSort() throws IOException {
+  public void testFacetSearchWithSort() throws Exception {
     FieldPath fieldPath = FieldPath.newRoot("field");
     String sortableFieldName =
         TypeField.SORTABLE_STRING_BETA_V1.getLuceneFieldName(fieldPath, Optional.empty());
@@ -469,7 +469,7 @@ public class TestLuceneFacetCollectorSearchManager {
   }
 
   @Test
-  public void testFacetExplain() throws IOException {
+  public void testFacetExplain() throws Exception {
     FieldPath fieldPath = FieldPath.newRoot("field");
     String sortableFieldName = TypeField.TOKEN.getLuceneFieldName(fieldPath, Optional.empty());
 

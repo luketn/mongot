@@ -104,7 +104,7 @@ public class TestLuceneOperatorSearchManager {
   }
 
   @Test
-  public void testSortScoresDocuments() throws IOException {
+  public void testSortScoresDocuments() throws Exception {
     SortSpec sortSpec =
         SortSpecBuilder.builder()
             .sortField(
@@ -160,7 +160,7 @@ public class TestLuceneOperatorSearchManager {
   }
 
   @Test
-  public void testSearchAfterWithSort() throws IOException {
+  public void testSearchAfterWithSort() throws Exception {
     FieldPath fieldPath = FieldPath.newRoot("field");
     String luceneFieldName = TypeField.TOKEN.getLuceneFieldName(fieldPath, Optional.empty());
     SortSpec sortSpec =
