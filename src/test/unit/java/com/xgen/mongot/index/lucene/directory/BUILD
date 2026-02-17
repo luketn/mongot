@@ -2,7 +2,10 @@ load("//bazel/java:test.bzl", "java_test_suite")
 
 java_test_suite(
     name = "directory",
-    srcs = ["ByteReadCollectorTest.java"],
+    srcs = [
+        "ByteReadCollectorTest.java",
+        "FileSystemDirectoryTest.java",
+    ],
     tags = ["unit"],
     deps = [
         "//src/main/java/com/xgen/mongot/index/lucene/directory",

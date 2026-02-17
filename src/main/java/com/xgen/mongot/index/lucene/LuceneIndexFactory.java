@@ -281,7 +281,11 @@ public class LuceneIndexFactory implements IndexFactory {
             manager -> manager.get(definitionGeneration.getGenerationId()));
     var directoryFactory =
         new IndexDirectoryFactory(
-            this.indexDirectoryHelper, definitionGeneration, this.config, this.byteReadCollector);
+            this.indexDirectoryHelper,
+            definitionGeneration,
+            this.config,
+            this.byteReadCollector,
+            this.featureFlags.isEnabled(Feature.CACHE_WARMER));
     if (definitionGeneration.getType() == Type.VECTOR) {
       var luceneVectorIndex = Check.instanceOf(index, LuceneVectorIndex.class);
       return InitializedLuceneVectorIndex.create(

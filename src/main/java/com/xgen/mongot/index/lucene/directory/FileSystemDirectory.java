@@ -1,15 +1,21 @@
 package com.xgen.mongot.index.lucene.directory;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.LinkedHashMultimap;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.lucene.store.FileSwitchDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.store.NIOFSDirectory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * We place the majority of index files to {@link NIOFSDirectory}, but the most
@@ -27,6 +33,8 @@ import org.apache.lucene.store.NIOFSDirectory;
  * https://lucene.apache.org/core/9_2_0/core/org/apache/lucene/codecs/lucene92/package-summary.html
  */
 public class FileSystemDirectory extends FileSwitchDirectory {
+  private static final Logger LOG = LoggerFactory.getLogger(FileSystemDirectory.class);
+  private final MMapDirectory mmapDirectory;
   private final Optional<ByteReadCollector> collector;
   private static final Set<String> MMAP_EXTENSIONS =
       Set.of(
@@ -52,8 +60,34 @@ public class FileSystemDirectory extends FileSwitchDirectory {
            * stored source in our case, which are looked up when preparing search results. */
           "fdt");
 
+  // Cache warmer: The filename extensions that we support preloading for.
+  // The .vex files are top-priority, .veq files are 2nd-priority, and so on.
+  // Note that the .vec files have special handling in the prewarmVectorFiles() function.
+  private static final LinkedHashSet<String> prioritizedExtensions =
+      new LinkedHashSet<>(
+          List.of(
+              /* Vector Index */
+              "vex",
+              /* Quantized flat vector data file */
+              "veq",
+              /* Flat vector data file */
+              "vec"));
+
+  // Cache warmer: Precomputed load order for file extensions.
+  private static final LinkedHashSet<String> extensionLoadOrder =
+      new LinkedHashSet<>(FileSystemDirectory.prioritizedExtensions.reversed());
+
   public FileSystemDirectory(Path path, Optional<ByteReadCollector> collector) throws IOException {
-    super(MMAP_EXTENSIONS, new MMapDirectory(path), new NIOFSDirectory(path), true);
+    this(new MMapDirectory(path), new NIOFSDirectory(path), collector);
+  }
+
+  public FileSystemDirectory(
+      MMapDirectory mmapDirectory,
+      NIOFSDirectory niofsDirectory,
+      Optional<ByteReadCollector> collector)
+      throws IOException {
+    super(MMAP_EXTENSIONS, mmapDirectory, niofsDirectory, true);
+    this.mmapDirectory = mmapDirectory;
     this.collector = collector;
   }
 
@@ -71,14 +105,72 @@ public class FileSystemDirectory extends FileSwitchDirectory {
         .orElse(delegate);
   }
 
+  /**
+   * Calling prewarmVectorFiles() tells Lucene to load .vex, .veq, and .vec files into the page
+   * cache. Exception: A .vec file will only be loaded if there is no matching .veq file. Note,
+   * Lucene's setPreload() will always be set to MMapDirectory.NO_FILES by calling
+   * prewarmVectorFiles().
+   */
+  public void prewarmVectorFiles() {
+    try {
+      LOG.atInfo().addKeyValue("directory", this.mmapDirectory.getDirectory()).log("Warming cache");
+
+      this.mmapDirectory.setPreload(MMapDirectory.BASED_ON_LOAD_IO_CONTEXT);
+
+      // Scan all the base filenames that have filename extensions we're interested in warming.
+      LinkedHashMultimap<String, String> extensionsAndBaseNames = LinkedHashMultimap.create();
+      String[] files = this.mmapDirectory.listAll();
+      for (String fileName : files) {
+        String ex = FilenameUtils.getExtension(fileName);
+        if (FileSystemDirectory.extensionLoadOrder.contains(ex)) {
+          String bn = FilenameUtils.getBaseName(fileName);
+          extensionsAndBaseNames.put(ex, bn);
+        }
+      }
+
+      // Don't preload vector data files if we have quantized data for the same segment.
+      extensionsAndBaseNames.get("vec").removeAll(extensionsAndBaseNames.get("veq"));
+
+      // Load the selected set of vector files into the page cache.
+      // The original ordering from MMapDirectory.listAll() is preserved for aesthetic reasons
+      // except the extensions are warmed in reverse prioritizedExtensions order.
+      // Meaning that all .vec or .veq files will be warmed before all .vex files.
+      for (String ex : FileSystemDirectory.extensionLoadOrder) {
+        for (String bn : extensionsAndBaseNames.get(ex)) {
+          String fileName = bn + "." + ex;
+          LOG.atDebug().addKeyValue("file", fileName).log("Warming file into page cache");
+          try (IndexInput input = this.mmapDirectory.openInput(fileName, IOContext.LOAD)) {
+            // The openInput() call with IOContext.LOAD plus the above setPreload() call is
+            // expected to trigger the preload inside Lucene 9. For Lucene 10 the migration guide
+            // says to replace the IOContext.LOAD constant above with
+            // ioContext.withReadAdvice(ReadAdvice.RANDOM_PRELOAD).
+            // See: https://lucene.apache.org/core/10_0_0/MIGRATE.html
+          }
+        }
+      }
+      // Note that if files are being evicted from the page cache during warming then by definition
+      // the customer's cluster is under-provisioned. However we make a little effort to help the
+      // under-provisioned case by warming the most important extensions last so that pages of
+      // lesser importance will be evicted. This effort (prioritizedExtensions ordering) would be
+      // more effective if done as a global, multi-Directory startup step rather than per-Directory,
+      // but this is a good start.
+    } catch (Exception e) {
+      LOG.atWarn()
+          .addKeyValue("directory", this.mmapDirectory.getDirectory())
+          .setCause(e)
+          .log("Warming cache failed (ignored because this is only an optimization)");
+    } finally {
+      this.mmapDirectory.setPreload(MMapDirectory.NO_FILES); // No way to discover the prior value.
+    }
+  }
+
   static class InstrumentedIndexInput extends IndexInput {
     private final ByteReadCollector collector;
     private final String name;
     private final IndexInput delegate;
     private final String extension;
 
-    public InstrumentedIndexInput(
-        String name, ByteReadCollector collector, IndexInput in) {
+    public InstrumentedIndexInput(String name, ByteReadCollector collector, IndexInput in) {
       super(name);
       this.name = name;
       this.delegate = in;
@@ -108,16 +200,13 @@ public class FileSystemDirectory extends FileSwitchDirectory {
 
     @Override
     public IndexInput clone() {
-      return new InstrumentedIndexInput(
-          this.name, this.collector, this.delegate.clone());
+      return new InstrumentedIndexInput(this.name, this.collector, this.delegate.clone());
     }
 
     @Override
     public IndexInput slice(String sliceDescription, long offset, long length) throws IOException {
       return new InstrumentedIndexInput(
-          this.name,
-          this.collector,
-          this.delegate.slice(sliceDescription, offset, length));
+          this.name, this.collector, this.delegate.slice(sliceDescription, offset, length));
     }
 
     @Override

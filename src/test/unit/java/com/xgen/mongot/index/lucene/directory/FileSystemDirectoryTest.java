@@ -1,0 +1,166 @@
+package com.xgen.mongot.index.lucene.directory;
+
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.lucene.store.IOContext;
+import org.apache.lucene.store.IndexInput;
+import org.apache.lucene.store.MMapDirectory;
+import org.apache.lucene.store.NIOFSDirectory;
+import org.junit.Test;
+import org.mockito.InOrder;
+
+public class FileSystemDirectoryTest {
+  private static final Path ROOT_PATH = Path.of(System.getenv("TEST_TMPDIR"));
+  private static final AtomicInteger COUNTER = new AtomicInteger();
+
+  @Test
+  public void prewarmVectorFiles_emptyDirectory_doesNotOpenAnyFiles() throws IOException {
+    // Arrange
+    MMapDirectory mmapDirectory = mockMMapDirectoryWithFiles();
+    FileSystemDirectory directory = createDirectory(mmapDirectory);
+
+    // Act
+    directory.prewarmVectorFiles();
+
+    // Assert
+    InOrder inOrder = inOrder(mmapDirectory);
+    inOrder.verify(mmapDirectory).setPreload(MMapDirectory.BASED_ON_LOAD_IO_CONTEXT);
+    inOrder.verify(mmapDirectory).listAll();
+    inOrder.verify(mmapDirectory).setPreload(MMapDirectory.NO_FILES);
+    verify(mmapDirectory, never()).openInput(anyString(), eq(IOContext.LOAD));
+  }
+
+  @Test
+  public void prewarmVectorFiles_veqSuppressesMatchingVec_skipsMatchingVecFile()
+      throws IOException {
+    // Arrange
+    MMapDirectory mmapDirectory =
+        mockMMapDirectoryWithFiles("segmentA.vec", "segmentA.veq", "segmentB.vec", "segmentC.vex");
+    IndexInput veqInput = mock(IndexInput.class);
+    IndexInput vecInput = mock(IndexInput.class);
+    IndexInput vexInput = mock(IndexInput.class);
+    when(mmapDirectory.openInput("segmentA.veq", IOContext.LOAD)).thenReturn(veqInput);
+    when(mmapDirectory.openInput("segmentB.vec", IOContext.LOAD)).thenReturn(vecInput);
+    when(mmapDirectory.openInput("segmentC.vex", IOContext.LOAD)).thenReturn(vexInput);
+    FileSystemDirectory directory = createDirectory(mmapDirectory);
+
+    // Act
+    directory.prewarmVectorFiles();
+
+    // Assert
+    verify(mmapDirectory, never()).openInput("segmentA.vec", IOContext.LOAD);
+    verify(mmapDirectory).openInput("segmentA.veq", IOContext.LOAD);
+    verify(mmapDirectory).openInput("segmentB.vec", IOContext.LOAD);
+    verify(mmapDirectory).openInput("segmentC.vex", IOContext.LOAD);
+    verify(veqInput).close();
+    verify(vecInput).close();
+    verify(vexInput).close();
+  }
+
+  @Test
+  public void prewarmVectorFiles_handlesListFailureWithoutThrowing_andResetsPreload()
+      throws IOException {
+    // Arrange
+    MMapDirectory mmapDirectory = mock(MMapDirectory.class);
+    when(mmapDirectory.getDirectory()).thenReturn(ROOT_PATH);
+    when(mmapDirectory.listAll()).thenThrow(new IOException("listAll failed"));
+    FileSystemDirectory directory = createDirectory(mmapDirectory);
+
+    // Act
+    directory.prewarmVectorFiles();
+
+    // Assert
+    verify(mmapDirectory).setPreload(MMapDirectory.BASED_ON_LOAD_IO_CONTEXT);
+    verify(mmapDirectory).setPreload(MMapDirectory.NO_FILES);
+  }
+
+  @Test
+  public void prewarmVectorFiles_handlesOpenInputFailureWithoutThrowing_andResetsPreload()
+      throws IOException {
+    // Arrange
+    MMapDirectory mmapDirectory = mockMMapDirectoryWithFiles("segmentA.vec");
+    when(mmapDirectory.openInput("segmentA.vec", IOContext.LOAD))
+        .thenThrow(new IOException("openInput failed"));
+    FileSystemDirectory directory = createDirectory(mmapDirectory);
+
+    // Act
+    directory.prewarmVectorFiles();
+
+    // Assert
+    verify(mmapDirectory).setPreload(MMapDirectory.BASED_ON_LOAD_IO_CONTEXT);
+    verify(mmapDirectory).setPreload(MMapDirectory.NO_FILES);
+  }
+
+  @Test
+  public void prewarmVectorFiles_mixedExtensions_onlyWarmsSupportedVectorExtensions()
+      throws IOException {
+    // Arrange
+    MMapDirectory mmapDirectory =
+        mockMMapDirectoryWithFiles("segmentA.vex", "segmentB.tip", "segmentC.doc", "segmentD.vec");
+    IndexInput vexInput = mock(IndexInput.class);
+    IndexInput vecInput = mock(IndexInput.class);
+    when(mmapDirectory.openInput("segmentA.vex", IOContext.LOAD)).thenReturn(vexInput);
+    when(mmapDirectory.openInput("segmentD.vec", IOContext.LOAD)).thenReturn(vecInput);
+    FileSystemDirectory directory = createDirectory(mmapDirectory);
+
+    // Act
+    directory.prewarmVectorFiles();
+
+    // Assert
+    verify(mmapDirectory).openInput("segmentA.vex", IOContext.LOAD);
+    verify(mmapDirectory).openInput("segmentD.vec", IOContext.LOAD);
+    verify(mmapDirectory, never()).openInput("segmentB.tip", IOContext.LOAD);
+    verify(mmapDirectory, never()).openInput("segmentC.doc", IOContext.LOAD);
+  }
+
+  @Test
+  public void prewarmVectorFiles_multipleExtensions_warmsFilesInConfiguredExtensionOrder()
+      throws IOException {
+    // Arrange
+    MMapDirectory mmapDirectory =
+        mockMMapDirectoryWithFiles("segmentB.vex", "segmentA.vec", "segmentC.veq", "segmentA.vex");
+    when(mmapDirectory.openInput("segmentA.vec", IOContext.LOAD))
+        .thenReturn(mock(IndexInput.class));
+    when(mmapDirectory.openInput("segmentC.veq", IOContext.LOAD))
+        .thenReturn(mock(IndexInput.class));
+    when(mmapDirectory.openInput("segmentB.vex", IOContext.LOAD))
+        .thenReturn(mock(IndexInput.class));
+    when(mmapDirectory.openInput("segmentA.vex", IOContext.LOAD))
+        .thenReturn(mock(IndexInput.class));
+    FileSystemDirectory directory = createDirectory(mmapDirectory);
+
+    // Act
+    directory.prewarmVectorFiles();
+
+    // Assert
+    InOrder inOrder = inOrder(mmapDirectory);
+    inOrder.verify(mmapDirectory).openInput("segmentA.vec", IOContext.LOAD);
+    inOrder.verify(mmapDirectory).openInput("segmentC.veq", IOContext.LOAD);
+    inOrder.verify(mmapDirectory).openInput("segmentB.vex", IOContext.LOAD);
+    inOrder.verify(mmapDirectory).openInput("segmentA.vex", IOContext.LOAD);
+  }
+
+  private static MMapDirectory mockMMapDirectoryWithFiles(String... files) throws IOException {
+    MMapDirectory mmapDirectory = mock(MMapDirectory.class);
+    when(mmapDirectory.getDirectory()).thenReturn(ROOT_PATH);
+    when(mmapDirectory.listAll()).thenReturn(files);
+    return mmapDirectory;
+  }
+
+  private static FileSystemDirectory createDirectory(MMapDirectory mmapDirectory)
+      throws IOException {
+    Path path = Files.createDirectories(ROOT_PATH.resolve("fsd-test-" + COUNTER.incrementAndGet()));
+    return new FileSystemDirectory(mmapDirectory, new NIOFSDirectory(path), Optional.empty());
+  }
+}
