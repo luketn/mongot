@@ -9,6 +9,7 @@ import com.mongodb.ReadConcern;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Indexes;
 import com.mongodb.client.model.Sorts;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
 import com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils;
 import com.xgen.mongot.embedding.utils.AutoEmbeddingIndexDefinitionUtils;
 import com.xgen.mongot.index.DocumentEvent;
@@ -26,6 +27,7 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.bson.BsonDocument;
@@ -46,6 +48,7 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
   private final DefaultKeyValueLogger logger;
   private final MongoNamespace matViewNamespace;
   private final VectorIndexFieldMapping matViewFieldMappingWithHashes;
+  private final MaterializedViewSchemaMetadata matViewSchemaMetadata;
 
   private boolean firstPage = true;
 
@@ -67,9 +70,12 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
             AutoEmbeddingSortedIdCollectionScanner.class, defaultKeyValues);
     this.matViewNamespace =
         new MongoNamespace(MV_DATABASE_NAME, context.getIndexId().toHexString());
+    // TODO(CLOUDP-363914): pass matViewSchemaMetadata from InitialSyncContext.
+    this.matViewSchemaMetadata = new MaterializedViewSchemaMetadata(0, Map.of());
     this.matViewFieldMappingWithHashes =
         AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
-            context.getIndexDefinition().asVectorDefinition().getMappings());
+            context.getIndexDefinition().asVectorDefinition().getMappings(),
+            this.matViewSchemaMetadata);
   }
 
   @Override
@@ -176,7 +182,8 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
                 sourceDoc,
                 matViewDoc,
                 this.context.getIndexDefinition().asVectorDefinition().getMappings(),
-                this.matViewFieldMappingWithHashes);
+                this.matViewFieldMappingWithHashes,
+                this.matViewSchemaMetadata);
         if (comparisonResult.needsReIndexing()) {
           var rawDocumentEvent = DocumentEvent.createUpdate(sourceDocMetadata, sourceDoc);
           // Check if we have any re-usable embeddings to pass in.

@@ -6,6 +6,7 @@ import static com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils.buildMa
 import static com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils.compareDocuments;
 import static com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils.getVectorTextPathMap;
 import static com.xgen.mongot.embedding.utils.ReplaceStringsFieldValueHandler.HASH_FIELD_SUFFIX;
+import static com.xgen.mongot.embedding.utils.ReplaceStringsFieldValueHandler.computeTextHash;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -14,6 +15,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
 import com.google.common.hash.Hashing;
 import com.google.errorprone.annotations.Var;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
 import com.xgen.mongot.index.DocumentEvent;
 import com.xgen.mongot.index.DocumentMetadata;
 import com.xgen.mongot.index.definition.VectorAutoEmbedFieldDefinition;
@@ -43,6 +45,9 @@ import org.bson.RawBsonDocument;
 import org.junit.Test;
 
 public class AutoEmbeddingDocumentUtilsTest {
+
+  private static final MaterializedViewSchemaMetadata MAT_VIEW_SCHEMA_METADATA =
+      new MaterializedViewSchemaMetadata(0, Map.of());
 
   @Test
   public void testGetTextValues() throws IOException {
@@ -326,7 +331,7 @@ public class AutoEmbeddingDocumentUtilsTest {
   }
 
   @Test
-  public void testNeedsReIndexing_DocumentsMatch() throws IOException {
+  public void testNeedsReIndexing_DocumentsMatch_version0() throws IOException {
     List<VectorIndexFieldDefinition> fields =
         List.of(
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("a")),
@@ -349,9 +354,65 @@ public class AutoEmbeddingDocumentUtilsTest {
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
             mappings,
-            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(mappings));
+            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
+                mappings, MAT_VIEW_SCHEMA_METADATA),
+            MAT_VIEW_SCHEMA_METADATA);
 
     assertFalse(comparisonResult.needsReIndexing());
+    assertEquals(2, comparisonResult.reusableEmbeddings().size());
+    assertTrue(comparisonResult.reusableEmbeddings().containsKey(FieldPath.parse("a")));
+    assertTrue(comparisonResult.reusableEmbeddings().containsKey(FieldPath.parse("b")));
+  }
+
+  @Test
+  public void testNeedsReIndexing_DocumentsMatch_version1() throws IOException {
+    List<VectorIndexFieldDefinition> fields =
+        List.of(
+            new VectorAutoEmbedFieldDefinition(FieldPath.parse("a")),
+            new VectorAutoEmbedFieldDefinition(FieldPath.parse("b")),
+            new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
+    var schemaMetadata =
+        new MaterializedViewSchemaMetadata(
+            1,
+            Map.of(
+                FieldPath.parse("a"),
+                FieldPath.parse("_autoEmbed.a"),
+                FieldPath.parse("b"),
+                FieldPath.parse("_autoEmbed.b")));
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping matViewMappingsWithHash =
+        AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(mappings, schemaMetadata);
+    ImmutableMap<String, Vector> embeddings = createEmbeddings();
+    // TODO(CLOUDP-363914): Refactor this once we integrate schema metadata in
+    // AutoEmbeddingDocumentUtils::buildMaterializedViewDocumentEvent, for now, we needs to manually
+    // add hash field.
+    BsonDocument bsonDoc = new BsonDocument();
+    bsonDoc
+        .append("_id", new BsonString("anId"))
+        .append("_autoEmbed.a", new BsonString("aString"))
+        .append("_autoEmbed._hash.a", new BsonString(computeTextHash("aString")))
+        .append("_autoEmbed.b", new BsonString("bString"))
+        .append("_autoEmbed._hash.b", new BsonString(computeTextHash("bString")))
+        .append("_autoEmbed.c", new BsonString("cString"))
+        .append("_autoEmbed._hash.c", new BsonString(computeTextHash("cString")));
+    RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
+    DocumentEvent rawDocumentEvent =
+        DocumentEvent.createInsert(
+            DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
+    DocumentEvent result =
+        buildMaterializedViewDocumentEvent(
+            rawDocumentEvent,
+            matViewMappingsWithHash,
+            createEmbeddingsPerField(matViewMappingsWithHash, embeddings));
+    var comparisonResult =
+        compareDocuments(
+            new RawBsonDocument(createBasicBson(), BsonUtils.BSON_DOCUMENT_CODEC),
+            result.getDocument().get(),
+            mappings,
+            matViewMappingsWithHash,
+            schemaMetadata);
+
+    assertTrue(comparisonResult.needsReIndexing());
     assertEquals(2, comparisonResult.reusableEmbeddings().size());
     assertTrue(comparisonResult.reusableEmbeddings().containsKey(FieldPath.parse("a")));
     assertTrue(comparisonResult.reusableEmbeddings().containsKey(FieldPath.parse("b")));
@@ -378,7 +439,9 @@ public class AutoEmbeddingDocumentUtilsTest {
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
             mappings,
-            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(mappings));
+            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
+                mappings, MAT_VIEW_SCHEMA_METADATA),
+            MAT_VIEW_SCHEMA_METADATA);
 
     assertFalse(comparisonResult.needsReIndexing());
     assertEquals(0, comparisonResult.reusableEmbeddings().size());
@@ -407,7 +470,9 @@ public class AutoEmbeddingDocumentUtilsTest {
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
             mappings,
-            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(mappings));
+            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
+                mappings, MAT_VIEW_SCHEMA_METADATA),
+            MAT_VIEW_SCHEMA_METADATA);
 
     assertFalse(comparisonResult.needsReIndexing());
     assertEquals(1, comparisonResult.reusableEmbeddings().size());
@@ -424,7 +489,9 @@ public class AutoEmbeddingDocumentUtilsTest {
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
             mappings,
-            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(mappings));
+            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
+                mappings, MAT_VIEW_SCHEMA_METADATA),
+            MAT_VIEW_SCHEMA_METADATA);
 
     assertTrue(comparisonResult.needsReIndexing());
     assertEquals(0, comparisonResult.reusableEmbeddings().size());
@@ -451,7 +518,9 @@ public class AutoEmbeddingDocumentUtilsTest {
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
             mappings,
-            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(mappings));
+            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
+                mappings, MAT_VIEW_SCHEMA_METADATA),
+            MAT_VIEW_SCHEMA_METADATA);
 
     assertFalse(comparisonResult.needsReIndexing());
     assertEquals(1, comparisonResult.reusableEmbeddings().size());
@@ -486,7 +555,9 @@ public class AutoEmbeddingDocumentUtilsTest {
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
             mappings,
-            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(mappings));
+            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
+                mappings, MAT_VIEW_SCHEMA_METADATA),
+            MAT_VIEW_SCHEMA_METADATA);
 
     assertTrue(comparisonResult.needsReIndexing());
     assertEquals(1, comparisonResult.reusableEmbeddings().size());
@@ -522,7 +593,9 @@ public class AutoEmbeddingDocumentUtilsTest {
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
             mappings,
-            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(mappings));
+            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
+                mappings, MAT_VIEW_SCHEMA_METADATA),
+            MAT_VIEW_SCHEMA_METADATA);
 
     // Expect re-indexing since only 2 of the 3 auto-embedding fields have embeddings in the mat
     // view.
@@ -571,7 +644,9 @@ public class AutoEmbeddingDocumentUtilsTest {
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
             mappings,
-            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(mappings));
+            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
+                mappings, MAT_VIEW_SCHEMA_METADATA),
+            MAT_VIEW_SCHEMA_METADATA);
 
     // Expect re-indexing since filter fields dont match
     assertTrue(comparisonResult.needsReIndexing());
@@ -615,7 +690,9 @@ public class AutoEmbeddingDocumentUtilsTest {
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
             mappings,
-            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(mappings));
+            AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
+                mappings, MAT_VIEW_SCHEMA_METADATA),
+            MAT_VIEW_SCHEMA_METADATA);
 
     // Expect re-indexing since filter fields dont match
     assertTrue(comparisonResult.needsReIndexing());

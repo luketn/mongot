@@ -1,6 +1,8 @@
 package com.xgen.mongot.embedding.utils;
 
+import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
 import static com.xgen.mongot.embedding.utils.AutoEmbeddingIndexDefinitionUtils.getHashFieldPath;
+import static com.xgen.mongot.embedding.utils.AutoEmbeddingIndexDefinitionUtils.getMatViewFieldPath;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Var;
@@ -133,7 +135,8 @@ public class AutoEmbeddingDocumentUtils {
       RawBsonDocument sourceDoc,
       RawBsonDocument matViewDoc,
       VectorIndexFieldMapping mappings,
-      VectorIndexFieldMapping matViewMappings) {
+      VectorIndexFieldMapping matViewMappings,
+      MaterializedViewSchemaMetadata schemaMetadata) {
     // Collect all autoEmbed and filter fields from source doc.
     var sourceFilterValuesCollector =
         CollectFieldValueDocumentHandler.create(
@@ -156,23 +159,31 @@ public class AutoEmbeddingDocumentUtils {
 
       for (Map.Entry<FieldPath, VectorIndexFieldDefinition> entry :
           mappings.fieldMap().entrySet()) {
-        FieldPath fieldPath = entry.getKey();
+        FieldPath sourceFieldPath = entry.getKey();
+        FieldPath matViewFieldPath =
+            getMatViewFieldPath(sourceFieldPath, schemaMetadata.autoEmbeddingFieldsMapping());
+        FieldPath matViewFieldHashPath =
+            getHashFieldPath(sourceFieldPath, schemaMetadata.materializedViewSchemaVersion());
         VectorIndexFieldDefinition fieldDefinition = entry.getValue();
 
         // Check filter values = here we do a simple quality check.
         if (fieldDefinition.getType() == VectorIndexFieldDefinition.Type.FILTER) {
-          if (!Objects.equals(sourceDocValues.get(fieldPath), matViewValues.get(fieldPath))) {
+          // Still use matViewFieldPath for filter as we store filter field as is.
+          if (!Objects.equals(
+              sourceDocValues.get(sourceFieldPath), matViewValues.get(matViewFieldPath))) {
             needsReIndexing = true;
           }
         }
 
         var reusableEmbeddingsForFieldBuilder = ImmutableMap.<String, Vector>builder();
 
+        // TODO(CLOUDP-380567): Only checks when modelConfig hash matches when resyncing across
+        // redefinitions.
         // check embeddings against their hashes. Collect ones that match for re-use.
         if (fieldDefinition.getType() == VectorIndexFieldDefinition.Type.AUTO_EMBED) {
-          if (sourceDocValues.containsKey(fieldPath)) {
+          if (sourceDocValues.containsKey(sourceFieldPath)) {
             var stringValuesWithHashes =
-                sourceDocValues.get(fieldPath).stream()
+                sourceDocValues.get(sourceFieldPath).stream()
                     .filter(BsonValue::isString)
                     .collect(
                         Collectors.toMap(
@@ -183,9 +194,8 @@ public class AutoEmbeddingDocumentUtils {
                             (a, b) -> a));
 
             // Count non-empty strings in source
-            long nonEmptySourceCount = stringValuesWithHashes.keySet().stream()
-                .filter(s -> !s.isEmpty())
-                .count();
+            long nonEmptySourceCount =
+                stringValuesWithHashes.keySet().stream().filter(s -> !s.isEmpty()).count();
 
             // Empty strings are not embedded, so skip checking the field if all values are empty.
             // The scenario where we have an array field and some values in the array are empty is
@@ -193,18 +203,18 @@ public class AutoEmbeddingDocumentUtils {
             if (stringValuesWithHashes.keySet().stream().allMatch(String::isEmpty)) {
               // Case where mat view has embeddings for this field, but source doc has an empty
               // string value.
-              if (matViewValues.containsKey(fieldPath)) {
+              if (matViewValues.containsKey(matViewFieldPath)) {
                 needsReIndexing = true;
               }
               continue;
             }
-            if (matViewValues.containsKey(fieldPath)) {
+            if (matViewValues.containsKey(matViewFieldPath)) {
               var matViewHashes =
-                  matViewValues.get(getHashFieldPath(fieldPath)).stream()
+                  matViewValues.getOrDefault(matViewFieldHashPath, List.of()).stream()
                       .map(value -> value.asString().getValue())
                       .toList();
               var matViewVectors =
-                  matViewValues.get(fieldPath).stream().map(BsonValue::asBinary).toList();
+                  matViewValues.get(matViewFieldPath).stream().map(BsonValue::asBinary).toList();
               for (var stringHashEntry : stringValuesWithHashes.entrySet()) {
                 // This is the case where we have an array field and some values are empty.
                 if (stringHashEntry.getKey().isEmpty()) {
@@ -230,13 +240,13 @@ public class AutoEmbeddingDocumentUtils {
           } else {
             // Case where mat view has embeddings for this field, but source doc does not have this
             // field at all.
-            if (matViewValues.containsKey(fieldPath)) {
+            if (matViewValues.containsKey(matViewFieldPath)) {
               needsReIndexing = true;
             }
           }
           var reusableEmbeddingsForField = reusableEmbeddingsForFieldBuilder.build();
           if (!reusableEmbeddingsForField.isEmpty()) {
-            reusableEmbeddingsBuilder.put(fieldPath, reusableEmbeddingsForField);
+            reusableEmbeddingsBuilder.put(sourceFieldPath, reusableEmbeddingsForField);
           }
         }
       }
@@ -259,25 +269,24 @@ public class AutoEmbeddingDocumentUtils {
 
   public record DocumentComparisonResult(
       boolean needsReIndexing,
-      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> reusableEmbeddings) {
-  }
+      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> reusableEmbeddings) {}
 
   /**
    * Determines if an update requires embedding generation (i.e., any AUTO_EMBED or TEXT field
    * changed). When this returns false, we can skip the embedding service call and use a partial
    * update for filter-only changes.
    *
-   * <p>This method uses positive assertion (checking if embedding IS required) rather than
-   * negative assertion (checking if it's NOT required) for fail-safe behavior: if there's a bug, we
-   * make extra embedding calls (performance issue) rather than skip necessary ones (data
-   * correctness issue).
+   * <p>This method uses positive assertion (checking if embedding IS required) rather than negative
+   * assertion (checking if it's NOT required) for fail-safe behavior: if there's a bug, we make
+   * extra embedding calls (performance issue) rather than skip necessary ones (data correctness
+   * issue).
    *
-   * <p>Note: Fields not in the index definition (non-indexed fields) are treated the same as
-   * filter fields - they don't require embedding generation. These fields are simply not propagated
-   * to the materialized view.
+   * <p>Note: Fields not in the index definition (non-indexed fields) are treated the same as filter
+   * fields - they don't require embedding generation. These fields are simply not propagated to the
+   * materialized view.
    *
    * @param updateDescription the update description from the change stream event
-   * @param fieldMapping      the vector index field mapping
+   * @param fieldMapping the vector index field mapping
    * @return true if any AUTO_EMBED/TEXT fields changed and embedding is required, false if only
    *     filter fields or non-indexed fields were updated
    */

@@ -4,6 +4,7 @@ import static com.xgen.mongot.embedding.utils.AutoEmbeddingIndexDefinitionUtils.
 import static com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration.MIN_VERSION_FOR_MATERIALIZED_VIEW_EMBEDDING;
 import static com.xgen.mongot.index.mongodb.MaterializedViewWriter.MV_DATABASE_NAME;
 
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
 import com.xgen.mongot.index.Index;
 import com.xgen.mongot.index.IndexFactory;
 import com.xgen.mongot.index.VectorIndex;
@@ -13,6 +14,7 @@ import com.xgen.mongot.index.definition.VectorIndexDefinitionGeneration;
 import com.xgen.mongot.index.version.MaterializedViewGeneration;
 import com.xgen.mongot.util.Check;
 import java.io.IOException;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -62,7 +64,9 @@ public class AutoEmbeddingIndexGenerationFactory {
         getDerivedVectorIndexDefinition(
             rawDefinitionGeneration.getIndexDefinition(),
             MV_DATABASE_NAME,
-            materializedViewCollectionUuid),
+            materializedViewCollectionUuid,
+            // TODO(CLOUDP-363914): Get MaterializedViewSchemaMetadata from Lease.
+            new MaterializedViewSchemaMetadata(0, Map.of())),
         rawDefinitionGeneration.generation());
   }
 }
