@@ -4,7 +4,6 @@ import static com.xgen.mongot.index.definition.IndexDefinition.Fields.NUM_PARTIT
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.MustBeClosed;
-import com.google.errorprone.annotations.Var;
 import com.xgen.mongot.index.lucene.explain.information.SearchExplainInformation;
 import com.xgen.mongot.index.lucene.explain.information.SearchExplainInformationBuilder;
 import com.xgen.mongot.util.Check;
@@ -27,12 +26,19 @@ import oshi.SystemInfo;
 public class ExplainQueryState implements ImplicitContextKeyed {
   private static final ContextKey<ExplainQueryState> KEY = ContextKey.named("mongot.explain");
 
+  /**
+   * ContextKey used to store the current partition's QueryInfo key in the thread-local Context. It
+   * is possible that queries are executred concurrently over index partitions, so keeping the
+   * current partition's key in a thread-local Context allows us to avoid using locks.
+   */
+  private static final ContextKey<ContextKey<Explain.QueryInfo>> CURRENT_PARTITION_KEY =
+      ContextKey.named("mongot.explain.currentPartitionKey");
+
   private final Explain.QueryInfo rootQueryInfo;
   private final SystemInfo systemInfo;
 
   private final Map<Integer, KeyAndContext> indexPartitionQueryContexts;
   private final int numPartitions;
-  @Var private Optional<ContextKey<Explain.QueryInfo>> currentIndexPartitionKey;
 
   /**
    * Fetches <code>ExplainQueryState</code> if it is set on the current {@link Context}.
@@ -73,7 +79,6 @@ public class ExplainQueryState implements ImplicitContextKeyed {
     this.rootQueryInfo = queryInfo;
     this.systemInfo = systemInfo;
 
-    this.currentIndexPartitionKey = Optional.empty();
     this.numPartitions = numPartitions;
     this.indexPartitionQueryContexts = new HashMap<>();
 
@@ -84,10 +89,13 @@ public class ExplainQueryState implements ImplicitContextKeyed {
   }
 
   public Explain.QueryInfo getQueryInfo() {
-    // Get the queryInfo for the current index partition if any
-    if (this.currentIndexPartitionKey.isPresent()) {
+    // Get the current partition key from the thread-local Context (not a shared field)
+    Optional<ContextKey<Explain.QueryInfo>> currentPartitionKey =
+        Optional.ofNullable(Context.current().get(CURRENT_PARTITION_KEY));
+
+    if (currentPartitionKey.isPresent()) {
       Optional<Explain.QueryInfo> indexPartitionQueryInfo =
-          Optional.ofNullable(Context.current().get(this.currentIndexPartitionKey.get()));
+          Optional.ofNullable(Context.current().get(currentPartitionKey.get()));
       if (indexPartitionQueryInfo.isPresent()) {
         return indexPartitionQueryInfo.get();
       }
@@ -131,13 +139,10 @@ public class ExplainQueryState implements ImplicitContextKeyed {
         Optional.ofNullable(this.indexPartitionQueryContexts.get(indexPartitionId));
     KeyAndContext keyAndContext = Check.isPresent(maybeKeyAndContext, "keyAndContext");
 
-    // Update the current index partition key when entering the subcontext
-    this.currentIndexPartitionKey = Optional.of(keyAndContext.key);
-    return keyAndContext.context.makeCurrent();
-  }
-
-  void clearCurrentIndexPartitionKey() {
-    this.currentIndexPartitionKey = Optional.empty();
+    // Store the partition key in the Context itself (thread-local), not a shared field.
+    // When the returned Scope is closed, the previous Context is restored automatically,
+    // which means the partition key is effectively "cleared" without explicit action.
+    return keyAndContext.context.with(CURRENT_PARTITION_KEY, keyAndContext.key).makeCurrent();
   }
 
   @SuppressWarnings("checkstyle:MissingJavadocMethod")
@@ -186,24 +191,20 @@ public class ExplainQueryState implements ImplicitContextKeyed {
   }
 
   public static class IndexPartitionResourceManager implements AutoCloseable {
-    private final Optional<ExplainQueryState> queryState;
     private final Scope scope;
 
     @MustBeClosed
     IndexPartitionResourceManager() {
-      this.queryState = Optional.empty();
       this.scope = Scope.noop();
     }
 
     @MustBeClosed
-    IndexPartitionResourceManager(ExplainQueryState queryState, @WillCloseWhenClosed Scope scope) {
-      this.queryState = Optional.of(queryState);
+    IndexPartitionResourceManager(@WillCloseWhenClosed Scope scope) {
       this.scope = scope;
     }
 
     @Override
     public void close() {
-      this.queryState.ifPresent(ExplainQueryState::clearCurrentIndexPartitionKey);
       this.scope.close();
     }
   }

@@ -26,11 +26,20 @@ import com.xgen.mongot.index.query.VectorSearchQuery;
 import com.xgen.mongot.util.Bytes;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.CheckedStream;
+import com.xgen.mongot.util.concurrent.NamedExecutorService;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Queue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.IntStream;
 import org.apache.lucene.index.FieldInfos;
+import org.apache.lucene.search.TaskExecutor;
 import org.bson.BsonArray;
 
 /**
@@ -42,10 +51,12 @@ import org.bson.BsonArray;
 public class MultiLuceneSearchIndexReader implements SearchIndexReader {
   private final List<LuceneSearchIndexReader> readers;
   private final boolean shouldCollectMultiPartitionEmptyBatchProducer;
+  private final Optional<TaskExecutor> taskExecutor;
 
   MultiLuceneSearchIndexReader(
       List<LuceneSearchIndexReader> readers,
-      DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry) {
+      DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry,
+      Optional<NamedExecutorService> concurrentSearchExecutor) {
     var dynamicFeatureFlag = DynamicFeatureFlags.COLLECT_MULTI_PARTITION_EMPTY_SEARCH_PRODUCER;
     this.shouldCollectMultiPartitionEmptyBatchProducer =
         dynamicFeatureFlagRegistry.evaluateClusterInvariant(
@@ -54,6 +65,7 @@ public class MultiLuceneSearchIndexReader implements SearchIndexReader {
         readers.size() >= 2,
         "There must be >= 2 underlying readers to construct MultiLuceneSearchIndexReader.");
     this.readers = readers;
+    this.taskExecutor = concurrentSearchExecutor.map(TaskExecutor::new);
   }
 
   @Override
@@ -85,22 +97,25 @@ public class MultiLuceneSearchIndexReader implements SearchIndexReader {
     Check.checkState(
         query instanceof VectorSearchQuery || query instanceof OperatorQuery,
         "query here must be a vector or operator query");
-    List<LuceneSearchBatchProducer> searchBatchProducers = new ArrayList<>(this.readers.size());
-    List<BatchProducer> extraBatchProducersToClose = new ArrayList<>(this.readers.size());
-    List<MetaResults> metaResultsList = new ArrayList<>(this.readers.size());
-    for (int i = 0; i < this.readers.size(); i++) {
-      try (var indexPartitionResourceManager = Explain.maybeEnterIndexPartitionQueryContext(i)) {
-        var reader = this.readers.get(i);
+    List<LuceneSearchBatchProducer> searchBatchProducers =
+        java.util.Collections.synchronizedList(new ArrayList<>(this.readers.size()));
+    List<BatchProducer> extraBatchProducersToClose =
+        java.util.Collections.synchronizedList(new ArrayList<>(this.readers.size()));
+    List<MetaResults> metaResultsList =
+        java.util.Collections.synchronizedList(new ArrayList<>(this.readers.size()));
 
-        // Vector search query or operator query doesn't have string facet at all, so we can just
-        // issue query() here.
-        var result =
-            reader.query(query, queryCursorOptions, batchSizeStrategy, queryOptimizationFlags);
-        collectSearchBatchProducer(
-            result.searchBatchProducer, searchBatchProducers, extraBatchProducersToClose);
-        metaResultsList.add(result.metaResults);
-      }
-    }
+    executeOnAllPartitions(
+        query,
+        i ->
+            executeVectorOrOperatorQueryOnPartition(
+                i,
+                query,
+                queryCursorOptions,
+                batchSizeStrategy,
+                queryOptimizationFlags,
+                searchBatchProducers,
+                extraBatchProducersToClose,
+                metaResultsList));
     var searchMergingBatchProducer =
         searchBatchProducers.isEmpty()
             ? new EmptySearchBatchProducer()
@@ -142,34 +157,28 @@ public class MultiLuceneSearchIndexReader implements SearchIndexReader {
       BatchSizeStrategy batchSizeStrategy,
       QueryOptimizationFlags queryOptimizationFlags)
       throws IOException, InvalidQueryException, InterruptedException {
-    List<LuceneSearchBatchProducer> searchBatchProducers = new ArrayList<>(this.readers.size());
-    List<BatchProducer> extraBatchProducersToClose = new ArrayList<>(this.readers.size());
+    List<LuceneSearchBatchProducer> searchBatchProducers =
+        java.util.Collections.synchronizedList(new ArrayList<>(this.readers.size()));
+    List<BatchProducer> extraBatchProducersToClose =
+        java.util.Collections.synchronizedList(new ArrayList<>(this.readers.size()));
     List<LuceneFacetCollectorMetaBatchProducer> facetBatchProducers =
-        new ArrayList<>(this.readers.size());
-    List<CountMetaBatchProducer> countBatchProducers = new ArrayList<>(this.readers.size());
-    for (int i = 0; i < this.readers.size(); i++) {
-      try (var indexPartitionResourceManager = Explain.maybeEnterIndexPartitionQueryContext(i)) {
-        var reader = this.readers.get(i);
+        java.util.Collections.synchronizedList(new ArrayList<>(this.readers.size()));
+    List<CountMetaBatchProducer> countBatchProducers =
+        java.util.Collections.synchronizedList(new ArrayList<>(this.readers.size()));
 
-        var result =
-            reader.intermediateQuery(
-                query, queryCursorOptions, batchSizeStrategy, queryOptimizationFlags);
-        collectSearchBatchProducer(
-            result.searchBatchProducer, searchBatchProducers, extraBatchProducersToClose);
-        if (result.metaBatchProducer
-            instanceof LuceneFacetCollectorMetaBatchProducer facetMetaBatchProducer) {
-          facetBatchProducers.add(facetMetaBatchProducer);
-        } else if (result.metaBatchProducer
-            instanceof CountMetaBatchProducer countMetaBatchProducer) {
-          countBatchProducers.add(countMetaBatchProducer);
-        } else {
-          throw new IllegalStateException(
-              String.format(
-                  "Cannot handle result.metaBatchProducer's type %s",
-                  result.metaBatchProducer.getClass()));
-        }
-      }
-    }
+    executeOnAllPartitions(
+        query,
+        i ->
+            executeIntermediateQueryOnPartition(
+                i,
+                query,
+                queryCursorOptions,
+                batchSizeStrategy,
+                queryOptimizationFlags,
+                searchBatchProducers,
+                extraBatchProducersToClose,
+                facetBatchProducers,
+                countBatchProducers));
     var searchMergingBatchProducer =
         searchBatchProducers.isEmpty()
             ? new EmptySearchBatchProducer()
@@ -334,6 +343,112 @@ public class MultiLuceneSearchIndexReader implements SearchIndexReader {
       if (first != null) {
         throw first;
       }
+    }
+  }
+
+  @FunctionalInterface
+  private interface PartitionExecutor {
+    void execute(int partitionIndex)
+        throws IOException, InvalidQueryException, InterruptedException;
+  }
+
+  private void executeOnAllPartitions(Query query, PartitionExecutor partitionExecutor)
+      throws IOException, InvalidQueryException, InterruptedException {
+    if (query.concurrent() && this.taskExecutor.isPresent()) {
+      Context parentContext = Context.current();
+      Queue<Exception> exceptions = new ConcurrentLinkedQueue<>();
+      List<Callable<Void>> tasks =
+          IntStream.range(0, this.readers.size())
+              .<Callable<Void>>mapToObj(
+                  i ->
+                      () -> {
+                        try (Scope ignored = parentContext.makeCurrent()) {
+                          partitionExecutor.execute(i);
+                        } catch (Exception e) {
+                          exceptions.add(e);
+                        }
+                        return null;
+                      })
+              .toList();
+      this.taskExecutor.get().invokeAll(tasks);
+      if (!exceptions.isEmpty()) {
+        Exception first = exceptions.poll();
+        while (!exceptions.isEmpty()) {
+          first.addSuppressed(exceptions.poll());
+        }
+        rethrowException(first);
+      }
+    } else {
+      for (int i = 0; i < this.readers.size(); i++) {
+        partitionExecutor.execute(i);
+      }
+    }
+  }
+
+  private void executeVectorOrOperatorQueryOnPartition(
+      int i,
+      Query query,
+      QueryCursorOptions queryCursorOptions,
+      BatchSizeStrategy batchSizeStrategy,
+      QueryOptimizationFlags queryOptimizationFlags,
+      List<LuceneSearchBatchProducer> searchBatchProducers,
+      List<BatchProducer> extraBatchProducersToClose,
+      List<MetaResults> metaResultsList)
+      throws IOException, InvalidQueryException, InterruptedException {
+    try (var indexPartitionResourceManager = Explain.maybeEnterIndexPartitionQueryContext(i)) {
+      var result =
+          this.readers
+              .get(i)
+              .query(query, queryCursorOptions, batchSizeStrategy, queryOptimizationFlags);
+
+      collectSearchBatchProducer(
+          result.searchBatchProducer, searchBatchProducers, extraBatchProducersToClose);
+
+      metaResultsList.add(result.metaResults);
+    }
+  }
+
+  private void executeIntermediateQueryOnPartition(
+      int i,
+      SearchQuery query,
+      QueryCursorOptions queryCursorOptions,
+      BatchSizeStrategy batchSizeStrategy,
+      QueryOptimizationFlags queryOptimizationFlags,
+      List<LuceneSearchBatchProducer> searchBatchProducers,
+      List<BatchProducer> extraBatchProducersToClose,
+      List<LuceneFacetCollectorMetaBatchProducer> facetBatchProducers,
+      List<CountMetaBatchProducer> countBatchProducers)
+      throws IOException, InvalidQueryException, InterruptedException {
+    try (var indexPartitionResourceManager = Explain.maybeEnterIndexPartitionQueryContext(i)) {
+      var reader = this.readers.get(i);
+
+      var result =
+          reader.intermediateQuery(
+              query, queryCursorOptions, batchSizeStrategy, queryOptimizationFlags);
+      collectSearchBatchProducer(
+          result.searchBatchProducer, searchBatchProducers, extraBatchProducersToClose);
+      if (result.metaBatchProducer
+          instanceof LuceneFacetCollectorMetaBatchProducer facetMetaBatchProducer) {
+        facetBatchProducers.add(facetMetaBatchProducer);
+      } else if (result.metaBatchProducer
+          instanceof CountMetaBatchProducer countMetaBatchProducer) {
+        countBatchProducers.add(countMetaBatchProducer);
+      } else {
+        throw new IllegalStateException(
+            String.format(
+                "Cannot handle result.metaBatchProducer's type %s",
+                result.metaBatchProducer.getClass()));
+      }
+    }
+  }
+
+  private static void rethrowException(Exception e)
+      throws IOException, InvalidQueryException, InterruptedException {
+    switch (e) {
+      case IOException ioException -> throw ioException;
+      case InvalidQueryException invalidQueryException -> throw invalidQueryException;
+      case InterruptedException interruptedException -> throw interruptedException;
+      default -> throw new RuntimeException(e);
     }
   }
 }

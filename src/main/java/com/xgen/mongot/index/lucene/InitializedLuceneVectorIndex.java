@@ -185,7 +185,12 @@ class InitializedLuceneVectorIndex implements InitializedVectorIndex {
     VectorIndexReader vectorIndexReader =
         vectorIndexReaders.size() == 1
             ? vectorIndexReaders.getFirst()
-            : new MultiLuceneVectorIndexReader(vectorIndexReaders, metricsUpdater);
+            : new MultiLuceneVectorIndexReader(
+                vectorIndexReaders,
+                metricsUpdater,
+                featureFlags.isEnabled(Feature.CONCURRENT_INDEX_PARTITION_SEARCH)
+                    ? vectorIndexProperties.concurrentSearchExecutor
+                    : Optional.empty());
 
     IndexMetricValuesSupplier indexMetricValuesSupplier =
         new LuceneVectorIndexMetricValuesSupplier(

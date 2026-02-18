@@ -71,7 +71,8 @@ public enum Feature {
   MAX_STRING_FACET_CARDINALITY_METRIC("enableMaxStringFacetCardinalityMetric", State.DISABLED),
   INDEX_SIZE_QUANTIZATION_METRICS("enableIndexSizeQuantizationMetrics", State.DISABLED),
   LOGGABLE_DOCUMENT_ID("mongotLoggableDocumentId", State.DISABLED),
-  CACHE_WARMER("cacheWarmer", State.DISABLED);
+  CACHE_WARMER("cacheWarmer", State.DISABLED),
+  CONCURRENT_INDEX_PARTITION_SEARCH("enableConcurrentIndexPartitionSearch", State.DISABLED);
 
   private final String name;
   private final State defaultState;

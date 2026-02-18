@@ -13,10 +13,19 @@ import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.MaterializedVectorSearchQuery;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.CheckedStream;
+import com.xgen.mongot.util.concurrent.NamedExecutorService;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
+import java.util.Queue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.IntStream;
+import org.apache.lucene.search.TaskExecutor;
 import org.bson.BsonArray;
 
 /**
@@ -28,15 +37,18 @@ import org.bson.BsonArray;
 public class MultiLuceneVectorIndexReader implements VectorIndexReader {
   private final List<LuceneVectorIndexReader> readers;
   private final IndexMetricsUpdater.QueryingMetricsUpdater metricsUpdater;
+  private final Optional<TaskExecutor> taskExecutor;
 
   MultiLuceneVectorIndexReader(
       List<LuceneVectorIndexReader> readers,
-      IndexMetricsUpdater.QueryingMetricsUpdater metricsUpdater) {
+      IndexMetricsUpdater.QueryingMetricsUpdater metricsUpdater,
+      Optional<NamedExecutorService> concurrentSearchExecutor) {
     Check.checkState(
         readers.size() >= 2,
         "There must be >= 2 underlying readers to construct MultiLuceneVectorIndexReader.");
     this.readers = readers;
     this.metricsUpdater = metricsUpdater;
+    this.taskExecutor = concurrentSearchExecutor.map(TaskExecutor::new);
   }
 
   // If this is slow, we can explore querying each underlying LuceneVectorIndexReader with a
@@ -45,11 +57,36 @@ public class MultiLuceneVectorIndexReader implements VectorIndexReader {
   public BsonArray query(MaterializedVectorSearchQuery query)
       throws ReaderClosedException, IOException, InvalidQueryException {
     List<Iterator<VectorSearchResult>> vectorSearchResultIterators =
-        new ArrayList<>(this.readers.size());
-    for (int i = 0; i < this.readers.size(); i++) {
-      try (var indexPartitionResourceManager = Explain.maybeEnterIndexPartitionQueryContext(i)) {
-        var reader = this.readers.get(i);
-        vectorSearchResultIterators.add(reader.queryResults(query).iterator());
+        java.util.Collections.synchronizedList(new ArrayList<>(this.readers.size()));
+
+    if (query.concurrent() && this.taskExecutor.isPresent()) {
+      Context parentContext = Context.current();
+      Queue<Exception> exceptions = new ConcurrentLinkedQueue<>();
+      List<Callable<Void>> tasks =
+          IntStream.range(0, this.readers.size())
+              .<Callable<Void>>mapToObj(
+                  i ->
+                      () -> {
+                        try (Scope ignored = parentContext.makeCurrent()) {
+                          executeVectorQueryOnPartition(i, query, vectorSearchResultIterators);
+                        } catch (Exception e) {
+                          exceptions.add(e);
+                        }
+                        return null;
+                      })
+              .toList();
+
+      this.taskExecutor.get().invokeAll(tasks);
+      if (!exceptions.isEmpty()) {
+        Exception first = exceptions.poll();
+        while (!exceptions.isEmpty()) {
+          first.addSuppressed(exceptions.poll());
+        }
+        rethrowException(first);
+      }
+    } else {
+      for (int i = 0; i < this.readers.size(); i++) {
+        executeVectorQueryOnPartition(i, query, vectorSearchResultIterators);
       }
     }
 
@@ -100,5 +137,26 @@ public class MultiLuceneVectorIndexReader implements VectorIndexReader {
         Iterators.mergeSorted(
             vectorSearchResultIterators, VectorSearchResult.VECTOR_SEARCH_RESULT_COMPARATOR);
     return Lists.newArrayList(Iterators.limit(merged, limit));
+  }
+
+  private void executeVectorQueryOnPartition(
+      int i,
+      MaterializedVectorSearchQuery query,
+      List<Iterator<VectorSearchResult>> vectorSearchResultIterators)
+      throws ReaderClosedException, IOException, InvalidQueryException {
+    try (var indexPartitionResourceManager = Explain.maybeEnterIndexPartitionQueryContext(i)) {
+      var reader = this.readers.get(i);
+      vectorSearchResultIterators.add(reader.queryResults(query).iterator());
+    }
+  }
+
+  private static void rethrowException(Exception e)
+      throws ReaderClosedException, IOException, InvalidQueryException {
+    switch (e) {
+      case IOException ioException -> throw ioException;
+      case ReaderClosedException readerClosedException -> throw readerClosedException;
+      case InvalidQueryException invalidQueryException -> throw invalidQueryException;
+      default -> throw new RuntimeException(e);
+    }
   }
 }

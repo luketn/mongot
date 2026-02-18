@@ -204,7 +204,7 @@ public class Explain {
 
     ExplainQueryState queryState = ExplainQueryState.getFromContext().get();
     Scope scope = queryState.enterIndexPartitionQueryContext(indexPartitionId);
-    return new ExplainQueryState.IndexPartitionResourceManager(queryState, scope);
+    return new ExplainQueryState.IndexPartitionResourceManager(scope);
   }
 
   /**

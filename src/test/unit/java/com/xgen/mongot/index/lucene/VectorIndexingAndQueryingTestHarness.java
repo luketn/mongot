@@ -81,6 +81,7 @@ public class VectorIndexingAndQueryingTestHarness implements AutoCloseable {
   private LuceneVectorIndex index;
   private IndexWriter indexWriter;
   private VectorIndexReader indexReader;
+  private Optional<NamedExecutorService> concurrentSearchExecutor = Optional.empty();
   private int numCandidates = 100;
   private int limit = 10;
   private double targetRecall = 0.9;
@@ -123,6 +124,10 @@ public class VectorIndexingAndQueryingTestHarness implements AutoCloseable {
 
   public VectorIndexReader getReader() {
     return this.indexReader;
+  }
+
+  public Optional<NamedExecutorService> getConcurrentSearchExecutor() {
+    return this.concurrentSearchExecutor;
   }
 
   /** Must call setUp before using this method. */
@@ -203,6 +208,18 @@ public class VectorIndexingAndQueryingTestHarness implements AutoCloseable {
 
   /** Set up resources for test. Must be called before runTest or runMultiQueryTest. */
   public void setUp(VectorIndexDefinition vectorIndexDefinition) throws Exception {
+    setUp(vectorIndexDefinition, false);
+  }
+
+  /**
+   * Set up resources for test with optional concurrent search over index partitions.
+   *
+   * @param vectorIndexDefinition the vector index definition
+   * @param enableConcurrentPartitionSearch whether to enable concurrent search across partitions
+   */
+  public void setUp(
+      VectorIndexDefinition vectorIndexDefinition, boolean enableConcurrentPartitionSearch)
+      throws Exception {
     VectorIndexDefinitionGeneration vectorIndexDefinitionGeneration =
         IndexGeneration.mockDefinitionGeneration(vectorIndexDefinition);
     var folder = TestUtils.getTempFolder();
@@ -217,8 +234,15 @@ public class VectorIndexingAndQueryingTestHarness implements AutoCloseable {
     var metricsFactory = VectorIndex.mockMetricsFactory();
 
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
-    NamedExecutorService concurrentSearchExecutor =
-        spy(Executors.fixedSizeThreadScheduledExecutor("test", 1, meterRegistry));
+    if (enableConcurrentPartitionSearch) {
+      this.concurrentSearchExecutor =
+          Optional.of(
+              spy(
+                  Executors.fixedSizeThreadScheduledExecutor(
+                      "testConcurrentSearchExecutor", 2, meterRegistry)));
+    } else {
+      this.concurrentSearchExecutor = Optional.empty();
+    }
     var mergeScheduler = new InstrumentedConcurrentMergeScheduler(meterRegistry);
     // We have to manually call the setMaxMergesAndThreads() here.
     mergeScheduler.setMaxMergesAndThreads(10, 10);
@@ -232,7 +256,7 @@ public class VectorIndexingAndQueryingTestHarness implements AutoCloseable {
             new TieredMergePolicy(),
             new QueryCacheProvider.DefaultQueryCacheProvider(),
             mock(NamedScheduledExecutorService.class),
-            Optional.of(concurrentSearchExecutor),
+            this.concurrentSearchExecutor,
             Optional.empty(),
             vectorIndexDefinition,
             vectorIndexDefinitionGeneration.generation().indexFormatVersion,
@@ -253,9 +277,14 @@ public class VectorIndexingAndQueryingTestHarness implements AutoCloseable {
   @Override
   public void close() throws IOException {
     this.index.close();
+    this.concurrentSearchExecutor.ifPresent(NamedExecutorService::shutdown);
   }
 
-  private void addDocument(BsonDocument bsonDocument)
+  /**
+   * Adds a document to the index. Can be used by tests that need to manually control document
+   * indexing separate from querying.
+   */
+  public void addDocument(BsonDocument bsonDocument)
       throws IOException, FieldExceededLimitsException {
     ObjectId indexId = new ObjectId();
     bsonDocument.append(indexId.toString(), new BsonDocument("_id", bsonDocument.get("_id")));

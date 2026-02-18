@@ -196,7 +196,12 @@ class InitializedLuceneSearchIndex implements InitializedSearchIndex {
     SearchIndexReader searchIndexReader =
         searchIndexReaders.size() == 1
             ? searchIndexReaders.getFirst()
-            : new MultiLuceneSearchIndexReader(searchIndexReaders, dynamicFeatureFlagRegistry);
+            : new MultiLuceneSearchIndexReader(
+                searchIndexReaders,
+                dynamicFeatureFlagRegistry,
+                featureFlags.isEnabled(Feature.CONCURRENT_INDEX_PARTITION_SEARCH)
+                    ? searchIndexProperties.concurrentSearchExecutor
+                    : Optional.empty());
 
     IndexMetricValuesSupplier indexMetricValuesSupplier =
         new LuceneSearchIndexMetricValuesSupplier(
