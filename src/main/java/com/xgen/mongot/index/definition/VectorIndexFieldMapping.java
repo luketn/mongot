@@ -8,7 +8,8 @@ import java.util.Optional;
 
 public record VectorIndexFieldMapping(
     ImmutableMap<FieldPath, VectorIndexFieldDefinition> fieldMap,
-    ImmutableSet<String> documentPaths) {
+    ImmutableSet<String> documentPaths,
+    Optional<FieldPath> nestedRoot) {
 
   public Optional<VectorIndexFieldDefinition> getFieldDefinition(FieldPath path) {
     return Optional.ofNullable(this.fieldMap.get(path));
@@ -29,8 +30,18 @@ public record VectorIndexFieldMapping(
     return this.documentPaths.contains(path.toString());
   }
 
-  public static VectorIndexFieldMapping create(List<VectorIndexFieldDefinition> fields) {
-    return new VectorIndexFieldMapping(createMap(fields), createDocumentPathMap(fields));
+  public boolean isNestedRoot(FieldPath path) {
+    return this.nestedRoot.isPresent() && this.nestedRoot.get().equals(path);
+  }
+
+  public boolean hasNestedRoot() {
+    return this.nestedRoot.isPresent();
+  }
+
+  public static VectorIndexFieldMapping create(
+      List<VectorIndexFieldDefinition> fields, Optional<FieldPath> nestedRoot) {
+    return new VectorIndexFieldMapping(
+        createMap(fields), createDocumentPathMap(fields), nestedRoot);
   }
 
   private static ImmutableMap<FieldPath, VectorIndexFieldDefinition> createMap(

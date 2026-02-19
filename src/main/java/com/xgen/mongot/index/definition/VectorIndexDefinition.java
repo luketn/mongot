@@ -13,6 +13,7 @@ import com.xgen.mongot.util.bson.parser.BsonParseException;
 import com.xgen.mongot.util.bson.parser.DateUtil;
 import com.xgen.mongot.util.bson.parser.DocumentParser;
 import com.xgen.mongot.util.bson.parser.Field;
+import com.xgen.mongot.util.bson.parser.FieldPathField;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -35,8 +36,18 @@ public final class VectorIndexDefinition implements IndexDefinition {
             .required();
 
     /**
-     * See {@link VectorIndexCapabilities} for reason for default value to be 3
+     * Optional top-level path to the array field containing embedded documents with vector fields.
+     * When present, the vector fields in {@link #FIELDS} whose path is under this root are
+     * indexed as nested, and each array element is written as a separate Lucene document in a
+     * block. Only one nested root is allowed per index.
      */
+    public static final Field.Optional<FieldPath> NESTED_ROOT =
+        Field.builder("nestedRoot")
+            .classField(FieldPathField::parse, FieldPathField::encode)
+            .optional()
+            .noDefault();
+
+    /** See {@link VectorIndexCapabilities} for reason for default value to be 3 */
     public static final Field.WithDefault<Integer> INDEX_FEATURE_VERSION =
         Field.builder("indexFeatureVersion").intField().optional().withDefault(3);
   }
@@ -49,6 +60,7 @@ public final class VectorIndexDefinition implements IndexDefinition {
   private final Optional<ViewDefinition> view;
   private final int numPartitions;
   private final ImmutableList<VectorIndexFieldDefinition> fields;
+  private final Optional<FieldPath> nestedRoot;
   private final int indexFeatureVersion;
   private final Optional<Long> definitionVersion;
   private final Optional<Instant> definitionVersionCreatedAt;
@@ -59,9 +71,7 @@ public final class VectorIndexDefinition implements IndexDefinition {
 
   private final VectorIndexFieldMapping mappings;
 
-  /**
-   * Constructs a new VectorIndexDefinition for a MongoDB Atlas Search vector index.
-   */
+  /** Constructs a new VectorIndexDefinition for a MongoDB Atlas Search vector index. */
   public VectorIndexDefinition(
       ObjectId indexId,
       String name,
@@ -74,7 +84,8 @@ public final class VectorIndexDefinition implements IndexDefinition {
       int parsedIndexFeatureVersion,
       Optional<Long> definitionVersion,
       Optional<Instant> definitionVersionCreatedAt,
-      Optional<StoredSourceDefinition> storedSource) {
+      Optional<StoredSourceDefinition> storedSource,
+      Optional<FieldPath> nestedRoot) {
     this.indexId = indexId;
     this.name = name;
     this.database = database;
@@ -83,11 +94,12 @@ public final class VectorIndexDefinition implements IndexDefinition {
     this.view = view;
     this.numPartitions = numPartitions;
     this.fields = ImmutableList.copyOf(fields);
+    this.nestedRoot = nestedRoot;
     this.indexFeatureVersion = parsedIndexFeatureVersion;
     this.definitionVersion = definitionVersion;
     this.definitionVersionCreatedAt = definitionVersionCreatedAt;
     this.storedSource = storedSource;
-    this.mappings = VectorIndexFieldMapping.create(fields);
+    this.mappings = VectorIndexFieldMapping.create(fields, nestedRoot);
     this.isAutoEmbeddingIndex = calculateIsAutoEmbeddingIndex(fields);
     this.parsedAutoEmbeddingFeatureVersion = calculateAutoEmbeddingFeatureVersion(fields);
     this.modelNamePerPath = calculateAutoEmbeddingModelName(fields);
@@ -153,6 +165,10 @@ public final class VectorIndexDefinition implements IndexDefinition {
     return this.fields;
   }
 
+  public Optional<FieldPath> getNestedRoot() {
+    return this.nestedRoot;
+  }
+
   @Override
   public int getParsedIndexFeatureVersion() {
     return this.indexFeatureVersion;
@@ -194,17 +210,14 @@ public final class VectorIndexDefinition implements IndexDefinition {
    * reserved for future Mat View collection schemas .
    *
    * <p>Auto-embedding is only supported in {@link VectorIndexDefinition}. A vector index field
-   * requires auto-embedding if it is specified with type
-   * {@link VectorIndexFieldDefinition.Type#TEXT} or
-   * {@link VectorIndexFieldDefinition.Type#AUTO_EMBED}.
+   * requires auto-embedding if it is specified with type {@link
+   * VectorIndexFieldDefinition.Type#TEXT} or {@link VectorIndexFieldDefinition.Type#AUTO_EMBED}.
    */
   public int getParsedAutoEmbeddingFeatureVersion() {
     return this.parsedAutoEmbeddingFeatureVersion;
   }
 
-  /**
-   * Returns embedding model per FieldPath
-   */
+  /** Returns embedding model per FieldPath */
   public ImmutableMap<FieldPath, String> getModelNamePerPath() {
     return this.modelNamePerPath;
   }
@@ -223,6 +236,7 @@ public final class VectorIndexDefinition implements IndexDefinition {
             .field(IndexDefinition.Fields.COLLECTION_UUID, this.collectionUuid)
             .field(IndexDefinition.Fields.VIEW, this.view)
             .field(IndexDefinition.Fields.NUM_PARTITIONS, this.numPartitions)
+            .field(Fields.NESTED_ROOT, this.nestedRoot)
             .field(Fields.FIELDS, this.fields)
             .field(IndexDefinition.Fields.DEFINITION_VERSION, this.definitionVersion)
             .field(
@@ -230,11 +244,11 @@ public final class VectorIndexDefinition implements IndexDefinition {
                 this.definitionVersionCreatedAt.map(DATE_FORMAT::format))
             .field(Fields.INDEX_FEATURE_VERSION, this.indexFeatureVersion)
             .field(IndexDefinition.Fields.STORED_SOURCE, this.storedSource);
+
     return builder.build();
   }
 
-  public static VectorIndexDefinition fromBson(BsonDocument document)
-      throws BsonParseException {
+  public static VectorIndexDefinition fromBson(BsonDocument document) throws BsonParseException {
     // Atlas sends extra fields that we don't care about, such as "createdDate" and
     // "lastUpdatedDate", so ignore any extra fields.
     try (var parser = BsonDocumentParser.fromRoot(document).allowUnknownFields(true).build()) {
@@ -242,8 +256,7 @@ public final class VectorIndexDefinition implements IndexDefinition {
     }
   }
 
-  public static VectorIndexDefinition fromBson(DocumentParser parser)
-      throws BsonParseException {
+  public static VectorIndexDefinition fromBson(DocumentParser parser) throws BsonParseException {
     Type type = parser.getField(IndexDefinition.Fields.TYPE).unwrap();
     if (!type.equals(Type.VECTOR_SEARCH)) {
       parser.getContext().handleSemanticError("Expected index of type vectorSearch");
@@ -281,7 +294,8 @@ public final class VectorIndexDefinition implements IndexDefinition {
         parser.getField(IndexDefinition.Fields.DEFINITION_VERSION).unwrap(),
         DateUtil.parseInstantFromString(
             parser, DATE_FORMAT, IndexDefinition.Fields.DEFINITION_VERSION_CREATED_AT),
-        parser.getField(IndexDefinition.Fields.STORED_SOURCE).unwrap());
+        parser.getField(IndexDefinition.Fields.STORED_SOURCE).unwrap(),
+        parser.getField(Fields.NESTED_ROOT).unwrap());
   }
 
   public VectorIndexDefinition withUpdatedViewDefinition(ViewDefinition updatedViewDefinition) {
@@ -297,7 +311,8 @@ public final class VectorIndexDefinition implements IndexDefinition {
         this.indexFeatureVersion,
         this.definitionVersion,
         this.definitionVersionCreatedAt,
-        this.storedSource);
+        this.storedSource,
+        this.nestedRoot);
   }
 
   @Override
@@ -314,6 +329,7 @@ public final class VectorIndexDefinition implements IndexDefinition {
         && Objects.equal(this.collectionUuid, that.collectionUuid)
         && Objects.equal(this.view, that.view)
         && Objects.equal(this.fields, that.fields)
+        && Objects.equal(this.nestedRoot, that.nestedRoot)
         && this.indexFeatureVersion == that.indexFeatureVersion
         && Objects.equal(this.definitionVersion, that.definitionVersion)
         // When serializing to BSON we convert to a string with second granularity (See
@@ -337,6 +353,7 @@ public final class VectorIndexDefinition implements IndexDefinition {
         this.view,
         this.numPartitions,
         this.fields,
+        this.nestedRoot,
         this.indexFeatureVersion,
         this.definitionVersion,
         this.definitionVersionCreatedAt.map(Instant::getEpochSecond),
@@ -393,7 +410,7 @@ public final class VectorIndexDefinition implements IndexDefinition {
             vectorFieldDefinition ->
                 (vectorFieldDefinition.getType() == VectorIndexFieldDefinition.Type.TEXT
                     || vectorFieldDefinition.getType()
-                    == VectorIndexFieldDefinition.Type.AUTO_EMBED))
+                        == VectorIndexFieldDefinition.Type.AUTO_EMBED))
         .forEach(
             vectorTextDef ->
                 builder.put(

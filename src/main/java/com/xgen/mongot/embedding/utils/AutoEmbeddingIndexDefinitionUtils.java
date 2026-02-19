@@ -56,7 +56,8 @@ public class AutoEmbeddingIndexDefinitionUtils {
         rawDefinition.getParsedIndexFeatureVersion(),
         rawDefinition.getDefinitionVersion(),
         rawDefinition.getDefinitionVersionCreatedAt(),
-        Optional.empty()); // TODO(https://jira.mongodb.org/browse/CLOUDP-363302)
+        Optional.empty(), // TODO(https://jira.mongodb.org/browse/CLOUDP-363302)
+        rawDefinition.getNestedRoot());
   }
 
   /**
@@ -121,7 +122,7 @@ public class AutoEmbeddingIndexDefinitionUtils {
                 updatedFieldDefinitions.add(field);
               }
             });
-    return VectorIndexFieldMapping.create(updatedFieldDefinitions);
+    return VectorIndexFieldMapping.create(updatedFieldDefinitions, rawFieldMapping.nestedRoot());
   }
 
   // Converts source auto-embedding field path to materialized view field path if there is schema

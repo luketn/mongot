@@ -36,6 +36,7 @@ public class VectorIndexDefinitionBuilder {
   private int indexFeatureVersion =
       VectorIndexDefinition.Fields.INDEX_FEATURE_VERSION.getDefaultValue();
   private Optional<StoredSourceDefinition> storedSource = Optional.empty();
+  private Optional<FieldPath> nestedRoot = Optional.empty();
 
   public static VectorIndexDefinitionBuilder builder() {
     return new VectorIndexDefinitionBuilder();
@@ -68,6 +69,7 @@ public class VectorIndexDefinitionBuilder {
                 builder.withFilterPath(field.getPath().toString());
               }
             });
+    definition.getNestedRoot().ifPresent(builder::nestedRoot);
 
     return builder;
   }
@@ -191,6 +193,16 @@ public class VectorIndexDefinitionBuilder {
     return this;
   }
 
+  public VectorIndexDefinitionBuilder nestedRoot(String nestedRoot) {
+    this.nestedRoot = Optional.of(FieldPath.parse(nestedRoot));
+    return this;
+  }
+
+  public VectorIndexDefinitionBuilder nestedRoot(FieldPath nestedRoot) {
+    this.nestedRoot = Optional.of(nestedRoot);
+    return this;
+  }
+
   public VectorIndexDefinitionBuilder withTextField(String path) {
     VectorTextFieldDefinition vectorText = new VectorTextFieldDefinition(FieldPath.parse(path));
     this.fields.add(vectorText);
@@ -247,6 +259,7 @@ public class VectorIndexDefinitionBuilder {
         this.indexFeatureVersion,
         this.definitionVersion,
         this.definitionVersionCreatedAt,
-        this.storedSource);
+        this.storedSource,
+        this.nestedRoot);
   }
 }

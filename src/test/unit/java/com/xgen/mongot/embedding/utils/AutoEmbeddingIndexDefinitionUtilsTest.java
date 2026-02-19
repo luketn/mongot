@@ -3,6 +3,7 @@ package com.xgen.mongot.embedding.utils;
 import static com.xgen.mongot.embedding.utils.ReplaceStringsFieldValueHandler.HASH_FIELD_SUFFIX;
 import static com.xgen.mongot.index.mongodb.MaterializedViewWriter.MV_DATABASE_NAME;
 
+import com.google.common.truth.Truth;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.index.definition.VectorAutoEmbedFieldDefinition;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
@@ -259,5 +260,77 @@ public class AutoEmbeddingIndexDefinitionUtilsTest {
     Assert.assertEquals(
         "a.b.c" + HASH_FIELD_SUFFIX,
         AutoEmbeddingIndexDefinitionUtils.getHashFieldPath(FieldPath.parse("a.b.c"), 0).toString());
+  }
+
+  @Test
+  public void testGetDerivedVectorIndexDefinitionPreservesNestedRoot() {
+    var autoEmbedFieldUnderNested =
+        new VectorAutoEmbedFieldDefinition(
+            "voyage-3-large",
+            "text",
+            FieldPath.parse("sections.text"),
+            VectorSimilarity.COSINE,
+            VectorQuantization.NONE);
+    var filterUnderNested = new VectorIndexFilterFieldDefinition(FieldPath.parse("sections.name"));
+    List<VectorIndexFieldDefinition> fields = List.of(autoEmbedFieldUnderNested, filterUnderNested);
+    var autoEmbedIndexDefinition =
+        VectorIndexDefinitionBuilder.builder().setFields(fields).nestedRoot("sections").build();
+
+    Truth.assertThat(autoEmbedIndexDefinition.getNestedRoot()).isPresent();
+    Assert.assertEquals(
+        FieldPath.parse("sections"), autoEmbedIndexDefinition.getNestedRoot().get());
+
+    var collectionUuid = UUID.randomUUID();
+    var derivedIndexDefinition =
+        AutoEmbeddingIndexDefinitionUtils.getDerivedVectorIndexDefinition(
+            autoEmbedIndexDefinition, MV_DATABASE_NAME, collectionUuid, MAT_VIEW_SCHEMA_METADATA);
+
+    Truth.assertThat(derivedIndexDefinition.getNestedRoot()).isPresent();
+    Assert.assertEquals(
+        "Derived nestedRoot should be 'sections'",
+        FieldPath.parse("sections"),
+        derivedIndexDefinition.getNestedRoot().get());
+    Assert.assertEquals(
+        "Field count should be unchanged",
+        autoEmbedIndexDefinition.getFields().size(),
+        derivedIndexDefinition.getFields().size());
+
+    var derivedVectorField = getVectorFieldDefinition("sections.text", derivedIndexDefinition);
+    Assert.assertEquals(VectorIndexFieldDefinition.Type.VECTOR, derivedVectorField.getType());
+    var derivedFilterField = getVectorFieldDefinition("sections.name", derivedIndexDefinition);
+    Assert.assertEquals(VectorIndexFieldDefinition.Type.FILTER, derivedFilterField.getType());
+  }
+
+  @Test
+  public void testGetMatViewIndexFieldsPreservesNestedRootAndHashPaths() {
+    var autoEmbedUnderNested =
+        new VectorAutoEmbedFieldDefinition(
+            "voyage-3-large",
+            "text",
+            FieldPath.parse("sections.embedding"),
+            VectorSimilarity.COSINE,
+            VectorQuantization.NONE);
+    var filterUnderNested = new VectorIndexFilterFieldDefinition(FieldPath.parse("sections.name"));
+    List<VectorIndexFieldDefinition> fields = List.of(autoEmbedUnderNested, filterUnderNested);
+    var autoEmbedIndexDefinition =
+        VectorIndexDefinitionBuilder.builder().setFields(fields).nestedRoot("sections").build();
+
+    var rawMapping = autoEmbedIndexDefinition.getMappings();
+    var matViewFieldMapping =
+        AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
+            rawMapping, MAT_VIEW_SCHEMA_METADATA);
+
+    Assert.assertTrue(
+        "Mat view mapping should preserve nestedRoot", matViewFieldMapping.hasNestedRoot());
+    Assert.assertEquals(FieldPath.parse("sections"), matViewFieldMapping.nestedRoot().get());
+
+    FieldPath nestedAutoEmbedPath = FieldPath.parse("sections.embedding");
+    FieldPath expectedHashPath = FieldPath.parse("sections.embedding" + HASH_FIELD_SUFFIX);
+    Assert.assertTrue(
+        "Should contain original auto-embed path",
+        matViewFieldMapping.fieldMap().containsKey(nestedAutoEmbedPath));
+    Assert.assertTrue(
+        "Should contain hash path for nested auto-embed field",
+        matViewFieldMapping.fieldMap().containsKey(expectedHashPath));
   }
 }

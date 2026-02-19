@@ -70,7 +70,9 @@ public class IndexMapper {
               VectorIndexCapabilities.CURRENT_FEATURE_VERSION,
               Optional.of(definitionVersion),
               Optional.of(definitionVersionCreatedAt),
-              vectorIndexDefinition.storedSource());
+              vectorIndexDefinition.storedSource(),
+              // TODO(CLOUDP-375205): Add nestedRoot support to UserVectorIndexDefinition
+              Optional.empty());
     };
   }
 

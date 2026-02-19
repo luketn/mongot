@@ -4,10 +4,15 @@ import static com.xgen.mongot.index.definition.StoredSourceDefinition.Mode.EXCLU
 import static com.xgen.mongot.index.definition.StoredSourceDefinition.Mode.INCLUSION;
 import static com.xgen.testing.BsonDeserializationTestSuite.fromDocument;
 import static com.xgen.testing.BsonSerializationTestSuite.fromEncodable;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
+import com.google.common.truth.Truth;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingModelCatalog;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingModelConfig;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig;
+import com.xgen.mongot.util.FieldPath;
 import com.xgen.testing.BsonDeserializationTestSuite;
 import com.xgen.testing.BsonDeserializationTestSuite.TestSpecWrapper;
 import com.xgen.testing.BsonSerializationTestSuite;
@@ -26,9 +31,123 @@ import org.junit.runners.Suite;
 @Suite.SuiteClasses(
     value = {
       VectorIndexDefinitionTest.TestDeserialization.class,
-      VectorIndexDefinitionTest.TestSerialization.class
+      VectorIndexDefinitionTest.TestSerialization.class,
+      VectorIndexDefinitionTest.TestNestedRoot.class
     })
 public class VectorIndexDefinitionTest {
+
+  /** Tests for VectorIndexDefinition with nestedRoot (flat fields under an array root). */
+  @RunWith(org.junit.runners.JUnit4.class)
+  public static class TestNestedRoot {
+
+    private static final VectorFieldSpecification SIMPLE_SPEC =
+        new VectorFieldSpecification(
+            128,
+            VectorSimilarity.COSINE,
+            VectorQuantization.NONE,
+            new VectorIndexingAlgorithm.HnswIndexingAlgorithm());
+
+    @Test
+    public void testGetNestedRoot_WhenPresent() {
+      VectorIndexDefinition definition =
+          VectorIndexDefinitionBuilder.builder()
+              .nestedRoot("sections")
+              .setFields(
+                  List.of(
+                      new VectorDataFieldDefinition(
+                          FieldPath.parse("sections.embedding"), SIMPLE_SPEC),
+                      new VectorIndexFilterFieldDefinition(FieldPath.parse("sections.name"))))
+              .build();
+
+      Truth.assertThat(definition.getNestedRoot()).isPresent();
+      Truth.assertThat(definition.getNestedRoot().get()).isEqualTo(FieldPath.parse("sections"));
+    }
+
+    @Test
+    public void testGetNestedRoot_WhenAbsent() {
+      VectorIndexDefinition definition =
+          VectorIndexDefinitionBuilder.builder()
+              .setFields(
+                  List.of(new VectorDataFieldDefinition(FieldPath.parse("embedding"), SIMPLE_SPEC)))
+              .build();
+
+      Truth.assertThat(definition.getNestedRoot()).isEmpty();
+    }
+
+    @Test
+    public void testRoundTrip_WithNestedRootAndFlatFields() throws Exception {
+      VectorIndexDefinition original =
+          VectorIndexDefinitionBuilder.builder()
+              .nestedRoot("sections")
+              .setFields(
+                  List.of(
+                      new VectorDataFieldDefinition(
+                          FieldPath.parse("sections.embedding1"), SIMPLE_SPEC),
+                      new VectorDataFieldDefinition(
+                          FieldPath.parse("sections.embedding2"), SIMPLE_SPEC),
+                      new VectorIndexFilterFieldDefinition(FieldPath.parse("title"))))
+              .build();
+
+      BsonDocument bson = original.toBson();
+      VectorIndexDefinition parsed = VectorIndexDefinition.fromBson(bson);
+
+      Truth.assertThat(parsed.getNestedRoot()).isPresent();
+      Truth.assertThat(parsed.getNestedRoot().get()).isEqualTo(FieldPath.parse("sections"));
+      assertEquals(original.getFields().size(), parsed.getFields().size());
+      assertEquals(original, parsed);
+    }
+
+    @Test
+    public void testMappings_HasNestedRootWhenDefinitionHasNestedRoot() {
+      VectorIndexDefinition definition =
+          VectorIndexDefinitionBuilder.builder()
+              .nestedRoot("sections")
+              .setFields(
+                  List.of(
+                      new VectorDataFieldDefinition(
+                          FieldPath.parse("sections.embedding"), SIMPLE_SPEC)))
+              .build();
+
+      assertTrue(definition.getMappings().hasNestedRoot());
+      assertTrue(definition.getMappings().isNestedRoot(FieldPath.parse("sections")));
+      assertFalse(definition.getMappings().isNestedRoot(FieldPath.parse("other")));
+    }
+
+    @Test
+    public void testToBson_IncludesNestedRoot() {
+      VectorIndexDefinition definition =
+          VectorIndexDefinitionBuilder.builder()
+              .nestedRoot("reviews")
+              .setFields(
+                  List.of(
+                      new VectorDataFieldDefinition(
+                          FieldPath.parse("reviews.embedding"), SIMPLE_SPEC)))
+              .build();
+
+      BsonDocument bson = definition.toBson();
+
+      Truth.assertThat(bson.containsKey("nestedRoot")).isTrue();
+      assertEquals("reviews", bson.getString("nestedRoot").getValue());
+    }
+
+    @Test
+    public void testFromBson_PreservesNestedRoot() throws Exception {
+      VectorIndexDefinition original =
+          VectorIndexDefinitionBuilder.builder()
+              .nestedRoot("sections")
+              .setFields(
+                  List.of(
+                      new VectorDataFieldDefinition(
+                          FieldPath.parse("sections.embedding"), SIMPLE_SPEC)))
+              .build();
+
+      BsonDocument bson = original.toBson();
+      VectorIndexDefinition parsed = VectorIndexDefinition.fromBson(bson);
+
+      Truth.assertThat(parsed.getNestedRoot()).isPresent();
+      Truth.assertThat(parsed.getNestedRoot().get()).isEqualTo(FieldPath.parse("sections"));
+    }
+  }
 
   private static void setupRegistry() {
     EmbeddingModelCatalog.registerModelConfig(

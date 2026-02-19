@@ -3,6 +3,7 @@ package com.xgen.mongot.index.definition;
 import static com.xgen.mongot.index.definition.VectorIndexFieldDefinition.Type;
 import static com.xgen.mongot.index.definition.VectorSimilarity.EUCLIDEAN;
 
+import com.google.common.truth.Truth;
 import com.xgen.mongot.index.version.IndexFormatVersion;
 import com.xgen.mongot.util.FieldPath;
 import com.xgen.testing.mongot.index.definition.VectorIndexDefinitionBuilder;
@@ -128,5 +129,172 @@ public class VectorFieldDefinitionResolverTest {
     var incorrectTypeDefinition =
         resolver.getVectorFieldSpecification(FieldPath.parse("bar.filter"));
     Assert.assertTrue(incorrectTypeDefinition.isEmpty());
+  }
+
+  @Test
+  public void testIsUsed_WithNestedVectorFields() {
+    // Nested vector path under nestedRoot "reviews"; resolver uses full path for lookups
+    FieldPath nestedVectorPath = FieldPath.parse("reviews.message.embedding");
+
+    var definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(new ObjectId())
+            .name("test")
+            .database("db")
+            .lastObservedCollectionName("col")
+            .collectionUuid(UUID.randomUUID())
+            .numPartitions(1)
+            .nestedRoot("reviews")
+            .setFields(
+                List.of(
+                    new VectorDataFieldDefinition(
+                        nestedVectorPath,
+                        new VectorFieldSpecification(
+                            100,
+                            EUCLIDEAN,
+                            VectorQuantization.NONE,
+                            new VectorIndexingAlgorithm.HnswIndexingAlgorithm())),
+                    new VectorIndexFilterFieldDefinition(FieldPath.parse("category"))))
+            .build();
+
+    var resolver = new VectorFieldDefinitionResolver(definition, IndexFormatVersion.CURRENT);
+
+    // Test that all ancestor paths of the nested vector are marked as used
+    Assert.assertTrue(resolver.isUsed(FieldPath.parse("reviews")));
+    Assert.assertTrue(resolver.isUsed(FieldPath.parse("reviews.message")));
+    Assert.assertTrue(resolver.isUsed(FieldPath.parse("reviews.message.embedding")));
+
+    // Test filter field
+    Assert.assertTrue(resolver.isUsed(FieldPath.parse("category")));
+
+    // Test non-existent paths
+    Assert.assertFalse(resolver.isUsed(FieldPath.parse("reviews.other")));
+    Assert.assertFalse(resolver.isUsed(FieldPath.parse("products")));
+  }
+
+  @Test
+  public void testIsIndexed_WithNestedVectorFields() {
+    FieldPath nestedVectorPath = FieldPath.parse("items.embedding");
+
+    var definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(new ObjectId())
+            .name("test")
+            .database("db")
+            .lastObservedCollectionName("col")
+            .collectionUuid(UUID.randomUUID())
+            .numPartitions(1)
+            .nestedRoot("items")
+            .setFields(
+                List.of(
+                    new VectorDataFieldDefinition(
+                        nestedVectorPath,
+                        new VectorFieldSpecification(
+                            256,
+                            EUCLIDEAN,
+                            VectorQuantization.NONE,
+                            new VectorIndexingAlgorithm.HnswIndexingAlgorithm()))))
+            .build();
+
+    var resolver = new VectorFieldDefinitionResolver(definition, IndexFormatVersion.CURRENT);
+
+    // The full nested vector path should be indexed as VECTOR type
+    Assert.assertTrue(resolver.isIndexed(FieldPath.parse("items.embedding"), Type.VECTOR));
+    Assert.assertFalse(resolver.isIndexed(FieldPath.parse("items.embedding"), Type.FILTER));
+
+    // Parent path should not be indexed as VECTOR type
+    Assert.assertFalse(resolver.isIndexed(FieldPath.parse("items"), Type.VECTOR));
+  }
+
+  @Test
+  public void testGetVectorFieldSpecification_WithNestedFields() {
+    VectorFieldSpecification nestedSpec =
+        new VectorFieldSpecification(
+            512,
+            EUCLIDEAN,
+            VectorQuantization.SCALAR,
+            new VectorIndexingAlgorithm.HnswIndexingAlgorithm());
+
+    FieldPath nestedVectorPath = FieldPath.parse("sections.paragraph.vector");
+
+    var definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(new ObjectId())
+            .name("test")
+            .database("db")
+            .lastObservedCollectionName("col")
+            .collectionUuid(UUID.randomUUID())
+            .numPartitions(1)
+            .nestedRoot("sections")
+            .setFields(List.of(new VectorDataFieldDefinition(nestedVectorPath, nestedSpec)))
+            .build();
+
+    var resolver = new VectorFieldDefinitionResolver(definition, IndexFormatVersion.CURRENT);
+
+    // Should be able to retrieve the specification using the full nested vector path
+    var spec = resolver.getVectorFieldSpecification(FieldPath.parse("sections.paragraph.vector"));
+    Truth.assertThat(spec).isPresent();
+    Assert.assertEquals(nestedSpec, spec.get());
+
+    // Should not find specification for partial paths
+    var partialSpec = resolver.getVectorFieldSpecification(FieldPath.parse("sections"));
+    Truth.assertThat(partialSpec).isEmpty();
+
+    var partialSpec2 = resolver.getVectorFieldSpecification(FieldPath.parse("sections.paragraph"));
+    Truth.assertThat(partialSpec2).isEmpty();
+  }
+
+  @Test
+  public void testMixedSimpleAndNestedVectorFields() {
+    VectorFieldSpecification simpleSpec =
+        new VectorFieldSpecification(
+            128,
+            EUCLIDEAN,
+            VectorQuantization.NONE,
+            new VectorIndexingAlgorithm.HnswIndexingAlgorithm());
+
+    VectorFieldSpecification nestedSpec =
+        new VectorFieldSpecification(
+            256,
+            EUCLIDEAN,
+            VectorQuantization.SCALAR,
+            new VectorIndexingAlgorithm.HnswIndexingAlgorithm());
+
+    FieldPath nestedVectorPath = FieldPath.parse("reviews.embedding");
+
+    var definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(new ObjectId())
+            .name("test")
+            .database("db")
+            .lastObservedCollectionName("col")
+            .collectionUuid(UUID.randomUUID())
+            .numPartitions(1)
+            .nestedRoot("reviews")
+            .setFields(
+                List.of(
+                    new VectorDataFieldDefinition(FieldPath.parse("simpleVector"), simpleSpec),
+                    new VectorDataFieldDefinition(nestedVectorPath, nestedSpec),
+                    new VectorIndexFilterFieldDefinition(FieldPath.parse("category"))))
+            .build();
+
+    var resolver = new VectorFieldDefinitionResolver(definition, IndexFormatVersion.CURRENT);
+
+    // Test simple vector field
+    Assert.assertTrue(resolver.isUsed(FieldPath.parse("simpleVector")));
+    Assert.assertTrue(resolver.isIndexed(FieldPath.parse("simpleVector"), Type.VECTOR));
+    var mainSpec = resolver.getVectorFieldSpecification(FieldPath.parse("simpleVector"));
+    Assert.assertEquals(simpleSpec, mainSpec.orElseThrow());
+
+    // Test nested vector field
+    Assert.assertTrue(resolver.isUsed(FieldPath.parse("reviews")));
+    Assert.assertTrue(resolver.isUsed(FieldPath.parse("reviews.embedding")));
+    Assert.assertTrue(resolver.isIndexed(FieldPath.parse("reviews.embedding"), Type.VECTOR));
+    var reviewSpec = resolver.getVectorFieldSpecification(FieldPath.parse("reviews.embedding"));
+    Assert.assertEquals(nestedSpec, reviewSpec.orElseThrow());
+
+    // Test filter field
+    Assert.assertTrue(resolver.isUsed(FieldPath.parse("category")));
+    Assert.assertTrue(resolver.isIndexed(FieldPath.parse("category"), Type.FILTER));
   }
 }

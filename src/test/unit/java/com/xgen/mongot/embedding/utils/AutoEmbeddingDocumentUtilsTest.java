@@ -57,7 +57,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         List.of(
             new VectorTextFieldDefinition(FieldPath.parse("a")),
             new VectorTextFieldDefinition(FieldPath.parse("b")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
 
     Map<FieldPath, Set<String>> result = getVectorTextPathMap(rawBsonDoc, mappings);
     assertEquals(
@@ -73,7 +73,7 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorTextFieldDefinition(FieldPath.parse("root.a")),
             new VectorTextFieldDefinition(FieldPath.parse("root.b")),
             new VectorTextFieldDefinition(FieldPath.newRoot("dot.field")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     BsonDocument bsonDoc = createEmbeddedBson();
 
     // also test that "." in field name works
@@ -98,7 +98,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         List.of(
             new VectorTextFieldDefinition(FieldPath.parse("root")),
             new VectorTextFieldDefinition(FieldPath.parse("root.a")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     BsonDocument bsonDoc = createArrayBson();
     RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
 
@@ -121,7 +121,7 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorTextFieldDefinition(FieldPath.parse("d")),
             new VectorTextFieldDefinition(FieldPath.parse("a")),
             new VectorTextFieldDefinition(FieldPath.parse("num")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     BsonDocument bsonDoc = createArrayBson();
     bsonDoc.append("d", new BsonString("dString"));
     bsonDoc.append("num", new BsonDouble(1.23));
@@ -148,7 +148,7 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorTextFieldDefinition(FieldPath.parse("c")),
             new VectorTextFieldDefinition(FieldPath.parse("extra")),
             new VectorTextFieldDefinition(FieldPath.parse("num")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createBasicBson();
     bsonDoc.append("extra", new BsonString("no-embedding"));
@@ -186,7 +186,7 @@ public class AutoEmbeddingDocumentUtilsTest {
   public void testBuildDocumentEvent_noop() throws IOException {
     List<VectorIndexFieldDefinition> fields =
         List.of(new VectorTextFieldDefinition(FieldPath.parse("a")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     DocumentEvent rawDocumentEvent = DocumentEvent.createDelete(new BsonInt32(1));
     DocumentEvent result =
@@ -202,7 +202,7 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorTextFieldDefinition(FieldPath.parse("root.a")),
             new VectorTextFieldDefinition(FieldPath.parse("root.b")),
             new VectorTextFieldDefinition(FieldPath.newRoot("dot.field")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createEmbeddedBson();
 
@@ -243,7 +243,7 @@ public class AutoEmbeddingDocumentUtilsTest {
   public void testBuildDocumentEvent_array() throws IOException {
     List<VectorIndexFieldDefinition> fields =
         List.of(new VectorTextFieldDefinition(FieldPath.parse("root")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createArrayBson();
     RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
@@ -273,7 +273,7 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorTextFieldDefinition(FieldPath.parse("root")),
             new VectorTextFieldDefinition(FieldPath.parse("root.a")),
             new VectorTextFieldDefinition(FieldPath.parse("root.b")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createArrayBson();
     RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
@@ -309,7 +309,7 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("extra")),
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("num")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createBasicBson();
     bsonDoc.append("extra", new BsonString("no-embedding"));
@@ -337,7 +337,7 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("a")),
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("b")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createBasicBson();
     RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
@@ -379,7 +379,7 @@ public class AutoEmbeddingDocumentUtilsTest {
                 FieldPath.parse("_autoEmbed.a"),
                 FieldPath.parse("b"),
                 FieldPath.parse("_autoEmbed.b")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     VectorIndexFieldMapping matViewMappingsWithHash =
         AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(mappings, schemaMetadata);
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
@@ -422,7 +422,7 @@ public class AutoEmbeddingDocumentUtilsTest {
   public void testCompareDocumentsEmptyStringField() throws IOException {
     List<VectorIndexFieldDefinition> fields =
         List.of(new VectorAutoEmbedFieldDefinition(FieldPath.parse("c")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createBsonWithGivenString("");
     RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
@@ -451,7 +451,7 @@ public class AutoEmbeddingDocumentUtilsTest {
   public void testCompareDocumentsNonEmptyToEmptyStringField() throws IOException {
     List<VectorIndexFieldDefinition> fields =
         List.of(new VectorAutoEmbedFieldDefinition(FieldPath.parse("c")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     @Var BsonDocument bsonDoc = createBsonWithGivenString("aString");
     @Var RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
@@ -501,7 +501,7 @@ public class AutoEmbeddingDocumentUtilsTest {
   public void testCompareDocumentsEmptyStringFieldInArray() throws IOException {
     List<VectorIndexFieldDefinition> fields =
         List.of(new VectorAutoEmbedFieldDefinition(FieldPath.parse("root.a")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createArrayBsonWithGivenString("");
     RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
@@ -530,7 +530,7 @@ public class AutoEmbeddingDocumentUtilsTest {
   public void testCompareDocumentsNonEmptyToEmptyStringFieldInArray() throws IOException {
     List<VectorIndexFieldDefinition> fields =
         List.of(new VectorAutoEmbedFieldDefinition(FieldPath.parse("root.a")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     @Var BsonDocument bsonDoc = createArrayBsonWithGivenString("aString");
     @Var RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
@@ -573,7 +573,7 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("extra")),
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("num")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createBasicBson();
     bsonDoc.append("extra", new BsonString("no-embedding"));
@@ -612,7 +612,8 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("a")),
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("b")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    @Var VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    @Var VectorIndexFieldMapping mappings =
+        VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createBasicBson();
     bsonDoc.append("color", new BsonString("red"));
@@ -637,7 +638,7 @@ public class AutoEmbeddingDocumentUtilsTest {
     rawDocumentEvent =
         DocumentEvent.createInsert(
             DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
-    mappings = VectorIndexFieldMapping.create(newFields);
+    mappings = VectorIndexFieldMapping.create(newFields, Optional.empty());
 
     var comparisonResult =
         compareDocuments(
@@ -663,7 +664,8 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("b")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("size")));
-    @Var VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    @Var VectorIndexFieldMapping mappings =
+        VectorIndexFieldMapping.create(fields, Optional.empty());
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createBasicBson();
     bsonDoc.append("color", new BsonString("red"));
@@ -683,7 +685,7 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("a")),
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("b")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    mappings = VectorIndexFieldMapping.create(newFields);
+    mappings = VectorIndexFieldMapping.create(newFields, Optional.empty());
 
     var comparisonResult =
         compareDocuments(
@@ -814,7 +816,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         List.of(
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("text")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
 
     // UpdateDescription with only filter field updated
     com.mongodb.client.model.changestream.UpdateDescription updateDescription =
@@ -832,7 +834,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         List.of(
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("text")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
 
     // UpdateDescription with auto-embed field updated
     com.mongodb.client.model.changestream.UpdateDescription updateDescription =
@@ -849,7 +851,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         List.of(
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("text")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
 
     // UpdateDescription with both fields updated
     com.mongodb.client.model.changestream.UpdateDescription updateDescription =
@@ -868,7 +870,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         List.of(
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("text")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
 
     // UpdateDescription with auto-embed field removed
     com.mongodb.client.model.changestream.UpdateDescription updateDescription =
@@ -884,7 +886,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         List.of(
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("text")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
 
     // UpdateDescription with filter field removed
     com.mongodb.client.model.changestream.UpdateDescription updateDescription =
@@ -901,7 +903,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         List.of(
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("text")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
 
     // UpdateDescription with unrelated field updated (not in index at all)
     com.mongodb.client.model.changestream.UpdateDescription updateDescription =
@@ -921,7 +923,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         List.of(
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("text")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
 
     // Document with filter field
     BsonDocument bsonDoc =
@@ -944,7 +946,7 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("text")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("size")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
 
     // Document with multiple filter fields
     BsonDocument bsonDoc =
@@ -969,7 +971,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         List.of(
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("text")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
 
     // Document without filter field
     BsonDocument bsonDoc =
@@ -992,7 +994,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         List.of(
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("text")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("tags")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     BsonDocument bsonDoc =
         new BsonDocument()
             .append("_id", new BsonString("anId"))
@@ -1025,7 +1027,7 @@ public class AutoEmbeddingDocumentUtilsTest {
         List.of(
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("text")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("tags")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     BsonDocument bsonDoc =
         new BsonDocument()
             .append("_id", new BsonString("anId"))
@@ -1050,7 +1052,7 @@ public class AutoEmbeddingDocumentUtilsTest {
             new VectorAutoEmbedFieldDefinition(FieldPath.parse("text")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("color")),
             new VectorIndexFilterFieldDefinition(FieldPath.parse("tags")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields);
+    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
     BsonDocument bsonDoc =
         new BsonDocument()
             .append("_id", new BsonString("anId"))

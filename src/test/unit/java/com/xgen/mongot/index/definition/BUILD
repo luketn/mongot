@@ -34,6 +34,7 @@ java_test_suite(
         "SynonymMappingDefinitionTest.java",
         "TokenFieldDefinitionTest.java",
         "TypeSetDefinitionTest.java",
+        "VectorDataFieldDefinitionTest.java",
         "VectorFieldDefinitionResolverTest.java",
         "VectorIndexDefinitionGenerationTest.java",
         "VectorIndexDefinitionTest.java",
