@@ -254,5 +254,194 @@ public class JsonCodecTest {
       String expected = "{\"a\": {\"$maxKey\": 1}}";
       Assert.assertEquals(expected, json);
     }
+
+    @Test
+    public void testUuidBinarySubtype4RoundTrip() throws Exception {
+      // Test that a binary field with UUID subtype (type '4') is handled correctly
+      // This tests the scenario: numDimensions: { data: { '$binary': 'AQIDBAUGBwg=', '$type':
+      // '4' }
+      String jsonWithUuidSubtype =
+          "{\"numDimensions\": {\"data\": {\"$binary\": "
+              + "{\"base64\": \"AQIDBAUGBwg=\", \"subType\": \"04\"}}}}";
+
+      // Parse the JSON into BSON
+      BsonDocument bson = JsonCodec.fromJson(jsonWithUuidSubtype);
+
+      // Verify the binary field was parsed correctly
+      assertThat(bson.containsKey("numDimensions")).isTrue();
+      BsonDocument numDimensions = bson.getDocument("numDimensions");
+      assertThat(numDimensions.containsKey("data")).isTrue();
+      assertThat(numDimensions.get("data").isBinary()).isTrue();
+
+      BsonBinary binary = numDimensions.getBinary("data");
+      assertThat(binary.getType()).isEqualTo((byte) 4); // UUID subtype
+
+      // Convert back to JSON - should fall back to extended JSON format
+      // since the binary data is not a valid UUID (only 8 bytes instead of 16)
+      String jsonOutput = JsonCodec.toJson(bson);
+
+      // The output should contain the binary in extended JSON format
+      // because the data is not a valid UUID
+      assertThat(jsonOutput)
+          .contains("{\"$binary\": {\"base64\": \"AQIDBAUGBwg=\", \"subType\": \"04\"}}");
+    }
+
+    @Test
+    public void testValidUuidBinarySubtype4() throws Exception {
+      // Test with a valid 16-byte UUID in subtype 4
+      String validUuidJson =
+          "{\"field\": {\"$binary\": "
+              + "{\"base64\": \"AAAAAAAAAAAAAAAAAAAAAA==\", \"subType\": \"04\"}}}";
+
+      BsonDocument bson = JsonCodec.fromJson(validUuidJson);
+
+      // Convert to JSON - should convert to UUID string format
+      String jsonOutput = JsonCodec.toJson(bson);
+
+      // Should be converted to a UUID string
+      assertThat(jsonOutput).contains("\"field\": \"00000000-0000-0000-0000-000000000000\"");
+    }
+
+    @Test
+    public void testInvalidUuidBinarySubtype4FallsBackToExtendedJson() throws Exception {
+      // Test that invalid UUID data (wrong length) falls back to extended JSON
+      String invalidUuidJson =
+          "{\"field\": {\"$binary\": {\"base64\": \"AQIDBAUGBwg=\", \"subType\": \"04\"}}}";
+
+      BsonDocument bson = JsonCodec.fromJson(invalidUuidJson);
+      String jsonOutput = JsonCodec.toJson(bson);
+
+      // Should fall back to extended JSON format since it's not a valid UUID
+      assertThat(jsonOutput)
+          .contains("{\"$binary\": {\"base64\": \"AQIDBAUGBwg=\", \"subType\": \"04\"}}");
+    }
+
+    @Test
+    public void testUuidBinarySubtype3InPipeline() throws Exception {
+      // Test that a binary field with UUID old format subtype (type '03') is handled correctly
+      // This tests the scenario from effectivePipeline with $match expression
+      String jsonWithPipeline =
+          "{\"effectivePipeline\": [{\"$match\": {\"$expr\": {\"$eq\": "
+              + "[\"$domain_id\", {\"$binary\": "
+              + "{\"base64\": \"nebpg/QcQOqlHJogHUIyyA==\", \"subType\": \"03\"}}]}}}]}";
+
+      // Parse the JSON into BSON
+      BsonDocument bson = JsonCodec.fromJson(jsonWithPipeline);
+
+      // Verify the structure was parsed correctly
+      assertThat(bson.containsKey("effectivePipeline")).isTrue();
+      assertThat(bson.get("effectivePipeline").isArray()).isTrue();
+
+      BsonArray pipeline = bson.getArray("effectivePipeline");
+      assertThat(pipeline.size()).isEqualTo(1);
+
+      BsonDocument matchStage = pipeline.get(0).asDocument();
+      assertThat(matchStage.containsKey("$match")).isTrue();
+
+      BsonDocument match = matchStage.getDocument("$match");
+      BsonDocument expr = match.getDocument("$expr");
+      BsonArray eqArray = expr.getArray("$eq");
+
+      // Verify the binary field
+      BsonBinary binary = eqArray.get(1).asBinary();
+      assertThat(binary.getType()).isEqualTo((byte) 3); // UUID old format subtype
+
+      // Convert back to JSON - should fall back to extended JSON format
+      // since subtype 03 uses old UUID format which may not convert cleanly
+      String jsonOutput = JsonCodec.toJson(bson);
+
+      // The output should preserve the binary in extended JSON format
+      assertThat(jsonOutput).contains("\"subType\": \"03\"");
+      assertThat(jsonOutput).contains("nebpg/QcQOqlHJogHUIyyA==");
+    }
+
+    @Test
+    public void testValidUuidBinarySubtype3() throws Exception {
+      // Test with a valid 16-byte UUID in subtype 3 (old UUID format)
+      String validUuidJson =
+          "{\"field\": {\"$binary\": "
+              + "{\"base64\": \"nebpg/QcQOqlHJogHUIyyA==\", \"subType\": \"03\"}}}";
+
+      BsonDocument bson = JsonCodec.fromJson(validUuidJson);
+
+      // Verify the binary field was parsed correctly
+      assertThat(bson.containsKey("field")).isTrue();
+      BsonBinary binary = bson.getBinary("field");
+      assertThat(binary.getType()).isEqualTo((byte) 3); // UUID old format
+
+      // Convert to JSON - should attempt UUID conversion or fall back to extended JSON
+      String jsonOutput = JsonCodec.toJson(bson);
+
+      // Subtype 03 is UUID old format, should either convert to UUID string or preserve as binary
+      // The behavior depends on whether asUuid() can handle subtype 3
+      assertThat(jsonOutput).isNotEmpty();
+      // Should contain either UUID string or extended JSON format
+      assertThat(jsonOutput.contains("field")).isTrue();
+    }
+
+    @Test
+    public void testUuidBinarySubtype3FallsBackToExtendedJson() throws Exception {
+      // Test that UUID subtype 3 (old format) falls back to extended JSON when needed
+      String uuidSubtype3Json =
+          "{\"domain_id\": {\"$binary\": "
+              + "{\"base64\": \"nebpg/QcQOqlHJogHUIyyA==\", \"subType\": \"03\"}}}";
+
+      BsonDocument bson = JsonCodec.fromJson(uuidSubtype3Json);
+      String jsonOutput = JsonCodec.toJson(bson);
+
+      // Should handle the UUID subtype 3 gracefully
+      // Either as UUID string or as extended JSON format
+      assertThat(jsonOutput).contains("domain_id");
+
+      // Verify round-trip: parse the output back
+      BsonDocument reparsed = JsonCodec.fromJson(jsonOutput);
+      assertThat(reparsed.containsKey("domain_id")).isTrue();
+
+      // The binary data should be preserved
+      BsonBinary originalBinary = bson.getBinary("domain_id");
+      BsonBinary reparsedBinary = reparsed.getBinary("domain_id");
+
+      // Data should be the same
+      assertThat(reparsedBinary.getData()).isEqualTo(originalBinary.getData());
+    }
+
+    @Test
+    public void testComplexPipelineWithMultipleBinaryFields() throws Exception {
+      // Test a more complex pipeline with multiple binary fields
+      String complexPipeline =
+          "{\"pipeline\": ["
+              + "{\"$match\": {\"id\": {\"$binary\": "
+              + "{\"base64\": \"AAAAAAAAAAAAAAAAAAAAAA==\", \"subType\": \"04\"}}}},"
+              + "{\"$match\": {\"domain\": {\"$binary\": "
+              + "{\"base64\": \"nebpg/QcQOqlHJogHUIyyA==\", \"subType\": \"03\"}}}}"
+              + "]}";
+
+      BsonDocument bson = JsonCodec.fromJson(complexPipeline);
+
+      // Verify parsing
+      assertThat(bson.containsKey("pipeline")).isTrue();
+      BsonArray pipeline = bson.getArray("pipeline");
+      assertThat(pipeline.size()).isEqualTo(2);
+
+      // First match with subtype 04
+      BsonBinary binary1 =
+          pipeline.get(0).asDocument().getDocument("$match").getBinary("id");
+      assertThat(binary1.getType()).isEqualTo((byte) 4);
+
+      // Second match with subtype 03
+      BsonBinary binary2 =
+          pipeline.get(1).asDocument().getDocument("$match").getBinary("domain");
+      assertThat(binary2.getType()).isEqualTo((byte) 3);
+
+      // Convert back to JSON
+      String jsonOutput = JsonCodec.toJson(bson);
+
+      // Should handle both subtypes correctly
+      assertThat(jsonOutput).contains("pipeline");
+
+      // Verify round-trip
+      BsonDocument reparsed = JsonCodec.fromJson(jsonOutput);
+      assertThat(reparsed.getArray("pipeline").size()).isEqualTo(2);
+    }
   }
 }

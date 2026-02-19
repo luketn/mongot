@@ -28,7 +28,15 @@ public class JsonCodec {
   private static final Converter<BsonBinary> UUID_TO_STRING_CONVERTER =
       (value, writer) -> {
         if (BsonBinarySubType.isUuid(value.getType())) {
-          writer.writeString(value.asUuid().toString());
+          String uuidString;
+          try {
+            uuidString = value.asUuid().toString();
+          } catch (Exception e) {
+            // fall back to relaxed binary converter
+            RELAXED_BINARY_CONVERTER.convert(value, writer);
+            return;
+          }
+          writer.writeString(uuidString);
         } else {
           RELAXED_BINARY_CONVERTER.convert(value, writer);
         }
