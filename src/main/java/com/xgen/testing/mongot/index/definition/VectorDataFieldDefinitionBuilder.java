@@ -55,6 +55,6 @@ public class VectorDataFieldDefinitionBuilder {
             Check.isPresent(this.numDimensions, "numDimensions"),
             Check.isPresent(this.similarity, "similarity"),
             Check.isPresent(this.quantization, "quantization"),
-            Check.isPresent(this.indexingAlgorithm, "indexingAlgorithm")));
+            Check.isPresent(this.indexingAlgorithm, "indexingMethod")));
   }
 }

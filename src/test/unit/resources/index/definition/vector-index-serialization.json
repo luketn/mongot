@@ -550,7 +550,7 @@
             "path": "my.vector.field",
             "numDimensions": 1024,
             "similarity": "cosine",
-            "indexingAlgorithm": "flat"
+            "indexingMethod": "flat"
           }
         ]
       },
@@ -569,7 +569,7 @@
             "path": "my.vector.field",
             "numDimensions": 1024,
             "similarity": "cosine",
-            "indexingAlgorithm": "flat"
+            "indexingMethod": "flat"
           }
         ]
       }

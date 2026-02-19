@@ -495,7 +495,7 @@
             "path": "my.vector.field",
             "numDimensions": 1024,
             "similarity": "cosine",
-            "indexingAlgorithm": "flat"
+            "indexingMethod": "flat"
           }
         ]
       }
@@ -520,7 +520,7 @@
             "path": "my.vector.field",
             "numDimensions": 1024,
             "similarity": "cosine",
-            "indexingAlgorithm": "hnsw",
+            "indexingMethod": "hnsw",
             "hnswOptions": {
               "maxEdges": 32,
               "numEdgeCandidates": 500
@@ -912,7 +912,7 @@
             "path": "my.vector.field",
             "numDimensions": 1024,
             "similarity": "cosine",
-            "indexingAlgorithm": "flat",
+            "indexingMethod": "flat",
             "hnswOptions": {
               "maxEdges": 32,
               "numEdgeCandidates": 500

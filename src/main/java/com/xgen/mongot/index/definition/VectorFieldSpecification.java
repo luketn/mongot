@@ -46,7 +46,7 @@ public class VectorFieldSpecification implements DocumentEncodable {
 
     public static final Field.WithDefault<VectorIndexingAlgorithm.AlgorithmType>
         INDEXING_ALGORITHM =
-            Field.builder("indexingAlgorithm")
+            Field.builder("indexingMethod")
                 .enumField(VectorIndexingAlgorithm.AlgorithmType.class)
                 .asCamelCase()
                 .optional()
@@ -191,7 +191,7 @@ public class VectorFieldSpecification implements DocumentEncodable {
         && maybeHnswOptions.isPresent()) {
       parser
           .getContext()
-          .handleSemanticError("hnswOptions is only supported with \"indexingAlgorithm: hnsw\".");
+          .handleSemanticError("hnswOptions is only supported with \"indexingMethod: hnsw\".");
     }
 
     return switch (algorithmType) {
