@@ -1,0 +1,135 @@
+{
+  "tests": [
+    {
+      "description": "leaseWithMaterializedViewMetadata",
+      "json": {
+        "_id": "test-lease-id",
+        "schemaVersion": 1,
+        "collectionUuid": "550e8400-e29b-41d4-a716-446655440000",
+        "collectionName": "test-collection",
+        "leaseOwner": "localhost",
+        "leaseExpiration": {
+          "$date": "2024-12-06T00:57:15.661Z"
+        },
+        "leaseVersion": 1,
+        "commitInfo": "{}",
+        "latestIndexDefinitionVersion": "1",
+        "indexDefinitionVersionStatusMap": {
+          "1": {
+            "isQueryable": false,
+            "indexStatusCode": "INITIAL_SYNC"
+          }
+        },
+        "materializedViewCollectionMetadata": {
+          "mvSchemaMetadata": {
+            "schemaFieldMapping": {
+              "title": "_autoEmbed.title"
+            },
+            "mvMetadataSchemaVersion": 1
+          },
+          "collectionUuid": "550e8400-e29b-41d4-a716-446655440000",
+          "collectionName": "test-collection"
+        }
+      },
+      "bson": {
+        "_id": "test-lease-id",
+        "schemaVersion": {
+          "$numberLong": "1"
+        },
+        "collectionUuid": "550e8400-e29b-41d4-a716-446655440000",
+        "collectionName": "test-collection",
+        "leaseOwner": "localhost",
+        "leaseExpiration": {
+          "$date": "2024-12-06T00:57:15.661Z"
+        },
+        "leaseVersion": {
+          "$numberLong": "1"
+        },
+        "commitInfo": "{}",
+        "latestIndexDefinitionVersion": "1",
+        "indexDefinitionVersionStatusMap": {
+          "1": {
+            "isQueryable": false,
+            "indexStatusCode": "INITIAL_SYNC"
+          }
+        },
+        "materializedViewCollectionMetadata": {
+          "mvSchemaMetadata": {
+            "schemaFieldMapping": {
+              "title": "_autoEmbed.title"
+            },
+            "mvMetadataSchemaVersion": {
+              "$numberLong": "1"
+            }
+          },
+          "collectionUuid": "550e8400-e29b-41d4-a716-446655440000",
+          "collectionName": "test-collection"
+        }
+      }
+    },
+    {
+      "description": "leaseWithEmptyMaterializedViewMetadata",
+      "json": {
+        "_id": "test-lease-id",
+        "schemaVersion": 1,
+        "collectionUuid": "550e8400-e29b-41d4-a716-446655440000",
+        "collectionName": "test-collection",
+        "leaseOwner": "localhost",
+        "leaseExpiration": {
+          "$date": "2024-12-06T00:57:15.661Z"
+        },
+        "leaseVersion": 1,
+        "commitInfo": "{}",
+        "latestIndexDefinitionVersion": "1",
+        "indexDefinitionVersionStatusMap": {
+          "1": {
+            "isQueryable": false,
+            "indexStatusCode": "INITIAL_SYNC"
+          }
+        },
+        "materializedViewCollectionMetadata": {
+          "mvSchemaMetadata": {
+            "schemaFieldMapping": {},
+            "mvMetadataSchemaVersion": 0
+          },
+          "collectionUuid": "550e8400-e29b-41d4-a716-446655440000",
+          "collectionName": "test-collection"
+        }
+      },
+      "bson": {
+        "_id": "test-lease-id",
+        "schemaVersion": {
+          "$numberLong": "1"
+        },
+        "collectionUuid": "550e8400-e29b-41d4-a716-446655440000",
+        "collectionName": "test-collection",
+        "leaseOwner": "localhost",
+        "leaseExpiration": {
+          "$date": "2024-12-06T00:57:15.661Z"
+        },
+        "leaseVersion": {
+          "$numberLong": "1"
+        },
+        "commitInfo": "{}",
+        "latestIndexDefinitionVersion": "1",
+        "indexDefinitionVersionStatusMap": {
+          "1": {
+            "isQueryable": false,
+            "indexStatusCode": "INITIAL_SYNC"
+          }
+        },
+        "materializedViewCollectionMetadata": {
+          "mvSchemaMetadata": {
+            "schemaFieldMapping": {},
+            "mvMetadataSchemaVersion": {
+              "$numberLong": "0"
+            }
+          },
+          "collectionUuid": "550e8400-e29b-41d4-a716-446655440000",
+          "collectionName": "test-collection"
+        }
+      }
+    }
+  ]
+}
+

@@ -1,5 +1,6 @@
 package com.xgen.mongot.embedding.mongodb.leasing;
 
+import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO;
 import static com.xgen.mongot.embedding.mongodb.leasing.StatusResolutionUtils.getEffectiveMaterializedViewStatus;
 import static com.xgen.mongot.util.FutureUtils.COMPLETED_FUTURE;
 
@@ -11,6 +12,8 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.ReplaceOptions;
+import com.mongodb.lang.Nullable;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.utils.MongoClientOperationExecutor;
@@ -31,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.bson.BsonDocument;
 import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,7 +76,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   private final Set<GenerationId> managedGenerationIds;
   // Maps GenerationId to its definition version (as String) for use in pollFollowerStatuses().
   private final Map<GenerationId, String> generationIdToDefinitionVersion;
-  private final MongoCollection<Lease> collection;
+  private final MongoCollection<BsonDocument> collection;
   private final boolean isLeader;
 
   public StaticLeaderLeaseManager(
@@ -93,7 +97,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
     this.collection =
         mongoClient
             .getDatabase(databaseName)
-            .getCollection(LEASE_COLLECTION_NAME, Lease.class)
+            .getCollection(LEASE_COLLECTION_NAME, BsonDocument.class)
             .withReadConcern(ReadConcern.LINEARIZABLE)
             .withReadPreference(ReadPreference.primary());
     this.isLeader = isLeader;
@@ -122,10 +126,13 @@ public class StaticLeaderLeaseManager implements LeaseManager {
    */
   private void initLeases() {
     try {
-      List<Lease> leases =
+      List<BsonDocument> rawLeases =
           this.operationExecutor.execute(
               "getLeases", () -> this.collection.find().into(new ArrayList<>()));
-      leases.forEach(lease -> this.leases.put(lease.id(), lease));
+      for (BsonDocument rawLease : rawLeases) {
+        Lease lease = Lease.fromBson(rawLease);
+        this.leases.put(lease.id(), lease);
+      }
     } catch (Exception e) {
       throw new RuntimeException("Failed to initialize leases from database.", e);
     }
@@ -165,7 +172,13 @@ public class StaticLeaderLeaseManager implements LeaseManager {
               indexGeneration.getDefinition().getLastObservedCollectionName(),
               this.hostname,
               getIndexDefinitionVersion(indexGeneration),
-              indexGeneration.getIndex().getStatus());
+              indexGeneration.getIndex().getStatus(),
+              // TODO(CLOUDP-363914): Use MaterializedViewCollectionMetadata from
+              // MaterializedViewCollectionMetadataCatalog
+              new MaterializedViewCollectionMetadata(
+                  VERSION_ZERO,
+                  indexGeneration.getDefinition().getCollectionUuid(),
+                  indexGeneration.getDefinition().getLastObservedCollectionName()));
       this.leases.put(getLeaseKey(generationId), lease);
     }
   }
@@ -348,10 +361,16 @@ public class StaticLeaderLeaseManager implements LeaseManager {
     return generationId.indexId.toHexString();
   }
 
+  @Nullable
   private Lease getLeaseFromDatabase(GenerationId generationId) throws Exception {
-    return this.operationExecutor.execute(
-        "getLease",
-        () -> this.collection.find(new Document("_id", getLeaseKey(generationId))).first());
+    BsonDocument rawLease =
+        this.operationExecutor.execute(
+            "getLease",
+            () -> this.collection.find(new Document("_id", getLeaseKey(generationId))).first());
+    if (rawLease == null) {
+      return null;
+    }
+    return Lease.fromBson(rawLease);
   }
 
   private void updateLeaseInDatabase(
@@ -365,7 +384,8 @@ public class StaticLeaderLeaseManager implements LeaseManager {
         // Lease document doesn't exist yet, so we can use a simple upsert.
         var filter = Filters.eq("_id", getLeaseKey(generationId));
         this.operationExecutor.execute(
-            "createLease", () -> this.collection.replaceOne(filter, updatedLease, REPLACE_OPTIONS));
+            "createLease",
+            () -> this.collection.replaceOne(filter, updatedLease.toBson(), REPLACE_OPTIONS));
         this.leases.put(getLeaseKey(generationId), updatedLease);
       } else {
         // Update with optimistic concurrency control on the lease version to ensure the lease
@@ -393,7 +413,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
                             Lease.Fields.COMMIT_INFO.getName(), encodedUserData.asString()))));
         var result =
             this.operationExecutor.execute(
-                "updateLease", () -> this.collection.replaceOne(filter, updatedLease));
+                "updateLease", () -> this.collection.replaceOne(filter, updatedLease.toBson()));
         if (result.getMatchedCount() == 0) {
           // This means the document was not in one of the two desired states described above.
           // TODO(CLOUDP-364787): We should move the index to failed state as this is not a

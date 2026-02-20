@@ -1,6 +1,8 @@
 package com.xgen.mongot.embedding.mongodb.leasing;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.mongodb.lang.NonNull;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.version.IndexFormatVersion;
@@ -10,6 +12,7 @@ import com.xgen.mongot.replication.mongodb.common.InitialSyncResumeInfo;
 import com.xgen.mongot.replication.mongodb.common.ResumeTokenUtils;
 import com.xgen.mongot.util.BsonUtils;
 import com.xgen.mongot.util.bson.parser.BsonDocumentBuilder;
+import com.xgen.mongot.util.bson.parser.BsonDocumentParser;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
 import com.xgen.mongot.util.bson.parser.DocumentEncodable;
 import com.xgen.mongot.util.bson.parser.DocumentParser;
@@ -47,6 +50,14 @@ import org.bson.codecs.pojo.annotations.BsonId;
  *     "1": {"isQueryable": false, "indexStatusCode":
  *              "INITIAL_SYNC"}
  *     ...
+ *    },
+ *    "materializedViewCollectionMetadata": {
+ *      "collectionUuid": "550e8400-e29b-41d4-a716-446655440000",
+ *      "collectionName": "test-collection",
+ *      "materializedViewMetadata": {
+ *        "schemaFieldMapping": {"title": "_autoEmbed.title"},
+ *        "mvMetadataSchemaVersion": 1
+ *      }
  *     }
  *   }
  * </pre>
@@ -61,12 +72,14 @@ public record Lease(
     long leaseVersion,
     String commitInfo,
     String latestIndexDefinitionVersion,
-    Map<String, IndexDefinitionVersionStatus> indexDefinitionVersionStatusMap)
+    Map<String, IndexDefinitionVersionStatus> indexDefinitionVersionStatusMap,
+    @NonNull MaterializedViewCollectionMetadata materializedViewCollectionMetadata)
     implements DocumentEncodable {
 
   private static final long SCHEMA_VERSION = 1L;
 
   @VisibleForTesting static final long FIRST_LEASE_VERSION = 1L;
+
   /** Lease expiration time in milliseconds (5 minutes). */
   public static final long LEASE_EXPIRATION_MS = 300000L;
 
@@ -75,7 +88,7 @@ public record Lease(
      * The unique identifier for the lease. For now, we maintain one lease per mat view collection
      * and hence the id is the same as the mat view collection name (which in turn is the index ID).
      */
-    public static final Field.Required<String> _ID = Field.builder("id").stringField().required();
+    public static final Field.Required<String> _ID = Field.builder("_id").stringField().required();
 
     /**
      * The schema version of the lease document. We currently only have one version, but this should
@@ -87,7 +100,7 @@ public record Lease(
 
     /** The UUID of the collection that the index is on. */
     public static final Field.Required<String> COLLECTION_UUID =
-        Field.builder("collectionUUID").stringField().required();
+        Field.builder("collectionUuid").stringField().required();
 
     /** The name of the collection that the index is on. */
     public static final Field.Required<String> COLLECTION_NAME =
@@ -136,6 +149,43 @@ public record Lease(
                         .disallowUnknownFields()
                         .required())
                 .required();
+
+    public static final Field.Optional<MaterializedViewCollectionMetadata>
+        MATERIALIZED_VIEW_COLLECTION_METADATA =
+            Field.builder("materializedViewCollectionMetadata")
+                .classField(MaterializedViewCollectionMetadata::fromBson)
+                .allowUnknownFields()
+                .optional()
+                .noDefault();
+  }
+
+  public static Lease fromBson(DocumentParser parser) throws BsonParseException {
+    return new Lease(
+        parser.getField(Fields._ID).unwrap(),
+        parser.getField(Fields.SCHEMA_VERSION).unwrap(),
+        parser.getField(Fields.COLLECTION_UUID).unwrap(),
+        parser.getField(Fields.COLLECTION_NAME).unwrap(),
+        parser.getField(Fields.LEASE_OWNER).unwrap(),
+        Instant.ofEpochMilli(parser.getField(Fields.LEASE_EXPIRATION).unwrap().getValue()),
+        parser.getField(Fields.LEASE_VERSION).unwrap(),
+        parser.getField(Fields.COMMIT_INFO).unwrap(),
+        parser.getField(Fields.LATEST_INDEX_DEFINITION_VERSION).unwrap(),
+        parser.getField(Fields.INDEX_DEFINITION_VERSION_STATUS_MAP).unwrap(),
+        parser
+            .getField(Fields.MATERIALIZED_VIEW_COLLECTION_METADATA)
+            .unwrap()
+            // Fallback metadata for community users.
+            .orElse(
+                new MaterializedViewCollectionMetadata(
+                    MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO,
+                    UUID.fromString(parser.getField(Fields.COLLECTION_UUID).unwrap()),
+                    parser.getField(Fields.COLLECTION_NAME).unwrap())));
+  }
+
+  public static Lease fromBson(BsonDocument bsonDocument) throws BsonParseException {
+    try (var parser = BsonDocumentParser.fromRoot(bsonDocument).allowUnknownFields(true).build()) {
+      return fromBson(parser);
+    }
   }
 
   public record IndexDefinitionVersionStatus(
@@ -168,7 +218,7 @@ public record Lease(
       public static final Field.Required<IndexStatus.StatusCode> INDEX_STATUS =
           Field.builder("indexStatusCode")
               .enumField(IndexStatus.StatusCode.class)
-              .asCamelCase()
+              .asUpperUnderscore()
               .required();
     }
   }
@@ -179,7 +229,8 @@ public record Lease(
       String collectionName,
       String leaseOwner,
       String indexDefinitionVersion,
-      IndexStatus initialIndexStatus) {
+      IndexStatus initialIndexStatus,
+      MaterializedViewCollectionMetadata materializedViewCollectionMetadata) {
     return new Lease(
         leaseId,
         SCHEMA_VERSION,
@@ -192,7 +243,8 @@ public record Lease(
         indexDefinitionVersion,
         Map.of(
             indexDefinitionVersion,
-            new IndexDefinitionVersionStatus(false, initialIndexStatus.getStatusCode())));
+            new IndexDefinitionVersionStatus(false, initialIndexStatus.getStatusCode())),
+        materializedViewCollectionMetadata);
   }
 
   public Lease withUpdatedCheckpoint(EncodedUserData commitInfo) {
@@ -206,12 +258,11 @@ public record Lease(
         this.leaseVersion + 1,
         commitInfo.asString(),
         this.latestIndexDefinitionVersion,
-        this.indexDefinitionVersionStatusMap);
+        this.indexDefinitionVersionStatusMap,
+        this.materializedViewCollectionMetadata);
   }
 
-  /**
-   * Creates a new lease with a new index definition version, preserving the highWaterMark.
-   */
+  /** Creates a new lease with a new index definition version, preserving the highWaterMark. */
   public Lease withNewIndexDefinitionVersion(
       String indexDefinitionVersion, IndexStatus initialIndexStatus) {
     // this method creates a new lease with the following changes
@@ -223,13 +274,20 @@ public record Lease(
     newVersionStatus.put(
         indexDefinitionVersion,
         new IndexDefinitionVersionStatus(false, initialIndexStatus.getStatusCode()));
-    String newCommitInfo = extractHighWaterMark().map(highWaterMark -> {
-      InitialSyncResumeInfo resumeInfo =
-          new BufferlessIdOrderInitialSyncResumeInfo(highWaterMark, BsonUtils.MIN_KEY);
-      // MaterializedViewGeneration always uses CURRENT, so this will match the expected version.
-      return IndexCommitUserData.createInitialSyncResume(IndexFormatVersion.CURRENT, resumeInfo)
-          .toEncodedData().asString();
-    }).orElse(EncodedUserData.EMPTY.asString());
+    String newCommitInfo =
+        extractHighWaterMark()
+            .map(
+                highWaterMark -> {
+                  InitialSyncResumeInfo resumeInfo =
+                      new BufferlessIdOrderInitialSyncResumeInfo(highWaterMark, BsonUtils.MIN_KEY);
+                  // MaterializedViewGeneration always uses CURRENT, so this will match the expected
+                  // version.
+                  return IndexCommitUserData.createInitialSyncResume(
+                          IndexFormatVersion.CURRENT, resumeInfo)
+                      .toEncodedData()
+                      .asString();
+                })
+            .orElse(EncodedUserData.EMPTY.asString());
     return new Lease(
         this.id,
         SCHEMA_VERSION,
@@ -240,7 +298,8 @@ public record Lease(
         this.leaseVersion,
         newCommitInfo,
         indexDefinitionVersion,
-        newVersionStatus);
+        newVersionStatus,
+        this.materializedViewCollectionMetadata);
   }
 
   public Lease withUpdatedStatus(IndexStatus indexStatus, long indexDefinitionVersion) {
@@ -260,7 +319,8 @@ public record Lease(
         this.leaseVersion + 1,
         this.commitInfo,
         this.latestIndexDefinitionVersion,
-        newVersionStatus);
+        newVersionStatus,
+        this.materializedViewCollectionMetadata);
   }
 
   /**
@@ -281,13 +341,13 @@ public record Lease(
         this.leaseVersion + 1,
         this.commitInfo,
         this.latestIndexDefinitionVersion,
-        this.indexDefinitionVersionStatusMap);
+        this.indexDefinitionVersionStatusMap,
+        this.materializedViewCollectionMetadata);
   }
 
   /**
-   * Extracts the highWaterMark from the commit info.
-   * - If V1 is in steady state: return opTime from resumeToken
-   * - Otherwise (initial sync or not started): return empty
+   * Extracts the highWaterMark from the commit info. - If V1 is in steady state: return opTime from
+   * resumeToken - Otherwise (initial sync or not started): return empty
    */
   public Optional<BsonTimestamp> extractHighWaterMark() {
     EncodedUserData encodedUserData = EncodedUserData.fromString(this.commitInfo);
@@ -318,6 +378,9 @@ public record Lease(
         .field(Fields.COMMIT_INFO, this.commitInfo)
         .field(Fields.LATEST_INDEX_DEFINITION_VERSION, this.latestIndexDefinitionVersion)
         .field(Fields.INDEX_DEFINITION_VERSION_STATUS_MAP, this.indexDefinitionVersionStatusMap)
+        .field(
+            Fields.MATERIALIZED_VIEW_COLLECTION_METADATA,
+            Optional.of(this.materializedViewCollectionMetadata))
         .build();
   }
 }

@@ -1,5 +1,6 @@
 package com.xgen.mongot.embedding.mongodb.leasing;
 
+import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO;
 import static com.xgen.mongot.embedding.mongodb.leasing.StatusResolutionUtils.getEffectiveMaterializedViewStatus;
 import static com.xgen.mongot.util.FutureUtils.COMPLETED_FUTURE;
 
@@ -13,6 +14,8 @@ import com.mongodb.ReadPreference;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import com.mongodb.lang.Nullable;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.utils.MongoClientOperationExecutor;
@@ -36,6 +39,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.bson.BsonDocument;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.slf4j.Logger;
@@ -76,7 +80,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   private final Set<GenerationId> followerGenerationIds;
   // Maps GenerationId to its definition version (as String) for use in pollFollowerStatuses().
   private final Map<GenerationId, String> generationIdToDefinitionVersion;
-  private final MongoCollection<Lease> collection;
+  private final MongoCollection<BsonDocument> collection;
 
   public DynamicLeaderLeaseManager(
       MongoClient mongoClient,
@@ -93,7 +97,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     this.collection =
         mongoClient
             .getDatabase(databaseName)
-            .getCollection(LEASE_COLLECTION_NAME, Lease.class)
+            .getCollection(LEASE_COLLECTION_NAME, BsonDocument.class)
             .withReadConcern(ReadConcern.LINEARIZABLE)
             .withReadPreference(ReadPreference.primary());
     initLeases();
@@ -130,12 +134,15 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    */
   private void initLeases() {
     try {
-      List<Lease> leaseList =
+      List<BsonDocument> rawLeases =
           this.operationExecutor.execute(
               "getLeases", () -> this.collection.find().into(new ArrayList<>()));
-      leaseList.forEach(lease -> this.leases.put(lease.id(), lease));
+      for (BsonDocument rawLease : rawLeases) {
+        Lease lease = Lease.fromBson(rawLease);
+        this.leases.put(lease.id(), lease);
+      }
       LOG.atInfo()
-          .addKeyValue("leaseCount", leaseList.size())
+          .addKeyValue("leaseCount", rawLeases.size())
           .addKeyValue("hostname", this.hostname)
           .log("Initialized leases from database");
     } catch (Exception e) {
@@ -208,7 +215,13 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
               indexGeneration.getDefinition().getLastObservedCollectionName(),
               "", // Empty owner - no one owns this lease yet
               versionKey,
-              indexGeneration.getIndex().getStatus());
+              indexGeneration.getIndex().getStatus(),
+              // TODO(CLOUDP-363914): Use MaterializedViewCollectionMetadata
+              // from MaterializedViewCollectionMetadataCatalog
+              new MaterializedViewCollectionMetadata(
+                  VERSION_ZERO,
+                  indexGeneration.getDefinition().getCollectionUuid(),
+                  indexGeneration.getDefinition().getLastObservedCollectionName()));
       this.leases.put(getLeaseKey(generationId), newLease);
     }
   }
@@ -369,16 +382,17 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     // Batch fetch all follower leases from the database.
     Map<String, Lease> fetchedLeases = new HashMap<>();
     try {
-      List<Lease> leaseList =
+      List<BsonDocument> rawLeases =
           this.operationExecutor.execute(
               "getFollowerLeases",
               () -> this.collection.find(Filters.in("_id", leaseKeys)).into(new ArrayList<>()));
-      for (Lease lease : leaseList) {
+      for (BsonDocument rawLease : rawLeases) {
+        Lease lease = Lease.fromBson(rawLease);
         fetchedLeases.put(lease.id(), lease);
       }
       LOG.atDebug()
           .addKeyValue("requestedCount", leaseKeys.size())
-          .addKeyValue("fetchedCount", leaseList.size())
+          .addKeyValue("fetchedCount", rawLeases.size())
           .log("Batch fetched follower leases");
     } catch (Exception e) {
       LOG.warn("Failed to batch fetch follower leases, falling back to UNKNOWN status", e);
@@ -546,7 +560,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   private boolean createLeaseForNewIndex(GenerationId generationId, Lease newLease)
       throws Exception {
     try {
-      this.operationExecutor.execute("createLease", () -> this.collection.insertOne(newLease));
+      this.operationExecutor.execute(
+          "createLease", () -> this.collection.insertOne(newLease.toBson()));
       // Insert succeeded - we created the lease and are the leader.
       this.leases.put(getLeaseKey(generationId), newLease);
       this.followerGenerationIds.remove(generationId);
@@ -617,7 +632,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
     var result =
         this.operationExecutor.execute(
-            "acquireLease", () -> this.collection.replaceOne(filter, newLease));
+            "acquireLease", () -> this.collection.replaceOne(filter, newLease.toBson()));
 
     if (result.getMatchedCount() > 0) {
       this.leases.put(getLeaseKey(generationId), newLease);
@@ -788,7 +803,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     try {
       var result =
           this.operationExecutor.execute(
-              "renewLease", () -> this.collection.replaceOne(filter, renewedLease));
+              "renewLease", () -> this.collection.replaceOne(filter, renewedLease.toBson()));
 
       if (result.getMatchedCount() > 0) {
         // Successfully renewed.
@@ -862,10 +877,16 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    *
    * @return the lease document, or null if not found
    */
+  @Nullable
   private Lease getLeaseFromDatabase(GenerationId generationId) throws Exception {
-    return this.operationExecutor.execute(
-        "getLease",
-        () -> this.collection.find(new Document("_id", getLeaseKey(generationId))).first());
+    BsonDocument rawLease =
+        this.operationExecutor.execute(
+            "getLease",
+            () -> this.collection.find(new Document("_id", getLeaseKey(generationId))).first());
+    if (rawLease == null) {
+      return null;
+    }
+    return Lease.fromBson(rawLease);
   }
 
   /**
@@ -918,7 +939,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
                   Filters.eq(Lease.Fields.COMMIT_INFO.getName(), encodedUserData.asString())));
       var result =
           this.operationExecutor.execute(
-              "updateLease", () -> this.collection.replaceOne(filter, updatedLease));
+              "updateLease", () -> this.collection.replaceOne(filter, updatedLease.toBson()));
       if (result.getMatchedCount() == 0) {
         // OCC failure - we lost leadership (or lease was deleted during index drop).
         becomeFollower(generationId);

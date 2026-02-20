@@ -1,6 +1,7 @@
 package com.xgen.mongot.embedding.mongodb.leasing;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO;
 import static com.xgen.testing.mongot.mock.index.IndexGeneration.mockIndexGeneration;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -14,6 +15,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexGeneration;
 import com.xgen.mongot.index.status.IndexStatus;
@@ -22,6 +24,8 @@ import com.xgen.testing.mongot.metrics.SimpleMetricsFactory;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.UUID;
+import org.bson.BsonDocument;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.bson.types.ObjectId;
@@ -42,8 +46,8 @@ public class DynamicLeaderLeaseManagerTest {
 
   private MongoClient mockMongoClient;
   private MongoDatabase mockDatabase;
-  private MongoCollection<Lease> mockCollection;
-  private FindIterable<Lease> mockFindIterable;
+  private MongoCollection<BsonDocument> mockCollection;
+  private FindIterable<BsonDocument> mockFindIterable;
   private DynamicLeaderLeaseManager leaseManager;
 
   @Before
@@ -55,7 +59,7 @@ public class DynamicLeaderLeaseManagerTest {
 
     when(this.mockMongoClient.getDatabase(DATABASE_NAME)).thenReturn(this.mockDatabase);
     when(this.mockDatabase.getCollection(
-            DynamicLeaderLeaseManager.LEASE_COLLECTION_NAME, Lease.class))
+            DynamicLeaderLeaseManager.LEASE_COLLECTION_NAME, BsonDocument.class))
         .thenReturn(this.mockCollection);
     when(this.mockCollection.withReadConcern(any())).thenReturn(this.mockCollection);
     when(this.mockCollection.withReadPreference(any())).thenReturn(this.mockCollection);
@@ -214,7 +218,7 @@ public class DynamicLeaderLeaseManagerTest {
     // Assert - still a follower, no database writes
     assertThat(this.leaseManager.isLeader(generationId)).isFalse();
     assertThat(this.leaseManager.getFollowerGenerationIds()).contains(generationId);
-    verify(this.mockCollection, never()).replaceOne(any(), any(Lease.class));
+    verify(this.mockCollection, never()).replaceOne(any(), any(BsonDocument.class));
   }
 
   @Test
@@ -344,7 +348,7 @@ public class DynamicLeaderLeaseManagerTest {
     // Note: replaceOne is called multiple times: once for acquiring leadership,
     // and once for updating commit info
     verify(this.mockCollection, org.mockito.Mockito.atLeast(1))
-        .replaceOne(any(), any(Lease.class));
+        .replaceOne(any(), any(BsonDocument.class));
   }
 
   @Test
@@ -360,7 +364,9 @@ public class DynamicLeaderLeaseManagerTest {
         generationId, 0L, new IndexStatus(IndexStatus.StatusCode.UNKNOWN));
 
     // Assert - verify replaceOne was NOT called (since we're not leader)
-    verify(this.mockCollection, never()).replaceOne(any(), any(Lease.class), any());
+    verify(this.mockCollection, never())
+        .replaceOne(any(Bson.class), any(BsonDocument.class), any());
+    verify(this.mockCollection, never()).replaceOne(any(Bson.class), any());
   }
 
   // ==================== Follower Operations ====================
@@ -483,7 +489,7 @@ public class DynamicLeaderLeaseManagerTest {
     return new Lease(
         DynamicLeaderLeaseManager.getLeaseKey(generationId),
         1,
-        "collection-uuid",
+        "fa41efe9-dd13-4976-a6ce-009682ec4257",
         "collection-name",
         owner,
         expiration,
@@ -492,7 +498,9 @@ public class DynamicLeaderLeaseManagerTest {
         "0",
         Map.of(
             "0",
-            new Lease.IndexDefinitionVersionStatus(false, IndexStatus.StatusCode.UNKNOWN)));
+            new Lease.IndexDefinitionVersionStatus(
+                false, IndexStatus.StatusCode.UNKNOWN)), // IndexStatus.StatusCode.UNKNOWN
+        new MaterializedViewCollectionMetadata(VERSION_ZERO, UUID.randomUUID(), "collection-name"));
   }
 
   private Lease createLeaseWithCommitInfo(
@@ -500,29 +508,28 @@ public class DynamicLeaderLeaseManagerTest {
     return new Lease(
         DynamicLeaderLeaseManager.getLeaseKey(generationId),
         1,
-        "collection-uuid",
+        "fa41efe9-dd13-4976-a6ce-009682ec4257",
         "collection-name",
         owner,
         Instant.now().plusSeconds(60),
         1L,
         commitInfo,
         "0",
-        Map.of(
-            "0",
-            new Lease.IndexDefinitionVersionStatus(false, IndexStatus.StatusCode.UNKNOWN)));
+        Map.of("0", new Lease.IndexDefinitionVersionStatus(false, IndexStatus.StatusCode.UNKNOWN)),
+        new MaterializedViewCollectionMetadata(VERSION_ZERO, UUID.randomUUID(), "collection-name"));
   }
 
   @SuppressWarnings("unchecked")
   private void setupFindLeaseFromDatabase(Lease lease) {
     // Create a single FindIterable mock that supports both single and batch reads
-    FindIterable<Lease> findIterable = mock(FindIterable.class);
+    FindIterable<BsonDocument> findIterable = mock(FindIterable.class);
 
     // Setup for single lease lookup (getLeaseFromDatabase uses find(Document).first())
-    when(findIterable.first()).thenReturn(lease);
+    when(findIterable.first()).thenReturn(lease.toBson());
 
     // Setup for batch read (pollFollowerStatuses uses find(Bson).into())
-    ArrayList<Lease> leaseList = new ArrayList<>();
-    leaseList.add(lease);
+    ArrayList<BsonDocument> leaseList = new ArrayList<>();
+    leaseList.add(lease.toBson());
     when(findIterable.into(any())).thenReturn(leaseList);
 
     // Both find(Document) and find(Bson) should return the same iterable
@@ -533,20 +540,19 @@ public class DynamicLeaderLeaseManagerTest {
   private void setupSuccessfulLeaseUpdate() {
     UpdateResult updateResult = mock(UpdateResult.class);
     when(updateResult.getMatchedCount()).thenReturn(1L);
-    when(this.mockCollection.replaceOne(any(), any(Lease.class))).thenReturn(updateResult);
+    when(this.mockCollection.replaceOne(any(), any(BsonDocument.class))).thenReturn(updateResult);
   }
 
   private void setupFailedLeaseUpdate() {
     UpdateResult updateResult = mock(UpdateResult.class);
     when(updateResult.getMatchedCount()).thenReturn(0L);
-    when(this.mockCollection.replaceOne(any(), any(Lease.class))).thenReturn(updateResult);
+    when(this.mockCollection.replaceOne(any(), any(BsonDocument.class))).thenReturn(updateResult);
   }
 
   @SuppressWarnings("unchecked")
   private void setupNoLeaseInDatabase() {
-    FindIterable<Lease> findIterable = mock(FindIterable.class);
+    FindIterable<BsonDocument> findIterable = mock(FindIterable.class);
     when(this.mockCollection.find(any(Document.class))).thenReturn(findIterable);
     when(findIterable.first()).thenReturn(null);
   }
 }
-
