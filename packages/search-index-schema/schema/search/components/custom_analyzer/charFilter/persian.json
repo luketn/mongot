@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/charFilter/persian.json",
+  "type": "object",
+  "_description": "Character filter that replaces instances of zero-width non-joiner with the space character.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "const": "persian",
+      "markdownDescription": "Label that identifies the `persian` character filter type, which replaces instances of [zero-width non-joiner](https://en.wikipedia.org/wiki/Zero-width_non-joiner) with the space character.",
+      "description": "Label that identifies the persian character filter type, which replaces instances of zero-width non-joiner with the space character.",
+      "$ref": "../charFilter.json#/definitions/typePropertyOverrides"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["type"]
+}

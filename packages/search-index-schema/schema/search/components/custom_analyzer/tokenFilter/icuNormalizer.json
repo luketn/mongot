@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter/icuNormalizer.json",
+  "type": "object",
+  "_description": "Token filter that normalizes tokens using a standard Unicode Normalization Mode.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the `icuNormalizer` token filter type, which normalizes tokens using a standard [Unicode Normalization Mode](https://unicode.org/reports/tr15/).",
+      "const": "icuNormalizer",
+      "$ref": "../tokenFilter.json#/definitions/typePropertyOverrides"
+    },
+    "normalizationForm": {
+      "suggestSortText": "1",
+      "type": "string",
+      "markdownDescription": "String that indicates the [normalization form](https://unicode.org/reports/tr15/#Norm_Forms) to apply. Values include: \n\n- `nfd` (Canonical Decomposition)\n\n- `nfc` (Canonical Decomposition, followed by Canonical Composition)\n\n- `nfkd` (Compatibility Decomposition)\n\n- `nfkc` (Compatibility Decomposition, followed by Canonical Composition)\n\n",
+      "description": "String that indicates the normalization form to apply.",
+      "oneOf": [
+        {
+          "const": "nfd"
+        },
+        {
+          "const": "nfc"
+        },
+        {
+          "const": "nfkd"
+        },
+        {
+          "const": "nfkc"
+        }
+      ],
+      "default": "nfc"
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

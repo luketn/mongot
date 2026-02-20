@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer.json",
+  "type": "object",
+  "properties": {
+    "name": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the custom analyzer. You must specify a unique value within the index and it can't start with the following strings:\n- `lucene.` \n- `builtin.` \n- `mongodb.`",
+      "description": "Label that identifies the custom analyzer.",
+      "minLength": 1,
+      "errorMessage": "Custom analyzer names may not start with 'lucene.', 'mongodb.' or 'builtin.'",
+      "pattern": "^(?!lucene\\.|mongodb\\.|builtin\\.)"
+    },
+    "charFilters": {
+      "suggestSortText": "3",
+      "type": "array",
+      "markdownDescription": "List that contains the [character filters](https://dochub.mongodb.org/core/character-filters-fts) to perform filtering operations on text, one character at a time.",
+      "description": "List that contains the character filters to perform filtering operations on text.",
+      "items": {
+        "$ref": "custom_analyzer/charFilter.json"
+      }
+    },
+    "tokenizer": {
+      "suggestSortText": "1",
+      "$ref": "custom_analyzer/tokenizer.json",
+      "markdownDescription": "[Tokenizer](https://dochub.mongodb.org/core/tokenizers-fts) to use to create tokens for indexing.",
+      "description": "Tokenizer to use to create tokens for indexing."
+    },
+    "tokenFilters": {
+      "suggestSortText": "2",
+      "type": "array",
+      "markdownDescription": "List that contains the [token filters](https://dochub.mongodb.org/core/token-filters-fts) to perform operations such as stemming and redaction.",
+      "description": "List that contains the token filters to perform operations such as stemming and redaction.",
+      "items": {
+        "$ref": "custom_analyzer/tokenFilter.json"
+      }
+    }
+  },
+  "required": ["name", "tokenizer"]
+}

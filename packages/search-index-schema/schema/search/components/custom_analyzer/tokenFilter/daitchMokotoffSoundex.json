@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter/daitchMokotoffSoundex.json",
+  "type": "object",
+  "_description": "The daitchMokotoffSoundex token filter creates tokens for words that sound the same based on the Daitch-Mokotoff Soundex phonetic algorithm.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the `daitchMokotoffSoundex` token filter type, which creates tokens for words that sound the same based on the [Daitch-Mokotoff Soundex](https://en.wikipedia.org/wiki/Daitch%E2%80%93Mokotoff_Soundex) phonetic algorithm.",
+      "description": "Label that identifies the daitchMokotoffSoundex token filter type, which creates tokens for words that sound the same based on the Daitch-Mokotoff Soundex phonetic algorithm.",
+      "const": "daitchMokotoffSoundex",
+      "$ref": "../tokenFilter.json#/definitions/typePropertyOverrides"
+    },
+    "originalTokens": {
+      "suggestSortText": "1",
+      "type": "string",
+      "markdownDescription": "String that specifies whether to `include` or `omit` the original tokens in the output of the token filter.",
+      "description": "Specify whether to include or omit the original tokens in the output of the token filter",
+      "oneOf": [
+        {
+          "const": "include"
+        },
+        {
+          "const": "omit"
+        }
+      ],
+      "default": "include"
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter/snowballStemming.json",
+  "type": "object",
+  "_description": "Token filter that stems tokens using a Snowball-generated stemmer.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the `snowballStemming` token filter type, which stems tokens using a [Snowball-generated stemmer](https://snowballstem.org/).",
+      "description": "Label that identifies the snowballStemming token filter type, which stems tokens using a Snowball-generated stemmer.",
+      "const": "snowballStemming",
+      "$ref": "../tokenFilter.json#/definitions/typePropertyOverrides"
+    },
+    "stemmerName": {
+      "suggestSortText": "1",
+      "type": "string",
+      "markdownDescription": "Label that identifies the stemmer to use. To learn more about the available values, see [snowballStemming](https://dochub.mongodb.org/core/snowballStemming-fts)",
+      "description": "Label that identifies the stemmer to use.",
+      "enum": [
+        "arabic",
+        "armenian",
+        "basque",
+        "catalan",
+        "danish",
+        "dutch",
+        "english",
+        "estonian",
+        "finnish",
+        "french",
+        "german",
+        "german2",
+        "hungarian",
+        "irish",
+        "italian",
+        "kp",
+        "lithuanian",
+        "lovins",
+        "norwegian",
+        "porter",
+        "portuguese",
+        "romanian",
+        "russian",
+        "spanish",
+        "swedish",
+        "turkish"
+      ]
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

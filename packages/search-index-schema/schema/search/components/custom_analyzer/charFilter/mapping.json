@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/charFilter/mapping.json",
+  "type": "object",
+  "_description": "Character filter that applies the normalization mappings that you specify to characters.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "const": "mapping",
+      "markdownDescription": "Label that identifies the `mapping` character filter type, which applies the normalization mappings that you specify to characters.",
+      "description": "Label that identifies the mapping character filter type, which applies the normalization mappings that you specify to characters.",
+      "$ref": "../charFilter.json#/definitions/typePropertyOverrides"
+    },
+    "mappings": {
+      "suggestSortText": "1",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "../../common.json#/definitions/non-empty-string"
+      },
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Object that contains a comma-separated list of mappings in the <original> : <replacement> format. Each mapping indicates one character or group of characters to substitute for another.",
+      "markdownDescription": "Object that contains a comma-separated list of mappings in the `<original> : <replacement>` format. Each mapping indicates one character or group of characters to substitute for another.",
+      "examples": [
+        {
+          "<original>": "<replacement>"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": ["type", "mappings"]
+}

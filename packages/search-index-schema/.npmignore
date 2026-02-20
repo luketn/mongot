@@ -1,0 +1,27 @@
+# Build and configuration files
+tsconfig.json
+
+# Development files
+node_modules/
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Version control
+.git
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Misc
+.npmrc
+
+# Codeowners
+OWNERS.yaml

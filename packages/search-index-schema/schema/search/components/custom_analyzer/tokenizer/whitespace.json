@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenizer/whitespace.json",
+  "type": "object",
+  "_description": "Tokenizer that tokenizes input based on occurrences of whitespace between words.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "const": "whitespace",
+      "markdownDescription": "Label that identifies the `whitespace` tokenizer type, which tokenizes input based on occurrences of whitespace between words.",
+      "description": "Label that identifies the whitespace tokenizer type, which tokenizes input based on occurrences of whitespace between words.",
+      "$ref": "../tokenizer.json#/definitions/typePropertyOverrides"
+    },
+    "maxTokenLength": {
+      "suggestSortText": "1",
+      "type": "integer",
+      "markdownDescription": "Maximum length for a single token. Tokens greater than this length are split at `maxTokenLength` into multiple tokens.",
+      "description": "Maximum length for a single token. Tokens greater than this length are split at the specified length into multiple tokens.",
+      "default": 255,
+      "minimum": 1
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

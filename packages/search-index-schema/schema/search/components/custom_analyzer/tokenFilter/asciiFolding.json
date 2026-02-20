@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter/asciiFolding.json",
+  "type": "object",
+  "_description": "Token filter that converts alphabetic, numeric, and symbolic unicode characters that are not in the Basic Latin Unicode block to their ASCII equivalents, if available.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the `asciiFolding` token filter type, which converts alphabetic, numeric, and symbolic unicode characters that are not in the [Basic Latin Unicode block](https://en.wikipedia.org/wiki/Basic_Latin_(Unicode_block)) to their ASCII equivalents, if available.",
+      "description": "Label that identifies the asciiFolding token filter type, which converts alphabetic, numeric, and symbolic unicode characters that are not in the Basic Latin Unicode block to their ASCII equivalents, if available.",
+      "const": "asciiFolding",
+      "$ref": "../tokenFilter.json#/definitions/typePropertyOverrides"
+    },
+    "originalTokens": {
+      "suggestSortText": "1",
+      "type": "string",
+      "markdownDescription": "String that specifies whether to `include` or `omit` the original tokens in the output of the token filter.",
+      "description": "String that specifies whether to include or omit the original tokens in the output of the token filter.",
+      "oneOf": [
+        {
+          "const": "include"
+        },
+        {
+          "const": "omit"
+        }
+      ],
+      "default": "omit"
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

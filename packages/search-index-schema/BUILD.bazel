@@ -1,0 +1,185 @@
+load("@aspect_rules_js//js:defs.bzl", "js_binary", "js_library", "js_run_binary", "js_test")
+load("@aspect_rules_js//npm:defs.bzl", "npm_package")
+load("@npm_search_index_schema//:defs.bzl", "npm_link_all_packages")
+
+npm_link_all_packages(name = "node_modules")
+
+js_library(
+    name = "scripts_lib",
+    srcs = glob(["scripts/**/*.js"]),
+    data = [
+        "package.json",
+        ":node_modules",
+    ] + glob([
+        "schema/**/*.json",
+    ]),
+)
+
+js_binary(
+    name = "compile_bin",
+    data = [":scripts_lib"],
+    entry_point = "scripts/compile.js",
+)
+
+js_test(
+    name = "compile_schemas",
+    size = "small",
+    chdir = package_name(),
+    data = [":scripts_lib"],
+    entry_point = "scripts/compile.js",
+)
+
+js_binary(
+    name = "validate_bin",
+    data = [":scripts_lib"],
+    entry_point = "scripts/validate.js",
+)
+
+js_test(
+    name = "validate_schemas",
+    size = "small",
+    chdir = package_name(),
+    data = [":scripts_lib"],
+    entry_point = "scripts/validate.js",
+)
+
+js_binary(
+    name = "bundle_bin",
+    data = [":scripts_lib"],
+    entry_point = "scripts/bundle.js",
+)
+
+genrule(
+    name = "bundle_schemas",
+    srcs = glob(["schema/**/*.json"]) + [
+        ":scripts_lib",
+        "package.json",
+    ],
+    outs = ["bundle_schemas.stamp"],
+    cmd = """
+        # Get the package directory (where the source files are)
+        PACKAGE_DIR=$$(dirname $$(echo $(locations package.json) | cut -d' ' -f1))
+
+        # Get the absolute path to the bundle binary before changing directories
+        BUNDLE_BIN_PATH=$$(pwd)/$(location :bundle_bin)
+
+        # Change to the package directory
+        cd $$PACKAGE_DIR
+
+        # Set BAZEL_BINDIR as required by aspect_rules_js (set to '.' for non-build actions)
+        export BAZEL_BINDIR=.
+
+        # Run the bundle binary (Bazel-managed, not npm)
+        $$BUNDLE_BIN_PATH
+
+        # Create stamp file to mark completion
+        cd - > /dev/null
+        touch $(location bundle_schemas.stamp)
+    """,
+    tags = [
+        "no-remote-cache",  # Disable remote caching since this rule generates undeclared outputs (output/**/*.json)
+        "no-sandbox",
+    ],
+    tools = [":bundle_bin"],
+)
+
+genrule(
+    name = "pkg",
+    srcs = glob(
+        [
+            "schema/**/*",
+        ],
+        exclude = [
+            "schema/search/test/**",
+            "schema/vectorSearch/test/**",
+        ],
+    ) + glob([
+        "output/**/*.json",
+    ]) + [
+        "README.md",
+        "CHANGELOG.md",
+        "package.json",
+        ":bundle_schemas",
+    ],
+    outs = ["pkg.stamp"],
+    cmd = """
+        PACKAGE_DIR=$$(dirname $$(echo $(locations package.json) | cut -d' ' -f1))
+        PKG_DIR=$$(dirname $(location pkg.stamp))/pkg
+
+        # Create pkg directory structure
+        mkdir -p $$PKG_DIR
+
+        # Copy metadata files
+        cp $$PACKAGE_DIR/package.json $$PKG_DIR/
+        cp $$PACKAGE_DIR/README.md $$PKG_DIR/
+        cp $$PACKAGE_DIR/CHANGELOG.md $$PKG_DIR/
+
+        # Copy schema directory (excluding test directories)
+        rsync -av --exclude='search/test' --exclude='vectorSearch/test' $$PACKAGE_DIR/schema/ $$PKG_DIR/schema/
+
+        # Copy output directory
+        if [ -d $$PACKAGE_DIR/output ]; then
+            cp -r $$PACKAGE_DIR/output $$PKG_DIR/
+        fi
+
+        # Create stamp file
+        touch $(location pkg.stamp)
+    """,
+    tags = [
+        "no-remote-cache",  # Disable remote caching since this rule generates undeclared outputs (pkg/ directory)
+        "no-sandbox",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+js_library(
+    name = "format_check_lib",
+    srcs = ["scripts/format_check.js"],
+    data = [
+        ".prettierignore",
+        ".prettierrc",
+        ":node_modules/prettier",
+    ] + glob([
+        "schema/**/*.json",
+        "scripts/**/*.js",
+        "*.json",
+        "*.md",
+    ]),
+    deps = [
+        ":node_modules/prettier",
+    ],
+)
+
+js_test(
+    name = "format_check",
+    size = "small",
+    chdir = package_name(),
+    data = [":format_check_lib"],
+    entry_point = "scripts/format_check.js",
+    tags = ["lint"],
+)
+
+js_library(
+    name = "format_lib",
+    srcs = ["scripts/format.js"],
+    data = [
+        ".prettierignore",
+        ".prettierrc",
+        ":node_modules/prettier",
+    ] + glob([
+        "schema/**/*.json",
+        "scripts/**/*.js",
+        "*.json",
+        "*.md",
+    ]),
+    deps = [
+        ":node_modules/prettier",
+    ],
+)
+
+js_binary(
+    name = "format",
+    chdir = package_name(),
+    data = [":format_lib"],
+    entry_point = "scripts/format.js",
+)

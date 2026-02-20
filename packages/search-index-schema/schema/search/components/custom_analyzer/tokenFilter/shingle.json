@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter/shingle.json",
+  "type": "object",
+  "_description": "Token filter that constructs shingles (token n-grams) configurable sizes from a series of tokens.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the `shingle` token filter type, which constructs shingles (token n-grams) configurable sizes from a series of tokens.",
+      "description": "Label that identifies the shingle token filter type, which constructs shingles (token n-grams) configurable sizes from a series of tokens.",
+      "const": "shingle",
+      "$ref": "../tokenFilter.json#/definitions/typePropertyOverrides"
+    },
+    "minShingleSize": {
+      "suggestSortText": "1",
+      "type": "integer",
+      "markdownDescription": "Minimum number of tokens per shingle. Must be less than or equal to `maxShingleSize`.",
+      "description": "Minimum number of tokens per shingle.",
+      "minimum": 2
+    },
+    "maxShingleSize": {
+      "suggestSortText": "2",
+      "type": "integer",
+      "markdownDescription": "Maximum number of tokens per shingle. Must be greater than or equal to `minShingleSize`.",
+      "description": " Maximum number of tokens per shingle.",
+      "minimum": 0
+    }
+  },
+  "required": ["type", "maxShingleSize", "minShingleSize"],
+  "additionalProperties": false
+}

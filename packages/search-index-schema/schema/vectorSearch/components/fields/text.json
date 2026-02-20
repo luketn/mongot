@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "vectorSearch/components/fields/text.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Field type to use to generate auto-embeddings for vector search.",
+      "description": "Field type to use to generate auto-embeddings for vector search.",
+      "const": "text",
+      "$ref": "../fields.json#/definitions/typeErrorMessage"
+    },
+    "path": {
+      "suggestSortText": "1",
+      "type": "string",
+      "pattern": "^.*$",
+      "markdownDescription": "Name of the text field to use as a data source for generating embeddings. Use dot notation for embedded fields.",
+      "errorMessage": "Field name does not meet MongoDB field naming restrictions. To learn more, see [Field Names](https://dochub.mongodb.org/core/mdb-field-names) ."
+    },
+    "model": {
+      "suggestSortText": "2",
+      "type": "string",
+      "description": "Embedding model to use to generate embeddings.",
+      "markdownDescription": "Embedding model to use to generate embeddings. \nValues include:\n- `voyage-3-large`\n- `voyage-3.5`\n- `voyage-3.5-lite`",
+      "default": "voyage-3-large",
+      "oneOf": [
+        {
+          "const": "voyage-3-large"
+        },
+        {
+          "const": "voyage-3.5"
+        },
+        {
+          "const": "voyage-3.5-lite"
+        }
+      ]
+    }
+  },
+  "required": ["type", "path"],
+  "examples": [
+    {
+      "type": "text",
+      "path": "<field-name>",
+      "model": "<embedding-model>"
+    }
+  ],
+  "additionalProperties": false
+}

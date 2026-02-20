@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/mappings/fields/objectId.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Data type to use to index fields with [ObjectId](https://dochub.mongodb.org/core/objectid-bson-fts) values, including ObjectId fields inside arrays and embedded documents. To learn more about this data type, see [objectId Type](https://dochub.mongodb.org/core/objectid-type-fts).",
+      "description": "Data type to use to index fields with values of objectId type.",
+      "const": "objectId",
+      "$ref": "../field.json#/definitions/typeErrorMessage"
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

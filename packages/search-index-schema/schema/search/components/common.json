@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/common.json",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "analyzers": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/archetypalAnalyzers"
+        },
+        {
+          "$ref": "#/definitions/non-empty-string"
+        }
+      ],
+      "default": "lucene.standard"
+    },
+    "autoCompleteAnalyzers": {
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/classicAnalyzers"
+            },
+            {
+              "$ref": "#/definitions/non-empty-string"
+            }
+          ]
+        },
+        {
+          "not": {
+            "enum": ["lucene.kuromoji"]
+          }
+        }
+      ],
+      "default": "lucene.standard"
+    },
+    "synonymAnalyzers": {
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/classicAnalyzers"
+            },
+            {
+              "$ref": "#/definitions/non-empty-string"
+            }
+          ]
+        },
+        {
+          "not": {
+            "enum": ["lucene.kuromoji", "lucene.cjk"]
+          }
+        }
+      ],
+      "default": "lucene.standard"
+    },
+    "archetypalAnalyzers": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/classicAnalyzers"
+        },
+        {
+          "enum": ["lucene.kuromoji", "lucene.cjk"]
+        }
+      ]
+    },
+    "classicAnalyzers": {
+      "enum": [
+        "lucene.standard",
+        "lucene.simple",
+        "lucene.whitespace",
+        "lucene.keyword",
+        "lucene.arabic",
+        "lucene.armenian",
+        "lucene.basque",
+        "lucene.bengali",
+        "lucene.brazilian",
+        "lucene.bulgarian",
+        "lucene.catalan",
+        "lucene.chinese",
+        "lucene.czech",
+        "lucene.danish",
+        "lucene.dutch",
+        "lucene.english",
+        "lucene.finnish",
+        "lucene.french",
+        "lucene.galician",
+        "lucene.german",
+        "lucene.greek",
+        "lucene.hindi",
+        "lucene.hungarian",
+        "lucene.indonesian",
+        "lucene.irish",
+        "lucene.italian",
+        "lucene.japanese",
+        "lucene.korean",
+        "lucene.latvian",
+        "lucene.lithuanian",
+        "lucene.morfologik",
+        "lucene.nori",
+        "lucene.norwegian",
+        "lucene.persian",
+        "lucene.polish",
+        "lucene.portuguese",
+        "lucene.romanian",
+        "lucene.russian",
+        "lucene.smartcn",
+        "lucene.sorani",
+        "lucene.spanish",
+        "lucene.swedish",
+        "lucene.thai",
+        "lucene.turkish",
+        "lucene.ukrainian"
+      ]
+    },
+    "non-empty-string": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

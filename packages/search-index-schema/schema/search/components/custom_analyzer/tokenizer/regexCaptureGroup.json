@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenizer/regexCaptureGroup.json",
+  "type": "object",
+  "_description": "Tokenizer that matches a regular expression pattern to extract tokens.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "const": "regexCaptureGroup",
+      "markdownDescription": "Label that identifies the `regexCaptureGroup` tokenizer type, which matches a regular expression pattern to extract tokens.",
+      "description": "Label that identifies the regexCaptureGroup tokenizer type, which matches a regular expression pattern to extract tokens.",
+      "$ref": "../tokenizer.json#/definitions/typePropertyOverrides"
+    },
+    "pattern": {
+      "suggestSortText": "1",
+      "type": "string",
+      "markdownDescription": "String that indicates the regular expression to match against.",
+      "description": "String that indicates the regular expression to match against."
+    },
+    "group": {
+      "suggestSortText": "2",
+      "type": "integer",
+      "markdownDescription": "Index of the character group within the matching expression to extract into tokens. Use `0` to extract all character groups.",
+      "description": "Index of the character group within the matching expression to extract into tokens. Use 0 to extract all character groups.",
+      "minimum": 0
+    }
+  },
+  "required": ["type", "pattern", "group"],
+  "additionalProperties": false
+}

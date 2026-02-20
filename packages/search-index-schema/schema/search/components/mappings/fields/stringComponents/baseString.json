@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/mappings/fields/stringComponents/baseString.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Data type to use to index fields with string values. To learn more about this data type, see [string Type](https://dochub.mongodb.org/core/string-type-fts).",
+      "description": "Data type to use to index fields with string values.",
+      "const": "string",
+      "$ref": "../../field.json#/definitions/typeErrorMessage"
+    },
+    "analyzer": {
+      "suggestSortText": "1",
+      "$ref": "../../../common.json#/definitions/analyzers",
+      "markdownDescription": "Label that identifies the built-in or custom [analyzer](https://dochub.mongodb.org/core/analyzers-fts) to use for indexing the field. If you omit this parameter, it defaults to an analyzer in the following order:\n1. The `analyzer` option for the [index](https://dochub.mongodb.org/core/index-definition-fts) if specified.\n2. The `lucene.standard` analyzer.",
+      "description": "Label that identifies the analyzer to use for indexing this field."
+    },
+    "searchAnalyzer": {
+      "suggestSortText": "2",
+      "$ref": "../../../common.json#/definitions/analyzers",
+      "markdownDescription": "Label that identifies the analyzer to use when querying the field. If you omit this parameter, it defaults to an analyzer in the following order:\n1. The `analyzer` option for this field if specified.\n2. The `searchAnalyzer` option for the [index](https://www.mongodb.com/docs/atlas/atlas-search/index-definitions) if specified.\n3. The `analyzer` option for the [index](https://dochub.mongodb.org/core/index-definition-fts) if specified.\n4. The `lucene.standard` analyzer.",
+      "description": "Label that identifies the analyzer to use when querying this field."
+    },
+    "indexOptions": {
+      "suggestSortText": "3",
+      "type": "string",
+      "markdownDescription": "Amount of information to store for the indexed field. Values include:\n- `docs` - Only indexes documents. Only a single occurrence of the term is reflected in the [score](https://dochub.mongodb.org/core/scoring-fts).\n- `freqs` - Indexes documents and term frequency.\n- `positions` - Indexes documents, term frequency, and term positions.\n- `offsets` - (_Default_) Indexes documents, term frequency, term positions, and term offsets.\n\nThis option is required for [highlighting results](https://dochub.mongodb.org/core/highlighting-fts).",
+      "description": "Amount of information to store for the indexed field.",
+      "oneOf": [
+        {
+          "const": "docs"
+        },
+        {
+          "const": "freqs"
+        },
+        {
+          "const": "positions"
+        },
+        {
+          "const": "offsets"
+        }
+      ],
+      "default": "offsets"
+    },
+    "store": {
+      "suggestSortText": "4",
+      "type": "boolean",
+      "markdownDescription": "Boolean flag that indicates whether to store the exact document text as well as the analyzed values in the index. To reduce the index size and performance footprint, we recommend that you set store to `false`. To learn more, see [Atlas Search Index Performance](https://dochub.mongodb.org/core/performance-fts). You must set this option to `true` if you want to [highlight your results](https://dochub.mongodb.org/core/highlighting-fts).",
+      "description": "Boolean flag that indicates whether to store the exact document text as well as the analyzed values in the index",
+      "default": true
+    },
+    "ignoreAbove": {
+      "suggestSortText": "5",
+      "type": "integer",
+      "markdownDescription": "The maximum number of characters in the value of the field to index. Atlas Search doesn't index the field if its length exceeds the specified number of characters.",
+      "description": "Maximum number of characters in the value of the field to index.",
+      "minimum": 1
+    },
+    "norms": {
+      "suggestSortText": "7",
+      "type": "string",
+      "markdownDescription": "String that specifies whether to `include` or `omit` the field length in the [scoring results](https://dochub.mongodb.org/core/scoring-fts). The length of the field is determined by the number of tokens produced by the analyzer for the field.",
+      "description": "String that specifies whether to include or omit the field length in result when scoring",
+      "oneOf": [
+        {
+          "const": "include"
+        },
+        {
+          "const": "omit"
+        }
+      ],
+      "default": "include"
+    },
+    "similarity": {
+      "suggestSortText": "8",
+      "$ref": "./similarity.json"
+    }
+  },
+  "required": ["type"]
+}
