@@ -64,6 +64,12 @@ public class ValidResult extends Result {
     static final Field.Optional<List<BsonDocument>> AGGREGATION_RESULTS =
         Field.builder("aggregationResults").documentField().asList().optional().noDefault();
 
+    static final Field.WithDefault<Boolean> UNORDERED_AGGREGATION_RESULTS =
+        Field.builder("unorderedAggregationResults")
+            .booleanField()
+            .optional()
+            .withDefault(false);
+
     static final Field.Optional<MetaResults> META =
         Field.builder("meta")
             .classField(MetaResults::fromBson)
@@ -83,6 +89,7 @@ public class ValidResult extends Result {
   private final Optional<MetaResults> metaResult;
   private final Optional<BsonValue> intermediateMetaResult;
   private final Optional<List<BsonDocument>> aggregationResults;
+  private final boolean unorderedAggregationResults;
 
   public ValidResult(
       Optional<List<ExpectedResultItem>> searchResults,
@@ -92,7 +99,8 @@ public class ValidResult extends Result {
       Optional<List<SearchExplainInformation>> indexPartitionExplainResult,
       Optional<MetaResults> metaResult,
       Optional<BsonValue> intermediateMetaResult,
-      Optional<List<BsonDocument>> aggregationResults) {
+      Optional<List<BsonDocument>> aggregationResults,
+      boolean unorderedAggregationResults) {
     this.searchResults = searchResults;
     this.searchResultVariations = searchResultVariations;
     this.explainResult = explainResult;
@@ -101,6 +109,7 @@ public class ValidResult extends Result {
     this.metaResult = metaResult;
     this.intermediateMetaResult = intermediateMetaResult;
     this.aggregationResults = aggregationResults;
+    this.unorderedAggregationResults = unorderedAggregationResults;
   }
 
   /** Deserialize a ValidResult into results and/or explain. */
@@ -113,6 +122,7 @@ public class ValidResult extends Result {
     var metaResult = parser.getField(Fields.META);
     var intermediateMetaResult = parser.getField(Fields.INTERMEDIATE_META);
     var aggregationResult = parser.getField(Fields.AGGREGATION_RESULTS);
+    var unorderedAggregationResults = parser.getField(Fields.UNORDERED_AGGREGATION_RESULTS);
 
     // Must have at least search, explain, meta, or aggregation result.
     parser
@@ -135,7 +145,8 @@ public class ValidResult extends Result {
         indexPartitionExplainResult.unwrap(),
         metaResult.unwrap(),
         intermediateMetaResult.unwrap(),
-        aggregationResult.unwrap());
+        aggregationResult.unwrap(),
+        unorderedAggregationResults.unwrap());
   }
 
   @Override
@@ -203,5 +214,9 @@ public class ValidResult extends Result {
   public List<BsonDocument> getAggregationResults() {
     Check.isPresent(this.aggregationResults, "aggregationResults");
     return this.aggregationResults.get();
+  }
+
+  public boolean getUnorderedAggregationResults() {
+    return this.unorderedAggregationResults;
   }
 }
