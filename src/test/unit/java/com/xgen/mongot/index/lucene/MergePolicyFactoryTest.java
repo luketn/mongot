@@ -75,8 +75,7 @@ public class MergePolicyFactoryTest {
     var diskMonitor = PeriodicDiskMonitor.create(mockFileStore, 0.95, meterRegistry);
     var gate = DiskUtilizationAwareMergePolicy.createMergeGate(config, diskMonitor);
 
-    MergePolicy mergePolicy =
-        MergePolicyFactory.createMergePolicy(config, gate, meterRegistry);
+    MergePolicy mergePolicy = MergePolicyFactory.createMergePolicy(config, gate, meterRegistry);
     assertThat(mergePolicy).isInstanceOf(DiskUtilizationAwareMergePolicy.class);
 
     MergePolicy parent = ((DiskUtilizationAwareMergePolicy) mergePolicy).unwrap();
@@ -171,7 +170,7 @@ public class MergePolicyFactoryTest {
     assertThat(parent).isInstanceOf(TieredMergePolicy.class);
     TieredMergePolicy tmp = (TieredMergePolicy) parent;
     Assert.assertEquals(2, tmp.getFloorSegmentMB(), 0.1);
-    Assert.assertEquals(5120, tmp.getMaxMergedSegmentMB(), 0.1);
+    Assert.assertEquals(config.maxMergedSegmentSize().toMebi(), tmp.getMaxMergedSegmentMB(), 0.1);
     Assert.assertEquals(20, tmp.getDeletesPctAllowed(), 0.1);
     Assert.assertEquals(10, tmp.getForceMergeDeletesPctAllowed(), 0.1);
   }
@@ -204,8 +203,7 @@ public class MergePolicyFactoryTest {
     var gate = DiskUtilizationAwareMergePolicy.createMergeGate(config, diskMonitor);
 
     Optional<MergePolicy> vectorMergePolicy =
-        MergePolicyFactory.createVectorMergePolicy(
-            config, featureFlags, gate, meterRegistry);
+        MergePolicyFactory.createVectorMergePolicy(config, featureFlags, gate, meterRegistry);
     assertThat(vectorMergePolicy).isPresent();
     assertThat(vectorMergePolicy.get()).isInstanceOf(VectorMergePolicy.class);
 
@@ -247,8 +245,7 @@ public class MergePolicyFactoryTest {
       long maxMergedSegmentSize,
       double deletesPctAllowed,
       double forceMergeDeletesPctAllowed,
-      HysteresisConfig hysteresisConfig
-  ) {
+      HysteresisConfig hysteresisConfig) {
     return LuceneConfigBuilder.builder()
         .tempDataPath()
         .maxMergedSegmentSize(Bytes.ofMebi(maxMergedSegmentSize))
