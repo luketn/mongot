@@ -144,6 +144,12 @@ public sealed interface SearchQuery extends Query permits CollectorQuery, Operat
     }
 
     if (collector.isPresent()) {
+      if (collector.get().getOperator().isPresent()) {
+        OperatorEmbeddedRootValidator validator =
+            new OperatorEmbeddedRootValidator(parser.getContext());
+        validator.validate(
+            collector.get().getOperator().get(), returnScope.unwrap().map(ReturnScope::path));
+      }
       return new CollectorQuery(
           collector.get(),
           parser.getField(Query.Fields.INDEX).unwrap(),

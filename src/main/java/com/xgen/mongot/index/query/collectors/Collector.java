@@ -2,6 +2,7 @@ package com.xgen.mongot.index.query.collectors;
 
 import static java.util.stream.Collectors.joining;
 
+import com.xgen.mongot.index.query.operators.Operator;
 import com.xgen.mongot.util.bson.parser.BsonDocumentBuilder;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
 import com.xgen.mongot.util.bson.parser.DocumentEncodable;
@@ -80,4 +81,7 @@ public sealed interface Collector extends DocumentEncodable permits FacetCollect
   }
 
   Type getType();
+
+  /** Returns the inner operator associated with this collector, if any. */
+  Optional<Operator> getOperator();
 }

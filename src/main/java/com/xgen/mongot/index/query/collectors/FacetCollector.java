@@ -151,4 +151,9 @@ public record FacetCollector(
   public Type getType() {
     return Type.FACET;
   }
+
+  @Override
+  public Optional<Operator> getOperator() {
+    return Optional.of(this.operator);
+  }
 }

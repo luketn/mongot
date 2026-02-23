@@ -165,11 +165,12 @@ public class CollectorQueryTest {
           CollectorQueryBuilder.builder()
               .collector(
                   CollectorBuilder.facet()
-                      .operator(OperatorBuilder.text().path("review").query("good").build())
+                      .operator(
+                          OperatorBuilder.text().path("my-scope.review").query("good").build())
                       .facetDefinitions(
                           Map.of(
                               "directorFacet",
-                              FacetDefinitionBuilder.string().path("director").build()))
+                              FacetDefinitionBuilder.string().path("my-scope.director").build()))
                       .build())
               .returnStoredSource(true)
               .returnScope(new ReturnScope(FieldPath.parse("my-scope")))
