@@ -12,8 +12,8 @@ public interface IndexStats {
   /** Upserts all the index stats entries in the provided list into the metadata collection */
   void upsertAll(Set<IndexStatsEntry> indexStats) throws MetadataServiceException;
 
-  /** Removes an index stats entry from the metadata collection */
-  void delete(IndexStatsEntry.IndexStatsKey key) throws MetadataServiceException;
+  /** Removes all the index stats entries from the collection that match the provided filter. */
+  void delete(BsonDocument filter) throws MetadataServiceException;
 
   /**
    * Removes the index stats entries from the metadata collection for each indexStatsKey in the

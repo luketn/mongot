@@ -2,11 +2,14 @@ package com.xgen.mongot.config.provider.community;
 
 import static com.xgen.mongot.util.Check.checkState;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.errorprone.annotations.Var;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.xgen.mongot.catalogservice.IndexStatsEntry;
 import com.xgen.mongot.catalogservice.IndexStatsEntryMapper;
 import com.xgen.mongot.catalogservice.MetadataService;
 import com.xgen.mongot.catalogservice.MetadataServiceException;
+import com.xgen.mongot.catalogservice.ServerStateEntry;
 import com.xgen.mongot.config.manager.CachedIndexInfoProvider;
 import com.xgen.mongot.index.IndexInformation;
 import com.xgen.mongot.util.Crash;
@@ -14,6 +17,7 @@ import com.xgen.mongot.util.concurrent.Executors;
 import com.xgen.mongot.util.concurrent.NamedScheduledExecutorService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -32,6 +36,8 @@ public class CommunityMetadataUpdater {
 
   private static final Logger LOG = LoggerFactory.getLogger(CommunityMetadataUpdater.class);
 
+  private static final Duration ATTEMPT_TO_REMOVE_STALE_SERVER_FREQUENCY = Duration.ofHours(1);
+
   private final CommunityServerInfo serverInfo;
   private final MetadataService metadataService;
   private final CachedIndexInfoProvider indexInfoProvider;
@@ -49,6 +55,8 @@ public class CommunityMetadataUpdater {
   @GuardedBy("this")
   private volatile boolean closed = false;
 
+  @Var @VisibleForTesting protected Instant lastTimeRemovingStaleServers;
+
   public CommunityMetadataUpdater(
       CommunityServerInfo serverInfo,
       MetadataService metadataService,
@@ -62,6 +70,8 @@ public class CommunityMetadataUpdater {
     this.executorService =
         Executors.singleThreadScheduledExecutor(
             "metadata-updater", Thread.MAX_PRIORITY, meterRegistry);
+    // Initialize to min time so we attempt to remove stale servers on the first run
+    this.lastTimeRemovingStaleServers = Instant.MIN;
   }
 
   public void start() {
@@ -78,6 +88,8 @@ public class CommunityMetadataUpdater {
     LOG.info("Shutting down...");
     Executors.shutdownOrFail(this.executorService);
     this.closed = true;
+
+    attemptToMarkServerAsShutdown();
   }
 
   protected synchronized void run() {
@@ -94,6 +106,7 @@ public class CommunityMetadataUpdater {
 
     updateServerState();
     updateIndexStats();
+    removeStaleServersAndIndexEntries();
   }
 
   /**
@@ -144,6 +157,51 @@ public class CommunityMetadataUpdater {
               + " We will backoff and retry on next run.",
           e);
       return false;
+    }
+  }
+
+  /**
+   * Deletes serverState and indexStats entries from servers who have not updates their
+   * lastHeartbeatTs since the server expiry threshold.
+   *
+   * <p>This only runs every hour to avoid overloading metadata with no-op reads given servers
+   * enter/leave the cluster fairly infrequently. All consumers of the indexStats or serverState
+   * collections must assume cleaning up their stale entries is best effort and not guaranteed to be
+   * timely.
+   */
+  private void removeStaleServersAndIndexEntries() {
+    if (this.lastTimeRemovingStaleServers.isAfter(
+        Instant.now().minus(ATTEMPT_TO_REMOVE_STALE_SERVER_FREQUENCY))) {
+      return;
+    }
+
+    // Update last-apply-time before performing metadata calls. Removing stale servers is
+    // best-effort and if it fails another mongot will retry in some time and otherwise we'll try
+    // again in an hour.
+    // We naturally handles stale server  and index entries and assume clean-up is async so there is
+    // no rush to remove stale ones.
+    this.lastTimeRemovingStaleServers = Instant.now();
+
+    try {
+      List<ServerStateEntry> staleServers =
+          this.metadataService.getServerState().list(ServerStateEntry.staleServerFilter());
+
+      for (ServerStateEntry serverStateEntry : staleServers) {
+        LOG.atInfo()
+            .addKeyValue("server", serverStateEntry)
+            .log("Removing stale index stats and server state entries from metadata.");
+        // Delete IndexStatsEntries before ServerStateEntry in case we have a transient failure, we
+        // will see the expired ServerStateEntry on the next try and clean them up again.
+        this.metadataService
+            .getIndexStats()
+            .delete(IndexStatsEntry.serverIdFilter(serverStateEntry.serverId()));
+        this.metadataService.getServerState().delete(serverStateEntry.serverId());
+      }
+    } catch (MetadataServiceException e) {
+      LOG.warn(
+          "Failed to remove stale server state and index stats entries from metadata."
+              + " These entries will be removed on the next run.",
+          e);
     }
   }
 
@@ -256,6 +314,21 @@ public class CommunityMetadataUpdater {
         // exception which will crash the process.
         throw new IllegalArgumentException("duplicate index keys in indexStats collection");
       }
+    }
+  }
+
+  /**
+   * As a best effort, mark the server as shutdown. If this fails the server-state entry will still
+   * be garbage collected after 2 hours. This just speeds up detection of servers that are no longer
+   * running for use cases such as listSearchIndexes.
+   */
+  private void attemptToMarkServerAsShutdown() {
+    try {
+      this.metadataService.getServerState().upsert(this.serverInfo.generateServerStateEntry(true));
+    } catch (MetadataServiceException e) {
+      LOG.warn(
+          "Failed best-effort attempt to mark server state entry as shutdown, continuing shutdown",
+          e);
     }
   }
 }

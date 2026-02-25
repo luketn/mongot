@@ -31,7 +31,6 @@ import com.xgen.mongot.util.mongodb.Errors;
 import com.xgen.testing.mongot.index.definition.DocumentFieldDefinitionBuilder;
 import com.xgen.testing.mongot.index.definition.SearchIndexDefinitionBuilder;
 import com.xgen.testing.mongot.server.command.management.definition.ManageSearchIndexCommandDefinitionBuilder;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -106,7 +105,7 @@ public class AicListSearchIndexesCommandTest {
     var indexDefinition = createIndexDefinition(INDEX_NAME);
     when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(indexDefinition));
     when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
-    when(this.mockServerState.list()).thenReturn(List.of());
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of());
 
     var definition = createListDefinition();
     var command = createCommand(definition);
@@ -120,16 +119,17 @@ public class AicListSearchIndexesCommandTest {
   }
 
   @Test
-  public void testListSearchIndexFiltering() throws Exception {
-    var indexDefinition = createIndexDefinition(INDEX_NAME);
-    when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(indexDefinition));
+  public void testFilterByIndexName() throws Exception {
+    var index1 = createIndexDefinition("index1");
+    var index2 = createIndexDefinition("index2");
+    when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(index1, index2));
     when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
-    when(this.mockServerState.list()).thenReturn(List.of());
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of());
 
     var definition =
         (ListSearchIndexesCommandDefinition)
             ManageSearchIndexCommandDefinitionBuilder.listAggregation()
-                .withIndexName(INDEX_NAME)
+                .withIndexName("index1")
                 .buildSearchIndexCommand();
     var command = createCommand(definition);
 
@@ -138,39 +138,23 @@ public class AicListSearchIndexesCommandTest {
 
     assertEquals(1, response.getInt32("ok").getValue());
     assertEquals(1, batch.size());
-    assertEquals(INDEX_NAME, batch.getFirst().asDocument().getString("name").getValue());
+    assertEquals("index1", batch.getFirst().asDocument().getString("name").getValue());
   }
 
   @Test
-  public void testListSearchIndexFilteringNoMatch() throws Exception {
-    var indexDefinition = createIndexDefinition(INDEX_NAME);
-    when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(indexDefinition));
+  public void testFilterByIndexId() throws Exception {
+    var indexId1 = new ObjectId();
+    var indexId2 = new ObjectId();
+    var index1 = createIndexDefinition(indexId1, "index1");
+    var index2 = createIndexDefinition(indexId2, "index2");
+    when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(index1, index2));
     when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
-    when(this.mockServerState.list()).thenReturn(List.of());
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of());
 
     var definition =
         (ListSearchIndexesCommandDefinition)
             ManageSearchIndexCommandDefinitionBuilder.listAggregation()
-                .withIndexName("nonexistent")
-                .buildSearchIndexCommand();
-    var command = createCommand(definition);
-
-    BsonDocument response = command.run();
-    assertEquals(0, response.getDocument("cursor").getArray("firstBatch").size());
-  }
-
-  @Test
-  public void testListSearchIndexFilteringByIndexId() throws Exception {
-    var indexId = new ObjectId();
-    var indexDefinition = createIndexDefinition(indexId, INDEX_NAME);
-    when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(indexDefinition));
-    when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
-    when(this.mockServerState.list()).thenReturn(List.of());
-
-    var definition =
-        (ListSearchIndexesCommandDefinition)
-            ManageSearchIndexCommandDefinitionBuilder.listAggregation()
-                .withIndexId(indexId)
+                .withIndexId(indexId2)
                 .buildSearchIndexCommand();
     var command = createCommand(definition);
 
@@ -179,7 +163,7 @@ public class AicListSearchIndexesCommandTest {
 
     assertEquals(1, response.getInt32("ok").getValue());
     assertEquals(1, batch.size());
-    assertEquals(INDEX_NAME, batch.getFirst().asDocument().getString("name").getValue());
+    assertEquals("index2", batch.getFirst().asDocument().getString("name").getValue());
   }
 
   @Test
@@ -200,129 +184,28 @@ public class AicListSearchIndexesCommandTest {
   }
 
   @Test
-  public void testStaleServerFiltering() throws Exception {
-    var indexId = new ObjectId();
-    var indexDefinition = createIndexDefinition(indexId, INDEX_NAME);
+  public void testNoActiveServers() throws Exception {
+    var indexDefinition = createIndexDefinition(INDEX_NAME);
     when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(indexDefinition));
-
-    // Create a stale server (heartbeat more than 2 hours ago)
-    var staleServerId = new ObjectId();
-    var staleServer =
-        new ServerStateEntry(
-            staleServerId, "stale-server", Instant.now().minus(Duration.ofHours(3)));
-
-    // Create a fresh server (recent heartbeat)
-    var freshServerId = new ObjectId();
-    var freshServer = new ServerStateEntry(freshServerId, "fresh-server", Instant.now());
-
-    when(this.mockServerState.list()).thenReturn(List.of(staleServer, freshServer));
-
-    // Create index stats for both servers
-    var staleIndexStats =
-        new IndexStatsEntry(
-            new IndexStatsEntry.IndexStatsKey(staleServerId, indexId),
-            IndexDefinition.Type.SEARCH,
-            Optional.empty(),
-            Optional.empty());
-    var freshIndexStats =
-        new IndexStatsEntry(
-            new IndexStatsEntry.IndexStatsKey(freshServerId, indexId),
-            IndexDefinition.Type.SEARCH,
-            Optional.empty(),
-            Optional.empty());
-
-    when(this.mockIndexStats.list(any(BsonDocument.class)))
-        .thenReturn(List.of(staleIndexStats, freshIndexStats));
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of());
+    when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
 
     var definition = createListDefinition();
     var command = createCommand(definition);
 
     BsonDocument response = command.run();
-
-    // Should succeed and only include the fresh server in statusDetail
-    assertEquals(1, response.getInt32("ok").getValue());
     BsonArray batch = response.getDocument("cursor").getArray("firstBatch");
-    assertEquals(1, batch.size());
 
-    // Check that statusDetail only contains the fresh server
-    BsonArray statusDetail = batch.getFirst().asDocument().getArray("statusDetail");
-    assertEquals(1, statusDetail.size());
-    assertTrue(
-        statusDetail
-            .getFirst()
-            .asDocument()
-            .getString("hostname")
-            .getValue()
-            .startsWith("fresh-server"));
-  }
-
-  @Test
-  public void testAllServersAreStale() throws Exception {
-    var indexId = new ObjectId();
-    var indexDefinition = createIndexDefinition(indexId, INDEX_NAME);
-    when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(indexDefinition));
-
-    // Create multiple servers that are ALL stale (heartbeat more than 2 hours ago)
-    var staleServer1Id = new ObjectId();
-    var staleServer1 =
-        new ServerStateEntry(
-            staleServer1Id, "stale-server-1", Instant.now().minus(Duration.ofHours(3)));
-
-    var staleServer2Id = new ObjectId();
-    var staleServer2 =
-        new ServerStateEntry(
-            staleServer2Id, "stale-server-2", Instant.now().minus(Duration.ofHours(5)));
-
-    var staleServer3Id = new ObjectId();
-    var staleServer3 =
-        new ServerStateEntry(
-            staleServer3Id, "stale-server-3", Instant.now().minus(Duration.ofHours(10)));
-
-    when(this.mockServerState.list()).thenReturn(List.of(staleServer1, staleServer2, staleServer3));
-
-    // Create index stats for all stale servers
-    var staleIndexStats1 =
-        new IndexStatsEntry(
-            new IndexStatsEntry.IndexStatsKey(staleServer1Id, indexId),
-            IndexDefinition.Type.SEARCH,
-            Optional.empty(),
-            Optional.empty());
-    var staleIndexStats2 =
-        new IndexStatsEntry(
-            new IndexStatsEntry.IndexStatsKey(staleServer2Id, indexId),
-            IndexDefinition.Type.SEARCH,
-            Optional.empty(),
-            Optional.empty());
-    var staleIndexStats3 =
-        new IndexStatsEntry(
-            new IndexStatsEntry.IndexStatsKey(staleServer3Id, indexId),
-            IndexDefinition.Type.SEARCH,
-            Optional.empty(),
-            Optional.empty());
-
-    when(this.mockIndexStats.list(any(BsonDocument.class)))
-        .thenReturn(List.of(staleIndexStats1, staleIndexStats2, staleIndexStats3));
-
-    var definition = createListDefinition();
-    var command = createCommand(definition);
-
-    BsonDocument response = command.run();
-
-    // Verify the response succeeds
     assertEquals(1, response.getInt32("ok").getValue());
-    BsonArray batch = response.getDocument("cursor").getArray("firstBatch");
     assertEquals(1, batch.size());
 
     BsonDocument indexEntry = batch.getFirst().asDocument();
     assertEquals(INDEX_NAME, indexEntry.getString("name").getValue());
 
-    // When all servers are stale, the index should show as PENDING and not queryable
+    // When no active servers exist, the index should show as PENDING and not queryable
     assertEquals("PENDING", indexEntry.getString("status").getValue());
     assertEquals(false, indexEntry.getBoolean("queryable").getValue());
-
-    // StatusDetail should be empty since no active servers have this index
-    BsonArray statusDetail = indexEntry.getArray("statusDetail");
-    assertEquals(0, statusDetail.size());
+    assertEquals(0, indexEntry.getArray("statusDetail").size());
   }
 
   @Test
@@ -336,7 +219,7 @@ public class AicListSearchIndexesCommandTest {
     var server1 = new ServerStateEntry(duplicateServerId, "server1", Instant.now());
     var server2 = new ServerStateEntry(duplicateServerId, "server2", Instant.now());
 
-    when(this.mockServerState.list()).thenReturn(List.of(server1, server2));
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of(server1, server2));
     when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
 
     var definition = createListDefinition();
@@ -355,7 +238,7 @@ public class AicListSearchIndexesCommandTest {
     // Create a server
     var serverId = new ObjectId();
     var server = new ServerStateEntry(serverId, "test-server", Instant.now());
-    when(this.mockServerState.list()).thenReturn(List.of(server));
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of(server));
 
     // Create two index stats entries for the same server (duplicate)
     var indexStats1 =
@@ -386,7 +269,7 @@ public class AicListSearchIndexesCommandTest {
     // No indexes in the collection
     when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of());
     when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
-    when(this.mockServerState.list()).thenReturn(List.of());
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of());
 
     var definition = createListDefinition();
     var command = createCommand(definition);
@@ -406,7 +289,7 @@ public class AicListSearchIndexesCommandTest {
 
     when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(index1, index2, index3));
     when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
-    when(this.mockServerState.list()).thenReturn(List.of());
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of());
 
     var definition = createListDefinition();
     var command = createCommand(definition);
@@ -433,7 +316,7 @@ public class AicListSearchIndexesCommandTest {
 
     when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(indexes);
     when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
-    when(this.mockServerState.list()).thenReturn(List.of());
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of());
 
     var definition = createListDefinition();
     var command = createCommand(definition);
@@ -454,7 +337,7 @@ public class AicListSearchIndexesCommandTest {
     var indexDefinition = createIndexDefinition(indexId, INDEX_NAME);
     when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(indexDefinition));
     when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
-    when(this.mockServerState.list()).thenReturn(List.of());
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of());
 
     var definition = createListDefinition();
     var command = createCommand(definition, false);
@@ -478,7 +361,7 @@ public class AicListSearchIndexesCommandTest {
     var indexDefinition = createIndexDefinition(indexId, INDEX_NAME);
     when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(indexDefinition));
     when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
-    when(this.mockServerState.list()).thenReturn(List.of());
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of());
 
     // Create IndexInformation with numDocs
     var aggregatedMetrics = new AggregatedIndexMetrics(0L, 12345L, new BsonTimestamp(0L), 0L);
@@ -516,7 +399,7 @@ public class AicListSearchIndexesCommandTest {
     var indexDefinition = createIndexDefinition(indexId, INDEX_NAME);
     when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(indexDefinition));
     when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
-    when(this.mockServerState.list()).thenReturn(List.of());
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of());
 
     // Create IndexInformation but with a different indexId so numDocs won't be found
     var differentIndexId = new ObjectId();
@@ -553,7 +436,7 @@ public class AicListSearchIndexesCommandTest {
   public void testGetActiveServersThrowsException() throws Exception {
     var indexDefinition = createIndexDefinition(INDEX_NAME);
     when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(indexDefinition));
-    when(this.mockServerState.list())
+    when(this.mockServerState.list(any(BsonDocument.class)))
         .thenThrow(
             MetadataServiceException.createFailed(
                 new RuntimeException("Failed to fetch server state")));
@@ -577,7 +460,7 @@ public class AicListSearchIndexesCommandTest {
     // Setup active servers
     var serverId = new ObjectId();
     var server = new ServerStateEntry(serverId, "test-server", Instant.now());
-    when(this.mockServerState.list()).thenReturn(List.of(server));
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(List.of(server));
 
     // Make getIndexStats().list() throw an exception
     when(this.mockIndexStats.list(any(BsonDocument.class)))
@@ -594,46 +477,6 @@ public class AicListSearchIndexesCommandTest {
     assertEquals(0, response.getInt32("ok").getValue());
     assertEquals(Errors.COMMAND_FAILED.code, response.getInt32("code").getValue());
     assertEquals("Error processing request.", response.getString("errmsg").getValue());
-  }
-
-  @Test
-  public void testHeartbeatTimeoutBoundary() throws Exception {
-    var indexId = new ObjectId();
-    var indexDefinition = createIndexDefinition(indexId, INDEX_NAME);
-    when(this.mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of(indexDefinition));
-
-    // Create a server exactly at the 2-hour boundary (should be excluded)
-    var boundaryServerId = new ObjectId();
-    var boundaryServer =
-        new ServerStateEntry(
-            boundaryServerId, "boundary-server", Instant.now().minus(Duration.ofHours(2)));
-
-    // Create a server just before the 2-hour boundary (should be included)
-    var freshServerId = new ObjectId();
-    var freshServer =
-        new ServerStateEntry(
-            freshServerId,
-            "fresh-server",
-            Instant.now().minus(Duration.ofHours(2).minusSeconds(1)));
-
-    when(this.mockServerState.list()).thenReturn(List.of(boundaryServer, freshServer));
-    when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(List.of());
-
-    var definition = createListDefinition();
-    var command = createCommand(definition);
-
-    BsonDocument response = command.run();
-
-    // Should succeed
-    assertEquals(1, response.getInt32("ok").getValue());
-    BsonArray batch = response.getDocument("cursor").getArray("firstBatch");
-    assertEquals(1, batch.size());
-
-    // The boundary server should be excluded, only the fresh server should be included
-    BsonArray statusDetail = batch.getFirst().asDocument().getArray("statusDetail");
-    // Note: Since there are no index stats, statusDetail will be empty
-    // This test verifies that the boundary logic works correctly in getActiveServers()
-    assertEquals(0, statusDetail.size());
   }
 
   @Test
@@ -656,7 +499,7 @@ public class AicListSearchIndexesCommandTest {
               Optional.empty()));
     }
 
-    when(this.mockServerState.list()).thenReturn(servers);
+    when(this.mockServerState.list(any(BsonDocument.class))).thenReturn(servers);
     when(this.mockIndexStats.list(any(BsonDocument.class))).thenReturn(indexStatsEntries);
 
     var definition = createListDefinition();

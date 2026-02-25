@@ -37,7 +37,7 @@ public class ServerStateEntryTest {
 
     @Parameterized.Parameters(name = "{0}")
     public static Iterable<BsonDeserializationTestSuite.TestSpecWrapper<ServerStateEntry>> data() {
-      return TEST_SUITE.withExamples(simple());
+      return TEST_SUITE.withExamples(simple(), shutdownFieldUnset());
     }
 
     @Test
@@ -51,7 +51,17 @@ public class ServerStateEntryTest {
           new ServerStateEntry(
               new ObjectId("000003e8464f5e2393000000"),
               "server",
-              Instant.parse("2025-12-29T10:00:00Z")));
+              Instant.parse("2025-12-29T10:00:00Z"),
+              false));
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<ServerStateEntry> shutdownFieldUnset() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "shutdown field unset",
+          new ServerStateEntry(
+              new ObjectId("000003e8464f5e2393000001"),
+              "server-old",
+              Instant.parse("2025-12-29T11:00:00Z")));
     }
   }
 
@@ -83,7 +93,8 @@ public class ServerStateEntryTest {
           new ServerStateEntry(
               new ObjectId("000003e8464f5e2393000000"),
               "server",
-              Instant.parse("2025-12-29T10:00:00Z")));
+              Instant.parse("2025-12-29T10:00:00Z"),
+              false));
     }
   }
 }

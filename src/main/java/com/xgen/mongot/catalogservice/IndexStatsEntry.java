@@ -1,5 +1,6 @@
 package com.xgen.mongot.catalogservice;
 
+import com.mongodb.client.model.Filters;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.synonym.SynonymDetailedStatus;
@@ -74,18 +75,20 @@ public record IndexStatsEntry(
     return BsonDocumentBuilder.builder().field(Fields.INDEX_STATS_KEY, indexKey).build();
   }
 
+  public static String serverIdFilterKey() {
+    return Fields.INDEX_STATS_KEY.getName() + "." + IndexStatsKey.Fields.SERVER_ID.getName();
+  }
+
   public static BsonDocument serverIdFilter(ObjectId serverId) {
-    return new BsonDocument()
-        .append(
-            Fields.INDEX_STATS_KEY.getName() + "." + IndexStatsKey.Fields.SERVER_ID.getName(),
-            new BsonObjectId(serverId));
+    return Filters.eq(serverIdFilterKey(), new BsonObjectId(serverId)).toBsonDocument();
+  }
+
+  public static String indexIdFilterKey() {
+    return Fields.INDEX_STATS_KEY.getName() + "." + IndexStatsKey.Fields.INDEX_ID.getName();
   }
 
   public static BsonDocument indexIdFilter(ObjectId indexId) {
-    return new BsonDocument()
-        .append(
-            Fields.INDEX_STATS_KEY.getName() + "." + IndexStatsKey.Fields.INDEX_ID.getName(),
-            new BsonObjectId(indexId));
+    return Filters.eq(indexIdFilterKey(), new BsonObjectId(indexId)).toBsonDocument();
   }
 
   @Override

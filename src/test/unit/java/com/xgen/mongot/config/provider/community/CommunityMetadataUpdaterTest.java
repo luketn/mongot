@@ -6,6 +6,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -42,6 +43,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.bson.BsonDocument;
 import org.bson.types.ObjectId;
 import org.junit.Before;
 import org.junit.Test;
@@ -603,6 +605,9 @@ public class CommunityMetadataUpdaterTest {
     when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
     when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
 
+    // Mock the serverState.upsert() call that happens during stop() when marking server as shutdown
+    doNothing().when(this.serverState).upsert(any(ServerStateEntry.class));
+
     // Use a period that's shorter than run() execution time
     // With fixedDelay: creates a gap after slow run() completes
     // With fixedRate: no gap if run() takes longer than the period
@@ -712,6 +717,207 @@ public class CommunityMetadataUpdaterTest {
 
     // Verify the executor was shut down properly
     verify(this.indexStats, times(1)).createCollectionIndexes();
-    verify(this.serverState, times(1)).upsert(any(ServerStateEntry.class));
+    // serverState.upsert() is called twice: once during run() and once during stop()
+    verify(this.serverState, times(2)).upsert(any(ServerStateEntry.class));
+  }
+
+  @Test
+  public void run_purgesStaleServersWhenThresholdReached() throws Exception {
+    // Create stale server entries (older than 2 hours)
+    ObjectId staleServerId1 = new ObjectId();
+    ObjectId staleServerId2 = new ObjectId();
+    Instant staleTimestamp = Instant.now().minus(Duration.ofHours(3));
+
+    ServerStateEntry staleServer1 =
+        new ServerStateEntry(staleServerId1, "stale-server-1", staleTimestamp);
+    ServerStateEntry staleServer2 =
+        new ServerStateEntry(staleServerId2, "stale-server-2", staleTimestamp);
+
+    // Mock serverState.list to return stale servers
+    when(this.serverState.list(any(BsonDocument.class)))
+        .thenReturn(List.of(staleServer1, staleServer2));
+
+    // Mock indexStats.list to return empty (for cache initialization)
+    when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
+    when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
+
+    // Run should purge stale servers (lastTimeRemovingStaleServers is initialized to Instant.MIN)
+    this.heartbeater.run();
+
+    // Verify that serverState.list was called with the correct filter
+    ArgumentCaptor<BsonDocument> filterCaptor = ArgumentCaptor.forClass(BsonDocument.class);
+    verify(this.serverState).list(filterCaptor.capture());
+
+    // Verify the filter checks for lastHeartbeatTs less than 2 hours ago
+    BsonDocument capturedFilter = filterCaptor.getValue();
+    assertTrue(capturedFilter.containsKey("lastHeartbeatTs"));
+    assertTrue(capturedFilter.get("lastHeartbeatTs").isDocument());
+    assertTrue(capturedFilter.get("lastHeartbeatTs").asDocument().containsKey("$lt"));
+
+    // Verify indexStats.delete was called for each stale server
+    verify(this.indexStats).delete(IndexStatsEntry.serverIdFilter(staleServerId1));
+    verify(this.indexStats).delete(IndexStatsEntry.serverIdFilter(staleServerId2));
+
+    // Verify serverState.delete was called for each stale server
+    verify(this.serverState).delete(staleServerId1);
+    verify(this.serverState).delete(staleServerId2);
+  }
+
+  @Test
+  public void run_noStaleServers_doesNotDelete() throws Exception {
+    // Mock serverState.list to return no stale servers
+    when(this.serverState.list(any(BsonDocument.class))).thenReturn(Collections.emptyList());
+
+    // Mock indexStats.list to return empty (for cache initialization)
+    when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
+    when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
+
+    // Run should query for stale servers but not delete anything
+    this.heartbeater.run();
+
+    // Verify that serverState.list was called with the correct filter
+    verify(this.serverState).list(any(BsonDocument.class));
+
+    // Verify no deletes were called
+    verify(this.indexStats, never()).delete(any(BsonDocument.class));
+    verify(this.serverState, never()).delete(any(ObjectId.class));
+  }
+
+  @Test
+  public void run_purgeStaleServers_handlesMetadataServiceException() throws Exception {
+    // Mock serverState.list to throw exception
+    doThrow(MetadataServiceException.createTransient(new RuntimeException("test exception")))
+        .when(this.serverState)
+        .list(any(BsonDocument.class));
+
+    // Mock indexStats.list to return empty (for cache initialization)
+    when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
+    when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
+
+    // Should not throw - exception is caught and logged
+    this.heartbeater.run();
+
+    // Verify that serverState.list was called
+    verify(this.serverState).list(any(BsonDocument.class));
+
+    // Verify no deletes were attempted
+    verify(this.indexStats, never()).delete(any(BsonDocument.class));
+    verify(this.serverState, never()).delete(any(ObjectId.class));
+  }
+
+  @Test
+  public void run_skipsStaleServerPurgeWhenCalledWithinOneHour() throws Exception {
+    // Create stale server entry
+    ObjectId staleServerId = new ObjectId();
+    Instant staleTimestamp = Instant.now().minus(Duration.ofHours(3));
+    ServerStateEntry staleServer =
+        new ServerStateEntry(staleServerId, "stale-server", staleTimestamp);
+
+    // Mock serverState.list to return stale server on first call
+    when(this.serverState.list(any(BsonDocument.class))).thenReturn(List.of(staleServer));
+
+    // Mock indexStats.list to return empty (for cache initialization)
+    when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
+    when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
+
+    // First run should purge stale servers
+    // (lastTimeRemovingStaleServers is initialized to Instant.MIN)
+    this.heartbeater.run();
+
+    // Verify purge was called once
+    verify(this.serverState, times(1)).list(any(BsonDocument.class));
+    verify(this.indexStats, times(1)).delete(IndexStatsEntry.serverIdFilter(staleServerId));
+    verify(this.serverState, times(1)).delete(staleServerId);
+
+    // Second run should NOT purge again (because less than 1 hour has passed)
+    this.heartbeater.run();
+
+    // Verify purge was still only called once (not called again)
+    verify(this.serverState, times(1)).list(any(BsonDocument.class));
+    verify(this.indexStats, times(1)).delete(IndexStatsEntry.serverIdFilter(staleServerId));
+    verify(this.serverState, times(1)).delete(staleServerId);
+  }
+
+  @Test
+  public void run_purgesStaleServersAfterOneHour() throws Exception {
+    // Create stale server entries
+    ObjectId staleServerId1 = new ObjectId();
+    ObjectId staleServerId2 = new ObjectId();
+    Instant staleTimestamp = Instant.now().minus(Duration.ofHours(3));
+
+    ServerStateEntry staleServer1 =
+        new ServerStateEntry(staleServerId1, "stale-server-1", staleTimestamp);
+    ServerStateEntry staleServer2 =
+        new ServerStateEntry(staleServerId2, "stale-server-2", staleTimestamp);
+
+    // Mock serverState.list to return stale servers
+    when(this.serverState.list(any(BsonDocument.class)))
+        .thenReturn(List.of(staleServer1, staleServer2));
+
+    // Mock indexStats.list to return empty (for cache initialization)
+    when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
+    when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
+
+    // First run should purge stale servers
+    this.heartbeater.run();
+
+    // Verify purge was called once
+    verify(this.serverState, times(1)).list(any(BsonDocument.class));
+    verify(this.indexStats, times(1)).delete(IndexStatsEntry.serverIdFilter(staleServerId1));
+    verify(this.indexStats, times(1)).delete(IndexStatsEntry.serverIdFilter(staleServerId2));
+    verify(this.serverState, times(1)).delete(staleServerId1);
+    verify(this.serverState, times(1)).delete(staleServerId2);
+
+    // Simulate time passing by setting lastTimeRemovingStaleServers to 2 hours ago
+    // This makes it appear that more than 1 hour has passed since the last purge
+    this.heartbeater.lastTimeRemovingStaleServers = Instant.now().minus(Duration.ofHours(2));
+
+    // Next run should purge again (because more than 1 hour has passed)
+    this.heartbeater.run();
+
+    // Verify purge was called a second time
+    verify(this.serverState, times(2)).list(any(BsonDocument.class));
+    verify(this.indexStats, times(2)).delete(IndexStatsEntry.serverIdFilter(staleServerId1));
+    verify(this.indexStats, times(2)).delete(IndexStatsEntry.serverIdFilter(staleServerId2));
+    verify(this.serverState, times(2)).delete(staleServerId1);
+    verify(this.serverState, times(2)).delete(staleServerId2);
+  }
+
+  @Test
+  public void stop_marksServerAsShutdown() throws Exception {
+    // Mock the necessary methods to allow stop() to complete
+    doNothing().when(this.serverState).upsert(any(ServerStateEntry.class));
+
+    // Call stop which should invoke attemptToMarkServerAsShutdown
+    this.heartbeater.stop();
+
+    // Capture the upserted entry
+    ArgumentCaptor<ServerStateEntry> entryCaptor = ArgumentCaptor.forClass(ServerStateEntry.class);
+    verify(this.serverState).upsert(entryCaptor.capture());
+
+    // Verify the entry has shutdown=true
+    ServerStateEntry capturedEntry = entryCaptor.getValue();
+    assertEquals(this.serverInfo.id(), capturedEntry.serverId());
+    assertEquals(this.serverInfo.getExternalName(), capturedEntry.serverName());
+    assertTrue("shutdown field should be true", capturedEntry.shutdown());
+  }
+
+  @Test
+  public void stop_continuesShutdownEvenIfMarkingServerAsShutdownFails() throws Exception {
+    // Simulate MetadataServiceException when trying to mark server as shutdown
+    doThrow(MetadataServiceException.createTransient(new RuntimeException("test exception")))
+        .when(this.serverState)
+        .upsert(any(ServerStateEntry.class));
+
+    // stop() should complete successfully despite the exception (best-effort behavior)
+    this.heartbeater.stop();
+
+    // Verify that upsert was attempted
+    verify(this.serverState).upsert(any(ServerStateEntry.class));
+
+    // Verify the heartbeater is closed (subsequent run() should throw)
+    IllegalStateException exception =
+        assertThrows(IllegalStateException.class, () -> this.heartbeater.run());
+    assertEquals("cannot call update() after close()", exception.getMessage());
   }
 }

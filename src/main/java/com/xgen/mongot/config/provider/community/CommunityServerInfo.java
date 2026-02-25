@@ -47,7 +47,11 @@ public record CommunityServerInfo(ObjectId id, Optional<String> name) {
    * @return A server state entry with the latest heartbeat ts
    */
   public ServerStateEntry generateServerStateEntry() {
-    return new ServerStateEntry(this.id, this.getExternalName(), Instant.now());
+    return generateServerStateEntry(false);
+  }
+
+  public ServerStateEntry generateServerStateEntry(boolean shutdown) {
+    return new ServerStateEntry(this.id, this.getExternalName(), Instant.now(), shutdown);
   }
 
   @Override

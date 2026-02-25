@@ -19,8 +19,6 @@ import com.xgen.mongot.server.message.MessageUtils;
 import com.xgen.mongot.util.BsonUtils;
 import com.xgen.mongot.util.CollectionUtils;
 import com.xgen.mongot.util.mongodb.Errors;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -37,8 +35,6 @@ import org.slf4j.LoggerFactory;
 public class AicListSearchIndexesCommand implements Command {
 
   private static final Logger LOG = LoggerFactory.getLogger(AicListSearchIndexesCommand.class);
-
-  private static final Duration DEFAULT_SERVER_HEARTBEAT_TIMEOUT = Duration.ofHours(2);
 
   private final MetadataService metadataService;
   private final CachedIndexInfoProvider indexInfoProvider;
@@ -183,17 +179,13 @@ public class AicListSearchIndexesCommand implements Command {
         .toList();
   }
 
-  /**
-   * Gets the active servers for this cluster.
-   *
-   * <p>Active is defined by servers who in the last 2 hours updated their lastHeartbeatTs in the
-   * server state collection.
-   */
+  /** Gets the active servers for this cluster. */
   Map<ObjectId, ServerStateEntry> getActiveServers() throws MetadataServiceException {
-    Instant staleServerFilter = Instant.now().minus(DEFAULT_SERVER_HEARTBEAT_TIMEOUT);
-    return this.metadataService.getServerState().list().stream()
-        .filter(server -> server.lastHeartbeatTs().isAfter(staleServerFilter))
-        .collect(CollectionUtils.toMapUniqueKeys(ServerStateEntry::serverId, Function.identity()));
+    return this.metadataService
+        .getServerState()
+        .list(ServerStateEntry.activeServersFilter())
+        .stream()
+        .collect(CollectionUtils.toMapUniqueKeys(ServerStateEntry::serverId, server -> server));
   }
 
   /**

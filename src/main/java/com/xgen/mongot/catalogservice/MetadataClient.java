@@ -58,13 +58,25 @@ public class MetadataClient<T extends DocumentEncodable> {
   }
 
   /**
-   * Deletes a single item in the metadata collection with the given filter.
+   * Deletes a single item in the metadata collection that matches the given filter. If multiple
+   * items match, it will delete the first item found based on the internal ordering of the
+   * documents.
    *
    * @param filter filter for the document to delete
    * @throws MetadataServiceException if there was an error deleting the specified document
    */
   public synchronized void delete(BsonDocument filter) throws MetadataServiceException {
     MetadataServiceException.wrapIfThrows(() -> this.getCollection().deleteOne(filter));
+  }
+
+  /**
+   * Deletes a multiple items in the metadata collection that match the given filter.
+   *
+   * @param filter filter for the documents to delete
+   * @throws MetadataServiceException if there was an error deleting the specified document
+   */
+  public synchronized void deleteMany(BsonDocument filter) throws MetadataServiceException {
+    MetadataServiceException.wrapIfThrows(() -> this.getCollection().deleteMany(filter));
   }
 
   /**

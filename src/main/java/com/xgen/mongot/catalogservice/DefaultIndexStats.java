@@ -58,8 +58,8 @@ public class DefaultIndexStats implements IndexStats {
   }
 
   @Override
-  public void delete(IndexStatsEntry.IndexStatsKey key) throws MetadataServiceException {
-    this.client.delete(IndexStatsEntry.keyAsBson(key));
+  public void delete(BsonDocument filter) throws MetadataServiceException {
+    this.client.deleteMany(filter);
   }
 
   @Override
@@ -94,20 +94,11 @@ public class DefaultIndexStats implements IndexStats {
   @Override
   public void createCollectionIndexes() throws MetadataServiceException {
     this.client.createIndex(
-        Indexes.ascending(
-            String.format(
-                "%s.%s",
-                IndexStatsEntry.Fields.INDEX_STATS_KEY.getName(),
-                IndexStatsEntry.IndexStatsKey.Fields.INDEX_ID.getName())),
+        Indexes.ascending(IndexStatsEntry.serverIdFilterKey()),
         new IndexOptions().background(true));
 
     this.client.createIndex(
-        Indexes.ascending(
-            String.format(
-                "%s.%s",
-                IndexStatsEntry.Fields.INDEX_STATS_KEY.getName(),
-                IndexStatsEntry.IndexStatsKey.Fields.SERVER_ID.getName())),
-        new IndexOptions().background(true));
+        Indexes.ascending(IndexStatsEntry.indexIdFilterKey()), new IndexOptions().background(true));
   }
 
   public static DefaultIndexStats create(MongoClient mongoClient) {

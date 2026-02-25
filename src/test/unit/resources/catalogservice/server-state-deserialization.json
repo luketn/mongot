@@ -9,6 +9,19 @@
         "serverName": "server",
         "lastHeartbeatTs": {
           "$date": "2025-12-29T10:00:00Z"
+        },
+        "shutdown": false
+      }
+    },
+    {
+      "description": "shutdown field unset",
+      "value": {
+        "_id": {
+          "$oid": "000003e8464f5e2393000001"
+        },
+        "serverName": "server-old",
+        "lastHeartbeatTs": {
+          "$date": "2025-12-29T11:00:00Z"
         }
       }
     }

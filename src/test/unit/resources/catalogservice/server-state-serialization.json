@@ -7,7 +7,8 @@
         "serverName": "server",
         "lastHeartbeatTs": {
           "$date": "2025-12-29T10:00:00Z"
-        }
+        },
+        "shutdown": false
       },
       "bson": {
         "_id": {
@@ -16,7 +17,8 @@
         "serverName": "server",
         "lastHeartbeatTs": {
           "$date": "2025-12-29T10:00:00Z"
-        }
+        },
+        "shutdown": false
       }
     }
   ]

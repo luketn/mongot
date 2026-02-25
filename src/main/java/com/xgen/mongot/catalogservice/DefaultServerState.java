@@ -2,7 +2,6 @@ package com.xgen.mongot.catalogservice;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.mongodb.client.MongoClient;
-import com.xgen.mongot.util.bson.parser.BsonDocumentBuilder;
 import com.xgen.mongot.util.bson.parser.BsonDocumentParser;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
 import java.util.List;
@@ -30,13 +29,12 @@ public class DefaultServerState implements ServerState {
 
   @Override
   public void upsert(ServerStateEntry serverState) throws MetadataServiceException {
-    this.client.replace(serverState.toIdFilter(), serverState, true);
+    this.client.replace(ServerStateEntry.serverIdFilter(serverState.serverId()), serverState, true);
   }
 
   @Override
   public void delete(ObjectId serverId) throws MetadataServiceException {
-    this.client.delete(
-        BsonDocumentBuilder.builder().field(ServerStateEntry.Fields.ID, serverId).build());
+    this.client.delete(ServerStateEntry.serverIdFilter(serverId));
   }
 
   @Override
