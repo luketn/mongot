@@ -12,6 +12,7 @@ java_library(
         "//src/main/java/com/xgen/mongot/embedding/providers/clients",
     ],
     deps = [
+        "//src/main/java/com/xgen/mongot/config/util",
         "//src/main/java/com/xgen/mongot/embedding",
         "//src/main/java/com/xgen/mongot/embedding/exceptions",
         "//src/main/java/com/xgen/mongot/embedding/providers/clients",

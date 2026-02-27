@@ -3,7 +3,9 @@ package com.xgen.mongot.embedding.providers.clients;
 import static com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig.ErrorHandlingConfig;
 import static com.xgen.mongot.util.bson.FloatVector.OriginalType.NATIVE;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -22,17 +24,17 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
-import org.bson.types.ObjectId;
+import org.bson.BsonDocument;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 public class VoyageClientTest {
   private static EmbeddingRequestContext dummyContext() {
-    return new EmbeddingRequestContext("testdb", new ObjectId(), UUID.randomUUID());
+    return new EmbeddingRequestContext("testdb", "testIndex", "testCollection");
   }
 
   private static HttpClient createMockHttpClient() throws Exception {
@@ -109,6 +111,12 @@ public class VoyageClientTest {
   /** Helper to create and inject a VoyageClient with mocked HTTP client. */
   private static VoyageClient createMockedVoyageClient(
       EmbeddingServiceConfig.EmbeddingConfig config, HttpClient mockClient) {
+    return createMockedVoyageClient(config, mockClient, false);
+  }
+
+  private static VoyageClient createMockedVoyageClient(
+      EmbeddingServiceConfig.EmbeddingConfig config, HttpClient mockClient,
+      boolean attachBillingMetadata) {
     EmbeddingModelConfig modelConfig =
         EmbeddingModelConfig.create(
             "voyage-3-large", EmbeddingServiceConfig.EmbeddingProvider.VOYAGE, config);
@@ -119,7 +127,8 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             modelConfig.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            attachBillingMetadata);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
     return voyageClient;
   }
@@ -178,7 +187,8 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             VOYAGE_3_LARGE.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false);
 
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
 
@@ -210,7 +220,8 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             VOYAGE_3_LARGE.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
     EmbeddingProviderTransientException ex =
         assertThrows(
@@ -246,7 +257,8 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             VOYAGE_3_LARGE.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
 
     assertEquals(
@@ -284,7 +296,8 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             VOYAGE_3_LARGE.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
 
     assertEquals(
@@ -342,7 +355,8 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             customConfig.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
 
     voyageClient.embed(List.of("test"), dummyContext());
@@ -377,7 +391,8 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             VOYAGE_3_LARGE.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
 
     voyageClient.embed(List.of("test"), dummyContext());
@@ -413,7 +428,8 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             VOYAGE_3_LARGE.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
 
     // Update config with new endpoint
@@ -455,9 +471,8 @@ public class VoyageClientTest {
     HttpClient mockClient = createMockHttpClient();
     VoyageClient voyageClient = createMockedVoyageClient(config, mockClient);
 
-    // For a dedicated cluster, tenant ID should be ignored
     EmbeddingRequestContext dedicatedContext =
-        new EmbeddingRequestContext("tenant123_mydb", new ObjectId(), UUID.randomUUID());
+        new EmbeddingRequestContext("tenant123_mydb", "testIndex", "testCollection");
 
     voyageClient.embed(List.of("test"), dedicatedContext);
 
@@ -479,9 +494,8 @@ public class VoyageClientTest {
     HttpClient mockClient = createMockHttpClient();
     VoyageClient voyageClient = createMockedVoyageClient(config, mockClient);
 
-    // For MTM, tenant ID should be extracted from database name
     EmbeddingRequestContext mtmContext =
-        new EmbeddingRequestContext("tenant1_mydb", new ObjectId(), UUID.randomUUID());
+        new EmbeddingRequestContext("tenant1_mydb", "testIndex", "testCollection");
 
     voyageClient.embed(List.of("test"), mtmContext);
 
@@ -506,7 +520,7 @@ public class VoyageClientTest {
 
     // Request with tenant2 (which has no credentials)
     EmbeddingRequestContext unknownTenantContext =
-        new EmbeddingRequestContext("tenant2_mydb", new ObjectId(), UUID.randomUUID());
+        new EmbeddingRequestContext("tenant2_mydb", "testIndex", "testCollection");
 
     EmbeddingProviderTransientException ex =
         assertThrows(
@@ -525,7 +539,7 @@ public class VoyageClientTest {
     VoyageClient voyageClient = createMockedVoyageClient(config, mockClient);
 
     EmbeddingRequestContext context =
-        new EmbeddingRequestContext("tenant123_mydb", new ObjectId(), UUID.randomUUID());
+        new EmbeddingRequestContext("tenant123_mydb", "testIndex", "testCollection");
 
     // Should successfully extract tenant ID and embed
     voyageClient.embed(List.of("test"), context);
@@ -539,7 +553,7 @@ public class VoyageClientTest {
 
     // Database looks like MTM format, but dedicated cluster ignores it
     EmbeddingRequestContext context =
-        new EmbeddingRequestContext("tenant123_mydb", new ObjectId(), UUID.randomUUID());
+        new EmbeddingRequestContext("tenant123_mydb", "testIndex", "testCollection");
 
     voyageClient.embed(List.of("test"), context);
 
@@ -560,7 +574,7 @@ public class VoyageClientTest {
         createMockedVoyageClient(config, mock(HttpClient.class)); // No need for response
 
     EmbeddingRequestContext context =
-        new EmbeddingRequestContext("mydb", new ObjectId(), UUID.randomUUID());
+        new EmbeddingRequestContext("mydb", "testIndex", "testCollection");
 
     EmbeddingProviderTransientException ex =
         assertThrows(
@@ -571,5 +585,131 @@ public class VoyageClientTest {
         "Unable to extract tenant ID from database name for MTM cluster. "
             + "Database name must be in format 'tenantId_dbName'.",
         ex.getMessage());
+  }
+
+  private static String extractRequestBody(HttpRequest request) {
+    return request
+        .bodyPublisher()
+        .map(
+            publisher -> {
+              java.util.concurrent.CompletableFuture<String> future =
+                  new java.util.concurrent.CompletableFuture<>();
+              List<java.nio.ByteBuffer> buffers =
+                  java.util.Collections.synchronizedList(new ArrayList<>());
+              publisher.subscribe(
+                  new java.util.concurrent.Flow.Subscriber<java.nio.ByteBuffer>() {
+                    @Override
+                    public void onSubscribe(java.util.concurrent.Flow.Subscription subscription) {
+                      subscription.request(Long.MAX_VALUE);
+                    }
+
+                    @Override
+                    public void onNext(java.nio.ByteBuffer item) {
+                      buffers.add(item);
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+                      future.completeExceptionally(throwable);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                      java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                      for (java.nio.ByteBuffer buf : buffers) {
+                        byte[] bytes = new byte[buf.remaining()];
+                        buf.get(bytes);
+                        out.writeBytes(bytes);
+                      }
+                      future.complete(out.toString(java.nio.charset.StandardCharsets.UTF_8));
+                    }
+                  });
+              return future.join();
+            })
+        .orElse("");
+  }
+
+  @Test
+  public void testEmbed_includesBillingMetadata() throws Exception {
+    EmbeddingServiceConfig.EmbeddingConfig config =
+        createDedicatedClusterConfig("test-token");
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient, true);
+
+    EmbeddingRequestContext context =
+        new EmbeddingRequestContext("myDb", "myIndex", "myCollection");
+    voyageClient.embed(List.of("test"), context);
+
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    String body = extractRequestBody(requestCaptor.getValue());
+    BsonDocument doc = BsonDocument.parse(body);
+    assertTrue(doc.containsKey("metadata"));
+    BsonDocument metadata = doc.getDocument("metadata");
+    assertEquals("myCollection", metadata.getString("collectionName").getValue());
+    assertEquals("myDb", metadata.getString("database").getValue());
+    assertEquals("myIndex", metadata.getString("indexName").getValue());
+  }
+
+  @Test
+  public void testEmbed_noBillingMetadataWhenDisabled() throws Exception {
+    EmbeddingServiceConfig.EmbeddingConfig config =
+        createDedicatedClusterConfig("test-token");
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient, false);
+
+    EmbeddingRequestContext context =
+        new EmbeddingRequestContext("myDb", "myIndex", "myCollection");
+    voyageClient.embed(List.of("test"), context);
+
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    String body = extractRequestBody(requestCaptor.getValue());
+    BsonDocument doc = BsonDocument.parse(body);
+    assertFalse(doc.containsKey("metadata"));
+  }
+
+  @Test
+  public void testEmbed_billingMetadataHasDeterministicKeyOrdering() throws Exception {
+    EmbeddingServiceConfig.EmbeddingConfig config =
+        createDedicatedClusterConfig("test-token");
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient, true);
+
+    EmbeddingRequestContext context =
+        new EmbeddingRequestContext("myDb", "myIndex", "myCollection");
+    voyageClient.embed(List.of("test"), context);
+
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    String body = extractRequestBody(requestCaptor.getValue());
+    BsonDocument doc = BsonDocument.parse(body);
+    BsonDocument metadata = doc.getDocument("metadata");
+    List<String> keys = new ArrayList<>(metadata.keySet());
+    assertEquals(List.of("database", "collectionName", "indexName"), keys);
+  }
+
+  @Test
+  public void testEmbed_billingMetadataTruncatesLongIndexName() throws Exception {
+    EmbeddingServiceConfig.EmbeddingConfig config =
+        createDedicatedClusterConfig("test-token");
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient, true);
+
+    String longName = "a".repeat(257);
+    EmbeddingRequestContext context =
+        new EmbeddingRequestContext("db", longName, "coll");
+    voyageClient.embed(List.of("test"), context);
+
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    String body = extractRequestBody(requestCaptor.getValue());
+    BsonDocument doc = BsonDocument.parse(body);
+    BsonDocument metadata = doc.getDocument("metadata");
+    assertEquals(256, metadata.getString("indexName").getValue().length());
   }
 }

@@ -20,6 +20,7 @@ import com.xgen.mongot.config.provider.MongotConfigs;
 import com.xgen.mongot.config.provider.community.embedding.EmbeddingConfig;
 import com.xgen.mongot.config.provider.community.embedding.EmbeddingServiceManagerConfig;
 import com.xgen.mongot.config.provider.monitor.PeriodicConfigMonitor;
+import com.xgen.mongot.config.util.DeploymentEnvironment;
 import com.xgen.mongot.config.util.HysteresisConfig;
 import com.xgen.mongot.cursor.CursorConfig;
 import com.xgen.mongot.cursor.MongotCursorManager;
@@ -514,7 +515,7 @@ public class CommunityMongotBootstrapper {
           () ->
               new EmbeddingServiceManager(
                   List.of(),
-                  new EmbeddingClientFactory(meterRegistry),
+                  new EmbeddingClientFactory(meterRegistry, DeploymentEnvironment.COMMUNITY),
                   Executors.fixedSizeThreadScheduledExecutor(
                       "embedding-providers", 1, meterRegistry),
                   meterRegistry));
@@ -543,7 +544,7 @@ public class CommunityMongotBootstrapper {
         () ->
             new EmbeddingServiceManager(
                 embeddingServiceConfigs,
-                new EmbeddingClientFactory(meterRegistry),
+                new EmbeddingClientFactory(meterRegistry, DeploymentEnvironment.COMMUNITY),
                 Executors.fixedSizeThreadScheduledExecutor(
                     "embedding-providers",
                     mongotConfigs.autoEmbeddingMaterializedViewConfig.numIndexingThreads * 2,

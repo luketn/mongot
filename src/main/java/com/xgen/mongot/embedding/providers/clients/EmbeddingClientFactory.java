@@ -3,6 +3,7 @@ package com.xgen.mongot.embedding.providers.clients;
 import static com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig.EmbeddingProvider;
 import static com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig.ServiceTier;
 
+import com.xgen.mongot.config.util.DeploymentEnvironment;
 import com.xgen.mongot.embedding.MongotMetadata;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingModelConfig;
 import com.xgen.mongot.metrics.MetricsFactory;
@@ -19,10 +20,13 @@ public class EmbeddingClientFactory {
 
   private final MeterRegistry meterRegistry;
   private final Optional<MongotMetadata> mongotMetadata;
+  private final DeploymentEnvironment deploymentEnvironment;
 
-  public EmbeddingClientFactory(MeterRegistry meterRegistry) {
+  public EmbeddingClientFactory(
+      MeterRegistry meterRegistry, DeploymentEnvironment deploymentEnvironment) {
     this.meterRegistry = meterRegistry;
     this.mongotMetadata = Optional.empty();
+    this.deploymentEnvironment = deploymentEnvironment;
   }
 
   /**
@@ -32,11 +36,23 @@ public class EmbeddingClientFactory {
    * @param metadata mongot metadata
    */
   public EmbeddingClientFactory(MeterRegistry meterRegistry,
-      Optional<MongotMetadata> metadata) {
+      Optional<MongotMetadata> metadata,
+      DeploymentEnvironment deploymentEnvironment) {
     this.meterRegistry = meterRegistry;
     this.mongotMetadata = metadata;
+    this.deploymentEnvironment = deploymentEnvironment;
   }
 
+  /**
+   * Create an embedding client for the given embedding model config, service tier and workload
+   * params.
+   * 
+   * @param embeddingModelConfig the embedding model config
+   * @param serviceTier the service tier
+   * @param workloadParams the workload params
+   * 
+   * @return the embedding client
+   */
   public ClientInterface createEmbeddingClient(
       EmbeddingModelConfig embeddingModelConfig,
       ServiceTier serviceTier,
@@ -59,7 +75,8 @@ public class EmbeddingClientFactory {
               serviceTier,
               workloadParams,
               metricsFactory,
-              this.mongotMetadata);
+              this.mongotMetadata,
+              this.deploymentEnvironment == DeploymentEnvironment.ATLAS);
     };
   }
 }

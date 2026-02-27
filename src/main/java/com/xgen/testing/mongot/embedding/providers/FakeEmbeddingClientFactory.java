@@ -1,6 +1,7 @@
 package com.xgen.testing.mongot.embedding.providers;
 
 import com.google.common.collect.ImmutableSet;
+import com.xgen.mongot.config.util.DeploymentEnvironment;
 import com.xgen.mongot.embedding.providers.clients.ClientInterface;
 import com.xgen.mongot.embedding.providers.clients.EmbeddingClientFactory;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingModelConfig;
@@ -21,7 +22,7 @@ public class FakeEmbeddingClientFactory extends EmbeddingClientFactory {
       Set<String> transientErrorInputSet,
       Set<String> nonTransientErrorInputSet,
       int maxBatchSizeCharLimit) {
-    super(meterRegistry);
+    super(meterRegistry, DeploymentEnvironment.TEST);
     this.localErrorInputSet = localErrorInputSet;
     this.transientErrorInputSet = transientErrorInputSet;
     this.nonTransientErrorInputSet = nonTransientErrorInputSet;

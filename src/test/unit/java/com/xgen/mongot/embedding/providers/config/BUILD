@@ -17,5 +17,6 @@ java_test_suite(
         "//src/main/java/com/xgen/mongot/util/bson/parser",
         "//src/main/java/com/xgen/testing",
         "@maven//:junit_junit",
+        "@maven//:org_mongodb_bson",
     ],
 )

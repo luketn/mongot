@@ -11,6 +11,5 @@ java_library(
     deps = [
         "//src/main/java/com/xgen/mongot/util",
         "//src/main/java/com/xgen/mongot/util/bson",
-        "@maven//:org_mongodb_bson",
     ],
 )

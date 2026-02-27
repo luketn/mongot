@@ -30,6 +30,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import org.bson.BsonDocument;
+import org.bson.BsonString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,6 +51,7 @@ public class VoyageClient implements ClientInterface {
   private final Counter invalidRequestCounter;
 
   private boolean isDedicatedCluster;
+  private final boolean attachBillingMetadata;
   private final EmbeddingServiceConfig.ServiceTier serviceTier;
   private @Nullable String credentialToken; // Dedicated cluster credentials, can be null for MTM
   private final Map<String, String> tenantCredentials = new HashMap<>(); // MTM Cluster credentials
@@ -60,12 +63,15 @@ public class VoyageClient implements ClientInterface {
   @VisibleForTesting
   public static final String DEFAULT_ENDPOINT = "https://api.voyageai.com/v1/embeddings";
 
+  private static final int MAX_INDEX_NAME_LENGTH = 256;
+
   VoyageClient(
       EmbeddingModelConfig embeddingModelConfig,
       EmbeddingServiceConfig.ServiceTier tier,
       EmbeddingModelConfig.ConsolidatedWorkloadParams workloadParams,
       MetricsFactory metricsFactory,
-      Optional<MongotMetadata> metadata) {
+      Optional<MongotMetadata> metadata,
+      boolean attachBillingMetadata) {
     this.inputType = tier == EmbeddingServiceConfig.ServiceTier.QUERY ? "query" : "document";
     // TODO(CLOUDP-370950): Support truncation parameter from configs or query time.
     // Enable truncation in indexing time only.
@@ -75,6 +81,7 @@ public class VoyageClient implements ClientInterface {
     this.endpoint = URI.create(workloadParams.providerEndpoint().orElse(DEFAULT_ENDPOINT));
     this.voyageHttpClient = HttpClient.newBuilder().version(HttpClient.Version.HTTP_2).build();
     this.mongotMetadata = metadata;
+    this.attachBillingMetadata = attachBillingMetadata;
     this.inputTokenDistribution = metricsFactory.summary("inputTokenDistribution");
     this.invalidRequestCounter = metricsFactory.counter("invalidRequestCounter");
     updateConfig(workloadParams);
@@ -102,7 +109,7 @@ public class VoyageClient implements ClientInterface {
 
     HttpRequest request;
     try {
-      request = buildRequest(filteredInput, apiToken);
+      request = buildRequest(filteredInput, apiToken, context);
     } catch (IllegalArgumentException e) {
       String message = e.getMessage();
       String cleanedMessage = message != null ? removeApiKeyFromHttpHeader(message) : null;
@@ -258,7 +265,8 @@ public class VoyageClient implements ClientInterface {
     };
   }
 
-  private HttpRequest buildRequest(List<String> inputs, String apiToken) {
+  private HttpRequest buildRequest(
+      List<String> inputs, String apiToken, EmbeddingRequestContext context) {
     HttpRequest.Builder requestBuilder =
         HttpRequest.newBuilder()
             .uri(this.endpoint)
@@ -274,15 +282,31 @@ public class VoyageClient implements ClientInterface {
             .orElse("mongot/UNKNOWN (UNKNOWN)");
 
     requestBuilder.header("User-Agent", userAgent);
+    BsonDocument body = new VoyageApiSchema.EmbedRequest(
+        this.modelId, this.inputType, inputs, this.truncation,
+        this.attachBillingMetadata ? Optional.of(buildBillingMetadata(context)) : Optional.empty())
+        .toBson();
 
     return requestBuilder
-        .POST(
-            HttpRequest.BodyPublishers.ofString(
-                new VoyageApiSchema.EmbedRequest(
-                        this.modelId, this.inputType, inputs, this.truncation)
-                    .toBson()
-                    .toJson()))
+        .POST(HttpRequest.BodyPublishers.ofString(body.toJson()))
         .build();
+  }
+
+  /**
+   * Builds billing metadata for downstream cost attribution. The key ordering must remain
+   * stable since downstream pipelines hash on the serialized JSON.
+   */
+  private static BsonDocument buildBillingMetadata(EmbeddingRequestContext context) {
+    String indexName = context.indexName().length() > MAX_INDEX_NAME_LENGTH
+        ? context.indexName().substring(0, MAX_INDEX_NAME_LENGTH)
+        : context.indexName();
+
+    // BsonDocument preserves insertion order. Do not reorder these keys.
+    BsonDocument metadata = new BsonDocument();
+    metadata.put("database", new BsonString(context.database()));
+    metadata.put("collectionName", new BsonString(context.collectionName()));
+    metadata.put("indexName", new BsonString(indexName));
+    return metadata;
   }
 
   private List<VectorOrError> extractVectorsFromResponse(

@@ -15,6 +15,7 @@ import java.nio.FloatBuffer;
 import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.bson.BsonDocument;
 import org.bson.BsonValue;
 
@@ -37,6 +38,8 @@ public class VoyageApiSchema {
               .stringField()
               .optional()
               .withDefault(DEFAULT_ENCODING_FORMAT);
+      static final Field.Optional<BsonDocument> METADATA = 
+          Field.builder("metadata").documentField().optional().noDefault();
     }
 
     public static EmbedRequest fromBson(DocumentParser parser) throws BsonParseException {
@@ -45,7 +48,8 @@ public class VoyageApiSchema {
           parser.getField(Fields.INPUT_TYPE).unwrap(),
           parser.getField(Fields.INPUT).unwrap(),
           parser.getField(Fields.ENCODING_FORMAT).unwrap(),
-          parser.getField(Fields.TRUNCATION).unwrap());
+          parser.getField(Fields.TRUNCATION).unwrap(),
+          parser.getField(Fields.METADATA).unwrap());
     }
 
     public final String modelId;
@@ -53,9 +57,15 @@ public class VoyageApiSchema {
     public final List<String> input;
     public final String encodingFormat;
     public final boolean truncation;
+    public final Optional<BsonDocument> metadata;
 
-    public EmbedRequest(String modelId, String inputType, List<String> input, boolean truncation) {
-      this(modelId, inputType, input, DEFAULT_ENCODING_FORMAT, truncation);
+    public EmbedRequest(
+        String modelId, 
+        String inputType, 
+        List<String> input, 
+        boolean truncation, 
+        Optional<BsonDocument> metadata) {
+      this(modelId, inputType, input, DEFAULT_ENCODING_FORMAT, truncation, metadata);
     }
 
     public EmbedRequest(
@@ -63,23 +73,27 @@ public class VoyageApiSchema {
         String inputType,
         List<String> input,
         String encodingFormat,
-        boolean truncation) {
+        boolean truncation,
+        Optional<BsonDocument> metadata) {
       this.modelId = modelId;
       this.inputType = inputType;
       this.input = input;
       this.encodingFormat = encodingFormat;
       this.truncation = truncation;
+      this.metadata = metadata;
     }
 
     @Override
     public BsonDocument toBson() {
-      return BsonDocumentBuilder.builder()
+      BsonDocument doc = BsonDocumentBuilder.builder()
           .field(Fields.INPUT_TYPE, this.inputType)
           .field(Fields.MODEL_ID, this.modelId)
           .field(Fields.INPUT, this.input)
           .field(Fields.ENCODING_FORMAT, this.encodingFormat)
           .field(Fields.TRUNCATION, this.truncation)
+          .field(Fields.METADATA, this.metadata)
           .build();
+      return doc;
     }
   }
 

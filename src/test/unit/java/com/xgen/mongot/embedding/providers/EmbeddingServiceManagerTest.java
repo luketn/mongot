@@ -33,17 +33,15 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.stream.IntStream;
-import org.bson.types.ObjectId;
 import org.junit.After;
 import org.junit.Test;
 import org.mockito.Mockito;
 
 public class EmbeddingServiceManagerTest {
   private static EmbeddingRequestContext dummyContext() {
-    return new EmbeddingRequestContext("testdb", new ObjectId(), UUID.randomUUID());
+    return new EmbeddingRequestContext("testdb", "testIndex", "testCollection");
   }
 
   private static final EmbeddingServiceConfig.EmbeddingConfig VOYAGE_3_CONFIG =

@@ -14,6 +14,9 @@ import com.xgen.testing.BsonDeserializationTestSuite;
 import com.xgen.testing.BsonDeserializationTestSuite.TestSpecWrapper;
 import com.xgen.testing.BsonSerializationTestSuite;
 import java.util.List;
+import java.util.Optional;
+import org.bson.BsonDocument;
+import org.bson.BsonString;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -163,7 +166,9 @@ public class VoyageApiSchemaTest {
     /** Test data. */
     @Parameterized.Parameters(name = "{0}")
     public static Iterable<BsonSerializationTestSuite.TestSpec<EmbedRequest>> data() {
-      return List.of(v3LargeQueryRequest(), v3LiteDocumentRequest());
+      return List.of(
+          v3LargeQueryRequest(), v3LiteDocumentRequest(),
+          v4LargeQueryRequestWithMetadata());
     }
 
     @Test
@@ -174,13 +179,30 @@ public class VoyageApiSchemaTest {
     private static BsonSerializationTestSuite.TestSpec<EmbedRequest> v3LargeQueryRequest() {
       return BsonSerializationTestSuite.TestSpec.create(
           "voyage-3-large query request",
-          new EmbedRequest("voyage-3-large", "query", List.of("one", "two", "three"), false));
+          new EmbedRequest(
+              "voyage-3-large", "query", List.of("one", "two", "three"),
+              false, Optional.empty()));
     }
 
     private static BsonSerializationTestSuite.TestSpec<EmbedRequest> v3LiteDocumentRequest() {
       return BsonSerializationTestSuite.TestSpec.create(
           "voyage-3-lite index request",
-          new EmbedRequest("voyage-3-lite", "document", List.of("four", "five", "six"), true));
+          new EmbedRequest(
+              "voyage-3-lite", "document", List.of("four", "five", "six"),
+              true, Optional.empty()));
+    }
+
+    private static BsonSerializationTestSuite.TestSpec<EmbedRequest>
+        v4LargeQueryRequestWithMetadata() {
+      BsonDocument metadata = new BsonDocument();
+      metadata.put("database", new BsonString("mydb"));
+      metadata.put("collectionName", new BsonString("mycoll"));
+      metadata.put("indexName", new BsonString("myindex"));
+      return BsonSerializationTestSuite.TestSpec.create(
+          "voyage-4-large query request with metadata",
+          new EmbedRequest(
+              "voyage-4-large", "query", List.of("one", "two", "three"),
+              false, Optional.of(metadata)));
     }
   }
 }

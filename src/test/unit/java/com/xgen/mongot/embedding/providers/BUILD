@@ -21,6 +21,5 @@ java_test_suite(
         "@maven//:junit_junit",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_mockito_mockito_subclass",  #keep
-        "@maven//:org_mongodb_bson",
     ],
 )

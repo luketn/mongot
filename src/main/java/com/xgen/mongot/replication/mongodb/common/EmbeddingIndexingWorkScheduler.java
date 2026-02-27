@@ -359,8 +359,8 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
     EmbeddingRequestContext context =
         new EmbeddingRequestContext(
             indexDefinition.getDatabase(),
-            indexDefinition.getIndexId(),
-            indexDefinition.getCollectionUuid());
+            indexDefinition.getName(),
+            indexDefinition.getLastObservedCollectionName());
 
     EmbeddingServiceManager serviceManager = this.embeddingServiceManagerSupplier.get();
     ServiceTier tier =

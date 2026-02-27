@@ -579,8 +579,8 @@ public class VectorSearchCommand implements Command {
     EmbeddingRequestContext context =
         new EmbeddingRequestContext(
             indexDefinition.getDatabase(),
-            indexDefinition.getIndexId(),
-            indexDefinition.getCollectionUuid());
+            indexDefinition.getName(),
+            indexDefinition.getLastObservedCollectionName());
 
     List<VectorOrError> results;
     try {
