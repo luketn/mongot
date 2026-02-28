@@ -10,6 +10,9 @@ import com.google.common.collect.Lists;
 import com.google.common.flogger.FluentLogger;
 import com.xgen.mongot.embedding.EmbeddingRequestContext;
 import com.xgen.mongot.embedding.VectorOrError;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.exceptions.EmbeddingProviderNonTransientException;
 import com.xgen.mongot.embedding.exceptions.EmbeddingProviderTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
@@ -21,6 +24,7 @@ import com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils;
 import com.xgen.mongot.index.DocumentEvent;
 import com.xgen.mongot.index.FieldExceededLimitsException;
 import com.xgen.mongot.index.definition.IndexDefinition;
+import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFieldMapping;
 import com.xgen.mongot.replication.mongodb.common.IndexingWorkSchedulerFactory.IndexingStrategy;
 import com.xgen.mongot.replication.mongodb.common.SchedulerQueue.Priority;
@@ -35,6 +39,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -62,12 +67,16 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
 
   private final Supplier<EmbeddingServiceManager> embeddingServiceManagerSupplier;
 
+  private final MaterializedViewCollectionMetadataCatalog materializedViewCollectionMetadataCatalog;
+
   EmbeddingIndexingWorkScheduler(
       NamedExecutorService indexingExecutor,
       Supplier<EmbeddingServiceManager> embeddingServiceManagerSupplier,
+      MaterializedViewCollectionMetadataCatalog materializedViewCollectionMetadataCatalog,
       IndexingStrategy indexingStrategy) {
     super(indexingExecutor, indexingStrategy);
     this.embeddingServiceManagerSupplier = embeddingServiceManagerSupplier;
+    this.materializedViewCollectionMetadataCatalog = materializedViewCollectionMetadataCatalog;
     this.indexingStrategy = indexingStrategy;
   }
 
@@ -75,13 +84,19 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
    * Creates and starts a new EmbeddingIndexingWorkScheduler.
    *
    * @return an EmbeddingIndexingWorkScheduler.
+   * @deprecated Please use createForMaterializedViewIndex instead. This will be removed after
+   *     type:text index is deprecated.
    */
   public static EmbeddingIndexingWorkScheduler create(
       NamedExecutorService indexingExecutor,
       Supplier<EmbeddingServiceManager> embeddingServiceManagerSupplier) {
     EmbeddingIndexingWorkScheduler scheduler =
         new EmbeddingIndexingWorkScheduler(
-            indexingExecutor, embeddingServiceManagerSupplier, IndexingStrategy.EMBEDDING);
+            indexingExecutor,
+            embeddingServiceManagerSupplier,
+            // Creates empty catalog for now.
+            new MaterializedViewCollectionMetadataCatalog(),
+            IndexingStrategy.EMBEDDING);
     scheduler.start();
     return scheduler;
   }
@@ -94,11 +109,13 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
    */
   public static EmbeddingIndexingWorkScheduler createForMaterializedViewIndex(
       NamedExecutorService indexingExecutor,
-      Supplier<EmbeddingServiceManager> embeddingServiceManagerSupplier) {
+      Supplier<EmbeddingServiceManager> embeddingServiceManagerSupplier,
+      MaterializedViewCollectionMetadataCatalog matViewCollectionMetadataCatalog) {
     EmbeddingIndexingWorkScheduler scheduler =
         new EmbeddingIndexingWorkScheduler(
             indexingExecutor,
             embeddingServiceManagerSupplier,
+            matViewCollectionMetadataCatalog,
             IndexingStrategy.EMBEDDING_MATERIALIZED_VIEW);
     scheduler.start();
     return scheduler;
@@ -124,16 +141,30 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
                     "CanonicalModel: %s not registered yet, supported models are: [%s]",
                     modelName, String.join(", ", EmbeddingModelCatalog.getAllSupportedModels()))));
       }
-      modelConfigPerPathBuilder.put(entry.getKey(),
-          EmbeddingModelCatalog.getModelConfig(modelName));
+      modelConfigPerPathBuilder.put(
+          entry.getKey(), EmbeddingModelCatalog.getModelConfig(modelName));
     }
+    Optional<MaterializedViewSchemaMetadata> matViewCollectionMetadataOpt =
+        this.materializedViewCollectionMetadataCatalog
+            .getMetadataIfPresent(batch.generationId)
+            .map(MaterializedViewCollectionMetadata::schemaMetadata);
+    if (matViewCollectionMetadataOpt.isEmpty()
+        && this.indexingStrategy == IndexingStrategy.EMBEDDING_MATERIALIZED_VIEW) {
+      return CompletableFuture.failedFuture(
+          new EmbeddingProviderNonTransientException(
+              String.format(
+                  "Unable to process materialized view index batch because mat view metadata is"
+                      + " not present for generationId: %s",
+                  batch.generationId)));
+    }
+
     List<CompletableFuture<List<DocumentEvent>>> indexingBundles =
         embed(
             batch.events,
-            indexDefinition.asVectorDefinition().getMappings(),
+            indexDefinition.asVectorDefinition(),
             batch.priority,
             modelConfigPerPathBuilder.build(),
-            indexDefinition);
+            matViewCollectionMetadataOpt);
 
     return FutureUtils.allOf(
         indexingBundles.stream()
@@ -205,12 +236,15 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
    */
   private List<CompletableFuture<List<DocumentEvent>>> embed(
       List<DocumentEvent> allEventsInBatch,
-      VectorIndexFieldMapping fieldMapping,
+      VectorIndexDefinition vectorIndexDefinition,
       SchedulerQueue.Priority priority,
       ImmutableMap<FieldPath, EmbeddingModelConfig> modelConfigPerPath,
-      IndexDefinition indexDefinition) {
+      Optional<MaterializedViewSchemaMetadata> matViewSchemaMetadata) {
     List<Pair<List<DocumentEvent>, Map<EmbeddingModelConfig, Set<String>>>> embedBundles =
-        getTextValueBundles(allEventsInBatch, fieldMapping, modelConfigPerPath,
+        getTextValueBundles(
+            allEventsInBatch,
+            vectorIndexDefinition.getMappings(),
+            modelConfigPerPath,
             MAX_AUTO_EMBED_DOCUMENT_BUNDLE_SIZE);
     List<CompletableFuture<List<DocumentEvent>>> resultFutures = new ArrayList<>();
     for (Pair<List<DocumentEvent>, Map<EmbeddingModelConfig, Set<String>>> bundle : embedBundles) {
@@ -219,7 +253,7 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
       // memory leak.
       var events = new ArrayList<>(bundle.getLeft());
       CompletableFuture<Map<EmbeddingModelConfig, Map<String, Vector>>> embeddingsFuture =
-          getEmbeddings(bundle.getRight(), priority, indexDefinition);
+          getEmbeddings(bundle.getRight(), priority, vectorIndexDefinition);
       resultFutures.add(
           // Change executor to use indexing executor here for better chaining with indexer.
           embeddingsFuture.thenApplyAsync(
@@ -230,9 +264,11 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
                         .collect(
                             ImmutableMap.toImmutableMap(
                                 Function.identity(),
-                                fieldPath -> ImmutableMap.copyOf(
-                                    embeddingsPerModel.getOrDefault(
-                                        modelConfigPerPath.get(fieldPath), ImmutableMap.of()))));
+                                fieldPath ->
+                                    ImmutableMap.copyOf(
+                                        embeddingsPerModel.getOrDefault(
+                                            modelConfigPerPath.get(fieldPath),
+                                            ImmutableMap.of()))));
                 for (int i = 0; i < events.size(); i++) {
                   DocumentEvent event = events.get(i);
                   if (!containsValidDocument(event)) {
@@ -249,13 +285,17 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
                   try {
                     DocumentEvent autoEmbeddingDocumentEvent;
                     if (this.indexingStrategy == IndexingStrategy.EMBEDDING_MATERIALIZED_VIEW) {
+                      // TODO(CLOUDP-363914): Pass mv schema metadata from catalog.
                       autoEmbeddingDocumentEvent =
                           buildMaterializedViewDocumentEvent(
-                              event, fieldMapping, embeddingMapPerField);
+                              event,
+                              vectorIndexDefinition,
+                              embeddingMapPerField,
+                              Check.isPresent(matViewSchemaMetadata, "matViewSchemaMetadata"));
                     } else {
                       autoEmbeddingDocumentEvent =
                           buildAutoEmbeddingDocumentEvent(
-                              event, fieldMapping, embeddingMapPerField);
+                              event, vectorIndexDefinition.getMappings(), embeddingMapPerField);
                     }
                     events.set(i, autoEmbeddingDocumentEvent);
                   } catch (IOException e) {
@@ -276,7 +316,8 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
    */
   static List<Pair<List<DocumentEvent>, Map<EmbeddingModelConfig, Set<String>>>>
       getTextValueBundles(
-          List<DocumentEvent> events, VectorIndexFieldMapping fieldMapping,
+          List<DocumentEvent> events,
+          VectorIndexFieldMapping fieldMapping,
           ImmutableMap<FieldPath, EmbeddingModelConfig> modelConfigPerPath,
           int maxDocumentBundleSize) {
     // Step 1: Gets all (document, Map<EmbeddingModelConfig, Set<String>>) pairs
@@ -285,8 +326,7 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
             .map(
                 event -> {
                   // Skip text extraction for filter-only updates - they don't need embeddings
-                  if (containsValidDocument(event)
-                      && event.getFilterFieldUpdates().isEmpty()) {
+                  if (containsValidDocument(event) && event.getFilterFieldUpdates().isEmpty()) {
                     Map<EmbeddingModelConfig, Set<String>> textsPerModel = new HashMap<>();
                     try {
                       var autoEmbeddingTextPathMap =
@@ -303,8 +343,10 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
                         // Only add texts that don't have reusable embeddings
                         for (String text : textsInField) {
                           if (!reusableForField.containsKey(text)) {
-                            textsPerModel.computeIfAbsent(modelConfigPerPath.get(fieldPath),
-                                k -> new HashSet<>()).add(text);
+                            textsPerModel
+                                .computeIfAbsent(
+                                    modelConfigPerPath.get(fieldPath), k -> new HashSet<>())
+                                .add(text);
                           }
                         }
                       }
@@ -324,8 +366,9 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
     // bundle size, and aggregate their autoEmbedding text set into one set per partition
     List<Pair<List<DocumentEvent>, Map<EmbeddingModelConfig, Set<String>>>> documentEventBundles =
         Lists.partition(
-                documentModelTextMapPairs.stream().filter(
-                    pair -> !pair.getRight().isEmpty()).toList(),
+                documentModelTextMapPairs.stream()
+                    .filter(pair -> !pair.getRight().isEmpty())
+                    .toList(),
                 maxDocumentBundleSize)
             .stream()
             .map(
@@ -379,26 +422,28 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
       }
 
       List<String> orderedStrings = new ArrayList<>(stringsToEmbed);
-      CompletableFuture<Map<String, Vector>> embeddingsFuture = serviceManager
-          .embedAsync(orderedStrings, modelConfig, tier, context)
-          .thenApply(embeddingList -> {
-            Map<String, Vector> embeddings = new HashMap<>();
-            Check.checkState(
-                embeddingList.size() == orderedStrings.size(),
-                "Result vectors size doesn't match input text size");
-            for (int i = 0; i < embeddingList.size(); i++) {
-              VectorOrError result = embeddingList.get(i);
-              if (result.vector.isPresent()) {
-                embeddings.put(orderedStrings.get(i), result.vector.get());
-              } else if (result != VectorOrError.EMPTY_INPUT_ERROR
-                  && result.errorMessage.isPresent()) {
-                FLOGGER.atWarning().atMostEvery(1, TimeUnit.MINUTES).log(
-                    "No embedding for %s due to error: %s",
-                    orderedStrings.get(i), result.errorMessage.get());
-              }
-            }
-            return embeddings;
-          });
+      CompletableFuture<Map<String, Vector>> embeddingsFuture =
+          serviceManager
+              .embedAsync(orderedStrings, modelConfig, tier, context)
+              .thenApply(
+                  embeddingList -> {
+                    Map<String, Vector> embeddings = new HashMap<>();
+                    Check.checkState(
+                        embeddingList.size() == orderedStrings.size(),
+                        "Result vectors size doesn't match input text size");
+                    for (int i = 0; i < embeddingList.size(); i++) {
+                      VectorOrError result = embeddingList.get(i);
+                      if (result.vector.isPresent()) {
+                        embeddings.put(orderedStrings.get(i), result.vector.get());
+                      } else if (result != VectorOrError.EMPTY_INPUT_ERROR
+                          && result.errorMessage.isPresent()) {
+                        FLOGGER.atWarning().atMostEvery(1, TimeUnit.MINUTES).log(
+                            "No embedding for %s due to error: %s",
+                            orderedStrings.get(i), result.errorMessage.get());
+                      }
+                    }
+                    return embeddings;
+                  });
       futuresPerModel.put(modelConfig, embeddingsFuture);
     }
     return FutureUtils.transposeMap(futuresPerModel);

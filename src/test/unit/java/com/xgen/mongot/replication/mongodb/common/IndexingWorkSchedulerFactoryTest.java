@@ -7,6 +7,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Supplier;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.Test;
 
@@ -42,6 +43,22 @@ public class IndexingWorkSchedulerFactoryTest {
         assertThat(indexingWorkSchedulerFactory.getIndexingWorkSchedulers().get(strategy))
             .isInstanceOf(IndexingWorkScheduler.class);
       }
+    }
+  }
+
+  @Test
+  public void testCreateMaterializedViewEmbeddingStrategyOnly() {
+    IndexingWorkSchedulerFactory indexingWorkSchedulerFactory =
+        IndexingWorkSchedulerFactory.createEmbeddingIndexingSchedulerOnly(
+            2,
+            mock(Supplier.class),
+            new MaterializedViewCollectionMetadataCatalog(),
+            new SimpleMeterRegistry());
+    for (IndexingWorkSchedulerFactory.IndexingStrategy strategy :
+        IndexingWorkSchedulerFactory.IndexingStrategy.values()) {
+      assertThat(indexingWorkSchedulerFactory.getIndexingWorkSchedulers()).containsKey(strategy);
+      assertThat(indexingWorkSchedulerFactory.getIndexingWorkSchedulers().get(strategy))
+          .isInstanceOf(EmbeddingIndexingWorkScheduler.class);
     }
   }
 

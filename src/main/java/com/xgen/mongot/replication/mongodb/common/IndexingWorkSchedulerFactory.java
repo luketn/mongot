@@ -3,6 +3,7 @@ package com.xgen.mongot.replication.mongodb.common;
 import static com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration.MIN_VERSION_FOR_MATERIALIZED_VIEW_EMBEDDING;
 
 import com.google.common.base.Supplier;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.providers.EmbeddingServiceManager;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.util.concurrent.Executors;
@@ -42,8 +43,9 @@ public class IndexingWorkSchedulerFactory {
       int numIndexingThreads,
       Supplier<EmbeddingServiceManager> embeddingServiceManagerSupplier,
       MeterRegistry registry) {
-    log.info("Creating IndexingWorkSchedulerFactory with DEFAULT, EMBEDDING and "
-        + "EMBEDDING_MATERIALIZED_VIEW strategies");
+    log.info(
+        "Creating IndexingWorkSchedulerFactory with DEFAULT, EMBEDDING and "
+            + "EMBEDDING_MATERIALIZED_VIEW strategies");
     var executor = Executors.fixedSizeThreadPool("indexing-work", numIndexingThreads, registry);
     DefaultIndexingWorkScheduler defaultIndexingWorkScheduler =
         DefaultIndexingWorkScheduler.create(executor);
@@ -51,7 +53,9 @@ public class IndexingWorkSchedulerFactory {
         EmbeddingIndexingWorkScheduler.create(executor, embeddingServiceManagerSupplier);
     EmbeddingIndexingWorkScheduler embeddingMaterializedViewWorkScheduler =
         EmbeddingIndexingWorkScheduler.createForMaterializedViewIndex(
-            executor, embeddingServiceManagerSupplier);
+            executor,
+            embeddingServiceManagerSupplier,
+            new MaterializedViewCollectionMetadataCatalog());
     return new IndexingWorkSchedulerFactory(
         Map.of(
             IndexingStrategy.DEFAULT, defaultIndexingWorkScheduler,
@@ -71,6 +75,31 @@ public class IndexingWorkSchedulerFactory {
         DefaultIndexingWorkScheduler.create(executor);
     return new IndexingWorkSchedulerFactory(
         Map.of(IndexingStrategy.DEFAULT, defaultIndexingWorkScheduler));
+  }
+
+  /**
+   * Creates a new IndexingWorkSchedulerFactory with EmbeddingIndexingScheduler for the
+   * MaterializedView index only. Used by MaterializedViewManager.
+   */
+  public static IndexingWorkSchedulerFactory createEmbeddingIndexingSchedulerOnly(
+      int numIndexingThreads,
+      Supplier<EmbeddingServiceManager> embeddingServiceManagerSupplier,
+      MaterializedViewCollectionMetadataCatalog matViewCollectionMetadataCatalog,
+      MeterRegistry registry) {
+    log.info("Creating IndexingWorkSchedulerFactory with EmbeddingIndexingWorkScheduler only");
+    var executor =
+        Executors.fixedSizeThreadPool("indexing-auto-embedding", numIndexingThreads, registry);
+    EmbeddingIndexingWorkScheduler embeddingIndexingWorkScheduler =
+        EmbeddingIndexingWorkScheduler.createForMaterializedViewIndex(
+            executor, embeddingServiceManagerSupplier, matViewCollectionMetadataCatalog);
+    return new IndexingWorkSchedulerFactory(
+        Map.of(
+            IndexingStrategy.EMBEDDING_MATERIALIZED_VIEW,
+            embeddingIndexingWorkScheduler,
+            IndexingStrategy.EMBEDDING,
+            embeddingIndexingWorkScheduler,
+            IndexingStrategy.DEFAULT,
+            embeddingIndexingWorkScheduler));
   }
 
   /**
@@ -107,6 +136,7 @@ public class IndexingWorkSchedulerFactory {
    */
   public enum IndexingStrategy {
     DEFAULT("DefaultIndexingWorkSchedulerThread"),
+    // TODO(CLOUDP-344117): Remove IndexingStrategy.EMBEDDING once we deprecate type:text index.
     EMBEDDING("EmbeddingIndexingWorkSchedulerThread"),
     EMBEDDING_MATERIALIZED_VIEW("EmbeddingMaterializedViewIndexingWorkSchedulerThread");
 

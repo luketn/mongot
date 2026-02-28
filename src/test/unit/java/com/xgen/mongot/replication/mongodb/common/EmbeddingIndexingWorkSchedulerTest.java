@@ -1,6 +1,7 @@
 package com.xgen.mongot.replication.mongodb.common;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO;
 import static com.xgen.testing.mongot.mock.replication.mongodb.common.DocumentIndexer.mockDocumentRequiresAutoEmbedding;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -16,6 +17,8 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.mongodb.MongoNamespace;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.exceptions.EmbeddingProviderNonTransientException;
 import com.xgen.mongot.embedding.exceptions.EmbeddingProviderTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
@@ -49,6 +52,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -281,6 +285,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
       FieldExceededLimitsException,
       IOException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    ObjectId indexId = new ObjectId();
+    var generationId = new GenerationId(indexId, Generation.CURRENT);
+
     EmbeddingIndexingWorkScheduler scheduler =
         schedulerForMaterializedViewIndex(
             Suppliers.ofInstance(
@@ -288,9 +295,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
                     List.of(TEST_EMBEDDING_CONFIG_V3_LARGE, TEST_EMBEDDING_CONFIG_V3_LITE),
                     new FakeEmbeddingClientFactory(),
                     Executors.singleThreadScheduledExecutor("indexing", meterRegistry),
-                    meterRegistry)));
+                    meterRegistry)),
+            generationId);
 
-    ObjectId indexId = new ObjectId();
     VectorIndexDefinition vectorIndexDefinition =
         VectorIndexDefinitionBuilder.builder()
             .withAutoEmbedField(indexId + ".a")
@@ -308,7 +315,7 @@ public class EmbeddingIndexingWorkSchedulerTest {
             batch,
             SchedulerQueue.Priority.STEADY_STATE_CHANGE_STREAM,
             indexer,
-            new GenerationId(new ObjectId(), Generation.CURRENT),
+            generationId,
             Optional.of(new ObjectId()),
             Optional.of(COMMIT_USER_DATA),
             IGNORE_METRICS);
@@ -316,14 +323,17 @@ public class EmbeddingIndexingWorkSchedulerTest {
     DocumentEvent expected =
         AutoEmbeddingDocumentUtils.buildMaterializedViewDocumentEvent(
             event,
-            vectorIndexDefinition.getMappings(),
-            expectedAutoEmbeddingsPerField(vectorIndexDefinition.getMappings()));
+            vectorIndexDefinition,
+            expectedAutoEmbeddingsPerField(vectorIndexDefinition.getMappings()),
+            VERSION_ZERO);
     verify(indexer, times(1)).indexDocumentEvent(expected);
   }
 
   @Test
   public void testAutoEmbeddingMaterializedViewTransientException() throws IOException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    ObjectId indexId = new ObjectId();
+    var generationId = new GenerationId(indexId, Generation.CURRENT);
     EmbeddingIndexingWorkScheduler scheduler =
         schedulerForMaterializedViewIndex(
             Suppliers.ofInstance(
@@ -332,9 +342,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
                     new FakeEmbeddingClientFactory(
                         meterRegistry, ImmutableSet.of(), ImmutableSet.of(), ImmutableSet.of()),
                     Executors.singleThreadScheduledExecutor("indexing", meterRegistry),
-                    meterRegistry)));
+                    meterRegistry)),
+            generationId);
 
-    ObjectId indexId = new ObjectId();
     VectorIndexDefinition vectorIndexDefinition =
         VectorIndexDefinitionBuilder.builder()
             .withAutoEmbedField(indexId + ".a")
@@ -353,7 +363,7 @@ public class EmbeddingIndexingWorkSchedulerTest {
             batch,
             SchedulerQueue.Priority.STEADY_STATE_CHANGE_STREAM,
             indexer,
-            new GenerationId(new ObjectId(), Generation.CURRENT),
+            generationId,
             Optional.of(new ObjectId()),
             Optional.of(COMMIT_USER_DATA),
             IGNORE_METRICS);
@@ -365,6 +375,56 @@ public class EmbeddingIndexingWorkSchedulerTest {
   }
 
   @Test
+  public void testAutoEmbeddingNonTransientException_missingMatViewMetadata() {
+    // Setup: Use a materialized view scheduler but with a generationId that has no metadata
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    ObjectId indexId = new ObjectId();
+    var generationId = new GenerationId(indexId, Generation.CURRENT);
+
+    // Create scheduler for materialized view but DON'T add metadata for the generationId
+    SimpleMeterRegistry schedulerRegistry = new SimpleMeterRegistry();
+    NamedExecutorService executor = Executors.fixedSizeThreadPool("indexing", 2, schedulerRegistry);
+    var matViewCollectionMetadataCatalog = new MaterializedViewCollectionMetadataCatalog();
+    // Intentionally NOT adding metadata: matViewCollectionMetadataCatalog.addMetadata(...)
+    EmbeddingIndexingWorkScheduler scheduler =
+        EmbeddingIndexingWorkScheduler.createForMaterializedViewIndex(
+            executor,
+            Suppliers.ofInstance(
+                new EmbeddingServiceManager(
+                    List.of(TEST_EMBEDDING_CONFIG_V3_LARGE),
+                    new FakeEmbeddingClientFactory(),
+                    Executors.singleThreadScheduledExecutor("indexing", meterRegistry),
+                    meterRegistry)),
+            matViewCollectionMetadataCatalog);
+
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder().withAutoEmbedField(indexId + ".a").build();
+    DocumentIndexer indexer = mockDocumentRequiresAutoEmbedding(vectorIndexDefinition);
+    RawBsonDocument rawBsonDoc =
+        BsonUtils.documentToRaw(new BsonDocument(indexId.toString(), createBasicBson()));
+    DocumentEvent event =
+        DocumentEvent.createInsert(
+            DocumentMetadata.fromMetadataNamespace(Optional.of(rawBsonDoc), indexId), rawBsonDoc);
+    List<DocumentEvent> batch = new ArrayList<>(List.of(event));
+    CompletableFuture<Void> indexingFuture =
+        scheduler.schedule(
+            batch,
+            SchedulerQueue.Priority.STEADY_STATE_CHANGE_STREAM,
+            indexer,
+            generationId,
+            Optional.of(new ObjectId()),
+            Optional.of(COMMIT_USER_DATA),
+            IGNORE_METRICS);
+
+    var e = assertThrows(ExecutionException.class, indexingFuture::get);
+    Throwable cause = e.getCause();
+    assertThat(cause).isInstanceOf(SteadyStateException.class);
+    assertThat(cause.getCause()).isInstanceOf(EmbeddingProviderNonTransientException.class);
+    assertThat(cause.getCause().getMessage())
+        .contains("Unable to process materialized view index batch because mat view metadata");
+  }
+
+  @Test
   public void testSingleDocumentWithReusableEmbeddings()
       throws ExecutionException,
       InterruptedException,
@@ -372,6 +432,8 @@ public class EmbeddingIndexingWorkSchedulerTest {
       FieldExceededLimitsException,
       IOException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    ObjectId indexId = new ObjectId();
+    var generationId = new GenerationId(indexId, Generation.CURRENT);
     var embeddingServiceManager =
         spy(
             new EmbeddingServiceManager(
@@ -380,9 +442,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
                 Executors.singleThreadScheduledExecutor("indexing", meterRegistry),
                 meterRegistry));
     EmbeddingIndexingWorkScheduler scheduler =
-        schedulerForMaterializedViewIndex(Suppliers.ofInstance(embeddingServiceManager));
+        schedulerForMaterializedViewIndex(
+            Suppliers.ofInstance(embeddingServiceManager), generationId);
 
-    ObjectId indexId = new ObjectId();
     VectorIndexDefinition vectorIndexDefinition =
         VectorIndexDefinitionBuilder.builder()
             .withAutoEmbedField(indexId + ".a")
@@ -408,7 +470,7 @@ public class EmbeddingIndexingWorkSchedulerTest {
             batch,
             SchedulerQueue.Priority.STEADY_STATE_CHANGE_STREAM,
             indexer,
-            new GenerationId(new ObjectId(), Generation.CURRENT),
+            generationId,
             Optional.of(new ObjectId()),
             Optional.of(COMMIT_USER_DATA),
             IGNORE_METRICS);
@@ -416,8 +478,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
     DocumentEvent expected =
         AutoEmbeddingDocumentUtils.buildMaterializedViewDocumentEvent(
             event,
-            vectorIndexDefinition.getMappings(),
-            expectedAutoEmbeddingsPerField(vectorIndexDefinition.getMappings()));
+            vectorIndexDefinition,
+            expectedAutoEmbeddingsPerField(vectorIndexDefinition.getMappings()),
+            VERSION_ZERO);
     verify(indexer, times(1)).indexDocumentEvent(expected);
     // only one field should have been embedded.
     verify(embeddingServiceManager, times(1))
@@ -432,6 +495,8 @@ public class EmbeddingIndexingWorkSchedulerTest {
           FieldExceededLimitsException,
           IOException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    ObjectId indexId = new ObjectId();
+    var generationId = new GenerationId(indexId, Generation.CURRENT);
     var embeddingServiceManager =
         spy(
             new EmbeddingServiceManager(
@@ -440,9 +505,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
                 Executors.singleThreadScheduledExecutor("indexing", meterRegistry),
                 meterRegistry));
     EmbeddingIndexingWorkScheduler scheduler =
-        schedulerForMaterializedViewIndex(Suppliers.ofInstance(embeddingServiceManager));
+        schedulerForMaterializedViewIndex(
+            Suppliers.ofInstance(embeddingServiceManager), generationId);
 
-    ObjectId indexId = new ObjectId();
     VectorIndexDefinition vectorIndexDefinition =
         VectorIndexDefinitionBuilder.builder()
             .withAutoEmbedField(indexId + ".a")
@@ -476,7 +541,7 @@ public class EmbeddingIndexingWorkSchedulerTest {
             batch,
             SchedulerQueue.Priority.STEADY_STATE_CHANGE_STREAM,
             indexer,
-            new GenerationId(new ObjectId(), Generation.CURRENT),
+            generationId,
             Optional.of(new ObjectId()),
             Optional.of(COMMIT_USER_DATA),
             IGNORE_METRICS);
@@ -496,6 +561,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
           FieldExceededLimitsException,
           IOException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+    ObjectId indexId = new ObjectId();
+    var generationId = new GenerationId(indexId, Generation.CURRENT);
     var embeddingServiceManager =
         spy(
             new EmbeddingServiceManager(
@@ -504,9 +572,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
                 Executors.singleThreadScheduledExecutor("indexing", meterRegistry),
                 meterRegistry));
     EmbeddingIndexingWorkScheduler scheduler =
-        schedulerForMaterializedViewIndex(Suppliers.ofInstance(embeddingServiceManager));
+        schedulerForMaterializedViewIndex(
+            Suppliers.ofInstance(embeddingServiceManager), generationId);
 
-    ObjectId indexId = new ObjectId();
     // Create index with two fields using DIFFERENT models
     VectorIndexDefinition vectorIndexDefinition =
         VectorIndexDefinitionBuilder.builder()
@@ -533,7 +601,7 @@ public class EmbeddingIndexingWorkSchedulerTest {
             batch,
             SchedulerQueue.Priority.STEADY_STATE_CHANGE_STREAM,
             indexer,
-            new GenerationId(new ObjectId(), Generation.CURRENT),
+            generationId,
             Optional.of(new ObjectId()),
             Optional.of(COMMIT_USER_DATA),
             IGNORE_METRICS);
@@ -634,10 +702,16 @@ public class EmbeddingIndexingWorkSchedulerTest {
   }
 
   private EmbeddingIndexingWorkScheduler schedulerForMaterializedViewIndex(
-      Supplier<EmbeddingServiceManager> supplier) {
+      Supplier<EmbeddingServiceManager> supplier, GenerationId generationId) {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     NamedExecutorService executor = Executors.fixedSizeThreadPool("indexing", 2, meterRegistry);
-    return EmbeddingIndexingWorkScheduler.createForMaterializedViewIndex(executor, supplier);
+    var matViewCollectionMetadataCatalog = new MaterializedViewCollectionMetadataCatalog();
+    matViewCollectionMetadataCatalog.addMetadata(
+        generationId,
+        new MaterializedViewCollectionMetadata(
+            VERSION_ZERO, UUID.randomUUID(), generationId.indexId.toHexString()));
+    return EmbeddingIndexingWorkScheduler.createForMaterializedViewIndex(
+        executor, supplier, matViewCollectionMetadataCatalog);
   }
 
   private static IndexCommitUserData getCommitUserData(MongoNamespace namespace, int token) {

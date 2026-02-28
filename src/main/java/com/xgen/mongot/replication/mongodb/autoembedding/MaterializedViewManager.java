@@ -312,9 +312,10 @@ public class MaterializedViewManager implements ReplicationManager {
             meterRegistry);
 
     var indexingWorkSchedulerFactory =
-        IndexingWorkSchedulerFactory.create(
+        IndexingWorkSchedulerFactory.createEmbeddingIndexingSchedulerOnly(
             materializedViewConfig.numIndexingThreads,
             embeddingServiceManagerSupplier.get(),
+            matViewMetadataCatalog,
             meterRegistry);
 
     var decodingWorkScheduler =
