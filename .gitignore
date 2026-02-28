@@ -33,3 +33,8 @@ community-quick-start/mongot-community-local-docker.tar
 community-quick-start/tls/
 
 scripts/tests/copybara/test-results/
+
+# Local dev artifacts
+mongot-data/
+mongot-password
+bazel/java/generated_pom/*.iml
