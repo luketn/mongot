@@ -2,7 +2,7 @@
 
 Run the following to start mongod locally and configure mongot to talk to it:
 ```bash
-./run-local.sh
+./local-mongod.sh
 ```
 
 Configure IntelliJ run config:  
