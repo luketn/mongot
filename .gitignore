@@ -38,3 +38,5 @@ scripts/tests/copybara/test-results/
 mongot-data/
 mongot-password
 bazel/java/generated_pom/*.iml
+mongod-dev.conf
+mongot-dev.yml
