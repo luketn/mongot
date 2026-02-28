@@ -9,13 +9,16 @@ Configure IntelliJ run config:
 
 1. Make sure you have the Bazel plugin installed and configured in IntelliJ
    https://plugins.jetbrains.com/plugin/22977-bazel
-2. Add a Bazel target
-Set the target to run to:
+2. Edit Run Configurations and add a Bazel target. Set the target to run to:
 ```
 @//:mongot_community__non_stamped
 ```
 3. Save the Run config, clicking OK
 4. Open the Run config settings, and add the Program arguments:
+```
+--config {full-path-to-source-dir}/mongot/mongot-dev.yml --internalListAllIndexesForTesting
+```
+e.g.
 ```
 --config /Users/luketn/code/personal/mongot/mongot-dev.yml --internalListAllIndexesForTesting
 ```
