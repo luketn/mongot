@@ -7,6 +7,8 @@ PASSWORD_FILE="${WORKDIR}/mongot-password"
 MONGOD_CONF_FILE="${WORKDIR}/mongod-dev.conf"
 MONGOT_DEV_FILE="${WORKDIR}/mongot-dev.yml"
 MONGOT_DATA_DIR="${WORKDIR}/mongot-data"
+BUILD_DATA_FILE="${WORKDIR}/conf/mongot/production/build-data.properties"
+PRODUCTION_BUILD_FILE="${WORKDIR}/conf/mongot/production/BUILD"
 
 # Start with a clean mongod container if it already exists.
 docker rm -f mongod >/dev/null 2>&1 || true
@@ -44,6 +46,15 @@ server:
 logging:
   verbosity: INFO
 EOM
+
+mkdir -p "$(dirname "${BUILD_DATA_FILE}")"
+cat > "${BUILD_DATA_FILE}" <<EOM
+build.label=local
+EOM
+
+if ! grep -q "build-data.properties" "${PRODUCTION_BUILD_FILE}"; then
+  perl -0pi -e 's/srcs = \["logback.xml"\],/srcs = \["logback.xml", "build-data.properties"\],/' "${PRODUCTION_BUILD_FILE}"
+fi
 
 printf "%s" "${PASSWORD}" > "${PASSWORD_FILE}"
 chmod 600 "${PASSWORD_FILE}"
