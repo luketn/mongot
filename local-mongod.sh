@@ -45,6 +45,9 @@ server:
       mode: "disabled"
 logging:
   verbosity: INFO
+metrics:
+   enabled: true
+   address: "0.0.0.0:9946"
 EOM
 
 mkdir -p "$(dirname "${BUILD_DATA_FILE}")"
