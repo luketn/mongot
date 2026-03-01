@@ -31,10 +31,7 @@
         "y": 0
       },
       "id": 2,
-      "options": {
-        "queryType": "randomTrace"
-      },
-      "pluginVersion": "10.0.0",
+      "options": {},
       "targets": [
         {
           "datasource": "Tempo",
@@ -43,7 +40,7 @@
         }
       ],
       "title": "MongoT Traces - Random Trace Explorer",
-      "type": "tempo"
+      "type": "traces"
     },
     {
       "datasource": "Tempo",
@@ -64,7 +61,6 @@
       },
       "id": 3,
       "options": {},
-      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": "Tempo",
