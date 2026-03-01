@@ -40,6 +40,5 @@ mongot-password
 bazel/java/generated_pom/*.iml
 mongod-dev.conf
 mongot-dev.yml
-local-tempo-local.yml
 conf/mongot/production/build-data.properties
 otel-agent/
