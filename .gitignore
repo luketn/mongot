@@ -41,3 +41,4 @@ bazel/java/generated_pom/*.iml
 mongod-dev.conf
 mongot-dev.yml
 conf/mongot/production/build-data.properties
+otel-agent/
