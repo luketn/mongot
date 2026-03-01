@@ -1,6 +1,6 @@
 {
   "uid": "mongot-local",
-  "title": "MongoT (Local) — Key Metrics",
+  "title": "MongoT — Key Metrics",
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
@@ -44,7 +44,7 @@
     },
     {
       "type": "stat",
-      "title": "Index Status = STEADY (1 = yes)",
+      "title": "Index Status = STEADY (1 = healthy)",
       "gridPos": { "x": 12, "y": 4, "w": 6, "h": 6 },
       "targets": [
         { "expr": "max(mongot_index_stats_indexStatusCode{status=\"STEADY\"})", "refId": "A" }
@@ -90,7 +90,7 @@
     },
     {
       "type": "timeseries",
-      "title": "Search Max Observed Latency (s)",
+      "title": "Search Max Latency (s)",
       "gridPos": { "x": 12, "y": 17, "w": 12, "h": 7 },
       "targets": [
         { "expr": "mongot_command_searchCommandTotalLatency_seconds_max{timeUnit=\"seconds\"}", "refId": "A" }
@@ -99,18 +99,24 @@
 
     {
       "type": "timeseries",
-      "title": "Executor: Change Stream Sync Dispatcher — Active Threads",
+      "title": "Executor Queues — Top 10",
       "gridPos": { "x": 0, "y": 24, "w": 12, "h": 7 },
       "targets": [
-        { "expr": "mongot_change_stream_sync_dispatcher_executor_active_threads", "refId": "A" }
+        {
+          "expr": "topk(10, {job=\"mongot\", __name__=~\"mongot_.*_executor_queued_tasks\"})",
+          "refId": "A"
+        }
       ]
     },
     {
       "type": "timeseries",
-      "title": "Executor Queues — Queued Tasks (Top 10)",
+      "title": "Active Threads — Top 10 Executors",
       "gridPos": { "x": 12, "y": 24, "w": 12, "h": 7 },
       "targets": [
-        { "expr": "topk(10, mongot_.*_executor_queued_tasks)", "refId": "A" }
+        {
+          "expr": "topk(10, {job=\"mongot\", __name__=~\"mongot_.*_executor_active_threads\"})",
+          "refId": "A"
+        }
       ]
     }
   ]
