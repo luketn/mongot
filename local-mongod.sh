@@ -87,4 +87,5 @@ docker exec mongod mongosh --eval "
   })
 "
 
-docker logs -f mongod
+docker logs mongod
+
