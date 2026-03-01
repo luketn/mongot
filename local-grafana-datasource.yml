@@ -3,7 +3,29 @@ apiVersion: 1
 datasources:
   - name: Prometheus
     type: prometheus
+    uid: prometheus
     access: proxy
     url: http://host.docker.internal:9090
     isDefault: true
     editable: true
+    jsonData:
+      exemplarTraceIdDestinations:
+        - name: traceID
+          datasourceUid: jaeger
+
+  - name: Jaeger
+    type: jaeger
+    uid: jaeger
+    access: proxy
+    url: http://host.docker.internal:16686
+    editable: true
+    jsonData:
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: "-1h"
+        spanEndTimeShift: "1h"
+        tags:
+          - key: service.name
+            value: service
+      nodeGraph:
+        enabled: true

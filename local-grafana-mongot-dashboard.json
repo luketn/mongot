@@ -1,11 +1,11 @@
 {
   "uid": "mongot-local",
-  "title": "MongoT — Key Metrics",
+  "title": "MongoT — Metrics & Traces",
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "10s",
-  "tags": ["mongot", "prometheus"],
+  "tags": ["mongot", "prometheus", "jaeger"],
   "time": { "from": "now-15m", "to": "now" },
   "panels": [
     {
@@ -118,6 +118,32 @@
           "refId": "A"
         }
       ]
+    },
+
+    {
+      "type": "row",
+      "title": "Distributed Tracing (Jaeger)",
+      "gridPos": { "x": 0, "y": 31, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "type": "table",
+      "title": "Recent Traces — mongot",
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 10 },
+      "datasource": { "type": "jaeger", "uid": "jaeger" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "jaeger", "uid": "jaeger" },
+          "queryType": "search",
+          "service": "mongot",
+          "limit": 20
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      }
     }
   ]
 }
