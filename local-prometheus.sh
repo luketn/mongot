@@ -25,3 +25,5 @@ docker run -d --name grafana \
   grafana/grafana:latest
 
 #docker logs -f prometheus
+echo "Prometheus is running on http://localhost:9090"
+echo "Grafana is running on http://localhost:3000 (default login: admin/admin)"
