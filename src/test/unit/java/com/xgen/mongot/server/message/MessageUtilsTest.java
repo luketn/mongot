@@ -5,6 +5,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
+import com.xgen.mongot.util.mongodb.Errors;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import java.nio.charset.StandardCharsets;
@@ -123,5 +124,25 @@ public class MessageUtilsTest {
 
     BsonArray errorLabels = result.getArray("errorLabels");
     assertEquals(0, errorLabels.size());
+  }
+
+  @Test
+  public void createErrorBodyWithLabelsAndError_containsCodeAndCodeName() {
+    List<String> labels = List.of("SystemOverloadedError", "RetryableError");
+
+    BsonDocument result =
+        MessageUtils.createErrorBodyWithLabels(
+            "server at capacity", labels, Errors.INGRESS_REQUEST_RATE_LIMIT_EXCEEDED);
+
+    assertEquals(0, result.getInt32("ok").getValue());
+    assertEquals(462, result.getInt32("code").getValue());
+    assertEquals("IngressRequestRateLimitExceeded", result.getString("codeName").getValue());
+    assertEquals("server at capacity", result.getString("errmsg").getValue());
+    assertTrue(result.containsKey("errorLabels"));
+
+    BsonArray errorLabels = result.getArray("errorLabels");
+    assertEquals(2, errorLabels.size());
+    assertEquals("SystemOverloadedError", errorLabels.get(0).asString().getValue());
+    assertEquals("RetryableError", errorLabels.get(1).asString().getValue());
   }
 }

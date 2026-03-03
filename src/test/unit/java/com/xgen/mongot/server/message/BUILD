@@ -13,6 +13,7 @@ java_test_suite(
     deps = [
         "//src/main/java/com/xgen/mongot/server/message",
         "//src/main/java/com/xgen/mongot/util",
+        "//src/main/java/com/xgen/mongot/util/mongodb",
         "@maven//:com_google_truth_truth",
         "@maven//:io_netty_netty_buffer",
         "@maven//:junit_junit",

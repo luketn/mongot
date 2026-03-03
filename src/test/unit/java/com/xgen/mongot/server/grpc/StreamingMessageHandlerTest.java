@@ -656,6 +656,21 @@ public class StreamingMessageHandlerTest {
       Assert.assertNotNull(
           "Expected rejection error message to be returned to client", rejectionErrorDoc);
 
+      // Verify error code and codeName are present for load shedding rejections
+      Assert.assertTrue(
+          "Expected code field in rejection response", rejectionErrorDoc.containsKey("code"));
+      Assert.assertEquals(
+          "Expected error code 462 (IngressRequestRateLimitExceeded)",
+          462,
+          rejectionErrorDoc.getInt32("code").getValue());
+      Assert.assertTrue(
+          "Expected codeName field in rejection response",
+          rejectionErrorDoc.containsKey("codeName"));
+      Assert.assertEquals(
+          "Expected codeName IngressRequestRateLimitExceeded",
+          "IngressRequestRateLimitExceeded",
+          rejectionErrorDoc.getString("codeName").getValue());
+
       // Verify error labels are present for load shedding rejections
       Assert.assertTrue(
           "Expected errorLabels field in rejection response",

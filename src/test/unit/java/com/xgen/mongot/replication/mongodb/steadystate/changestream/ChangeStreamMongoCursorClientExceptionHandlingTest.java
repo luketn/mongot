@@ -25,6 +25,13 @@ import org.junit.Test;
 public class ChangeStreamMongoCursorClientExceptionHandlingTest {
 
   @Test
+  public void searchRequestRejectedDueToOverloadCode_isInRetryableErrorCodes() {
+    Assert.assertTrue(
+        Errors.RETRYABLE_ERROR_CODES.contains(
+            Errors.SEARCH_REQUEST_REJECTED_DUE_TO_OVERLOAD.code));
+  }
+
+  @Test
   public void testHandlingTransient() {
     testException(new MongoInterruptedException("", null), Type.TRANSIENT);
 

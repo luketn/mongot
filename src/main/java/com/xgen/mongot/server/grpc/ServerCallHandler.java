@@ -14,6 +14,7 @@ import com.xgen.mongot.server.command.registry.CommandRegistry;
 import com.xgen.mongot.server.executors.BulkheadCommandExecutor;
 import com.xgen.mongot.server.executors.LoadSheddingRejectedException;
 import com.xgen.mongot.server.message.MessageUtils;
+import com.xgen.mongot.util.mongodb.Errors;
 import io.grpc.stub.StreamObserver;
 import java.util.Collections;
 import java.util.List;
@@ -167,12 +168,13 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
             ? exception.getCause()
             : exception;
 
-    // Load shedding rejection should include error labels for client retry handling
+    // Load shedding rejection should include error code and labels for client retry handling
     if (cause instanceof LoadSheddingRejectedException) {
       String message =
           cause.getMessage() == null ? "Server is at capacity" : cause.getMessage();
       BsonDocument error =
-          MessageUtils.createErrorBodyWithLabels(message, LOAD_SHEDDING_ERROR_LABELS);
+          MessageUtils.createErrorBodyWithLabels(
+              message, LOAD_SHEDDING_ERROR_LABELS, Errors.INGRESS_REQUEST_RATE_LIMIT_EXCEEDED);
       return serializeError(request, error);
     }
 

@@ -90,4 +90,33 @@ public class MessageUtils {
         .append("errmsg", new BsonString(text))
         .append("errorLabels", labelsArray);
   }
+
+  /**
+   * Create an error response with a message body, error code, and error labels.
+   *
+   * <p>This method extends {@link #createErrorBodyWithLabels(String, List)} to include a specific
+   * MongoDB error code and codeName, following the standard MongoDB wire protocol for error
+   * responses.
+   *
+   * <p>Error labels follow the MongoDB wire protocol convention defined in error_labels.h. Labels
+   * like "SystemOverloadedError" and "RetryableError" allow clients to appropriately handle and
+   * retry transient errors.
+   *
+   * @param text the error message
+   * @param errorLabels list of error label strings to include in the response
+   * @param error the MongoDB error type containing code and codeName
+   */
+  public static BsonDocument createErrorBodyWithLabels(
+      @Nonnull String text, @Nonnull List<String> errorLabels, @Nonnull Error error) {
+    BsonArray labelsArray = new BsonArray();
+    for (String label : errorLabels) {
+      labelsArray.add(new BsonString(label));
+    }
+    return new BsonDocument()
+        .append("ok", new BsonInt32(0))
+        .append("code", new BsonInt32(error.code))
+        .append("codeName", new BsonString(error.name))
+        .append("errmsg", new BsonString(text))
+        .append("errorLabels", labelsArray);
+  }
 }
