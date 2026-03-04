@@ -5,7 +5,6 @@ import static com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGe
 import static com.xgen.mongot.index.mongodb.MaterializedViewWriter.MV_DATABASE_NAME;
 
 import com.xgen.mongot.catalog.InitializedIndexCatalog;
-import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
 import com.xgen.mongot.index.Index;
 import com.xgen.mongot.index.IndexFactory;
 import com.xgen.mongot.index.InitializedVectorIndex;
@@ -16,9 +15,7 @@ import com.xgen.mongot.index.definition.VectorIndexDefinitionGeneration;
 import com.xgen.mongot.index.version.MaterializedViewGeneration;
 import com.xgen.mongot.util.Check;
 import java.io.IOException;
-import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
@@ -46,8 +43,7 @@ public class AutoEmbeddingIndexGenerationFactory {
         matViewIndexFactory.getIndex(
             createMaterializedViewIndexDefinitionGeneration(rawDefinitionGeneration));
     VectorIndexDefinitionGeneration derivedIndexDefinitionGeneration =
-        derivedIndexDefinitionGeneration(
-            rawDefinitionGeneration, matViewIndex.getMaterializedViewCollectionUuid());
+        derivedIndexDefinitionGeneration(rawDefinitionGeneration, matViewIndex);
     Index vectorIndex = indexFactory.getIndex(derivedIndexDefinitionGeneration);
     // Supplier that looks up initialized index from catalog
     Supplier<Optional<InitializedVectorIndex>> initializedIndexSupplier =
@@ -74,14 +70,13 @@ public class AutoEmbeddingIndexGenerationFactory {
 
   private static VectorIndexDefinitionGeneration derivedIndexDefinitionGeneration(
       VectorIndexDefinitionGeneration rawDefinitionGeneration,
-      UUID materializedViewCollectionUuid) {
+      InitializedMaterializedViewIndex matViewIndex) {
     return new VectorIndexDefinitionGeneration(
         getDerivedVectorIndexDefinition(
             rawDefinitionGeneration.getIndexDefinition(),
             MV_DATABASE_NAME,
-            materializedViewCollectionUuid,
-            // TODO(CLOUDP-363914): Get MaterializedViewSchemaMetadata from Lease.
-            new MaterializedViewSchemaMetadata(0, Map.of())),
+            matViewIndex.getMaterializedViewCollectionUuid(),
+            matViewIndex.getSchemaMetadata()),
         rawDefinitionGeneration.generation());
   }
 }

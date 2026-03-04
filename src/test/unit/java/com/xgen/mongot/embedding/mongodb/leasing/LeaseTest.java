@@ -117,8 +117,7 @@ public class LeaseTest {
                   "1",
                   new Lease.IndexDefinitionVersionStatus(
                       false, IndexStatus.StatusCode.INITIAL_SYNC)),
-              new MaterializedViewCollectionMetadata(
-                  VERSION_ZERO, UUID.fromString(COLLECTION_UUID), COLLECTION_NAME),
+              new MaterializedViewCollectionMetadata(VERSION_ZERO, new UUID(0, 0), LEASE_ID),
               null));
     }
   }
@@ -342,6 +341,99 @@ public class LeaseTest {
       assertFalse(
           "withNewIndexDefinitionVersion should reset steadyAsOfOplogPosition",
           afterNewVersion.getSteadyAsOfOplogPosition().isPresent());
+    }
+
+    @Test
+    public void testInitialLease_createsLeaseWithEmptyOwnerAndCorrectFields() {
+      UUID collectionUuid = UUID.fromString(COLLECTION_UUID);
+      MaterializedViewCollectionMetadata mvMetadata =
+          new MaterializedViewCollectionMetadata(
+              new MaterializedViewSchemaMetadata(
+                  1L, Map.of(FieldPath.parse("title"), FieldPath.parse("_autoEmbed.title"))),
+              collectionUuid,
+              COLLECTION_NAME);
+
+      Lease lease =
+          Lease.initialLease(
+              LEASE_ID, collectionUuid, COLLECTION_NAME, "0", IndexStatus.unknown(), mvMetadata);
+
+      assertEquals(LEASE_ID, lease.id());
+      // initialLease sets owner to empty string so any instance can acquire it
+      assertEquals("", lease.leaseOwner());
+      assertEquals(Lease.FIRST_LEASE_VERSION, lease.leaseVersion());
+      assertEquals(EncodedUserData.EMPTY.asString(), lease.commitInfo());
+      assertEquals("0", lease.latestIndexDefinitionVersion());
+      assertEquals(collectionUuid.toString(), lease.collectionUuid());
+      assertEquals(COLLECTION_NAME, lease.collectionName());
+      // Verify materialized view metadata is preserved
+      assertEquals(mvMetadata, lease.materializedViewCollectionMetadata());
+      assertEquals(1L, lease.materializedViewCollectionMetadata().schemaMetadata()
+          .materializedViewSchemaVersion());
+      // steadyAsOfOplogPosition should be null
+      assertFalse(lease.getSteadyAsOfOplogPosition().isPresent());
+      // Index definition version status map should contain the version with UNKNOWN status
+      assertTrue(lease.indexDefinitionVersionStatusMap().containsKey("0"));
+      assertEquals(
+          IndexStatus.StatusCode.UNKNOWN,
+          lease.indexDefinitionVersionStatusMap().get("0").indexStatusCode());
+    }
+
+    @Test
+    public void testWithResolvedMatViewUuidForNewSchemaVersion_updatesOnlyMatViewUuid() {
+      UUID originalMatViewUuid = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+      UUID newMatViewUuid = UUID.fromString("660e8400-e29b-41d4-a716-446655440001");
+
+      MaterializedViewCollectionMetadata originalMvMetadata =
+          new MaterializedViewCollectionMetadata(
+              new MaterializedViewSchemaMetadata(
+                  1L, Map.of(FieldPath.parse("title"), FieldPath.parse("_autoEmbed.title"))),
+              originalMatViewUuid,
+              "mv-collection");
+
+      Lease originalLease =
+          new Lease(
+              LEASE_ID,
+              Lease.FIRST_LEASE_VERSION,
+              COLLECTION_UUID,
+              COLLECTION_NAME,
+              LEASE_OWNER,
+              Instant.now(),
+              5L,
+              "some-commit-info",
+              "2",
+              Map.of(
+                  "2",
+                  new Lease.IndexDefinitionVersionStatus(true, IndexStatus.StatusCode.STEADY)),
+              originalMvMetadata,
+              new BsonTimestamp(1234567890L));
+
+      Lease updatedLease = originalLease.withResolvedMatViewUuid(newMatViewUuid);
+
+      // Mat view UUID should be updated
+      assertEquals(
+          newMatViewUuid, updatedLease.materializedViewCollectionMetadata().collectionUuid());
+      // Schema metadata and collection name should be preserved
+      assertEquals(
+          1L,
+          updatedLease.materializedViewCollectionMetadata().schemaMetadata()
+              .materializedViewSchemaVersion());
+      assertEquals(
+          "mv-collection", updatedLease.materializedViewCollectionMetadata().collectionName());
+      assertEquals(
+          Map.of(FieldPath.parse("title"), FieldPath.parse("_autoEmbed.title")),
+          updatedLease.materializedViewCollectionMetadata().schemaMetadata()
+              .autoEmbeddingFieldsMapping());
+      // All other lease fields should remain unchanged
+      assertEquals(LEASE_ID, updatedLease.id());
+      assertEquals(LEASE_OWNER, updatedLease.leaseOwner());
+      assertEquals(5L, updatedLease.leaseVersion());
+      assertEquals("some-commit-info", updatedLease.commitInfo());
+      assertEquals("2", updatedLease.latestIndexDefinitionVersion());
+      assertEquals(COLLECTION_UUID, updatedLease.collectionUuid());
+      assertEquals(COLLECTION_NAME, updatedLease.collectionName());
+      assertTrue(updatedLease.getSteadyAsOfOplogPosition().isPresent());
+      assertEquals(
+          new BsonTimestamp(1234567890L), updatedLease.getSteadyAsOfOplogPosition().get());
     }
 
     private static Lease createLeaseWithCommitInfo(String commitInfo) {

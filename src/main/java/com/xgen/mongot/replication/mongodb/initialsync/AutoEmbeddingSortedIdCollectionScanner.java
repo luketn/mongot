@@ -9,7 +9,8 @@ import com.mongodb.ReadConcern;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Indexes;
 import com.mongodb.client.model.Sorts;
-import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils;
 import com.xgen.mongot.embedding.utils.AutoEmbeddingIndexDefinitionUtils;
 import com.xgen.mongot.index.DocumentEvent;
@@ -27,7 +28,6 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.bson.BsonDocument;
@@ -48,15 +48,17 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
   private final DefaultKeyValueLogger logger;
   private final MongoNamespace matViewNamespace;
   private final VectorIndexFieldMapping matViewFieldMappingWithHashes;
-  private final MaterializedViewSchemaMetadata matViewSchemaMetadata;
+  private final MaterializedViewCollectionMetadata matViewCollectionMetadata;
 
   private boolean firstPage = true;
 
+  /** Builds an AutoEmbeddingSortedIdCollectionScanner. */
   public AutoEmbeddingSortedIdCollectionScanner(
       Clock clock,
       InitialSyncContext context,
       InitialSyncMongoClient mongoClient,
       BsonValue lastScannedToken,
+      MaterializedViewCollectionMetadataCatalog matViewCollectionMetadataCatalog,
       MetricsFactory metricsFactory) {
     super(clock, context, mongoClient, lastScannedToken, metricsFactory, false);
     Check.checkState(
@@ -68,14 +70,20 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
     this.logger =
         DefaultKeyValueLogger.getLogger(
             AutoEmbeddingSortedIdCollectionScanner.class, defaultKeyValues);
+    // TODO(CLOUDP-363914): matViewSchemaMetadata can be different if we want to reuse different MV
+    // collection to build new MV collection
+    this.matViewCollectionMetadata =
+        Check.isPresent(
+            matViewCollectionMetadataCatalog.getMetadataIfPresent(context.getGenerationId()),
+            "matViewCollectionMetadata");
+    // TODO(CLOUDP-363914): collectionName can be different if we want to reuse different MV
+    // collection to build new MV collection
     this.matViewNamespace =
-        new MongoNamespace(MV_DATABASE_NAME, context.getIndexId().toHexString());
-    // TODO(CLOUDP-363914): pass matViewSchemaMetadata from InitialSyncContext.
-    this.matViewSchemaMetadata = new MaterializedViewSchemaMetadata(0, Map.of());
+        new MongoNamespace(MV_DATABASE_NAME, this.matViewCollectionMetadata.collectionName());
     this.matViewFieldMappingWithHashes =
         AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
             context.getIndexDefinition().asVectorDefinition().getMappings(),
-            this.matViewSchemaMetadata);
+            this.matViewCollectionMetadata.schemaMetadata());
   }
 
   @Override
@@ -183,7 +191,7 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
                 matViewDoc,
                 this.context.getIndexDefinition().asVectorDefinition().getMappings(),
                 this.matViewFieldMappingWithHashes,
-                this.matViewSchemaMetadata);
+                this.matViewCollectionMetadata.schemaMetadata());
         if (comparisonResult.needsReIndexing()) {
           var rawDocumentEvent = DocumentEvent.createUpdate(sourceDocMetadata, sourceDoc);
           // Check if we have any re-usable embeddings to pass in.
@@ -222,8 +230,7 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
     var highWaterMark = this.context.getChangeStreamResumeOperationTime();
 
     var builder =
-        new CollectionScanFindCommand.Builder(
-                this.context.getIndexDefinition().getIndexId().toHexString())
+        new CollectionScanFindCommand.Builder(this.matViewNamespace.getCollectionName())
             .readConcern(ReadConcern.MAJORITY, highWaterMark)
             .sort(Sorts.ascending(ID_KEY))
             .hint(Indexes.ascending(ID_KEY));

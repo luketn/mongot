@@ -1,9 +1,11 @@
 package com.xgen.mongot.embedding.mongodb.leasing;
 
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexGeneration;
+import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.version.GenerationId;
 import java.io.IOException;
@@ -155,4 +157,18 @@ public interface LeaseManager {
     // Default implementation: no-op for static leader
     return false;
   }
+
+  /**
+   * Initializes an unowned Lease by trying to insert the proposed lease document into the database.
+   * This operation should be synchronized across all mongots in the same replicaSet, so only one
+   * Mongot wins in insertOne and the winner Lease with MaterializedViewCollectionMetadata should be
+   * the same across all mongots.
+   *
+   * @param proposedMetadata the metadata to insert if it doesn't exist
+   * @return the synchronized MaterializedViewCollectionMetadata
+   */
+  MaterializedViewCollectionMetadata initializeLease(
+      IndexDefinitionGeneration indexDefinitionGeneration,
+      MaterializedViewCollectionMetadata proposedMetadata)
+      throws Exception;
 }

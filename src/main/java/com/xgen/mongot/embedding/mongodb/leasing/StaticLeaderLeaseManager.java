@@ -1,8 +1,9 @@
 package com.xgen.mongot.embedding.mongodb.leasing;
 
-import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO;
 import static com.xgen.mongot.embedding.mongodb.leasing.StatusResolutionUtils.getEffectiveMaterializedViewStatus;
 import static com.xgen.mongot.util.FutureUtils.COMPLETED_FUTURE;
+import static com.xgen.mongot.util.Uuids.NIL;
+import static com.xgen.mongot.util.mongodb.MongoDbDatabase.getCollectionInfo;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.Var;
@@ -20,12 +21,15 @@ import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.utils.MongoClientOperationExecutor;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexGeneration;
+import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.mongot.metrics.MeterAndFtdcRegistry;
 import com.xgen.mongot.metrics.MetricsFactory;
+import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.mongodb.MongoClientBuilder;
 import com.xgen.mongot.util.mongodb.SyncSourceConfig;
+import com.xgen.mongot.util.mongodb.serialization.MongoDbCollectionInfo;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -58,6 +62,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(StaticLeaderLeaseManager.class);
 
+  // TODO(CLOUDP-356242): make this configurable
   private static final String AUTO_EMBEDDING_INTERNAL_DATABASE_NAME = "__mdb_internal_search";
 
   private static final String METRICS_NAMESPACE = "embedding.leasing.stats";
@@ -83,6 +88,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   private final MongoClient mongoClient;
   private final boolean isLeader;
   private final MaterializedViewCollectionMetadataCatalog mvMetadataCatalog;
+  private final String databaseName;
 
   /** Init static lease manager */
   public StaticLeaderLeaseManager(
@@ -100,6 +106,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
     this.managedGenerationIds = ConcurrentHashMap.newKeySet();
     this.generationIdToDefinitionVersion = new ConcurrentHashMap<>();
     this.mongoClient = mongoClient;
+    this.databaseName = databaseName;
     // Use LINEARIZABLE read concern for lease operations to ensure we always read the most
     // up-to-date lease state. This is critical for lease correctness.
     // LINEARIZABLE read concern requires ReadPreference.primary() to work correctly.
@@ -141,11 +148,47 @@ public class StaticLeaderLeaseManager implements LeaseManager {
           this.operationExecutor.execute(
               "getLeases", () -> this.collection.find().into(new ArrayList<>()));
       for (BsonDocument rawLease : rawLeases) {
-        Lease lease = Lease.fromBson(rawLease);
-        this.leases.put(lease.id(), lease);
+        Lease lease = normalizedLeaseIfNeeded(Lease.fromBson(rawLease));
+        if (lease != null) {
+          this.leases.put(lease.id(), lease);
+        }
       }
     } catch (Exception e) {
       throw new RuntimeException("Failed to initialize leases from database.", e);
+    }
+  }
+
+  // Normalizes lease by populating missing mat view UUID field, this won't change lease
+  // version since it's only meant for backward compatibility and lease state is unchanged.
+  @Nullable
+  private Lease normalizedLeaseIfNeeded(Lease lease) {
+    if (!lease.materializedViewCollectionMetadata().collectionUuid().equals(NIL)) {
+      // No need to normalize it by resolving mat view collection UUID.
+      return lease;
+    }
+    try {
+      return lease.withResolvedMatViewUuid(
+          Check.instanceOf(
+                  getCollectionInfo(
+                      this.mongoClient,
+                      this.databaseName,
+                      lease.materializedViewCollectionMetadata().collectionName()),
+                  MongoDbCollectionInfo.Collection.class)
+              .info()
+              .uuid());
+    } catch (Exception e) {
+      LOG.atWarn()
+          .addKeyValue("leaseId", lease.id())
+          .addKeyValue("leaseOwner", lease.leaseOwner())
+          .addKeyValue(
+              "matViewCollectionName", lease.materializedViewCollectionMetadata().collectionName())
+          .setCause(e)
+          .log(
+              "Unable to normalize or validate lease, "
+                  + "could be caused by dangling lease or corrupted lease");
+      // TODO(CLOUDP-384971): We should have a way to clean up corrupted leases to avoid blocking
+      // Lease creation.
+      return null;
     }
   }
 
@@ -184,12 +227,9 @@ public class StaticLeaderLeaseManager implements LeaseManager {
               this.hostname,
               getIndexDefinitionVersion(indexGeneration),
               indexGeneration.getIndex().getStatus(),
-              // TODO(CLOUDP-363914): Use MaterializedViewCollectionMetadata from
-              // MaterializedViewCollectionMetadataCatalog
-              new MaterializedViewCollectionMetadata(
-                  VERSION_ZERO,
-                  indexGeneration.getDefinition().getCollectionUuid(),
-                  indexGeneration.getDefinition().getLastObservedCollectionName()));
+              Check.isPresent(
+                  this.mvMetadataCatalog.getMetadataIfPresent(generationId),
+                  "matViewSchemaMetadata"));
       this.leases.put(getLeaseKey(generationId), lease);
     }
   }
@@ -356,6 +396,21 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
+  public MaterializedViewCollectionMetadata initializeLease(
+      IndexDefinitionGeneration indexDefinitionGeneration,
+      MaterializedViewCollectionMetadata proposedMetadata) {
+    var existingLease = this.leases.get(proposedMetadata.collectionName());
+    if (existingLease != null) {
+      // If another Mongot already created the initial lease before this mongot calls initLeases in
+      // constructor, just reuse, no need to make another network call.
+      return existingLease.materializedViewCollectionMetadata();
+    }
+    // When using static leader in Community version, we assume all mongots are using the same MV
+    // collection schema version, no rolling upgrades.
+    return proposedMetadata;
+  }
+
+  @Override
   public Optional<BsonTimestamp> getSteadyAsOfOplogPosition(GenerationId generationId) {
     return Optional.ofNullable(this.leases.get(getLeaseKey(generationId)))
         .flatMap(Lease::getSteadyAsOfOplogPosition);
@@ -380,14 +435,18 @@ public class StaticLeaderLeaseManager implements LeaseManager {
 
   @Nullable
   private Lease getLeaseFromDatabase(GenerationId generationId) throws Exception {
+    return getLeaseFromDatabase(getLeaseKey(generationId));
+  }
+
+  @Nullable
+  private Lease getLeaseFromDatabase(String collectionName) throws Exception {
     BsonDocument rawLease =
         this.operationExecutor.execute(
-            "getLease",
-            () -> this.collection.find(new Document("_id", getLeaseKey(generationId))).first());
+            "getLease", () -> this.collection.find(new Document("_id", collectionName)).first());
     if (rawLease == null) {
       return null;
     }
-    return Lease.fromBson(rawLease);
+    return normalizedLeaseIfNeeded(Lease.fromBson(rawLease));
   }
 
   private void updateLeaseInDatabase(

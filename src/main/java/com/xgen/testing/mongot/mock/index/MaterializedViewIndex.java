@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.index.autoembedding.InitializedMaterializedViewIndex;
 import com.xgen.mongot.index.autoembedding.MaterializedViewIndexGeneration;
 import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
@@ -22,6 +23,7 @@ import org.bson.types.ObjectId;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 
+// TODO(CLOUDP-386265): Avoid constructing indexes with mocks dependency.
 public class MaterializedViewIndex {
   /** Creates mock VectorIndex. */
   public static InitializedMaterializedViewIndex mockIndex(
@@ -29,6 +31,7 @@ public class MaterializedViewIndex {
     return mockIndex(definitionGeneration.definition());
   }
 
+  /** Creates mock InitializedMaterializedViewIndex. */
   public static InitializedMaterializedViewIndex mockIndex(
       VectorIndexDefinition vectorIndexDefinition) {
     var writer = mock(MaterializedViewWriter.class);
@@ -48,6 +51,9 @@ public class MaterializedViewIndex {
     Mockito.lenient().doAnswer(setStatus).when(index).setStatus(any());
     Mockito.lenient().when(index.getStatus()).then(ignored -> statusContainer.get());
     Mockito.lenient().when(index.getIndexSize()).thenReturn(0L);
+    Mockito.when(index.getMaterializedViewCollectionUuid()).thenReturn(UUID.randomUUID());
+    Mockito.when(index.getSchemaMetadata())
+        .thenReturn(MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO);
     return index;
   }
 

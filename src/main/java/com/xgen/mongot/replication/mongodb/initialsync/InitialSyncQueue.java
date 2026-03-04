@@ -13,6 +13,7 @@ import com.google.common.base.Stopwatch;
 import com.google.errorprone.annotations.Var;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.mongodb.MongoNamespace;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.IndexTypeData;
 import com.xgen.mongot.index.definition.IndexDefinition;
@@ -193,7 +194,9 @@ public class InitialSyncQueue {
       CommonReplicationConfig replicationConfig,
       InitialSyncConfig initialSyncConfig,
       Path dataPath,
-      Gate initialSyncGate) {
+      Gate initialSyncGate,
+      Optional<MaterializedViewCollectionMetadataCatalog>
+          materializedViewCollectionMetadataCatalog) {
     Check.argIsPositive(
         replicationConfig.getNumConcurrentInitialSyncs(), "numConcurrentInitialSyncs");
 
@@ -210,7 +213,11 @@ public class InitialSyncQueue {
 
     MetricsFactory metricsFactory = new MetricsFactory("initialSyncManager", meterRegistry);
     InitialSyncManagerFactory factory =
-        getFactory(initialSyncConfig, replicationConfig, metricsFactory);
+        getFactory(
+            initialSyncConfig,
+            replicationConfig,
+            materializedViewCollectionMetadataCatalog,
+            metricsFactory);
 
     return create(
         meterRegistry,

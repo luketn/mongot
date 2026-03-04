@@ -21,6 +21,8 @@ public record MaterializedViewCollectionMetadata(
     MaterializedViewSchemaMetadata schemaMetadata, UUID collectionUuid, String collectionName)
     implements DocumentEncodable {
 
+  public static final int CURRENT_MAT_VIEW_SCHEMA_VERSION = 1;
+
   public static MaterializedViewCollectionMetadata fromBson(DocumentParser parser)
       throws BsonParseException {
     return new MaterializedViewCollectionMetadata(

@@ -413,7 +413,8 @@ public class MaterializedViewManager implements ReplicationManager {
             initialSyncConfig,
             /* This path should be different from the dataPath used in Lucene */
             rootPath.resolve("autoEmbedding"),
-            ToggleGate.opened());
+            ToggleGate.opened(),
+            Optional.of(matViewMetadataCatalog));
 
     var commitExecutor =
         Executors.fixedSizeThreadScheduledExecutor(

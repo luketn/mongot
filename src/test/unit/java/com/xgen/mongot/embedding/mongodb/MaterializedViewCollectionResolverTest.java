@@ -1,7 +1,6 @@
 package com.xgen.mongot.embedding.mongodb;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.xgen.mongot.embedding.mongodb.MaterializedViewCollectionResolver.MV_DATABASE_NAME;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
@@ -20,16 +19,20 @@ import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
+import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
 import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.index.version.Generation;
 import com.xgen.mongot.index.version.MaterializedViewGeneration;
 import com.xgen.mongot.replication.mongodb.common.AutoEmbeddingMaterializedViewConfig;
+import com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig;
+import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.mongodb.serialization.MongoDbCollectionInfo;
 import com.xgen.testing.mongot.index.definition.VectorIndexDefinitionBuilder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.bson.BsonDocument;
@@ -53,10 +56,11 @@ public class MaterializedViewCollectionResolverTest {
   private final List<BsonDocument> collectionInfoDocuments = new ArrayList<>();
 
   private ListCollectionsIterable<BsonDocument> listCollectionsIterable;
+  private static final String MV_DATABASE_NAME = "MaterializedViewCollectionResolverTest";
 
   @Before
   @SuppressWarnings("unchecked")
-  public void setUp() {
+  public void setUp() throws Exception {
     this.mongoClient = mock(MongoClient.class);
     this.mongoDatabase = mock(MongoDatabase.class);
     this.metadataCatalog = new MaterializedViewCollectionMetadataCatalog();
@@ -98,6 +102,9 @@ public class MaterializedViewCollectionResolverTest {
             });
     when(this.mongoDatabase.listCollections(BsonDocument.class))
         .thenReturn(this.listCollectionsIterable);
+    when(this.leaseManager.initializeLease(
+            any(IndexDefinitionGeneration.class), any(MaterializedViewCollectionMetadata.class)))
+        .thenAnswer(inv -> inv.getArgument(1));
   }
 
   private static BsonDocument toCollectionBson(String name, UUID uuid) {
@@ -128,7 +135,11 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            this.mongoClient, this.metadataCatalog, this.materializedViewConfig, this.leaseManager);
+            MV_DATABASE_NAME,
+            this.mongoClient,
+            this.metadataCatalog,
+            this.materializedViewConfig,
+            this.leaseManager);
 
     MaterializedViewCollectionMetadata metadata =
         resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
@@ -161,7 +172,11 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            this.mongoClient, this.metadataCatalog, this.materializedViewConfig, this.leaseManager);
+            MV_DATABASE_NAME,
+            this.mongoClient,
+            this.metadataCatalog,
+            this.materializedViewConfig,
+            this.leaseManager);
 
     MaterializedViewCollectionMetadata metadata =
         resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
@@ -187,7 +202,11 @@ public class MaterializedViewCollectionResolverTest {
     // collectionInfoDocuments).
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            this.mongoClient, this.metadataCatalog, this.materializedViewConfig, this.leaseManager);
+            MV_DATABASE_NAME,
+            this.mongoClient,
+            this.metadataCatalog,
+            this.materializedViewConfig,
+            this.leaseManager);
 
     MaterializedViewCollectionMetadata first =
         resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
@@ -220,7 +239,11 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            this.mongoClient, this.metadataCatalog, this.materializedViewConfig, this.leaseManager);
+            MV_DATABASE_NAME,
+            this.mongoClient,
+            this.metadataCatalog,
+            this.materializedViewConfig,
+            this.leaseManager);
 
     MaterializedViewCollectionMetadata metadata1 =
         resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
@@ -256,7 +279,11 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            this.mongoClient, this.metadataCatalog, this.materializedViewConfig, this.leaseManager);
+            MV_DATABASE_NAME,
+            this.mongoClient,
+            this.metadataCatalog,
+            this.materializedViewConfig,
+            this.leaseManager);
 
     MaterializedViewCollectionMetadata metadataA =
         resolver.getOrCreateMaterializedViewForIndex(indexDefGenA);
@@ -297,7 +324,11 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            this.mongoClient, this.metadataCatalog, this.materializedViewConfig, this.leaseManager);
+            MV_DATABASE_NAME,
+            this.mongoClient,
+            this.metadataCatalog,
+            this.materializedViewConfig,
+            this.leaseManager);
 
     MaterializedViewCollectionMetadata metadataA =
         resolver.getOrCreateMaterializedViewForIndex(indexDefGenA);
@@ -353,7 +384,11 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            this.mongoClient, this.metadataCatalog, this.materializedViewConfig, this.leaseManager);
+            MV_DATABASE_NAME,
+            this.mongoClient,
+            this.metadataCatalog,
+            this.materializedViewConfig,
+            this.leaseManager);
 
     MaterializedViewNonTransientException thrown =
         assertThrows(
@@ -361,5 +396,92 @@ public class MaterializedViewCollectionResolverTest {
             () -> resolver.getOrCreateMaterializedViewForIndex(indexDefGen));
 
     assertThat(thrown.getCause()).isNotNull();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void
+      getOrCreateMaterializedViewForIndex_schemaVersion0_returnsVersionZeroMetadata() {
+    ObjectId indexId = new ObjectId();
+    VectorIndexDefinition definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .withAutoEmbedField("embeddingField")
+            .build();
+    var indexDefGen = createIndexDefinitionGeneration(definition);
+
+    AutoEmbeddingMaterializedViewConfig configV0 =
+        AutoEmbeddingMaterializedViewConfig.create(
+            CommonReplicationConfig.defaultGlobalReplicationConfig(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(0));
+
+    MaterializedViewCollectionResolver resolver =
+        new MaterializedViewCollectionResolver(
+            MV_DATABASE_NAME, this.mongoClient, this.metadataCatalog, configV0, this.leaseManager);
+
+    MaterializedViewCollectionMetadata metadata =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
+
+    assertThat(metadata.schemaMetadata().materializedViewSchemaVersion()).isEqualTo(0L);
+    assertThat(metadata.schemaMetadata().autoEmbeddingFieldsMapping()).isEmpty();
+    assertThat(metadata.schemaMetadata())
+        .isEqualTo(
+            MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void
+      getOrCreateMaterializedViewForIndex_schemaVersion1_returnsAutoEmbedFieldMapping() {
+    ObjectId indexId = new ObjectId();
+    VectorIndexDefinition definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .withAutoEmbedField("embeddingField")
+            .withFilterPath("filterField")
+            .build();
+    var indexDefGen = createIndexDefinitionGeneration(definition);
+
+    AutoEmbeddingMaterializedViewConfig configV1 =
+        AutoEmbeddingMaterializedViewConfig.create(
+            CommonReplicationConfig.defaultGlobalReplicationConfig(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(1));
+
+    MaterializedViewCollectionResolver resolver =
+        new MaterializedViewCollectionResolver(
+            MV_DATABASE_NAME, this.mongoClient, this.metadataCatalog, configV1, this.leaseManager);
+
+    MaterializedViewCollectionMetadata metadata =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
+
+    assertThat(metadata.schemaMetadata().materializedViewSchemaVersion()).isEqualTo(1L);
+    assertThat(metadata.schemaMetadata().autoEmbeddingFieldsMapping()).isNotEmpty();
+    assertThat(metadata.schemaMetadata().autoEmbeddingFieldsMapping())
+        .containsKey(FieldPath.parse("embeddingField"));
+    assertThat(metadata.schemaMetadata().autoEmbeddingFieldsMapping())
+        .containsEntry(
+            FieldPath.parse("embeddingField"), FieldPath.parse("_autoEmbed.embeddingField"));
+    assertThat(metadata.schemaMetadata().autoEmbeddingFieldsMapping().size()).isEqualTo(1);
+    // Filter fields should NOT be in the mapping
+    assertThat(metadata.schemaMetadata().autoEmbeddingFieldsMapping())
+        .doesNotContainKey(FieldPath.parse("filterField"));
   }
 }

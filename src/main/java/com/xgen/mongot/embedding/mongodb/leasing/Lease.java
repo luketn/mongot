@@ -1,5 +1,8 @@
 package com.xgen.mongot.embedding.mongodb.leasing;
 
+import static com.xgen.mongot.util.Uuids.NIL;
+import static java.time.temporal.ChronoUnit.SECONDS;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.Var;
 import com.mongodb.lang.NonNull;
@@ -80,7 +83,7 @@ public record Lease(
     @Nullable BsonTimestamp steadyAsOfOplogPosition)
     implements DocumentEncodable {
 
-  private static final long SCHEMA_VERSION = 1L;
+  public static final long SCHEMA_VERSION = 1L;
 
   @VisibleForTesting static final long FIRST_LEASE_VERSION = 1L;
 
@@ -189,8 +192,10 @@ public record Lease(
             .orElse(
                 new MaterializedViewCollectionMetadata(
                     MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO,
-                    UUID.fromString(parser.getField(Fields.COLLECTION_UUID).unwrap()),
-                    parser.getField(Fields.COLLECTION_NAME).unwrap())),
+                    // Community users don't have this field, we need to have a UUID.NIL here.
+                    NIL,
+                    // _id should be same as MatView collection name.
+                    parser.getField(Fields._ID).unwrap())),
         parser.getField(Fields.STEADY_AS_OF_OPLOG_POSITION).unwrap().orElse(null));
   }
 
@@ -233,6 +238,34 @@ public record Lease(
               .asUpperUnderscore()
               .required();
     }
+  }
+
+  /**
+   * Creates an initial Lease for synchronization purposes, this is acquirable by any other
+   * instance.
+   */
+  public static Lease initialLease(
+      String leaseId,
+      UUID collectionUuid,
+      String collectionName,
+      String indexDefinitionVersion,
+      IndexStatus initialIndexStatus,
+      MaterializedViewCollectionMetadata materializedViewCollectionMetadata) {
+    return new Lease(
+        leaseId,
+        SCHEMA_VERSION,
+        collectionUuid.toString(),
+        collectionName,
+        "",
+        Instant.now().minus(1, SECONDS),
+        FIRST_LEASE_VERSION,
+        EncodedUserData.EMPTY.asString(),
+        indexDefinitionVersion,
+        Map.of(
+            indexDefinitionVersion,
+            new IndexDefinitionVersionStatus(false, initialIndexStatus.getStatusCode())),
+        materializedViewCollectionMetadata,
+        null);
   }
 
   public static Lease newLease(
@@ -375,6 +408,28 @@ public record Lease(
         this.latestIndexDefinitionVersion,
         this.indexDefinitionVersionStatusMap,
         this.materializedViewCollectionMetadata,
+        this.steadyAsOfOplogPosition);
+  }
+
+  public Lease withResolvedMatViewUuid(UUID matViewCollectionUuid) {
+    var newMetadata =
+        new MaterializedViewCollectionMetadata(
+            this.materializedViewCollectionMetadata().schemaMetadata(),
+            matViewCollectionUuid,
+            this.materializedViewCollectionMetadata().collectionName());
+    // Keeps everything same but new schema version and mat view collection UUID.
+    return new Lease(
+        this.id(),
+        SCHEMA_VERSION,
+        this.collectionUuid(),
+        this.collectionName(),
+        this.leaseOwner(),
+        this.leaseExpiration(),
+        this.leaseVersion(),
+        this.commitInfo(),
+        this.latestIndexDefinitionVersion(),
+        this.indexDefinitionVersionStatusMap(),
+        newMetadata,
         this.steadyAsOfOplogPosition);
   }
 

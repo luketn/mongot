@@ -1,11 +1,13 @@
 package com.xgen.mongot.embedding.mongodb.leasing;
 
-import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO;
 import static com.xgen.mongot.embedding.mongodb.leasing.StatusResolutionUtils.getEffectiveMaterializedViewStatus;
 import static com.xgen.mongot.embedding.utils.EmbeddingConnectionStringUtils.disableDirectConnection;
 import static com.xgen.mongot.util.FutureUtils.COMPLETED_FUTURE;
+import static com.xgen.mongot.util.Uuids.NIL;
+import static com.xgen.mongot.util.mongodb.MongoDbDatabase.getCollectionInfo;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Var;
 import com.mongodb.ErrorCategory;
 import com.mongodb.MongoWriteException;
@@ -22,12 +24,16 @@ import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.utils.MongoClientOperationExecutor;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexGeneration;
+import com.xgen.mongot.index.definition.IndexDefinition;
+import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.mongot.metrics.MeterAndFtdcRegistry;
 import com.xgen.mongot.metrics.MetricsFactory;
+import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.mongodb.MongoClientBuilder;
 import com.xgen.mongot.util.mongodb.SyncSourceConfig;
+import com.xgen.mongot.util.mongodb.serialization.MongoDbCollectionInfo;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -62,6 +68,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(DynamicLeaderLeaseManager.class);
 
+  // TODO(CLOUDP-356242): make this configurable
   private static final String AUTO_EMBEDDING_INTERNAL_DATABASE_NAME = "__mdb_internal_search";
 
   private static final String METRICS_NAMESPACE = "embedding.leasing.stats";
@@ -84,6 +91,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   private final Map<GenerationId, String> generationIdToDefinitionVersion;
   private final MongoCollection<BsonDocument> collection;
   private final MaterializedViewCollectionMetadataCatalog mvMetadataCatalog;
+  private final MongoClient mongoClient;
+  private final String databaseName;
 
   public DynamicLeaderLeaseManager(
       MongoClient mongoClient,
@@ -99,12 +108,14 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     this.leaderGenerationIds = ConcurrentHashMap.newKeySet();
     this.followerGenerationIds = ConcurrentHashMap.newKeySet();
     this.generationIdToDefinitionVersion = new ConcurrentHashMap<>();
+    this.databaseName = databaseName;
     this.collection =
         mongoClient
             .getDatabase(databaseName)
             .getCollection(LEASE_COLLECTION_NAME, BsonDocument.class)
             .withReadConcern(ReadConcern.LINEARIZABLE)
             .withReadPreference(ReadPreference.primary());
+    this.mongoClient = mongoClient;
     initLeases();
   }
 
@@ -145,8 +156,10 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
           this.operationExecutor.execute(
               "getLeases", () -> this.collection.find().into(new ArrayList<>()));
       for (BsonDocument rawLease : rawLeases) {
-        Lease lease = Lease.fromBson(rawLease);
-        this.leases.put(lease.id(), lease);
+        Lease lease = normalizeLeaseIfNeeded(Lease.fromBson(rawLease));
+        if (lease != null) {
+          this.leases.put(lease.id(), lease);
+        }
       }
       LOG.atInfo()
           .addKeyValue("leaseCount", rawLeases.size())
@@ -154,6 +167,40 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
           .log("Initialized leases from database");
     } catch (Exception e) {
       throw new RuntimeException("Failed to initialize leases from database.", e);
+    }
+  }
+
+  // Normalizes lease by populating missing mat view UUID field, this won't change lease
+  // version since it's only meant for backward compatibility and lease state is unchanged.
+  @Nullable
+  private Lease normalizeLeaseIfNeeded(Lease lease) {
+    if (!lease.materializedViewCollectionMetadata().collectionUuid().equals(NIL)) {
+      // No need to normalize it by resolving mat view collection UUID.
+      return lease;
+    }
+    try {
+      return lease.withResolvedMatViewUuid(
+          Check.instanceOf(
+                  getCollectionInfo(
+                      this.mongoClient,
+                      this.databaseName,
+                      lease.materializedViewCollectionMetadata().collectionName()),
+                  MongoDbCollectionInfo.Collection.class)
+              .info()
+              .uuid());
+    } catch (Exception e) {
+      LOG.atWarn()
+          .addKeyValue("leaseId", lease.id())
+          .addKeyValue("leaseOwner", lease.leaseOwner())
+          .addKeyValue(
+              "matViewCollectionName", lease.materializedViewCollectionMetadata().collectionName())
+          .setCause(e)
+          .log(
+              "Unable to normalize or validate lease, "
+                  + "could be caused by dangling lease or corrupted lease");
+      // TODO(CLOUDP-384971): We should have a way to clean up corrupted leases to avoid blocking
+      // Lease creation.
+      return null;
     }
   }
 
@@ -170,10 +217,9 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   @Override
   public void add(IndexGeneration indexGeneration) {
     GenerationId generationId = indexGeneration.getGenerationId();
-    String versionKey = getIndexDefinitionVersion(indexGeneration);
+    String versionKey = getIndexDefinitionVersion(indexGeneration.getDefinition());
     this.generationIdToDefinitionVersion.put(generationId, versionKey);
 
-    // TODO(CLOUDP-373389): add materializedViewMetadata that includes schemaFieldsMapping
     if (this.leases.containsKey(getLeaseKey(generationId))) {
       // Lease exists in memory - check if we own it.
       var lease = this.leases.get(getLeaseKey(generationId));
@@ -215,20 +261,20 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
           .addKeyValue("generationId", generationId)
           .addKeyValue("hostname", this.hostname)
           .log("Starting as follower - no existing lease, creating in-memory placeholder");
+      // mvMetadataCatalog should already have metadata for this generationId at this point after
+      // CollectionResolver calls this.getMaterializedViewCollectionMetadata.
+      MaterializedViewCollectionMetadata materializedViewCollectionMetadata =
+          this.mvMetadataCatalog.getMetadata(generationId);
       Lease newLease =
           Lease.newLease(
               getLeaseKey(generationId),
+              // This is source collection UUID
               indexGeneration.getDefinition().getCollectionUuid(),
               indexGeneration.getDefinition().getLastObservedCollectionName(),
               "", // Empty owner - no one owns this lease yet
               versionKey,
               indexGeneration.getIndex().getStatus(),
-              // TODO(CLOUDP-363914): Use MaterializedViewCollectionMetadata
-              // from MaterializedViewCollectionMetadataCatalog
-              new MaterializedViewCollectionMetadata(
-                  VERSION_ZERO,
-                  indexGeneration.getDefinition().getCollectionUuid(),
-                  indexGeneration.getDefinition().getLastObservedCollectionName()));
+              materializedViewCollectionMetadata);
       this.leases.put(getLeaseKey(generationId), newLease);
     }
   }
@@ -500,7 +546,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * MaterializedViewManager when it detects that a lease is acquirable (expired, owned by us, or
    * new).
    *
-   * <p>For new indexes (in-memory lease with empty owner), the lease is created via upsert. For
+   * <p>For new indexes (in-memory lease with empty owner by this::initializeLease) or other
    * existing leases, leadership is acquired using optimistic concurrency control.
    *
    * @param generationId the generation ID to acquire leadership for
@@ -517,7 +563,6 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
       // Check if this is a new index (empty owner) or an acquirable existing lease.
       Instant now = Instant.now();
-      boolean isNewIndex = inMemoryLease.leaseOwner().isEmpty();
       boolean weOwnLease = this.hostname.equals(inMemoryLease.leaseOwner());
       boolean leaseExpired = now.isAfter(inMemoryLease.leaseExpiration());
 
@@ -527,16 +572,11 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
           .addKeyValue("leaseExpiration", inMemoryLease.leaseExpiration())
           .addKeyValue("now", now)
           .addKeyValue("hostname", this.hostname)
-          .addKeyValue("isNewIndex", isNewIndex)
           .addKeyValue("weOwnLease", weOwnLease)
           .addKeyValue("leaseExpired", leaseExpired)
           .log("Attempting to acquire leadership");
 
       Lease newLease = inMemoryLease.withRenewedOwnership(this.hostname);
-
-      if (isNewIndex) {
-        return createLeaseForNewIndex(generationId, newLease);
-      }
       if (weOwnLease || leaseExpired) {
         return acquireExistingLease(generationId, inMemoryLease, newLease);
       }
@@ -556,6 +596,53 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
         .flatMap(Lease::getSteadyAsOfOplogPosition);
   }
 
+  @Override
+  public MaterializedViewCollectionMetadata initializeLease(
+      IndexDefinitionGeneration indexDefinitionGeneration,
+      MaterializedViewCollectionMetadata proposedMetadata)
+      throws Exception {
+    var existingLease = this.leases.get(proposedMetadata.collectionName());
+    if (existingLease != null) {
+      // If another Mongot already created the initial lease before this mongot calls initLeases in
+      // constructor, just reuse, no need to make another network call.
+      return existingLease.materializedViewCollectionMetadata();
+    }
+    Lease lease =
+        Lease.initialLease(
+            // Materialized View Collection Name from CollectionResolver
+            proposedMetadata.collectionName(),
+            // Source collection UUID
+            indexDefinitionGeneration.getIndexDefinition().getCollectionUuid(),
+            // Source collection name
+            indexDefinitionGeneration.getIndexDefinition().getLastObservedCollectionName(),
+            getIndexDefinitionVersion(indexDefinitionGeneration.getIndexDefinition()),
+            IndexStatus.unknown(),
+            proposedMetadata);
+    boolean success = createLeaseForNewIndex(lease);
+    if (success) {
+      LOG.atInfo()
+          .addKeyValue("generationId", indexDefinitionGeneration.getGenerationId())
+          .addKeyValue("hostname", this.hostname)
+          .addKeyValue("leaseExpiration", lease.leaseExpiration())
+          .log("Created new lease entry for new index");
+      return proposedMetadata;
+    } else {
+      Lease existing = this.leases.get(lease.id());
+      LOG.atInfo()
+          .addKeyValue("generationId", indexDefinitionGeneration.getGenerationId())
+          .addKeyValue("hostname", this.hostname)
+          .addKeyValue("winningOwner", existing.leaseOwner())
+          .log("Lost race to create lease - another instance won");
+      return existing.materializedViewCollectionMetadata();
+    }
+  }
+
+  // TEST ONLY.
+  @VisibleForTesting
+  Map<String, Lease> getLeases() {
+    return ImmutableMap.copyOf(this.leases);
+  }
+
   /**
    * Creates a new lease in the database for a new index. Uses insertOne to atomically detect
    * conflicts - if another instance already created the lease, we get a duplicate key error.
@@ -573,32 +660,28 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * }
    * }</pre>
    */
-  private boolean createLeaseForNewIndex(GenerationId generationId, Lease newLease)
-      throws Exception {
+  private boolean createLeaseForNewIndex(Lease newLease) throws Exception {
     try {
       this.operationExecutor.execute(
           "createLease", () -> this.collection.insertOne(newLease.toBson()));
-      // Insert succeeded - we created the lease and are the leader.
-      this.leases.put(getLeaseKey(generationId), newLease);
-      this.followerGenerationIds.remove(generationId);
-      this.leaderGenerationIds.add(generationId);
-      LOG.atInfo()
-          .addKeyValue("generationId", generationId)
-          .addKeyValue("hostname", this.hostname)
-          .addKeyValue("leaseExpiration", newLease.leaseExpiration())
-          .log("Created new lease and acquired leadership for new index");
+      // Insert succeeded - we created the lease and synchronized in-memory lease state.
+      this.leases.put(newLease.id(), newLease);
+      // Don't add or remove generationId into this.followerGenerationIds or
+      // this.leaderGenerationIds, which may break MaterializedViewManager when it's refreshing
+      // status by looking up MaterializedViewCollectionMetadataCatalog.
       return true;
     } catch (MongoWriteException e) {
       if (e.getError().getCategory() == ErrorCategory.DUPLICATE_KEY) {
-        // Another instance created the lease first - refresh from DB and become follower.
-        refreshLeaseFromDatabase(generationId);
-        Lease existingLease = this.leases.get(getLeaseKey(generationId));
-        LOG.atInfo()
-            .addKeyValue("generationId", generationId)
-            .addKeyValue("hostname", this.hostname)
-            .addKeyValue(
-                "winningOwner", existingLease != null ? existingLease.leaseOwner() : "unknown")
-            .log("Lost race to create lease - another instance won");
+        // Another instance created the lease first - refresh from DB and synchronize it.
+        Lease existingLease = getLeaseFromDatabase(newLease.id());
+        if (existingLease == null) {
+          // TODO(CLOUDP-384971): We should have a way to clean up corrupted leases to avoid
+          // blocking Lease creation.
+          throw new IllegalStateException(
+              "Unable to create nor read existing lease in Lease table. "
+                  + "This could be caused by dangling corrupted lease");
+        }
+        this.leases.put(existingLease.id(), existingLease);
         return false;
       }
       throw e; // Re-throw non-duplicate-key errors
@@ -744,7 +827,11 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
             Filters.eq(Lease.Fields.LEASE_VERSION.getName(), newLeaseVersion)));
   }
 
-  /** Refreshes the local lease copy from the database. */
+  /**
+   * Refreshes the local lease copy from the database.
+   *
+   * <p>Note: Can only be called after mvMetadataCatalog is populated.
+   */
   private void refreshLeaseFromDatabase(GenerationId generationId) {
     try {
       Lease lease = getLeaseFromDatabase(generationId);
@@ -890,18 +977,24 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * }
    * }</pre>
    *
+   * <p>Note: Can only be called after mvMetadataCatalog is populated.
+   *
    * @return the lease document, or null if not found
    */
   @Nullable
   private Lease getLeaseFromDatabase(GenerationId generationId) throws Exception {
+    return getLeaseFromDatabase(getLeaseKey(generationId));
+  }
+
+  @Nullable
+  private Lease getLeaseFromDatabase(String collectionName) throws Exception {
     BsonDocument rawLease =
         this.operationExecutor.execute(
-            "getLease",
-            () -> this.collection.find(new Document("_id", getLeaseKey(generationId))).first());
+            "getLease", () -> this.collection.find(new Document("_id", collectionName)).first());
     if (rawLease == null) {
       return null;
     }
-    return Lease.fromBson(rawLease);
+    return normalizeLeaseIfNeeded(Lease.fromBson(rawLease));
   }
 
   /**
@@ -1000,11 +1093,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
         meterAndFtdcRegistry.meterRegistry());
   }
 
-  private String getIndexDefinitionVersion(IndexGeneration indexGeneration) {
+  private String getIndexDefinitionVersion(IndexDefinition indexDefinition) {
     return String.valueOf(
-        indexGeneration
-            .getDefinition()
-            .getDefinitionVersion()
-            .orElse(DEFAULT_INDEX_DEFINITION_VERSION));
+        indexDefinition.getDefinitionVersion().orElse(DEFAULT_INDEX_DEFINITION_VERSION));
   }
 }

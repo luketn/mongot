@@ -1,8 +1,11 @@
 package com.xgen.mongot.embedding.mongodb;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.CURRENT_MAT_VIEW_SCHEMA_VERSION;
+import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO;
 import static com.xgen.mongot.util.mongodb.MongoDbDatabase.getCollectionInfo;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.mongodb.MongoCommandException;
@@ -29,6 +32,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import org.bson.BsonDocument;
 
@@ -44,8 +48,8 @@ public class MaterializedViewCollectionResolver {
   private static final String HASH_STRING_DELIM = ";";
   private static final int DEFAULT_MAX_CONNECTIONS = 2;
   private static final int NAMESPACE_EXISTS_ERROR_CODE = 48;
-
-  @VisibleForTesting static final String MV_DATABASE_NAME = "__mdb_internal_search";
+  private static final String MV_COLLECTION_SCHEMA_NAMESPACE = "_autoEmbed";
+  private static final String MV_DATABASE_NAME = "__mdb_internal_search";
 
   // Length of the hash in bytes before hex encoding (16 bytes -> 32 hex chars). We need to
   // truncate the hash to ensure the collection name does not exceed the limits imposed by Atlas
@@ -61,7 +65,10 @@ public class MaterializedViewCollectionResolver {
   @SuppressWarnings("UnusedVariable") // will be used later for schema mapping and GC logic
   private final AutoEmbeddingMaterializedViewConfig materializedViewConfig;
 
+  private final String matViewDatabaseName;
+
   public MaterializedViewCollectionResolver(
+      String matViewDatabaseName,
       MongoClient mongoClient,
       MaterializedViewCollectionMetadataCatalog metadataCatalog,
       AutoEmbeddingMaterializedViewConfig materializedViewConfig,
@@ -70,6 +77,7 @@ public class MaterializedViewCollectionResolver {
     this.metadataCatalog = metadataCatalog;
     this.materializedViewConfig = materializedViewConfig;
     this.leaseManager = leaseManager;
+    this.matViewDatabaseName = matViewDatabaseName;
   }
 
   public static MaterializedViewCollectionResolver create(
@@ -80,6 +88,7 @@ public class MaterializedViewCollectionResolver {
       AutoEmbeddingMaterializedViewConfig materializedViewConfig) {
     // TODO(CLOUDP-360542): Support sync source change.
     return new MaterializedViewCollectionResolver(
+        MV_DATABASE_NAME,
         createMongoClient(syncSourceConfig, meterAndFtdcRegistry.meterRegistry()),
         metadataCatalog,
         materializedViewConfig,
@@ -99,7 +108,7 @@ public class MaterializedViewCollectionResolver {
 
     List<String> collectionNames =
         this.mongoClient
-            .getDatabase(MV_DATABASE_NAME)
+            .getDatabase(this.matViewDatabaseName)
             .listCollections(BsonDocument.class)
             .filter(Filters.regex("name", "^" + Pattern.quote(indexId)))
             .into(new ArrayList<>())
@@ -137,21 +146,55 @@ public class MaterializedViewCollectionResolver {
 
     try {
       MongoDbCollectionInfo collectionInfo =
-          getCollectionInfo(this.mongoClient, MV_DATABASE_NAME, collectionName);
-      // TODO(CLOUDP-363914): Insert or reuse MaterializedViewCollectionMetadata in Lease table for
-      //  mongot synchronization
-      var retValue =
-          new MaterializedViewCollectionMetadata(
-              new MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata(0, Map.of()),
-              Check.instanceOf(collectionInfo, MongoDbCollectionInfo.Collection.class)
-                  .info()
-                  .uuid(),
-              collectionName);
-      this.metadataCatalog.addMetadata(indexDefinitionGeneration.getGenerationId(), retValue);
-      return retValue;
+          getCollectionInfo(this.mongoClient, this.matViewDatabaseName, collectionName);
+
+      MaterializedViewCollectionMetadata materializedViewCollectionMetadata =
+          this.leaseManager.initializeLease(
+              indexDefinitionGeneration,
+              createProposedMetadata(
+                  collectionName,
+                  Check.instanceOf(collectionInfo, MongoDbCollectionInfo.Collection.class)
+                      .info()
+                      .uuid(),
+                  indexDefinitionGeneration.asMaterializedView().getIndexDefinition(),
+                  this.materializedViewConfig.materializedViewSchemaVersion.orElse(
+                      CURRENT_MAT_VIEW_SCHEMA_VERSION)));
+      this.metadataCatalog.addMetadata(
+          indexDefinitionGeneration.getGenerationId(), materializedViewCollectionMetadata);
+      return materializedViewCollectionMetadata;
     } catch (Exception e) {
       throw new MaterializedViewNonTransientException(e);
     }
+  }
+
+  private MaterializedViewCollectionMetadata createProposedMetadata(
+      String collectionName,
+      UUID uuid,
+      VectorIndexDefinition indexDefinition,
+      int mvSchemaVersion) {
+    if (mvSchemaVersion == 0) {
+      return new MaterializedViewCollectionMetadata(VERSION_ZERO, uuid, collectionName);
+    } else if (mvSchemaVersion == 1) {
+      ImmutableMap<FieldPath, FieldPath> schemaFieldsMapping =
+          indexDefinition.getMappings().fieldMap().entrySet().stream()
+              .filter(
+                  entry -> entry.getValue().getType() == VectorIndexFieldDefinition.Type.AUTO_EMBED)
+              .collect(
+                  toImmutableMap(
+                      Map.Entry::getKey,
+                      entry ->
+                          FieldPath.parse(
+                              MV_COLLECTION_SCHEMA_NAMESPACE
+                                  + FieldPath.DELIMITER
+                                  + entry.getKey().toString())));
+      return new MaterializedViewCollectionMetadata(
+          new MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata(
+              mvSchemaVersion, schemaFieldsMapping),
+          uuid,
+          collectionName);
+    }
+    throw new IllegalArgumentException(
+        "Unsupported materialized view schema version: " + mvSchemaVersion);
   }
 
   /**
@@ -160,7 +203,7 @@ public class MaterializedViewCollectionResolver {
    */
   private void createCollection(String collectionName) {
     try {
-      this.mongoClient.getDatabase(MV_DATABASE_NAME).createCollection(collectionName);
+      this.mongoClient.getDatabase(this.matViewDatabaseName).createCollection(collectionName);
     } catch (MongoCommandException e) {
       if (e.getErrorCode() != NAMESPACE_EXISTS_ERROR_CODE) {
         throw e;

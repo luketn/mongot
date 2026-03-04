@@ -10,6 +10,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.errorprone.annotations.Var;
 import com.mongodb.MongoNamespace;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.logging.DefaultKeyValueLogger;
 import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.replication.mongodb.common.ChangeStreamResumeInfo;
@@ -17,6 +18,7 @@ import com.xgen.mongot.replication.mongodb.common.IndexCommitUserData;
 import com.xgen.mongot.replication.mongodb.common.InitialSyncException;
 import com.xgen.mongot.replication.mongodb.common.InitialSyncResumeInfo;
 import com.xgen.mongot.util.BsonUtils;
+import com.xgen.mongot.util.Check;
 import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
 import java.time.Duration;
@@ -75,6 +77,7 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
       boolean avoidNaturalOrderScanSyncSourceChangeResync,
       List<String> excludedChangestreamFields,
       boolean matchCollectionUuidForUpdateLookup,
+      Optional<MaterializedViewCollectionMetadataCatalog> mvMetadataCatalog,
       MetricsFactory metricsFactory) {
     return (initialSyncContext, mongoClient, namespace, resumeInfo) ->
         create(
@@ -87,6 +90,7 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
             excludedChangestreamFields,
             matchCollectionUuidForUpdateLookup,
             resumeInfo,
+            mvMetadataCatalog,
             metricsFactory,
             avoidNaturalOrderScanSyncSourceChangeResync);
   }
@@ -101,6 +105,7 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
       List<String> excludedChangestreamFields,
       boolean matchCollectionUuidForUpdateLookup,
       Optional<InitialSyncResumeInfo> resumeInfo,
+      Optional<MaterializedViewCollectionMetadataCatalog> mvMetadataCatalog,
       MetricsFactory metricsFactory,
       boolean avoidNaturalOrderScanSyncSourceChangeResync) {
     BufferlessCollectionScannerFactory collectionScannerFactory =
@@ -108,7 +113,12 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
           if (isMaterializedViewBasedIndex(
               context.indexDefinitionGeneration.getIndexDefinition())) {
             return new AutoEmbeddingSortedIdCollectionScanner(
-                Clock.systemUTC(), context, mongoClient, lastId, metricsFactory);
+                Clock.systemUTC(),
+                context,
+                mongoClient,
+                lastId,
+                Check.isPresent(mvMetadataCatalog, "mvMetadataCatalog"),
+                metricsFactory);
           } else {
             return new BufferlessCollectionScanner(
                 Clock.systemUTC(),
