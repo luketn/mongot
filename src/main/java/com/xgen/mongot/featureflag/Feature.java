@@ -73,7 +73,8 @@ public enum Feature {
   LOGGABLE_DOCUMENT_ID("mongotLoggableDocumentId", State.DISABLED),
   CACHE_WARMER("cacheWarmer", State.DISABLED),
   CONCURRENT_INDEX_PARTITION_SEARCH("enableConcurrentIndexPartitionSearch", State.DISABLED),
-  CANCEL_MERGE("enableCancelMerge", State.DISABLED);
+  CANCEL_MERGE("enableCancelMerge", State.DISABLED),
+  KNN_FULL_SCAN_HEURISTIC("enableKnnFullScanHeuristic", State.DISABLED);
 
   private final String name;
   private final State defaultState;
