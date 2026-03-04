@@ -1,6 +1,7 @@
 package com.xgen.mongot.server.command.search;
 
 import static com.xgen.mongot.index.definition.IndexDefinition.Type.VECTOR_SEARCH;
+import static com.xgen.mongot.index.definition.IndexDefinitionGeneration.Type.AUTO_EMBEDDING;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
@@ -26,6 +27,7 @@ import com.xgen.mongot.index.IndexGeneration;
 import com.xgen.mongot.index.IndexUnavailableException;
 import com.xgen.mongot.index.InitializedIndex;
 import com.xgen.mongot.index.ReaderClosedException;
+import com.xgen.mongot.index.autoembedding.AutoEmbeddingIndexGeneration;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.definition.StoredSourceDefinition;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
@@ -65,6 +67,7 @@ import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -327,13 +330,14 @@ public class VectorSearchCommand implements Command {
 
   private BsonDocument getSearchResults(
       VectorSearchQuery vectorSearchQuery, Optional<InitializedIndex> optionalIndex)
-      throws IndexUnavailableException, InvalidQueryException, ReaderClosedException, IOException {
+      throws InvalidQueryException, ReaderClosedException, IOException {
     if (optionalIndex.isEmpty()) {
       // the index does not exist, respond with empty information. The result is not cached,
       // so when this index does get created, we will answer queries correctly.
       return createExhaustedCursorBatch(new BsonArray()).toBson();
     }
 
+    // TODO(CLOUDP-384026): nested embedding should also check namespaced auto-embedding field path
     // Record nested vector search query counter at command receipt, consistent with other counters.
     if (isNestedVectorSearch(vectorSearchQuery, optionalIndex.get().getDefinition())) {
       this.metrics.nestedVectorSearchQueries.increment();
@@ -371,7 +375,8 @@ public class VectorSearchCommand implements Command {
       metrics.getVectorCommandCounter().increment();
 
       // Record command-level latency with index size and quantization tags
-      recordVectorSearchCommandLatency(commandTimer, index, vectorSearchQuery);
+      recordVectorSearchCommandLatency(
+          commandTimer, index, materializedQuery.materializedCriteria());
 
       if (Explain.isEnabled() && BsonUtils.isOversized(serializedBatch)) {
         // Explain must be the problem since results are capped at 10k for vector search
@@ -395,8 +400,8 @@ public class VectorSearchCommand implements Command {
       return Optional.empty();
     }
     @Var var vectorIndexDef = regularIndexDefinition.asVectorDefinition();
-    // Non-autoembedding index but has query string, could be derived index definition from
-    // auto-embedding index.
+    // This is a non-autoembedding index but has query string, could be a derived index definition
+    // from auto-embedding index.
     if (!regularIndexDefinition.isAutoEmbeddingIndex()) {
       // For mat view based index, needs to use raw index definition to look up model names.
       Optional<IndexDefinition> rawAutoEmbeddingDefinition =
@@ -459,6 +464,25 @@ public class VectorSearchCommand implements Command {
         .addKeyValue("fieldPath", fieldPath.toString())
         .log("Using user-specified model for embedding (compatible with indexing model)");
     return queryModel;
+  }
+
+  Map<FieldPath, FieldPath> findAutoEmbeddingFieldsMapping(VectorSearchQuery vectorSearchQuery) {
+    // For mat view based index, needs to use raw index definition to find out fields mapping
+    return this.indexCatalog
+        .getIndex(
+            this.definition.db(),
+            this.definition.collectionUuid(),
+            this.definition.viewName(),
+            vectorSearchQuery.index())
+        .filter(indexGeneration -> indexGeneration.getType() == AUTO_EMBEDDING)
+        .map(
+            indexGeneration ->
+                ((AutoEmbeddingIndexGeneration) indexGeneration)
+                    .getMaterializedViewIndexGeneration()
+                    .getIndex()
+                    .getSchemaMetadata()
+                    .autoEmbeddingFieldsMapping())
+        .orElse(Map.of());
   }
 
   private MongotCursorBatch createExhaustedCursorBatch(BsonArray results)
@@ -571,8 +595,12 @@ public class VectorSearchCommand implements Command {
         throw new InvalidQueryException(
             "'query' field cannot be empty for auto-embedding vector search");
       }
+      // No text to embed, but still can be a vector query on AutoEmbedding index, user can use
+      // queryVector to query it.
       return new MaterializedVectorSearchQuery(
-          vectorSearchQuery, Check.isPresent(criteria.queryVector(), "queryVector"));
+          vectorSearchQuery,
+          Check.isPresent(criteria.queryVector(), "queryVector"),
+          findAutoEmbeddingFieldsMapping(vectorSearchQuery));
     }
     if (canonicalModel.isEmpty()) {
       throw new InvalidQueryException(
@@ -618,7 +646,9 @@ public class VectorSearchCommand implements Command {
         result.errorMessage.isEmpty(), "Got error when embedding query: %s", result.errorMessage);
 
     return new MaterializedVectorSearchQuery(
-        vectorSearchQuery, Check.isPresent(result.vector, "vector"));
+        vectorSearchQuery,
+        Check.isPresent(result.vector, "vector"),
+        findAutoEmbeddingFieldsMapping(vectorSearchQuery));
   }
 
   private void updateVectorSearchQueryCounters(VectorSearchCriteria criteria) {
@@ -666,10 +696,10 @@ public class VectorSearchCommand implements Command {
    *
    * @param timer The timer that was started at the beginning of the command execution
    * @param index The initialized index being queried
-   * @param vectorSearchQuery The vector search query being executed
+   * @param vectorSearchCriteria The vector search criteria being executed
    */
   private void recordVectorSearchCommandLatency(
-      Timer.Sample timer, InitializedIndex index, VectorSearchQuery vectorSearchQuery) {
+      Timer.Sample timer, InitializedIndex index, VectorSearchCriteria vectorSearchCriteria) {
 
     if (!this.metadata.featureFlags().isEnabled(Feature.INDEX_SIZE_QUANTIZATION_METRICS)) {
       return;
@@ -677,7 +707,8 @@ public class VectorSearchCommand implements Command {
 
     long indexSizeBytes = index.getIndexSize();
     String indexSizeCategory = categorizeIndexSize(indexSizeBytes);
-    String quantizationType = determineQuantizationType(index.getDefinition(), vectorSearchQuery);
+    String quantizationType =
+        determineQuantizationType(index.getDefinition(), vectorSearchCriteria);
 
     Tags tags = Tags.of(
         Tag.of("indexSizeCategory", indexSizeCategory),
@@ -761,20 +792,20 @@ public class VectorSearchCommand implements Command {
   /**
    * Determines the quantization type from the index definition (index-side quantization).
    *
-   * <p>This returns how vectors are quantized and stored in the index, not how the query vector
-   * is encoded by the client (client-side quantization). Index-side quantization affects search
+   * <p>This returns how vectors are quantized and stored in the index, not how the query vector is
+   * encoded by the client (client-side quantization). Index-side quantization affects search
    * performance and is a key characteristic for latency metrics.
    *
    * @param definition The index definition
-   * @param vectorSearchQuery The vector search query (used to identify the field path)
-   * @return The quantization type: "unquantized", "scalar_quantized", "binary_quantized",
-   *     or "unknown"
+   * @param vectorSearchCriteria The vector search criteria (used to identify the field path)
+   * @return The quantization type: "unquantized", "scalar_quantized", "binary_quantized", or
+   *     "unknown"
    */
   private String determineQuantizationType(
-      IndexDefinition definition, VectorSearchQuery vectorSearchQuery) {
+      IndexDefinition definition, VectorSearchCriteria vectorSearchCriteria) {
     if (definition.getType() == VECTOR_SEARCH) {
       VectorIndexDefinition vectorIndexDef = definition.asVectorDefinition();
-      FieldPath queryPath = vectorSearchQuery.criteria().path();
+      FieldPath queryPath = vectorSearchCriteria.path();
 
       return vectorIndexDef.getMappings()
           .getQuantizationForField(queryPath)

@@ -4,6 +4,7 @@ import static com.xgen.mongot.embedding.mongodb.leasing.StaticLeaderLeaseManager
 import static com.xgen.mongot.index.definition.IndexDefinitionGeneration.Type.AUTO_EMBEDDING;
 import static com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration.MIN_VERSION_FOR_MATERIALIZED_VIEW_EMBEDDING;
 
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
@@ -39,19 +40,22 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
   private final MaterializedViewWriter materializedViewWriter;
   private final AtomicReference<IndexStatus> statusRef;
   private final LeaseManager leaseManager;
+  private final MaterializedViewSchemaMetadata schemaMetadata;
 
   public InitializedMaterializedViewIndex(
       MaterializedViewIndexDefinitionGeneration matViewDefinitionGeneration,
       MaterializedViewWriter materializedViewWriter,
       IndexMetricsUpdater indexMetricsUpdater,
       AtomicReference<IndexStatus> statusRef,
-      LeaseManager leaseManager) {
+      LeaseManager leaseManager,
+      MaterializedViewSchemaMetadata schemaMetadata) {
     this.vectorIndexDefinition = matViewDefinitionGeneration.getIndexDefinition();
     this.generationId = matViewDefinitionGeneration.getGenerationId();
     this.indexMetricsUpdater = indexMetricsUpdater;
     this.materializedViewWriter = materializedViewWriter;
     this.statusRef = statusRef;
     this.leaseManager = leaseManager;
+    this.schemaMetadata = schemaMetadata;
   }
 
   @Override
@@ -125,7 +129,7 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
     // TODO(CLOUDP-360523): Implement compatibility check for redefined index.
     return indexDefinition.isAutoEmbeddingIndex()
         && indexDefinition.asVectorDefinition().getParsedAutoEmbeddingFeatureVersion()
-            >= MIN_VERSION_FOR_MATERIALIZED_VIEW_EMBEDDING;
+        >= MIN_VERSION_FOR_MATERIALIZED_VIEW_EMBEDDING;
   }
 
   @Override
@@ -149,6 +153,10 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
 
   public UUID getMaterializedViewCollectionUuid() {
     return this.materializedViewWriter.getCollectionUuid();
+  }
+
+  public MaterializedViewSchemaMetadata getSchemaMetadata() {
+    return this.schemaMetadata;
   }
 
   static class NoOpIndexReader implements VectorIndexReader {

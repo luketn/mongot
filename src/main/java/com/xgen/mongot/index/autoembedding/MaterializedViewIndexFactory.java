@@ -104,7 +104,8 @@ public class MaterializedViewIndexFactory implements IndexFactory {
         writer,
         indexMetricsUpdaterBuilder.build(metricValuesSupplier),
         statusRef,
-        this.leaseManager);
+        this.leaseManager,
+        collectionMetadata.schemaMetadata());
   }
 
   @Override

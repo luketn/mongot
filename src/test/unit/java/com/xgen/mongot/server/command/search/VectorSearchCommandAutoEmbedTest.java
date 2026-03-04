@@ -18,6 +18,7 @@ import com.xgen.mongot.catalog.IndexCatalog;
 import com.xgen.mongot.catalog.InitializedIndexCatalog;
 import com.xgen.mongot.embedding.EmbeddingRequestContext;
 import com.xgen.mongot.embedding.VectorOrError;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.providers.EmbeddingServiceManager;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingModelCatalog;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingModelConfig;
@@ -29,6 +30,9 @@ import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.IndexUnavailableException;
 import com.xgen.mongot.index.InitializedVectorIndex;
 import com.xgen.mongot.index.ReaderClosedException;
+import com.xgen.mongot.index.autoembedding.AutoEmbeddingIndexGeneration;
+import com.xgen.mongot.index.autoembedding.InitializedMaterializedViewIndex;
+import com.xgen.mongot.index.autoembedding.MaterializedViewIndexGeneration;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.index.lucene.LuceneVectorIndex;
 import com.xgen.mongot.index.lucene.LuceneVectorIndexReader;
@@ -38,6 +42,9 @@ import com.xgen.mongot.index.query.VectorSearchQuery;
 import com.xgen.mongot.index.query.operators.VectorSearchFilter;
 import com.xgen.mongot.index.query.operators.VectorSearchQueryInput;
 import com.xgen.mongot.index.query.operators.mql.Clause;
+import com.xgen.mongot.index.version.Generation;
+import com.xgen.mongot.index.version.MaterializedViewGeneration;
+import com.xgen.mongot.index.version.MaterializedViewGenerationId;
 import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.bson.Vector;
@@ -56,6 +63,7 @@ import com.xgen.testing.mongot.server.command.search.definition.request.VectorSe
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -816,6 +824,120 @@ public class VectorSearchCommandAutoEmbedTest {
         result);
   }
 
+  @Test
+  public void testMaybeEmbed_withTextQuery_includesAutoEmbeddingFieldsMapping() throws Exception {
+    // Verifies that maybeEmbed() includes autoEmbeddingFieldsMapping when using text query
+    var mocks = new Mocks();
+    var internalPath = FieldPath.parse("_autoEmbed.testPath");
+    configureWithAutoEmbeddingFieldsMapping(mocks, Map.of(PATH, internalPath));
+
+    var command =
+        buildAutoEmbeddingVectorSearchCommandWithMocks(
+            mocks,
+            VectorQueryBuilder.builder()
+                .index(INDEX_NAME)
+                .criteria(
+                    ApproximateVectorQueryCriteriaBuilder.builder()
+                        .limit(LIMIT)
+                        .numCandidates(NUM_CANDIDATES)
+                        .query(new VectorSearchQueryInput.Text("test query"))
+                        .path(PATH)
+                        .filter(getFilter())
+                        .build())
+                .build());
+    command.run();
+
+    MaterializedVectorSearchQuery materializedQuery = captureMaterializedQuery(mocks.reader);
+    assertThat(materializedQuery.autoEmbeddingFieldsMapping()).containsExactly(PATH, internalPath);
+    // Verify materializedCriteria() has internal path and queryVector.
+    var criteria = materializedQuery.materializedCriteria();
+    assertThat(criteria.path()).isEqualTo(internalPath);
+    assertThat(criteria.queryVector()).hasValue(QUERY_VECTOR);
+    assertThat(criteria.query()).isEmpty();
+  }
+
+  @Test
+  public void testMaybeEmbed_withQueryVector_includesAutoEmbeddingFieldsMapping() throws Exception {
+    // Verifies that maybeEmbed() includes autoEmbeddingFieldsMapping when using queryVector
+    var mocks = new Mocks();
+    var internalPath = FieldPath.parse("_autoEmbed.testPath");
+    configureWithAutoEmbeddingFieldsMapping(mocks, Map.of(PATH, internalPath));
+
+    var command =
+        buildAutoEmbeddingVectorSearchCommandWithMocks(
+            mocks,
+            VectorQueryBuilder.builder()
+                .index(INDEX_NAME)
+                .criteria(
+                    ApproximateVectorQueryCriteriaBuilder.builder()
+                        .limit(LIMIT)
+                        .numCandidates(NUM_CANDIDATES)
+                        .queryVector(QUERY_VECTOR)
+                        .path(PATH)
+                        .filter(getFilter())
+                        .build())
+                .build());
+    command.run();
+
+    MaterializedVectorSearchQuery materializedQuery = captureMaterializedQuery(mocks.reader);
+    assertThat(materializedQuery.autoEmbeddingFieldsMapping()).containsExactly(PATH, internalPath);
+    // Verify materializedCriteria() has internal path, queryVector, and no text query
+    var criteria = materializedQuery.materializedCriteria();
+    assertThat(criteria.path()).isEqualTo(internalPath);
+    assertThat(criteria.queryVector()).hasValue(QUERY_VECTOR);
+    assertThat(criteria.query()).isEmpty();
+  }
+
+  /**
+   * Configures a Mocks instance with an AutoEmbeddingIndexGeneration that has the given
+   * autoEmbeddingFieldsMapping. This overrides the catalog stubs to return the auto-embedding
+   * index.
+   */
+  private static void configureWithAutoEmbeddingFieldsMapping(
+      Mocks mocks, Map<FieldPath, FieldPath> autoEmbeddingFieldsMapping) {
+    var schemaMetadata =
+        new MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata(
+            1, autoEmbeddingFieldsMapping);
+    var matViewGenId =
+        new MaterializedViewGenerationId(
+            MOCK_INDEX_GENERATION_ID.indexId, new MaterializedViewGeneration(Generation.CURRENT));
+    var vectorDef =
+        VectorIndexDefinitionBuilder.builder().withAutoEmbedField(PATH.toString()).build();
+
+    // InitializedMaterializedViewIndex - the actual index that gets queried
+    var matViewIndex = Mockito.mock(InitializedMaterializedViewIndex.class);
+    when(matViewIndex.getSchemaMetadata()).thenReturn(schemaMetadata);
+    when(matViewIndex.getReader()).thenReturn(mocks.reader);
+    when(matViewIndex.getDefinition()).thenReturn(vectorDef);
+    when(matViewIndex.asVectorIndex()).thenCallRealMethod();
+
+    // MaterializedViewIndexGeneration - wraps the initialized index
+    var matViewIndexGeneration = Mockito.mock(MaterializedViewIndexGeneration.class);
+    when(matViewIndexGeneration.getIndex()).thenReturn(matViewIndex);
+
+    // AutoEmbeddingIndexGeneration - the composite index returned by catalog
+    var autoEmbeddingIndexGeneration = Mockito.mock(AutoEmbeddingIndexGeneration.class);
+    when(autoEmbeddingIndexGeneration.getType()).thenCallRealMethod();
+    when(autoEmbeddingIndexGeneration.getMaterializedViewIndexGeneration())
+        .thenReturn(matViewIndexGeneration);
+    when(autoEmbeddingIndexGeneration.getGenerationId()).thenReturn(matViewGenId);
+    when(autoEmbeddingIndexGeneration.getIndex()).thenReturn(matViewIndex);
+
+    // Override catalog stubs
+    when(mocks.catalog.getIndex(DATABASE_NAME, COLLECTION_UUID, Optional.empty(), INDEX_NAME))
+        .thenReturn(Optional.of(autoEmbeddingIndexGeneration));
+    when(mocks.initializedIndexCatalog.getIndex(matViewGenId))
+        .thenReturn(Optional.of(matViewIndex));
+  }
+
+  private static MaterializedVectorSearchQuery captureMaterializedQuery(
+      LuceneVectorIndexReader reader) throws Exception {
+    ArgumentCaptor<MaterializedVectorSearchQuery> captor =
+        ArgumentCaptor.forClass(MaterializedVectorSearchQuery.class);
+    Mockito.verify(reader).query(captor.capture());
+    return captor.getValue();
+  }
+
   private static VectorSearchCommand buildAutoEmbeddingVectorSearchCommandWithMocks(
       Mocks mocks, VectorSearchQuery vectorSearchQuery) {
     return buildAutoEmbeddingVectorSearchCommandWithMocks(
@@ -925,9 +1047,9 @@ public class VectorSearchCommandAutoEmbedTest {
 
   private static class Mocks {
 
-    private final IndexCatalog catalog;
-    private final InitializedIndexCatalog initializedIndexCatalog;
-    private final IndexMetricsUpdater metricsUpdater;
+    final IndexCatalog catalog;
+    final InitializedIndexCatalog initializedIndexCatalog;
+    final IndexMetricsUpdater metricsUpdater;
     final LuceneVectorIndexReader reader;
     final BsonArray bsonResults;
 

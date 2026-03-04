@@ -3,6 +3,7 @@ package com.xgen.mongot.index.autoembedding;
 import static com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration.MIN_VERSION_FOR_MATERIALIZED_VIEW_EMBEDDING;
 
 import com.mongodb.lang.Nullable;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexUnavailableException;
 import com.xgen.mongot.index.InitializedVectorIndex;
@@ -109,6 +110,10 @@ public class AutoEmbeddingCompositeIndex implements VectorIndex {
   public void close() throws IOException {
     this.matViewIndex.close();
     this.vectorIndex.close();
+  }
+
+  public MaterializedViewSchemaMetadata getSchemaMetadata() {
+    return this.matViewIndex.getSchemaMetadata();
   }
 
   /** Updates effective lucene status by checking if lucene has caught up to MV's steady position */

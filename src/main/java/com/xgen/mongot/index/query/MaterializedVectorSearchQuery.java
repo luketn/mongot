@@ -7,6 +7,7 @@ import com.xgen.mongot.index.query.operators.VectorSearchFilter;
 import com.xgen.mongot.index.query.operators.VectorSearchQueryInput;
 import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.bson.Vector;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -15,9 +16,28 @@ import java.util.Optional;
  * creation time, so it needs to be materialized to MaterializedVectorSearchQuery for
  * VectorIndexReader to consume.
  */
-public record MaterializedVectorSearchQuery(VectorSearchQuery vectorSearchQuery, Vector vector) {
-  public FieldPath path() {
-    return this.vectorSearchQuery().criteria().path();
+public record MaterializedVectorSearchQuery(
+    VectorSearchQuery vectorSearchQuery,
+    Vector vector,
+    Map<FieldPath, FieldPath> autoEmbeddingFieldsMapping) {
+
+  public MaterializedVectorSearchQuery(VectorSearchQuery rawVectorSearchQuery, Vector vector) {
+    this(rawVectorSearchQuery, vector, Map.of());
+  }
+
+  /**
+   * Returns the internal field path by converting user provided query path into internal field path
+   * stored in index, return original field path if there is no matching entry in materialized view
+   * schema mapping.
+   *
+   * <p>For example: for user provided query: {'index': 'default', 'path': 'title', 'query': 'xxxx'}
+   * and {'autoEmbeddingFieldsMapping': {'title': '_autoEmbed.title'}}, the returned internalPath
+   * will be '_autoEmbed.title'.
+   */
+  public FieldPath internalPath() {
+    return this.autoEmbeddingFieldsMapping()
+        .getOrDefault(
+            this.vectorSearchQuery().criteria().path(), this.vectorSearchQuery().criteria().path());
   }
 
   public Optional<Vector> queryVector() {
@@ -63,9 +83,10 @@ public record MaterializedVectorSearchQuery(VectorSearchQuery vectorSearchQuery,
     return switch (criteria) {
       case ApproximateVectorSearchCriteria approximate ->
           new ApproximateVectorSearchCriteria(
-              approximate.path(),
+              internalPath(),
               Optional.of(this.vector),
-              approximate.query(),
+              // Exactly one of queryVector or query can be present
+              Optional.empty(),
               approximate.filter(),
               approximate.parentFilter(),
               approximate.limit(),
@@ -75,9 +96,10 @@ public record MaterializedVectorSearchQuery(VectorSearchQuery vectorSearchQuery,
               approximate.embeddedOptions());
       case ExactVectorSearchCriteria exact ->
           new ExactVectorSearchCriteria(
-              exact.path(),
+              internalPath(),
               Optional.of(this.vector),
-              exact.query(),
+              // Exactly one of queryVector or query can be present
+              Optional.empty(),
               exact.filter(),
               exact.parentFilter(),
               exact.limit(),
