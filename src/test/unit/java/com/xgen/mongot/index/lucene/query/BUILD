@@ -39,6 +39,7 @@ java_test_suite(
         "TextQueryFactoryTest.java",
         "UuidRangeQueryFactoryTest.java",
         "VectorSearchFilterQueryFactoryTest.java",
+        "VectorSearchNestedFilterTest.java",
     ],
     tags = ["unit"],
     deps = [

@@ -50,7 +50,7 @@ public class VectorQueryFactoryContext implements QueryFactoryContext {
 
   @Override
   public boolean isIndexWithEmbeddedFields() {
-    return false;
+    return this.resolver.getNestedRoot().isPresent();
   }
 
   @Override
