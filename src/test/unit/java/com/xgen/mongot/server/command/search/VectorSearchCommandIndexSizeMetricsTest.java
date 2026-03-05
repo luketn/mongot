@@ -109,6 +109,7 @@ public class VectorSearchCommandIndexSizeMetricsTest {
     var tags = timer.getId().getTags();
     assertThat(tags.stream().anyMatch(tag -> tag.getKey().equals("indexSizeCategory"))).isTrue();
     assertThat(tags.stream().anyMatch(tag -> tag.getKey().equals("quantizationType"))).isTrue();
+    assertThat(tags.stream().anyMatch(tag -> tag.getKey().equals("isNested"))).isTrue();
 
     // Verify quantization type is correct
     assertThat(
@@ -118,6 +119,15 @@ public class VectorSearchCommandIndexSizeMetricsTest {
                 .get()
                 .getValue())
         .isEqualTo("scalar_quantized");
+
+    // Verify isNested is false for non-nested query
+    assertThat(
+            tags.stream()
+                .filter(tag -> tag.getKey().equals("isNested"))
+                .findFirst()
+                .get()
+                .getValue())
+        .isEqualTo("false");
   }
 
   @Test
@@ -589,6 +599,77 @@ public class VectorSearchCommandIndexSizeMetricsTest {
             .counter();
     assertThat(taggedCounter).isNotNull();
     assertThat(taggedCounter.count()).isEqualTo(1);
+  }
+
+  @Test
+  public void testNestedVectorSearchLatencyMetricHasIsNestedTrue() throws Exception {
+    FeatureFlags featureFlagsEnabled =
+        FeatureFlags.withDefaults().enable(Feature.INDEX_SIZE_QUANTIZATION_METRICS).build();
+
+    var mocks = new Mocks();
+    var metricsFactory = createSimpleMetricsFactory();
+    var metrics = new VectorSearchCommand.Metrics(metricsFactory);
+
+    // Build a nested vector index definition with nestedRoot
+    FieldPath nestedPath = FieldPath.parse("sections.embedding");
+    VectorIndexDefinition nestedIndexDef =
+        VectorIndexDefinitionBuilder.builder()
+            .withVectorField(
+                nestedPath.toString(),
+                3,
+                VectorSimilarity.DOT_PRODUCT,
+                VectorQuantization.NONE,
+                new VectorIndexingAlgorithm.HnswIndexingAlgorithm())
+            .nestedRoot("sections")
+            .build();
+    lenient().when(mocks.indexGeneration.getDefinition()).thenReturn(nestedIndexDef);
+    lenient().when(mocks.initializedIndex.getDefinition()).thenReturn(nestedIndexDef);
+
+    SearchCommandsRegister.BootstrapperMetadata metadata =
+        new SearchCommandsRegister.BootstrapperMetadata(
+            "testVersion", "localhost", () -> MongoDbServerInfo.EMPTY, featureFlagsEnabled);
+
+    VectorSearchQuery vectorSearchQuery =
+        VectorQueryBuilder.builder()
+            .index(INDEX_NAME)
+            .criteria(
+                ApproximateVectorQueryCriteriaBuilder.builder()
+                    .limit(LIMIT)
+                    .numCandidates(NUM_CANDIDATES)
+                    .queryVector(QUERY_VECTOR)
+                    .path(nestedPath)
+                    .build())
+            .build();
+
+    var command =
+        new VectorSearchCommand(
+            VectorSearchCommandDefinitionBuilder.builder()
+                .db(DATABASE_NAME)
+                .collectionName(COLLECTION_NAME)
+                .collectionUuid(COLLECTION_UUID)
+                .vectorSearchQuery(vectorSearchQuery)
+                .build(),
+            mocks.catalog,
+            mocks.initializedIndexCatalog,
+            metadata,
+            MOCK_EMBEDDING_SERVICE,
+            metrics);
+
+    command.run();
+
+    // Verify that the latency metric was recorded with isNested=true
+    var timer = metricsFactory.get("vectorSearchCommandTotalLatencyByIndexSize").timer();
+    assertThat(timer).isNotNull();
+    assertThat(timer.count()).isEqualTo(1);
+
+    var tags = timer.getId().getTags();
+    assertThat(
+            tags.stream()
+                .filter(tag -> tag.getKey().equals("isNested"))
+                .findFirst()
+                .get()
+                .getValue())
+        .isEqualTo("true");
   }
 
   private static VectorSearchCommand buildVectorSearchCommandWithFeatureFlags(

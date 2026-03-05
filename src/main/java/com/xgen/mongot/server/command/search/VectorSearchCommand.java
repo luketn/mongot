@@ -337,9 +337,12 @@ public class VectorSearchCommand implements Command {
       return createExhaustedCursorBatch(new BsonArray()).toBson();
     }
 
-    // TODO(CLOUDP-384026): nested embedding should also check namespaced auto-embedding field path
+    // Compute once and reuse for both the counter and the latency metric tag.
+    boolean isNested =
+        isNestedVectorSearch(vectorSearchQuery, optionalIndex.get().getDefinition());
+
     // Record nested vector search query counter at command receipt, consistent with other counters.
-    if (isNestedVectorSearch(vectorSearchQuery, optionalIndex.get().getDefinition())) {
+    if (isNested) {
       this.metrics.nestedVectorSearchQueries.increment();
       recordNestedVectorSearchTags(vectorSearchQuery);
     }
@@ -374,9 +377,9 @@ public class VectorSearchCommand implements Command {
       metrics.recordDynamicFeatureFlagLatencyTimer(durationNs);
       metrics.getVectorCommandCounter().increment();
 
-      // Record command-level latency with index size and quantization tags
+      // Record command-level latency with index size, quantization, and nested tags
       recordVectorSearchCommandLatency(
-          commandTimer, index, materializedQuery.materializedCriteria());
+          commandTimer, index, materializedQuery.materializedCriteria(), isNested);
 
       if (Explain.isEnabled() && BsonUtils.isOversized(serializedBatch)) {
         // Explain must be the problem since results are capped at 10k for vector search
@@ -689,7 +692,7 @@ public class VectorSearchCommand implements Command {
   }
 
   /**
-   * Records the vector search command total latency with index size and quantization tags.
+   * Records the vector search command total latency with index size, quantization, and nested tags.
    *
    * <p>This metric is guarded by the INDEX_SIZE_QUANTIZATION_METRICS feature flag. When disabled,
    * no metrics are recorded.
@@ -697,9 +700,11 @@ public class VectorSearchCommand implements Command {
    * @param timer The timer that was started at the beginning of the command execution
    * @param index The initialized index being queried
    * @param vectorSearchCriteria The vector search criteria being executed
+   * @param isNested Whether this is a nested (embedded) vector search query
    */
   private void recordVectorSearchCommandLatency(
-      Timer.Sample timer, InitializedIndex index, VectorSearchCriteria vectorSearchCriteria) {
+      Timer.Sample timer, InitializedIndex index, VectorSearchCriteria vectorSearchCriteria,
+      boolean isNested) {
 
     if (!this.metadata.featureFlags().isEnabled(Feature.INDEX_SIZE_QUANTIZATION_METRICS)) {
       return;
@@ -712,7 +717,8 @@ public class VectorSearchCommand implements Command {
 
     Tags tags = Tags.of(
         Tag.of("indexSizeCategory", indexSizeCategory),
-        Tag.of("quantizationType", quantizationType)
+        Tag.of("quantizationType", quantizationType),
+        Tag.of("isNested", String.valueOf(isNested))
     );
 
     Timer commandTimer = this.metricsFactory.timer(
