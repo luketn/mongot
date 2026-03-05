@@ -3,6 +3,7 @@ package com.xgen.mongot.embedding.mongodb;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.CURRENT_MAT_VIEW_SCHEMA_VERSION;
 import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO;
+import static com.xgen.mongot.embedding.utils.EmbeddingConnectionStringUtils.disableDirectConnection;
 import static com.xgen.mongot.util.mongodb.MongoDbDatabase.getCollectionInfo;
 
 import com.google.common.collect.ImmutableMap;
@@ -35,12 +36,17 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.bson.BsonDocument;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implements the logic to determine which materialized view collection to use for a given index
  * definition. Responsible for discovering existing collections and creating new ones as needed.
  */
 public class MaterializedViewCollectionResolver {
+
+  private static final Logger LOG =
+      LoggerFactory.getLogger(MaterializedViewCollectionResolver.class);
 
   private static final long CURRENT_HASH_VERSION = 1L;
   private static final String DELIM = "-";
@@ -161,6 +167,10 @@ public class MaterializedViewCollectionResolver {
                       CURRENT_MAT_VIEW_SCHEMA_VERSION)));
       this.metadataCatalog.addMetadata(
           indexDefinitionGeneration.getGenerationId(), materializedViewCollectionMetadata);
+      LOG.info(
+          "Using materialized view collection: {} for generationId: {}",
+          collectionName,
+          indexDefinitionGeneration.getGenerationId());
       return materializedViewCollectionMetadata;
     } catch (Exception e) {
       throw new MaterializedViewNonTransientException(e);
@@ -204,6 +214,7 @@ public class MaterializedViewCollectionResolver {
   private void createCollection(String collectionName) {
     try {
       this.mongoClient.getDatabase(this.matViewDatabaseName).createCollection(collectionName);
+      LOG.info("Created a new MV collection with name {}", collectionName);
     } catch (MongoCommandException e) {
       if (e.getErrorCode() != NAMESPACE_EXISTS_ERROR_CODE) {
         throw e;
@@ -254,11 +265,8 @@ public class MaterializedViewCollectionResolver {
 
   private static MongoClient createMongoClient(
       SyncSourceConfig syncSourceConfig, MeterRegistry meterRegistry) {
-    // Use mongosUri if available, otherwise fall back to mongodUri. This allows the MongoDB
-    // driver
-    // to automatically discover replica set topology and route writes to the primary, avoiding
-    // NotWritablePrimary errors after failovers.
-    var connectionString = syncSourceConfig.mongosUri.orElse(syncSourceConfig.mongodUri);
+    var connectionString = disableDirectConnection(syncSourceConfig.mongodClusterUri);
+
     return MongoClientBuilder.buildNonReplicationWithDefaults(
         connectionString,
         "AutoEmbedding Materialized View Collection Resolver",
