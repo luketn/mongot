@@ -20,6 +20,9 @@ import com.xgen.mongot.index.ReaderClosedException;
 import com.xgen.mongot.index.VectorIndexReader;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.definition.VectorIndexDefinitionGeneration;
+import com.xgen.mongot.index.definition.VectorIndexingAlgorithm;
+import com.xgen.mongot.index.definition.VectorQuantization;
+import com.xgen.mongot.index.definition.VectorSimilarity;
 import com.xgen.mongot.index.lucene.directory.IndexDirectoryFactory;
 import com.xgen.mongot.index.lucene.directory.IndexDirectoryHelper;
 import com.xgen.mongot.index.lucene.field.FieldName;
@@ -43,9 +46,11 @@ import com.xgen.mongot.util.concurrent.NamedExecutorService;
 import com.xgen.mongot.util.concurrent.NamedScheduledExecutorService;
 import com.xgen.testing.ConcurrencyTestUtils;
 import com.xgen.testing.TestUtils;
+import com.xgen.testing.mongot.index.definition.VectorIndexDefinitionBuilder;
 import com.xgen.testing.mongot.index.lucene.LuceneConfigBuilder;
 import com.xgen.testing.mongot.index.query.ApproximateVectorQueryCriteriaBuilder;
 import com.xgen.testing.mongot.index.query.VectorQueryBuilder;
+import com.xgen.testing.mongot.mock.index.IndexGeneration;
 import com.xgen.testing.mongot.mock.index.SearchIndex;
 import com.xgen.testing.mongot.mock.index.VectorIndex;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -160,6 +165,12 @@ public class LuceneVectorIndexReaderTest {
       }
     };
   }
+
+  /**
+   * Conservative HNSW graph size estimate (8 * M * num_vectors, M=16). Must match
+   * LuceneVectorIndexReader.
+   */
+  private static final long HNSW_GRAPH_BYTES_PER_VECTOR = 8L * 16;
 
   public static class TestIndexReader {
     private static final VectorSearchQuery UNQUANTIZED_QUERY_DEFINITION =
@@ -314,15 +325,19 @@ public class LuceneVectorIndexReaderTest {
       assertNotNull(floatFieldInfo);
       assertNotNull(byteFieldInfo);
       assertNotNull(bitFieldInfo);
+      long graphBytes = (long) numVectors * HNSW_GRAPH_BYTES_PER_VECTOR;
       assertEquals(
-          24_000_000_000L,
-          LuceneVectorIndexReader.computeRequiredHeapBytes(leafReader, floatFieldInfo, 4));
+          24_000_000_000L + graphBytes,
+          LuceneVectorIndexReader.computeRequiredHeapBytes(
+              leafReader, floatFieldInfo, 4, true));
       assertEquals(
-          6_000_000_000L,
-          LuceneVectorIndexReader.computeRequiredHeapBytes(leafReader, byteFieldInfo, 1));
+          6_000_000_000L + graphBytes,
+          LuceneVectorIndexReader.computeRequiredHeapBytes(
+              leafReader, byteFieldInfo, 1, true));
       assertEquals(
-          750_000_000L,
-          LuceneVectorIndexReader.computeRequiredHeapBytes(leafReader, bitFieldInfo, 1 / 8.0));
+          750_000_000L + graphBytes,
+          LuceneVectorIndexReader.computeRequiredHeapBytes(
+              leafReader, bitFieldInfo, 1 / 8.0, true));
     }
 
     @Test
@@ -532,7 +547,7 @@ public class LuceneVectorIndexReaderTest {
                   this.floatFieldName, vector, VectorSimilarityFunction.COSINE));
       this.indexReader.refresh();
       long result = this.indexReader.getRequiredMemoryForVectorData();
-      assertEquals(12, result);
+      assertEquals(12 + HNSW_GRAPH_BYTES_PER_VECTOR, result);
     }
 
     @Test
@@ -548,7 +563,48 @@ public class LuceneVectorIndexReaderTest {
 
       long result = this.indexReader.getRequiredMemoryForVectorData();
 
-      assertEquals(12, result);
+      assertEquals(12 + HNSW_GRAPH_BYTES_PER_VECTOR, result);
+    }
+
+    /**
+     * Flat index (indexingMethod: flat) has no HNSW graph, so required memory must be vector bytes
+     * only. Verifies graph size contribution is 0 for flat indexes.
+     */
+    @Test
+    public void requiredMemory_flatIndex_graphContributionZero() throws Exception {
+      com.xgen.mongot.index.definition.VectorIndexDefinition flatDefinition =
+          VectorIndexDefinitionBuilder.builder()
+              .indexId(VectorIndex.MOCK_INDEX_ID)
+              .name(VectorIndex.MOCK_INDEX_NAME)
+              .database(VectorIndex.MOCK_INDEX_DATABASE_NAME)
+              .lastObservedCollectionName(VectorIndex.MOCK_INDEX_LAST_OBSERVED_COLLECTION_NAME)
+              .collectionUuid(VectorIndex.MOCK_INDEX_COLLECTION_UUID)
+              .withFilterPath("filter.path")
+              .withVectorField(
+                  "vector.path",
+                  3,
+                  VectorSimilarity.COSINE,
+                  VectorQuantization.NONE,
+                  new VectorIndexingAlgorithm.FlatIndexingAlgorithm())
+              .build();
+      VectorIndexDefinitionGeneration flatGeneration =
+          IndexGeneration.mockDefinitionGeneration(flatDefinition);
+      generateReaderWriter(flatGeneration);
+
+      this.writer.addDocument(new Document());
+      indexDocumentsAndCommit(
+          List.of(new float[] {1, 2, 3}),
+          vector ->
+              new KnnFloatVectorField(
+                  this.floatFieldName, vector, VectorSimilarityFunction.COSINE));
+      this.indexReader.refresh();
+
+      long result = this.indexReader.getRequiredMemoryForVectorData();
+      // 12 = 1 vector * 3 dims * 4 bytes (float). No graph bytes for flat index.
+      assertEquals(
+          "Flat index must not include HNSW graph in required memory",
+          12,
+          result);
     }
 
     @Test
@@ -596,8 +652,8 @@ public class LuceneVectorIndexReaderTest {
       this.indexReader.refresh();
       long byteFileSize = this.indexReader.getRequiredMemoryForVectorData();
 
-      Assert.assertEquals(48, floatFileSize);
-      Assert.assertEquals(12, byteFileSize);
+      Assert.assertEquals(48 + 4 * HNSW_GRAPH_BYTES_PER_VECTOR, floatFileSize);
+      Assert.assertEquals(12 + 4 * HNSW_GRAPH_BYTES_PER_VECTOR, byteFileSize);
     }
 
     @Test
@@ -634,8 +690,8 @@ public class LuceneVectorIndexReaderTest {
       this.indexReader.refresh();
       long bitFileSize = this.indexReader.getRequiredMemoryForVectorData();
 
-      Assert.assertEquals(48, floatFileSize);
-      Assert.assertEquals(2, bitFileSize);
+      Assert.assertEquals(48 + 4 * HNSW_GRAPH_BYTES_PER_VECTOR, floatFileSize);
+      Assert.assertEquals(2 + 4 * HNSW_GRAPH_BYTES_PER_VECTOR, bitFileSize);
     }
 
     @Test
@@ -669,8 +725,8 @@ public class LuceneVectorIndexReaderTest {
       this.indexReader.refresh();
       long binaryFileSize = this.indexReader.getRequiredMemoryForVectorData();
 
-      Assert.assertEquals(12, scalarFileSize);
-      Assert.assertEquals(2, binaryFileSize);
+      Assert.assertEquals(12 + 4 * HNSW_GRAPH_BYTES_PER_VECTOR, scalarFileSize);
+      Assert.assertEquals(2 + 4 * HNSW_GRAPH_BYTES_PER_VECTOR, binaryFileSize);
     }
 
     @Test
@@ -704,8 +760,8 @@ public class LuceneVectorIndexReaderTest {
       this.indexReader.refresh();
       long binaryFileSize = this.indexReader.getRequiredMemoryForVectorData();
 
-      Assert.assertEquals(2, binaryFileSize);
-      Assert.assertEquals(48, floatFileSize);
+      Assert.assertEquals(2 + 4 * HNSW_GRAPH_BYTES_PER_VECTOR, binaryFileSize);
+      Assert.assertEquals(48 + 4 * HNSW_GRAPH_BYTES_PER_VECTOR, floatFileSize);
     }
 
     @Test
@@ -765,8 +821,8 @@ public class LuceneVectorIndexReaderTest {
 
       this.indexReader.refresh();
       var doubleFloatFileSize = this.indexReader.getRequiredMemoryForVectorData();
-      Assert.assertEquals(48, floatFileSize);
-      Assert.assertEquals(96, doubleFloatFileSize);
+      Assert.assertEquals(48 + 4 * HNSW_GRAPH_BYTES_PER_VECTOR, floatFileSize);
+      Assert.assertEquals(96 + 8 * HNSW_GRAPH_BYTES_PER_VECTOR, doubleFloatFileSize);
     }
 
     private <T> void indexDocumentsAndCommit(

@@ -15,6 +15,7 @@ import com.xgen.mongot.index.definition.VectorFieldSpecification;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFieldDefinition;
 import com.xgen.mongot.index.definition.VectorIndexVectorFieldDefinition;
+import com.xgen.mongot.index.definition.VectorIndexingAlgorithm;
 import com.xgen.mongot.index.definition.VectorQuantization;
 import com.xgen.mongot.index.lucene.LuceneSearchManager.QueryInfo;
 import com.xgen.mongot.index.lucene.explain.tracing.Explain;
@@ -61,6 +62,11 @@ public class LuceneVectorIndexReader implements VectorIndexReader {
   private static final Set<String> LUCENE_ID_FIELD_NAME_SET =
       Set.of(FieldName.MetaField.ID.getLuceneFieldName());
   private static final int VECTOR_SEARCH_BATCH_SIZE = 10_000;
+  /**
+   * Conservative HNSW graph size estimate: 8 * M * num_vectors bytes
+   * Using minimum M=16 so the estimate is a lower bound
+   */
+  private static final long HNSW_GRAPH_BYTES_PER_VECTOR = 8L * 16;
   private final VectorIndexDefinition indexDefinition;
 
   @GuardedBy("shutdownSharedLock")
@@ -278,6 +284,8 @@ public class LuceneVectorIndexReader implements VectorIndexReader {
         @Var long requiredMemory = 0L;
         for (VectorIndexVectorFieldDefinition vectorField : vectorFieldDefinition) {
           VectorFieldSpecification specification = vectorField.specification();
+          boolean includeGraphBytes = !(specification.indexingAlgorithm()
+                  instanceof VectorIndexingAlgorithm.FlatIndexingAlgorithm);
           VectorQuantization quantizationType = specification.quantization();
           for (Vector.VectorType vectorType : Vector.VectorType.values()) {
             String luceneFieldName =
@@ -310,7 +318,8 @@ public class LuceneVectorIndexReader implements VectorIndexReader {
 
             for (LeafReaderContext leafContext : leaves) {
               LeafReader reader = leafContext.reader();
-              requiredMemory += computeRequiredHeapBytes(reader, fieldInfo, bytesPerDim);
+              requiredMemory +=
+                  computeRequiredHeapBytes(reader, fieldInfo, bytesPerDim, includeGraphBytes);
             }
           }
         }
@@ -337,7 +346,8 @@ public class LuceneVectorIndexReader implements VectorIndexReader {
    *     example, this would be 0.125 for a bit vector field.
    */
   @VisibleForTesting
-  static long computeRequiredHeapBytes(LeafReader reader, FieldInfo fieldInfo, double bytesPerDim)
+  static long computeRequiredHeapBytes(LeafReader reader, FieldInfo fieldInfo, double bytesPerDim,
+      boolean includeGraphBytes)
       throws IOException {
     String fieldName = fieldInfo.getName();
     long count =
@@ -352,7 +362,9 @@ public class LuceneVectorIndexReader implements VectorIndexReader {
                   .map(ByteVectorValues::size)
                   .orElse(0);
         };
-    return (long) Math.ceil(count * bytesPerDim * fieldInfo.getVectorDimension());
+    long vectorBytes = (long) Math.ceil(count * bytesPerDim * fieldInfo.getVectorDimension());
+    long graphBytes = includeGraphBytes ? count * HNSW_GRAPH_BYTES_PER_VECTOR : 0L;
+    return vectorBytes + graphBytes;
   }
 
   // TODO(CLOUDP-333374): try to extract it from here to some utility class to unify this logic
