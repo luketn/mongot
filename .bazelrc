@@ -31,6 +31,9 @@ build --workspace_status_command="LOCAL_DEV_CONTAINER_VERSION=$LOCAL_DEV_CONTAIN
 # Retry failed downloads in case of transient network errors
 build --experimental_repository_downloader_retries=5
 
+# Build with full optimizations so native code is compiled in release mode
+build -c opt
+
 # We have not yet migrated to bzlmod (https://bazel.build/external/migration) but it has been
 # enabled by default. Leaving it enabled makes some bazel dependencies like rules_python ignore
 # how they are enabled in the WORKSPACE.
