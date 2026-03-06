@@ -976,6 +976,11 @@
   <version>3.7.8</version>
 </dependency>
 <dependency>
+  <groupId>io.projectreactor</groupId>
+  <artifactId>reactor-test</artifactId>
+  <version>3.7.8</version>
+</dependency>
+<dependency>
   <groupId>io.projectreactor.netty</groupId>
   <artifactId>reactor-netty-core</artifactId>
   <version>1.2.8</version>

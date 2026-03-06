@@ -85,6 +85,7 @@ TEST_ONLY_ARTIFACTS = (
         ],
     ) +
     [
+        "io.projectreactor:reactor-test:3.7.8",
         "com.googlecode.junit-toolbox:junit-toolbox:2.4",
         "org.hamcrest:hamcrest-library:3.0",
         "org.hamcrest:hamcrest-core:3.0",
