@@ -4,6 +4,7 @@ java_test_suite(
     name = "leasing",
     srcs = [
         "DynamicLeaderLeaseManagerTest.java",
+        "LeaseManagerOpsCommandsTest.java",
         "LeaseTest.java",
         "StatusResolutionUtilsTest.java",
     ],

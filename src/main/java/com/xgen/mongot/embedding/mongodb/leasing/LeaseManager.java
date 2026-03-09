@@ -171,4 +171,15 @@ public interface LeaseManager {
       IndexDefinitionGeneration indexDefinitionGeneration,
       MaterializedViewCollectionMetadata proposedMetadata)
       throws Exception;
+
+  /**
+   * Returns true if the lease manager is in a lease-acquisition blackout period (e.g. after
+   * applying an ops give-up command). During blackout, this instance must not acquire new
+   * leadership.
+   *
+   * @return true if in blackout, false otherwise
+   */
+  default boolean isInLeaseAcquisitionBlackout() {
+    return false;
+  }
 }

@@ -93,6 +93,103 @@ public class DynamicLeaderLeaseManagerTest {
   // ==================== Basic State Management ====================
 
   @Test
+  public void isInLeaseAcquisitionBlackout_whenNoGiveUpApplied_returnsFalse() {
+    assertThat(this.leaseManager.isInLeaseAcquisitionBlackout()).isFalse();
+  }
+
+  @Test
+  public void isInLeaseAcquisitionBlackout_whenGiveUpExpired_returnsFalse() {
+    // Create a lease manager with an ops command that has already expired
+    LeaseManagerOpsCommands expiredOpsCommand =
+        new LeaseManagerOpsCommands(
+            java.util.Optional.of(
+                new LeaseManagerOpsCommands.OpsGiveUpLeaseCommand(
+                    HOSTNAME,
+                    java.util.List.of(
+                        "69a7ab02ac4c64cd5800caaf-66392faf9727adb4c26e76dc37b98b9f-1"),
+                    Instant.now().minusSeconds(60))));
+
+    DynamicLeaderLeaseManager managerWithExpiredOps =
+        new DynamicLeaderLeaseManager(
+            this.mockMongoClient,
+            new SimpleMetricsFactory(),
+            HOSTNAME,
+            DATABASE_NAME,
+            this.mvMetadataCatalog);
+    // Call opsGiveUpLease via reflection since it is private
+    try {
+      java.lang.reflect.Method method =
+          DynamicLeaderLeaseManager.class.getDeclaredMethod(
+              "opsGiveUpLease", java.util.Optional.class);
+      method.setAccessible(true);
+      method.invoke(managerWithExpiredOps, expiredOpsCommand.opsGiveUpLease());
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    // Blackout should NOT be set because the command is expired
+    assertThat(managerWithExpiredOps.isInLeaseAcquisitionBlackout()).isFalse();
+  }
+
+  @Test
+  public void isInLeaseAcquisitionBlackout_whenGiveUpEmptyLeaseNames_stillSetsBlackout() {
+    LeaseManagerOpsCommands emptyLeaseNamesCommand =
+        new LeaseManagerOpsCommands(
+            java.util.Optional.of(
+                new LeaseManagerOpsCommands.OpsGiveUpLeaseCommand(
+                    HOSTNAME, java.util.List.of(), Instant.now().plusSeconds(60))));
+
+    DynamicLeaderLeaseManager manager =
+        new DynamicLeaderLeaseManager(
+            this.mockMongoClient,
+            new SimpleMetricsFactory(),
+            HOSTNAME,
+            DATABASE_NAME,
+            this.mvMetadataCatalog);
+    try {
+      java.lang.reflect.Method method =
+          DynamicLeaderLeaseManager.class.getDeclaredMethod(
+              "opsGiveUpLease", java.util.Optional.class);
+      method.setAccessible(true);
+      method.invoke(manager, emptyLeaseNamesCommand.opsGiveUpLease());
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    assertThat(manager.isInLeaseAcquisitionBlackout()).isTrue();
+  }
+
+  @Test
+  public void isInLeaseAcquisitionBlackout_whenGiveUpNotExpired_returnsTrue() {
+    // Create a lease manager with an ops command that has not expired
+    LeaseManagerOpsCommands notExpiredOpsCommand =
+        new LeaseManagerOpsCommands(
+            java.util.Optional.of(
+                new LeaseManagerOpsCommands.OpsGiveUpLeaseCommand(
+                    HOSTNAME,
+                    java.util.List.of(
+                        "69a7ab02ac4c64cd5800caaf-66392faf9727adb4c26e76dc37b98b9f-1"),
+                    Instant.now().plusSeconds(60))));
+
+    DynamicLeaderLeaseManager managerWithNotExpiredOps =
+        new DynamicLeaderLeaseManager(
+            this.mockMongoClient,
+            new SimpleMetricsFactory(),
+            HOSTNAME,
+            DATABASE_NAME,
+            this.mvMetadataCatalog);
+    try {
+      java.lang.reflect.Method method =
+          DynamicLeaderLeaseManager.class.getDeclaredMethod(
+              "opsGiveUpLease", java.util.Optional.class);
+      method.setAccessible(true);
+      method.invoke(managerWithNotExpiredOps, notExpiredOpsCommand.opsGiveUpLease());
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    assertThat(managerWithNotExpiredOps.isInLeaseAcquisitionBlackout()).isTrue();
+  }
+
+  @Test
   public void add_newGeneration_startsAsFollowerAndIsLeaderReturnsFalse() {
     // Arrange
     IndexGeneration indexGeneration = createTestIndexGeneration();
@@ -634,7 +731,7 @@ public class DynamicLeaderLeaseManagerTest {
             HOSTNAME,
             DATABASE_NAME,
             this.mvMetadataCatalog);
-    
+
     Map<String, Lease> storedLeases = manager.getLeases();
     assertThat(storedLeases).containsKey(collectionName);
     assertThat(
@@ -783,9 +880,7 @@ public class DynamicLeaderLeaseManagerTest {
         1L,
         "",
         "0",
-        Map.of(
-            "0",
-            new Lease.IndexDefinitionVersionStatus(false, IndexStatus.StatusCode.UNKNOWN)),
+        Map.of("0", new Lease.IndexDefinitionVersionStatus(false, IndexStatus.StatusCode.UNKNOWN)),
         new MaterializedViewCollectionMetadata(VERSION_ZERO, UUID.randomUUID(), "collection-name"),
         null);
   }
@@ -802,9 +897,7 @@ public class DynamicLeaderLeaseManagerTest {
         1L,
         commitInfo,
         "0",
-        Map.of(
-            "0",
-            new Lease.IndexDefinitionVersionStatus(false, IndexStatus.StatusCode.UNKNOWN)),
+        Map.of("0", new Lease.IndexDefinitionVersionStatus(false, IndexStatus.StatusCode.UNKNOWN)),
         new MaterializedViewCollectionMetadata(VERSION_ZERO, UUID.randomUUID(), "collection-name"),
         null);
   }

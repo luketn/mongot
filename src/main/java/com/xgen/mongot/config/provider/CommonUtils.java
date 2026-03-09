@@ -9,6 +9,7 @@ import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalo
 import com.xgen.mongot.embedding.mongodb.MaterializedViewCollectionResolver;
 import com.xgen.mongot.embedding.mongodb.leasing.DynamicLeaderLeaseManager;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
+import com.xgen.mongot.embedding.mongodb.leasing.LeaseManagerOpsCommands;
 import com.xgen.mongot.embedding.mongodb.leasing.StaticLeaderLeaseManager;
 import com.xgen.mongot.embedding.providers.EmbeddingServiceManager;
 import com.xgen.mongot.featureflag.FeatureFlags;
@@ -270,15 +271,17 @@ public class CommonUtils {
    * @param meterAndFtdcRegistry the meter and FTDC registry
    * @param hostname the hostname of this mongot instance
    * @param mvMetadataCatalog the materialized view collection metadata catalog
+   * @param opsCommands ops commands for lease manager
    * @return a DynamicLeaderLeaseManager for dynamic leader election
    */
   public static LeaseManager getDynamicLeaseManager(
       SyncSourceConfig syncSourceConfig,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
       String hostname,
-      MaterializedViewCollectionMetadataCatalog mvMetadataCatalog) {
+      MaterializedViewCollectionMetadataCatalog mvMetadataCatalog,
+      LeaseManagerOpsCommands opsCommands) {
     LOG.info("Creating DynamicLeaderLeaseManager for dynamic per-index leader election");
     return DynamicLeaderLeaseManager.create(
-        syncSourceConfig, meterAndFtdcRegistry, hostname, mvMetadataCatalog);
+        syncSourceConfig, meterAndFtdcRegistry, hostname, mvMetadataCatalog, opsCommands);
   }
 }

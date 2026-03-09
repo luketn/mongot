@@ -434,6 +434,26 @@ public record Lease(
   }
 
   /**
+   * Returns a copy of this lease with ownership released: expiration set to the past and the owner
+   * set to empty string so other instances can acquire via replaceOne. Used when giving up leases.
+   */
+  public Lease withReleasedOwnership() {
+    return new Lease(
+        this.id,
+        SCHEMA_VERSION,
+        this.collectionUuid,
+        this.collectionName,
+        "",
+        Instant.now().minusSeconds(1),
+        this.leaseVersion + 1,
+        this.commitInfo,
+        this.latestIndexDefinitionVersion,
+        this.indexDefinitionVersionStatusMap,
+        this.materializedViewCollectionMetadata,
+        this.steadyAsOfOplogPosition);
+  }
+
+  /**
    * Extracts the highWaterMark from the commit info. - If V1 is in steady state: return opTime from
    * resumeToken - Otherwise (initial sync or not started): return empty
    */
