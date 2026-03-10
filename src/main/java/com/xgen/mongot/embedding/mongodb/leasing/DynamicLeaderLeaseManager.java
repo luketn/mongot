@@ -1172,7 +1172,20 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
   private static MongoClient getMongoClient(
       SyncSourceConfig syncSourceConfig, MeterAndFtdcRegistry meterAndFtdcRegistry) {
-    var connectionString = disableDirectConnection(syncSourceConfig.mongodClusterUri);
+    // Use mongosUri if available (for sharded clusters), otherwise use mongodClusterUri (for
+    // replica sets). We use mongodClusterUri instead of mongodUri because mongodUri is a direct
+    // connection to a specific node (often a secondary), while mongodClusterUri contains all
+    // replica set members and allows the driver to route to the primary. This is required for
+    // LINEARIZABLE read concern and write operations.
+    var originalConnectionString =
+        syncSourceConfig.mongosUri.orElse(syncSourceConfig.mongodClusterUri);
+
+    // Replace directConnection=true with directConnection=false to enable topology discovery.
+    // MMS provides connection strings with directConnection=true which forces the driver to
+    // connect only to the specified host. For lease operations, we need to route to the primary,
+    // so we must enable topology discovery by setting directConnection=false.
+    // TODO(CLOUDP-360542): have mms return connection strings with directConnection=false.
+    var connectionString = disableDirectConnection(originalConnectionString);
 
     LOG.atInfo()
         .addKeyValue("hosts", connectionString.getHosts())
