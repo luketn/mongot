@@ -413,6 +413,34 @@ public class DrillSidewaysInfoBuilderTest {
     assertThat(state.operatorsByFacet).doesNotContainKey("prices");
   }
 
+  /**
+   * Regression test for extractFacetNameFromOperator with InOperator (CLOUDP-321297).
+   * The path lookup must use the first path's string form, not paths().toString().
+   */
+  @Test
+  public void processLeafOperator_InOperator_affectsFacet_addsToOperatorsByFacet() {
+    List<Long> values = Arrays.asList(1L, 2L);
+    InOperator operator =
+        OperatorBuilder.in().path("color").longs(values).build();
+
+    FieldPath embeddedPath = FieldPath.parse("a.b.c").withNewRoot("document");
+
+    Map<String, List<String>> pathToFacetNames = Map.of("color", List.of("colors"));
+    DrillSidewaysInfoBuilder.BuildState state =
+        new DrillSidewaysInfoBuilder.BuildState(pathToFacetNames);
+
+    processLeafOperatorForEmbeddedDoc(operator, embeddedPath, "colors", state);
+
+    assertThat(state.operatorsByFacet).containsKey("colors");
+    assertThat(state.operatorsByFacet.get("colors")).hasSize(1);
+    assertThat(state.operatorsByFacet.get("colors").get(0))
+        .isInstanceOf(EmbeddedDocumentOperator.class);
+    EmbeddedDocumentOperator wrappedOperator =
+        (EmbeddedDocumentOperator) state.operatorsByFacet.get("colors").get(0);
+    assertThat(wrappedOperator.operator()).isEqualTo(operator);
+    assertThat(wrappedOperator.path()).isEqualTo(embeddedPath);
+  }
+
   @Test
   public void traverseOperator_shouldClauseWithDoesNotAffect_genericWithEarlyExit() {
     // Set up a CompoundOperator with doesNotAffect defined
@@ -971,6 +999,21 @@ public class DrillSidewaysInfoBuilderTest {
     assertThat(state.operatorsByFacet.containsKey("sizes")).isTrue();
     assertThat(state.operatorsByFacet.get("colors")).containsExactly(operator);
     assertThat(state.operatorsByFacet.get("sizes")).containsExactly(operator);
+  }
+
+  @Test
+  public void addLeafOperatorToOperatorMap_InOperator_pathMappedToFacet_addsToOperatorsByFacet() {
+    List<Long> values = Arrays.asList(1L, 2L);
+    Operator operator = OperatorBuilder.in().path("color").longs(values).build();
+
+    Map<String, List<String>> pathToFacetName = Map.of("color", List.of("colors"));
+    DrillSidewaysInfoBuilder.BuildState state =
+        new DrillSidewaysInfoBuilder.BuildState(pathToFacetName);
+
+    addLeafOperatorToOperatorMap(operator, state);
+
+    assertThat(state.operatorsByFacet).containsKey("colors");
+    assertThat(state.operatorsByFacet.get("colors")).containsExactly(operator);
   }
 
   @Test

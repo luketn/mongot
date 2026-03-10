@@ -610,12 +610,15 @@ public class DrillSidewaysInfoBuilder {
   private static Optional<String> extractFacetNameFromOperator(Operator operator) {
     return switch (operator) {
       case EqualsOperator equalsOperator -> Optional.of(equalsOperator.path().toString());
-      case InOperator inOperator -> Optional.of(inOperator.paths().toString());
+      case InOperator inOperator ->
+          inOperator.paths().stream()
+              .map(FieldPath::toString)
+              .findFirst();
       case RangeOperator rangeOperator ->
           rangeOperator.paths().stream()
               .map(FieldPath::toString)
-              .findFirst(); // Retrieve first path only for simplicity
-      default -> Optional.empty(); // Unsupported operator types return empty
+              .findFirst();
+      default -> Optional.empty();
     };
   }
 
