@@ -134,6 +134,8 @@
           "sortCount": 3.0,
           "trackingCount": 11.0,
           "returnScopeCount": 12.0,
+          "facetDrillSidewaysOptimizableCount": 0.0,
+          "facetDrillSidewaysGenericCount": 0.0,
           "operatorTypeCount": {
             "allDocuments": 0.0,
             "autocomplete": 0.0,
@@ -427,6 +429,8 @@
           "sortCount": 3.0,
           "trackingCount": 11.0,
           "returnScopeCount": 12.0,
+          "facetDrillSidewaysOptimizableCount": 0.0,
+          "facetDrillSidewaysGenericCount": 0.0,
           "operatorTypeCount": {
             "allDocuments": 0.0,
             "autocomplete": 0.0,

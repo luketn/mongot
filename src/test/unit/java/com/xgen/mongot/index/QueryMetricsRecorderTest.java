@@ -15,7 +15,12 @@ import com.xgen.mongot.index.query.SearchQuery;
 import com.xgen.mongot.index.query.Tracking;
 import com.xgen.mongot.index.query.VectorSearchQuery;
 import com.xgen.mongot.index.query.collectors.Collector;
+import com.xgen.mongot.index.query.collectors.DrillSidewaysInfoBuilder.DrillSidewaysInfo;
+import com.xgen.mongot.index.query.collectors.DrillSidewaysInfoBuilder.DrillSidewaysInfo.QueryOptimizationStatus;
+import com.xgen.mongot.index.query.collectors.FacetCollector;
+import com.xgen.mongot.index.query.collectors.FacetDefinition;
 import com.xgen.mongot.index.query.operators.CompoundOperator;
+import com.xgen.mongot.index.query.operators.Operator;
 import com.xgen.mongot.index.query.operators.Operator;
 import com.xgen.mongot.index.query.operators.TextOperator;
 import com.xgen.mongot.index.query.operators.VectorSearchCriteria;
@@ -88,6 +93,149 @@ public class QueryMetricsRecorderTest {
 
     Assert.assertEquals(
         1, queryFeaturesStatsUpdater.getCollectorTypeCounter(Collector.Type.FACET).count(), 0);
+    // No drill sideways (text-only operator) -> neither drill sideways counter is incremented
+    Assert.assertEquals(
+        0,
+        queryFeaturesStatsUpdater
+            .getFacetDrillSidewaysCounter(QueryOptimizationStatus.OPTIMIZABLE)
+            .count(),
+        EPSILON);
+    Assert.assertEquals(
+        0,
+        queryFeaturesStatsUpdater
+            .getFacetDrillSidewaysCounter(QueryOptimizationStatus.GENERIC)
+            .count(),
+        EPSILON);
+  }
+
+  @Test
+  public void testFacetQueryWithDrillSidewaysOptimizable_incrementsOptimizableCounter() {
+    QueryFeaturesMetricsUpdater queryFeaturesStatsUpdater =
+        IndexMetricsUpdaterBuilder.QueryingMetricsUpdaterBuilder.QueryFeaturesMetricsUpdaterBuilder
+            .empty();
+    QueryMetricsRecorder queryMetricsRecorder = new QueryMetricsRecorder(queryFeaturesStatsUpdater);
+
+    Operator operator = OperatorBuilder.text().path("path").query("empty").build();
+    Map<String, FacetDefinition> facetDefinitions =
+        Map.of(
+            "stringFacet",
+            FacetDefinitionBuilder.string().numBuckets(5).path("path").build());
+    FacetCollector facetCollector =
+        new FacetCollector(
+            operator,
+            facetDefinitions,
+            Optional.of(
+                new DrillSidewaysInfo(
+                    Map.of(), QueryOptimizationStatus.OPTIMIZABLE, Optional.empty())));
+
+    SearchQuery query =
+        CollectorQueryBuilder.builder()
+            .collector(facetCollector)
+            .returnStoredSource(false)
+            .build();
+
+    queryMetricsRecorder.record(query, QueryCursorOptions.empty());
+
+    Assert.assertEquals(
+        1, queryFeaturesStatsUpdater.getCollectorTypeCounter(Collector.Type.FACET).count(), 0);
+    Assert.assertEquals(
+        1,
+        queryFeaturesStatsUpdater
+            .getFacetDrillSidewaysCounter(QueryOptimizationStatus.OPTIMIZABLE)
+            .count(),
+        EPSILON);
+    Assert.assertEquals(
+        0,
+        queryFeaturesStatsUpdater
+            .getFacetDrillSidewaysCounter(QueryOptimizationStatus.GENERIC)
+            .count(),
+        EPSILON);
+  }
+
+  @Test
+  public void testFacetQueryWithDrillSidewaysGeneric_incrementsGenericCounter() {
+    QueryFeaturesMetricsUpdater queryFeaturesStatsUpdater =
+        IndexMetricsUpdaterBuilder.QueryingMetricsUpdaterBuilder.QueryFeaturesMetricsUpdaterBuilder
+            .empty();
+    QueryMetricsRecorder queryMetricsRecorder = new QueryMetricsRecorder(queryFeaturesStatsUpdater);
+
+    Operator operator = OperatorBuilder.text().path("path").query("empty").build();
+    Map<String, FacetDefinition> facetDefinitions =
+        Map.of(
+            "stringFacet",
+            FacetDefinitionBuilder.string().numBuckets(5).path("path").build());
+    FacetCollector facetCollector =
+        new FacetCollector(
+            operator,
+            facetDefinitions,
+            Optional.of(
+                new DrillSidewaysInfo(
+                    Map.of(), QueryOptimizationStatus.GENERIC, Optional.empty())));
+
+    SearchQuery query =
+        CollectorQueryBuilder.builder()
+            .collector(facetCollector)
+            .returnStoredSource(false)
+            .build();
+
+    queryMetricsRecorder.record(query, QueryCursorOptions.empty());
+
+    Assert.assertEquals(
+        1, queryFeaturesStatsUpdater.getCollectorTypeCounter(Collector.Type.FACET).count(), 0);
+    Assert.assertEquals(
+        0,
+        queryFeaturesStatsUpdater
+            .getFacetDrillSidewaysCounter(QueryOptimizationStatus.OPTIMIZABLE)
+            .count(),
+        EPSILON);
+    Assert.assertEquals(
+        1,
+        queryFeaturesStatsUpdater
+            .getFacetDrillSidewaysCounter(QueryOptimizationStatus.GENERIC)
+            .count(),
+        EPSILON);
+  }
+
+  @Test
+  public void testFacetQueryWithoutDrillSideways_doesNotIncrementDrillSidewaysCounters() {
+    QueryFeaturesMetricsUpdater queryFeaturesStatsUpdater =
+        IndexMetricsUpdaterBuilder.QueryingMetricsUpdaterBuilder.QueryFeaturesMetricsUpdaterBuilder
+            .empty();
+    QueryMetricsRecorder queryMetricsRecorder = new QueryMetricsRecorder(queryFeaturesStatsUpdater);
+
+    // FacetCollector built without withDrillSideways() has empty drillSidewaysInfo
+    SearchQuery query =
+        CollectorQueryBuilder.builder()
+            .collector(
+                CollectorBuilder.facet()
+                    .facetDefinitions(
+                        Map.of(
+                            "stringFacet",
+                            FacetDefinitionBuilder.string()
+                                .numBuckets(5)
+                                .path("path")
+                                .build()))
+                    .operator(OperatorBuilder.text().path("path").query("empty").build())
+                    .build())
+            .returnStoredSource(false)
+            .build();
+
+    queryMetricsRecorder.record(query, QueryCursorOptions.empty());
+
+    Assert.assertEquals(
+        1, queryFeaturesStatsUpdater.getCollectorTypeCounter(Collector.Type.FACET).count(), 0);
+    Assert.assertEquals(
+        0,
+        queryFeaturesStatsUpdater
+            .getFacetDrillSidewaysCounter(QueryOptimizationStatus.OPTIMIZABLE)
+            .count(),
+        EPSILON);
+    Assert.assertEquals(
+        0,
+        queryFeaturesStatsUpdater
+            .getFacetDrillSidewaysCounter(QueryOptimizationStatus.GENERIC)
+            .count(),
+        EPSILON);
   }
 
   @Test

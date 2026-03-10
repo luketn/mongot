@@ -322,6 +322,8 @@ public class IndexMetricsBuilder {
       private double trackingCount = 0.0;
       private double returnScopeCount = 0.0;
       private double explainCount = 0.0;
+      private double facetDrillSidewaysOptimizableCount = 0.0;
+      private double facetDrillSidewaysGenericCount = 0.0;
 
       public static QueryFeaturesMetricsBuilder builder() {
         return new QueryFeaturesMetricsBuilder();
@@ -409,6 +411,18 @@ public class IndexMetricsBuilder {
         return this;
       }
 
+      public QueryFeaturesMetricsBuilder facetDrillSidewaysOptimizableCount(
+          double facetDrillSidewaysOptimizableCount) {
+        this.facetDrillSidewaysOptimizableCount = facetDrillSidewaysOptimizableCount;
+        return this;
+      }
+
+      public QueryFeaturesMetricsBuilder facetDrillSidewaysGenericCount(
+          double facetDrillSidewaysGenericCount) {
+        this.facetDrillSidewaysGenericCount = facetDrillSidewaysGenericCount;
+        return this;
+      }
+
       public QueryFeaturesMetricsBuilder collectorTypeCount(
           Collector.Type collectorType, double count) {
         this.collectorTypeCountMap.put(collectorType, count);
@@ -476,7 +490,9 @@ public class IndexMetricsBuilder {
             this.explainCount,
             this.sortCount,
             this.trackingCount,
-            this.returnScopeCount);
+            this.returnScopeCount,
+            this.facetDrillSidewaysOptimizableCount,
+            this.facetDrillSidewaysGenericCount);
       }
     }
   }

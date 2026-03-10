@@ -420,7 +420,9 @@ public record IndexMetrics(
         double explainCount,
         double sortCount,
         double trackingCount,
-        double returnScopeCount)
+        double returnScopeCount,
+        double facetDrillSidewaysOptimizableCount,
+        double facetDrillSidewaysGenericCount)
         implements DocumentEncodable {
 
       private static class Fields {
@@ -519,6 +521,18 @@ public record IndexMetrics(
                     .documentField()
                     .optional()
                     .withDefault(statsMapToBson(statsMapWithDefault(Operator.Type.class, 0.0)));
+
+        private static final Field.WithDefault<Double> FACET_DRILL_SIDEWAYS_OPTIMIZABLE_COUNT =
+            Field.builder("facetDrillSidewaysOptimizableCount")
+                .doubleField()
+                .optional()
+                .withDefault(0.0);
+
+        private static final Field.WithDefault<Double> FACET_DRILL_SIDEWAYS_GENERIC_COUNT =
+            Field.builder("facetDrillSidewaysGenericCount")
+                .doubleField()
+                .optional()
+                .withDefault(0.0);
       }
 
       static QueryFeaturesMetrics create(
@@ -545,7 +559,9 @@ public record IndexMetrics(
           Counter sortCounter,
           Counter trackingCounter,
           Counter requireSequenceTokensCounter,
-          Counter returnScopeCounter) {
+          Counter returnScopeCounter,
+          double facetDrillSidewaysOptimizableCount,
+          double facetDrillSidewaysGenericCount) {
         return new QueryFeaturesMetrics(
             getCurrentStatsFromCounters(Collector.Type.class, collectorTypeCounterMap),
             getCurrentStatsFromCounters(Operator.Type.class, operatorTypeCounterMap),
@@ -573,7 +589,9 @@ public record IndexMetrics(
             explainCounter.count(),
             sortCounter.count(),
             trackingCounter.count(),
-            returnScopeCounter.count());
+            returnScopeCounter.count(),
+            facetDrillSidewaysOptimizableCount,
+            facetDrillSidewaysGenericCount);
       }
 
       @Override
@@ -610,6 +628,9 @@ public record IndexMetrics(
             .field(
                 Fields.SEARCH_VECTOR_SEARCH_FILTER_OPERATOR_TYPE_COUNT,
                 statsMapToBson(this.searchVectorSearchFilterOperatorTypeCounterMap))
+            .field(Fields.FACET_DRILL_SIDEWAYS_OPTIMIZABLE_COUNT,
+                this.facetDrillSidewaysOptimizableCount)
+            .field(Fields.FACET_DRILL_SIDEWAYS_GENERIC_COUNT, this.facetDrillSidewaysGenericCount)
             .build();
       }
 
@@ -651,7 +672,9 @@ public record IndexMetrics(
             parser.getField(Fields.EXPLAIN_COUNT).unwrap(),
             parser.getField(Fields.SORT_COUNT).unwrap(),
             parser.getField(Fields.TRACKING_COUNT).unwrap(),
-            parser.getField(Fields.RETURNSCOPE_COUNT).unwrap());
+            parser.getField(Fields.RETURNSCOPE_COUNT).unwrap(),
+            parser.getField(Fields.FACET_DRILL_SIDEWAYS_OPTIMIZABLE_COUNT).unwrap(),
+            parser.getField(Fields.FACET_DRILL_SIDEWAYS_GENERIC_COUNT).unwrap());
       }
     }
   }

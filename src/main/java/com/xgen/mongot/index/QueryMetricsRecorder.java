@@ -12,6 +12,8 @@ import com.xgen.mongot.index.query.Query;
 import com.xgen.mongot.index.query.SearchQuery;
 import com.xgen.mongot.index.query.VectorSearchQuery;
 import com.xgen.mongot.index.query.collectors.Collector;
+import com.xgen.mongot.index.query.collectors.DrillSidewaysInfoBuilder.DrillSidewaysInfo;
+import com.xgen.mongot.index.query.collectors.DrillSidewaysInfoBuilder.DrillSidewaysInfo.QueryOptimizationStatus;
 import com.xgen.mongot.index.query.collectors.FacetCollector;
 import com.xgen.mongot.index.query.operators.AllDocumentsOperator;
 import com.xgen.mongot.index.query.operators.AutocompleteOperator;
@@ -194,7 +196,15 @@ public class QueryMetricsRecorder {
 
     return switch (collector) {
       case FacetCollector facetCollector ->
-          Stream.concat(getOperatorCounters(facetCollector.operator()), collectorTypeCounter);
+          Stream.concat(
+              Stream.concat(
+                  getOperatorCounters(facetCollector.operator()), collectorTypeCounter),
+              facetCollector
+                  .drillSidewaysInfo()
+                  .map(DrillSidewaysInfo::optimizationStatus)
+                  .filter(status -> status != QueryOptimizationStatus.NON_DRILL_SIDEWAYS)
+                  .map(this.queryFeaturesMetricsUpdater::getFacetDrillSidewaysCounter)
+                  .stream());
     };
   }
 

@@ -10,6 +10,7 @@ import com.xgen.mongot.index.definition.SearchIndexCapabilities;
 import com.xgen.mongot.index.definition.VectorIndexCapabilities;
 import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.collectors.Collector;
+import com.xgen.mongot.index.query.collectors.DrillSidewaysInfoBuilder.DrillSidewaysInfo.QueryOptimizationStatus;
 import com.xgen.mongot.index.query.operators.Operator;
 import com.xgen.mongot.index.query.operators.TextOperator;
 import com.xgen.mongot.index.query.operators.VectorSearchCriteria;
@@ -851,6 +852,9 @@ public class IndexMetricsUpdater implements Closeable {
       private static final String RETURN_SCOPE_COUNTER_NAME = "returnScope";
       private static final String VECTOR_SEARCH_FILTER_COUNTER_NAME = "vectorSearch_filter";
       private static final String EXPLAIN_COUNTER_NAME = "explain";
+      private static final String FACET_DRILL_SIDEWAYS_COUNTER_NAME =
+          "query_collector_facet_drill_sideways";
+      private static final String FACET_DRILL_SIDEWAYS_TYPE_TAG = "type";
 
       private final PerIndexMetricsFactory metricsFactory;
       private final Map<Collector.Type, Counter> collectorTypeCounterMap;
@@ -885,6 +889,7 @@ public class IndexMetricsUpdater implements Closeable {
       private final Counter returnStoredSourceCounter;
       private final Counter returnScopeCounter;
       private final Counter explainCounter;
+      private final Map<QueryOptimizationStatus, Counter> facetDrillSidewaysCounterMap;
 
       /** Counts the number vector search queries with a pre-filter. */
       private final Counter vectorSearchFilterCounter;
@@ -911,6 +916,22 @@ public class IndexMetricsUpdater implements Closeable {
             createCounter(metricsFactory, RETURN_STORED_SOURCE_COUNTER_NAME);
         this.returnScopeCounter = createCounter(metricsFactory, RETURN_SCOPE_COUNTER_NAME);
         this.explainCounter = createCounter(metricsFactory, EXPLAIN_COUNTER_NAME);
+        this.facetDrillSidewaysCounterMap =
+            Map.of(
+                QueryOptimizationStatus.OPTIMIZABLE,
+                metricsFactory.counter(
+                    METRIC_NAME,
+                    Tags.of(NAME_TAG, FACET_DRILL_SIDEWAYS_COUNTER_NAME)
+                        .and(
+                            FACET_DRILL_SIDEWAYS_TYPE_TAG,
+                            QueryOptimizationStatus.OPTIMIZABLE.name().toLowerCase())),
+                QueryOptimizationStatus.GENERIC,
+                metricsFactory.counter(
+                    METRIC_NAME,
+                    Tags.of(NAME_TAG, FACET_DRILL_SIDEWAYS_COUNTER_NAME)
+                        .and(
+                            FACET_DRILL_SIDEWAYS_TYPE_TAG,
+                            QueryOptimizationStatus.GENERIC.name().toLowerCase())));
         this.collectorTypeCounterMap = createEnumCounterMap(metricsFactory, Collector.Type.class);
         this.operatorTypeCounterMap = createEnumCounterMap(metricsFactory, Operator.Type.class);
         this.scoreTypeCounterMap = createEnumCounterMap(metricsFactory, Score.Type.class);
@@ -998,6 +1019,10 @@ public class IndexMetricsUpdater implements Closeable {
 
       public Counter getCollectorTypeCounter(Collector.Type collectorType) {
         return this.collectorTypeCounterMap.get(collectorType);
+      }
+
+      public Counter getFacetDrillSidewaysCounter(QueryOptimizationStatus status) {
+        return this.facetDrillSidewaysCounterMap.get(status);
       }
 
       public Counter getOperatorTypeCounter(Operator.Type operatorType) {
@@ -1091,7 +1116,9 @@ public class IndexMetricsUpdater implements Closeable {
             this.sortCounter,
             this.trackingCounter,
             this.requireSequenceTokensCounter,
-            this.returnScopeCounter);
+            this.returnScopeCounter,
+            this.facetDrillSidewaysCounterMap.get(QueryOptimizationStatus.OPTIMIZABLE).count(),
+            this.facetDrillSidewaysCounterMap.get(QueryOptimizationStatus.GENERIC).count());
       }
 
       @Override
