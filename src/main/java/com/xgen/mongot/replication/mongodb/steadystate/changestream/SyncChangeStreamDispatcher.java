@@ -77,13 +77,15 @@ final class SyncChangeStreamDispatcher implements ChangeStreamDispatcher {
       MeterRegistry meterRegistry,
       ChangeStreamMongoClientFactory syncMongoClientFactory,
       NamedScheduledExecutorService executorService,
-      Optional<Integer> maxInFlightEmbeddingGetMores) {
+      Optional<Integer> maxInFlightEmbeddingGetMores,
+      String metricsNamespacePrefix) {
     this.syncMongoClientFactory = syncMongoClientFactory;
     this.executorService = executorService;
     this.shutdown = false;
 
     MetricsFactory metricsFactory =
-        new MetricsFactory("indexing.steadyStateChangeStream", meterRegistry);
+        new MetricsFactory(
+            metricsNamespacePrefix + "indexing.steadyStateChangeStream", meterRegistry);
     this.getMoresInFlight = metricsFactory.numGauge("getMoresInFlight");
     // TODO(CLOUDP-289914): Remove this getMoresInFlightTimer after switching to new one.
     this.getMoresInFlightTimer = metricsFactory.timer("getMoreDurations");

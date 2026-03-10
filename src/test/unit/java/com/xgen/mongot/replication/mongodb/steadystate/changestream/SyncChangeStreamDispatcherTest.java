@@ -74,7 +74,8 @@ public class SyncChangeStreamDispatcherTest {
             new SimpleMeterRegistry(),
             mongoClientFactory,
             Executors.fixedSizeThreadScheduledExecutor("executor", 1, new SimpleMeterRegistry()),
-            Optional.of(1));
+            Optional.of(1),
+            "");
 
     syncDispatcher.add(
         embeddingDefinition,

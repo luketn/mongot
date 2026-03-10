@@ -423,6 +423,11 @@ public final class MongoDbReplicationConfig extends CommonReplicationConfig
     return this.requestRateLimitBackoffMs;
   }
 
+  @Override
+  public Type getReplicationType() {
+    return Type.DEFAULT;
+  }
+
   private static class Fields {
     private static final Field.Required<Integer> NUM_CONCURRENT_INITIAL_SYNCS =
         Field.builder("numConcurrentInitialSyncs").intField().mustBePositive().required();

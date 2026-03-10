@@ -2,6 +2,7 @@ package com.xgen.mongot.metrics;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CaseFormat;
+import com.google.errorprone.annotations.Var;
 import com.xgen.mongot.metrics.micrometer.SerializableDistributionSummary;
 import com.xgen.mongot.metrics.micrometer.SerializableTimer;
 import com.xgen.mongot.util.Check;
@@ -50,16 +51,16 @@ public class ServerStatusDataExtractor {
 
   public LuceneMeterData createLuceneMeterData() {
     return LuceneMeterData.create(
-        BaseMeterExtractorBuilder.create(this.meterRegistry, Scope.LUCENE));
+        MeterExtractorFactory.getFactory(this.meterRegistry, Scope.LUCENE));
   }
 
   public ReplicationMeterData createReplicationMeterData() {
     return ReplicationMeterData.create(
-        BaseMeterExtractorBuilder.create(this.meterRegistry, Scope.REPLICATION));
+        MeterExtractorFactory.getFactory(this.meterRegistry, Scope.REPLICATION));
   }
 
   public MmsMeterData createMmsMeterData() {
-    return MmsMeterData.create(BaseMeterExtractorBuilder.create(this.meterRegistry, Scope.MMS));
+    return MmsMeterData.create(MeterExtractorFactory.getFactory(this.meterRegistry, Scope.MMS));
   }
 
   public ProcessMeterData createProcessMeterData() {
@@ -196,46 +197,27 @@ public class ServerStatusDataExtractor {
       this.numMergesAborted = numMergesAborted;
     }
 
-    private static LuceneMeterData create(BaseMeterExtractorBuilder baseMeterExtractorBuilder) {
-      var numMerges =
-          getMeterCount(
-              baseMeterExtractorBuilder.builder().meterName(NUM_MERGES_KEY).getSingleMeter());
+    private static LuceneMeterData create(MeterExtractorFactory meterExtractorFactory) {
+      var numMerges = getMeterCount(meterExtractorFactory.create(NUM_MERGES_KEY).getSingleMeter());
       var numSegmentsMerged =
-          getMeterCount(
-              baseMeterExtractorBuilder
-                  .builder()
-                  .meterName(NUM_SEGMENTS_MERGED_KEY)
-                  .getSingleMeter());
+          getMeterCount(meterExtractorFactory.create(NUM_SEGMENTS_MERGED_KEY).getSingleMeter());
       var mergeSize =
           SerializableDistributionSummary.create(
-              baseMeterExtractorBuilder.builder().meterName(MERGE_SIZE_KEY).getSingleMeter());
+              meterExtractorFactory.create(MERGE_SIZE_KEY).getSingleMeter());
       var mergeResultSize =
           SerializableDistributionSummary.create(
-              baseMeterExtractorBuilder
-                  .builder()
-                  .meterName(MERGE_RESULT_SIZE_KEY)
-                  .getSingleMeter());
+              meterExtractorFactory.create(MERGE_RESULT_SIZE_KEY).getSingleMeter());
       var mergedDocs =
           SerializableDistributionSummary.create(
-              baseMeterExtractorBuilder.builder().meterName(MERGED_DOCS_KEY).getSingleMeter());
+              meterExtractorFactory.create(MERGED_DOCS_KEY).getSingleMeter());
       var segmentMergeTimer =
           SerializableTimer.create(
-              baseMeterExtractorBuilder
-                  .builder()
-                  .meterName(SEGMENT_MERGE_TIME_KEY)
-                  .getSingleMeter());
+              meterExtractorFactory.create(SEGMENT_MERGE_TIME_KEY).getSingleMeter());
       var mergeCancellationTimer =
           SerializableTimer.create(
-              baseMeterExtractorBuilder
-                  .builder()
-                  .meterName(MERGE_CANCELLATION_TIME_KEY)
-                  .getSingleMeter());
+              meterExtractorFactory.create(MERGE_CANCELLATION_TIME_KEY).getSingleMeter());
       var numMergesAborted =
-          getMeterCount(
-              baseMeterExtractorBuilder
-                  .builder()
-                  .meterName(NUM_MERGES_ABORTED_KEY)
-                  .getSingleMeter());
+          getMeterCount(meterExtractorFactory.create(NUM_MERGES_ABORTED_KEY).getSingleMeter());
 
       return new LuceneMeterData(
           numMerges,
@@ -280,22 +262,15 @@ public class ServerStatusDataExtractor {
       this.mongodbClientMeterData = mongodbClientMeterData;
     }
 
-    private static ReplicationMeterData create(
-        BaseMeterExtractorBuilder baseMeterExtractorBuilder) {
+    private static ReplicationMeterData create(MeterExtractorFactory meterExtractorFactory) {
       return new ReplicationMeterData(
-          getMetersCount(
-              baseMeterExtractorBuilder.builder().meterName(STAGED_INDEXES).getMultipleMeters()),
-          getMetersCount(
-              baseMeterExtractorBuilder.builder().meterName(LIVE_INDEXES).getMultipleMeters()),
-          getMetersCount(
-              baseMeterExtractorBuilder
-                  .builder()
-                  .meterName(PHASING_OUT_INDEXES)
-                  .getMultipleMeters()),
-          IndexingMeterData.create(baseMeterExtractorBuilder),
-          InitialSyncMeterData.create(baseMeterExtractorBuilder),
-          ChangeStreamMeterData.create(baseMeterExtractorBuilder),
-          MongodbClientMeterData.create(baseMeterExtractorBuilder));
+          getMetersCount(meterExtractorFactory.create(STAGED_INDEXES).getAllMeters()),
+          getMetersCount(meterExtractorFactory.create(LIVE_INDEXES).getAllMeters()),
+          getMetersCount(meterExtractorFactory.create(PHASING_OUT_INDEXES).getAllMeters()),
+          IndexingMeterData.create(meterExtractorFactory),
+          InitialSyncMeterData.create(meterExtractorFactory),
+          ChangeStreamMeterData.create(meterExtractorFactory),
+          MongodbClientMeterData.create(meterExtractorFactory));
     }
 
     public static class IndexingMeterData {
@@ -318,23 +293,16 @@ public class ServerStatusDataExtractor {
         this.indexingBatchSchedulingDurations = indexingBatchSchedulingDurations;
       }
 
-      static IndexingMeterData create(BaseMeterExtractorBuilder baseMeterExtractorBuilder) {
+      static IndexingMeterData create(MeterExtractorFactory meterExtractorFactory) {
         return new IndexingMeterData(
             SerializableDistributionSummary.create(
-                baseMeterExtractorBuilder
-                    .builder()
-                    .meterName(INDEXING_BATCH_DISTRIBUTION)
-                    .getOptionalSingleMeters()),
+                meterExtractorFactory.create(INDEXING_BATCH_DISTRIBUTION).getOptionalSingleMeter()),
             SerializableTimer.create(
-                baseMeterExtractorBuilder
-                    .builder()
-                    .meterName(INDEXING_BATCH_DURATIONS)
-                    .getOptionalSingleMeters()),
+                meterExtractorFactory.create(INDEXING_BATCH_DURATIONS).getOptionalSingleMeter()),
             SerializableTimer.create(
-                baseMeterExtractorBuilder
-                    .builder()
-                    .meterName(INDEXING_BATCH_SCHEDULING_DURATIONS)
-                    .getOptionalSingleMeters()));
+                meterExtractorFactory
+                    .create(INDEXING_BATCH_SCHEDULING_DURATIONS)
+                    .getOptionalSingleMeter()));
       }
     }
 
@@ -351,21 +319,23 @@ public class ServerStatusDataExtractor {
         this.applicableInitialSyncUpdates = applicableUpdates;
       }
 
-      static InitialSyncMeterData create(BaseMeterExtractorBuilder baseMeterExtractorBuilder) {
+      // TODO(CLOUDP-362251): Support auto-embedding indexes as materialized view manager register
+      // meters with different namespace
+      static InitialSyncMeterData create(MeterExtractorFactory meterExtractorFactory) {
         return new InitialSyncMeterData(
             getMeterCount(
-                baseMeterExtractorBuilder
-                    .builder()
-                    .meterName(WITNESSED_UPDATES)
-                    .getOptionalSingleMeters()),
+                meterExtractorFactory
+                    .create(WITNESSED_UPDATES, "initialSyncManager")
+                    .getOptionalSingleMeter()),
             getMeterCount(
-                baseMeterExtractorBuilder
-                    .builder()
-                    .meterName(APPLICABLE_UPDATES)
-                    .getOptionalSingleMeters()));
+                meterExtractorFactory
+                    .create(APPLICABLE_UPDATES, "initialSyncManager")
+                    .getOptionalSingleMeter()));
       }
     }
 
+    // TODO(CLOUDP-362251): Support auto-embedding indexes as materialized view manager register
+    // meters with different namespace
     public static class ChangeStreamMeterData {
       public static final String WITNESSED_UPDATES = "witnessedChangeStreamUpdates";
       public static final String APPLICABLE_UPDATES = "applicableChangeStreamUpdates";
@@ -380,18 +350,16 @@ public class ServerStatusDataExtractor {
         this.applicableChangeStreamUpdates = applicableChangeStreamUpdates;
       }
 
-      static ChangeStreamMeterData create(BaseMeterExtractorBuilder baseMeterExtractorBuilder) {
+      static ChangeStreamMeterData create(MeterExtractorFactory meterExtractorFactory) {
         return new ChangeStreamMeterData(
             getMeterCount(
-                baseMeterExtractorBuilder
-                    .builder()
-                    .meterName(WITNESSED_UPDATES)
-                    .getOptionalSingleMeters()),
+                meterExtractorFactory
+                    .create(WITNESSED_UPDATES, "indexing.steadyStateChangeStream")
+                    .getOptionalSingleMeter()),
             getMeterCount(
-                baseMeterExtractorBuilder
-                    .builder()
-                    .meterName(APPLICABLE_UPDATES)
-                    .getOptionalSingleMeters()));
+                meterExtractorFactory
+                    .create(APPLICABLE_UPDATES, "indexing.steadyStateChangeStream")
+                    .getOptionalSingleMeter()));
       }
     }
 
@@ -418,28 +386,26 @@ public class ServerStatusDataExtractor {
         this.failedDynamicLinking = failedDynamicLinking;
       }
 
-      static MongodbClientMeterData create(BaseMeterExtractorBuilder baseMeterExtractorBuilder) {
+      // TODO(CLOUDP-362251): Support auto-embedding indexes as materialized view manager register
+      // meters with different namespace.
+      static MongodbClientMeterData create(MeterExtractorFactory meterExtractorFactory) {
         return new MongodbClientMeterData(
             getMeterCount(
-                baseMeterExtractorBuilder
-                    .builder()
-                    .meterName(FAILED_SESSION_REFRESHES)
-                    .getOptionalSingleMeters()),
+                meterExtractorFactory
+                    .create(FAILED_SESSION_REFRESHES, "replication.sessionRefresher")
+                    .getOptionalSingleMeter()),
             SerializableTimer.create(
-                baseMeterExtractorBuilder
-                    .builder()
-                    .meterName(SESSION_REFRESH_DURATIONS)
-                    .getOptionalSingleMeters()),
+                meterExtractorFactory
+                    .create(SESSION_REFRESH_DURATIONS, "replication.sessionRefresher")
+                    .getOptionalSingleMeter()),
             getMeterCount(
-                baseMeterExtractorBuilder
-                    .builder()
-                    .meterName(SUCCESSFUL_DYNAMIC_LINKING)
-                    .getOptionalSingleMeters()),
+                meterExtractorFactory
+                    .create(SUCCESSFUL_DYNAMIC_LINKING, "mongoClientBuilder")
+                    .getOptionalSingleMeter()),
             getMeterCount(
-                baseMeterExtractorBuilder
-                    .builder()
-                    .meterName(FAILED_DYNAMIC_LINKING)
-                    .getOptionalSingleMeters()));
+                meterExtractorFactory
+                    .create(FAILED_DYNAMIC_LINKING, "mongoClientBuilder")
+                    .getOptionalSingleMeter()));
       }
     }
   }
@@ -461,25 +427,16 @@ public class ServerStatusDataExtractor {
       this.failedConfCalls = failedConfCalls;
     }
 
-    public static MmsMeterData create(BaseMeterExtractorBuilder baseMeterExtractorBuilder) {
+    public static MmsMeterData create(MeterExtractorFactory meterExtractorFactory) {
       var confCallDurations =
           SerializableTimer.create(
-              baseMeterExtractorBuilder
-                  .builder()
-                  .meterName(CONF_CALL_DURATIONS_KEY)
-                  .getOptionalSingleMeters());
+              meterExtractorFactory.create(CONF_CALL_DURATIONS_KEY).getOptionalSingleMeter());
       var successfulConfCalls =
           getMeterCount(
-              baseMeterExtractorBuilder
-                  .builder()
-                  .meterName(SUCCESSFUL_CONF_CALLS_KEY)
-                  .getOptionalSingleMeters());
+              meterExtractorFactory.create(SUCCESSFUL_CONF_CALLS_KEY).getOptionalSingleMeter());
       var failedConfCalls =
           getMeterCount(
-              baseMeterExtractorBuilder
-                  .builder()
-                  .meterName(FAILED_CONF_CALLS_KEY)
-                  .getOptionalSingleMeters());
+              meterExtractorFactory.create(FAILED_CONF_CALLS_KEY).getOptionalSingleMeter());
 
       return new MmsMeterData(confCallDurations, successfulConfCalls, failedConfCalls);
     }
@@ -536,20 +493,41 @@ public class ServerStatusDataExtractor {
         });
   }
 
-  private static class BaseMeterExtractorBuilder {
+  private static class MeterExtractorFactory {
     private final Map<String, Set<Meter>> nameToMeters;
 
-    private BaseMeterExtractorBuilder(Map<String, Set<Meter>> nameToMeters) {
+    private MeterExtractorFactory(Map<String, Set<Meter>> nameToMeters) {
       this.nameToMeters = nameToMeters;
     }
 
-    static BaseMeterExtractorBuilder create(MeterRegistry meterRegistry, Scope scope) {
-      return new BaseMeterExtractorBuilder(groupByScope(meterRegistry, scope));
+    static MeterExtractorFactory getFactory(MeterRegistry meterRegistry, Scope scope) {
+      return new MeterExtractorFactory(groupByScope(meterRegistry, scope));
     }
 
-    MeterExtractorBuilder builder() {
-      return new MeterExtractorBuilder(this);
+    /** Returns a MeterExtractor for meters with the given meter name from different namespaces. */
+    MeterExtractor create(String meterName) {
+      return createInternal(meterName, Optional.empty());
     }
+
+    /**
+     * Returns a MeterExtractor for meters with the given meter name and namespaces prefix filter.
+     */
+    MeterExtractor create(String meterName, String namespacePrefixFilter) {
+      return createInternal(meterName, Optional.of(namespacePrefixFilter));
+    }
+
+    private MeterExtractor createInternal(
+        String meterName, Optional<String> namespacePrefixFilter) {
+      @Var Set<Meter> meters = this.nameToMeters.getOrDefault(meterName, Set.of());
+      if (namespacePrefixFilter.isPresent()) {
+        meters =
+            meters.stream()
+                .filter(meter -> meter.getId().getName().startsWith(namespacePrefixFilter.get()))
+                .collect(Collectors.toSet());
+      }
+      return new MeterExtractor(meters);
+    }
+
 
     /**
      * Some meters are registered twice with the same name but different tags. We group such meters
@@ -572,55 +550,47 @@ public class ServerStatusDataExtractor {
     }
   }
 
-  private static class MeterExtractorBuilder {
-    private final BaseMeterExtractorBuilder baseMeterExtractorBuilder;
+  private static class MeterExtractor {
+    private final Set<Meter> meters;
 
-    private Optional<String> meterName = Optional.empty();
-
-    private MeterExtractorBuilder(BaseMeterExtractorBuilder baseMeterExtractorBuilder) {
-      this.baseMeterExtractorBuilder = baseMeterExtractorBuilder;
+    private MeterExtractor(Set<Meter> meters) {
+      this.meters = meters;
     }
 
-    public MeterExtractorBuilder meterName(String meterName) {
-      this.meterName = Optional.of(meterName);
-      return this;
-    }
-
-    public Set<Meter> getMultipleMeters() {
-      String name = Check.isPresent(this.meterName, "meterName");
-
-      Optional<Set<Meter>> meters =
-          Optional.ofNullable(this.baseMeterExtractorBuilder.nameToMeters.get(name));
-      return Check.isPresent(meters, "meters");
-    }
-
-    public Optional<Meter> getOptionalSingleMeters() {
-      String name = Check.isPresent(this.meterName, "meterName");
-
-      Optional<Set<Meter>> meters =
-          Optional.ofNullable(this.baseMeterExtractorBuilder.nameToMeters.get(name));
-
-      if (meters.isEmpty()) {
+    /**
+     * Returns the single meter if it exists, or empty if no meters are present. Throws exception if
+     * the same meter is registered multiple times.
+     */
+    public Optional<Meter> getOptionalSingleMeter() {
+      if (this.meters.isEmpty()) {
         return Optional.empty();
       }
       Check.checkState(
-          meters.get().size() == 1,
-          "exactly 1 meter must be present, but found %s, including: %s",
-          meters.get().size(),
-          meters.get().stream().map(meter -> meter.getId().getName()).toList());
+          this.meters.size() == 1,
+          "Either 0 or 1 meter must be present, but found %s meters, including: %s",
+          this.meters.size(),
+          this.meters.stream().map(meter -> meter.getId().getName()).toList());
 
-      return meters.get().stream().findFirst();
+      return this.meters.stream().findFirst();
     }
 
+    /**
+     * Returns the single meter if it exists. Throws exception if no meters are present or if the
+     * same meter is registered multiple times.
+     */
     public Meter getSingleMeter() {
-      Set<Meter> meters = getMultipleMeters();
       Check.checkState(
-          meters.size() == 1,
-          "exactly 1 meter must be present, but found %s, including: %s",
-          meters.size(),
-          meters.stream().map(meter -> meter.getId().getName()).toList());
+          this.meters.size() == 1,
+          "exactly 1 meter must be present, but found %s meters, including: %s",
+          this.meters.size(),
+          this.meters.stream().map(meter -> meter.getId().getName()).toList());
 
-      return meters.stream().findFirst().get();
+      return this.meters.stream().findFirst().get();
+    }
+
+    /** Returns all meters by this meter name. */
+    public Set<Meter> getAllMeters() {
+      return this.meters;
     }
   }
 }

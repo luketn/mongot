@@ -91,14 +91,17 @@ public class ChangeStreamManager {
             .map(enable -> enable ? ChangeStreamMode.INDEXED_FIELDS : ChangeStreamMode.ALL_FIELDS);
 
     var meterRegistry = meterAndFtdcRegistry.meterRegistry();
+    var metricsNamespacePrefix = replicationConfig.getReplicationType().metricsNamespacePrefix;
 
     ChangeStreamModeSelector modeSelector =
         new HeuristicChangeStreamModeSelector(
             new CollectionStatsMongoClient(syncMongoClient),
             new CollectionSamplingMongoClient(syncMongoClient),
-            Executors.singleThreadScheduledExecutor("change-stream-mode-selector", meterRegistry),
+            Executors.singleThreadScheduledExecutor(
+                metricsNamespacePrefix + "change-stream-mode-selector", meterRegistry),
             modeSelectorOverride,
-            new MetricsFactory("indexing.changeStreamModeSelector", meterRegistry));
+            new MetricsFactory(
+                metricsNamespacePrefix + "indexing.changeStreamModeSelector", meterRegistry));
 
     return getSyncChangeStreamManager(
         meterAndFtdcRegistry,
@@ -125,12 +128,7 @@ public class ChangeStreamManager {
             syncBatchMongoClient,
             modeSelector,
             meterAndFtdcRegistry,
-            replicationConfig.getChangeStreamQueryMaxTimeMs(),
-            replicationConfig.getChangeStreamCursorMaxTimeSec(),
-            replicationConfig.getEmbeddingGetMoreBatchSize(),
-            replicationConfig.getExcludedChangestreamFields(),
-            replicationConfig.getMatchCollectionUuidForUpdateLookup(),
-            replicationConfig.getEnableSplitLargeChangeStreamEvents());
+            replicationConfig);
 
     return createSync(
         meterAndFtdcRegistry,
@@ -155,10 +153,11 @@ public class ChangeStreamManager {
         replicationConfig.getMaxInFlightEmbeddingGetMores(), "maxInFlightEmbeddingGetMores");
 
     LOG.info("Creating with sync-batch client.");
+    var metricsNamespacePrefix = replicationConfig.getReplicationType().metricsNamespacePrefix;
 
     NamedScheduledExecutorService executorService =
         Executors.fixedSizeThreadScheduledExecutor(
-            "change-stream-sync-dispatcher",
+            metricsNamespacePrefix + "change-stream-sync-dispatcher",
             replicationConfig.getNumConcurrentChangeStreams(),
             meterAndFtdcRegistry.meterRegistry());
 
@@ -176,7 +175,8 @@ public class ChangeStreamManager {
             // in-flight getMores.
             shouldLimitMaxInFlightEmbeddingGetMores
                 ? Optional.of(replicationConfig.getMaxInFlightEmbeddingGetMores())
-                : Optional.empty());
+                : Optional.empty(),
+            metricsNamespacePrefix);
 
     return new ChangeStreamManager(
         indexingWorkSchedulerFactory, indexManagerFactory, syncDispatcher, modeSelector);

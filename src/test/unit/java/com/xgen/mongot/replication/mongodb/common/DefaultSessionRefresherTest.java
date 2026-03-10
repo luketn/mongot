@@ -9,6 +9,7 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.session.ClientSession;
 import com.mongodb.session.ServerSession;
+import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.util.concurrent.Executors;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -41,7 +42,7 @@ public class DefaultSessionRefresherTest {
 
     var refresher =
         DefaultSessionRefresher.create(
-            new SimpleMeterRegistry(),
+            new MetricsFactory("replication.sessionRefresher", new SimpleMeterRegistry()),
             Executors.singleThreadScheduledExecutor("session-refresh", new SimpleMeterRegistry()),
             client,
             Duration.ofMillis(10));
@@ -78,7 +79,7 @@ public class DefaultSessionRefresherTest {
 
     var refresher =
         DefaultSessionRefresher.create(
-            new SimpleMeterRegistry(),
+            new MetricsFactory("replication.sessionRefresher", new SimpleMeterRegistry()),
             Executors.singleThreadScheduledExecutor("session-refresh", new SimpleMeterRegistry()),
             client,
             Duration.ofMillis(10));

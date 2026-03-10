@@ -35,8 +35,14 @@ public class InstrumentedConnectionPoolListenerFactory {
 
   private final MetricsFactory metricsFactory;
 
+  public InstrumentedConnectionPoolListenerFactory(
+      String metricsNamespacePrefix, MeterRegistry meterRegistry) {
+    this.metricsFactory =
+        new MetricsFactory(metricsNamespacePrefix + METRIC_NAMESPACE, meterRegistry, METRIC_TAGS);
+  }
+
   public InstrumentedConnectionPoolListenerFactory(MeterRegistry meterRegistry) {
-    this.metricsFactory = new MetricsFactory(METRIC_NAMESPACE, meterRegistry, METRIC_TAGS);
+    this("", meterRegistry);
   }
 
   public ConnectionPoolListener createFor(String clientName) {

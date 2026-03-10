@@ -3,6 +3,7 @@ package com.xgen.mongot.replication.mongodb.autoembedding;
 import static com.xgen.mongot.replication.mongodb.MongoDbReplicationManager.getClientSessionRecords;
 import static com.xgen.mongot.replication.mongodb.MongoDbReplicationManager.getSyncBatchMongoClient;
 import static com.xgen.mongot.replication.mongodb.MongoDbReplicationManager.getSyncSourceHost;
+import static com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig.Type.AUTO_EMBEDDING;
 import static com.xgen.mongot.util.Check.checkState;
 import static com.xgen.mongot.util.FutureUtils.COMPLETED_FUTURE;
 
@@ -266,7 +267,8 @@ public class MaterializedViewManager implements ReplicationManager {
     this.syncSourceConfig = syncSourceConfig;
     this.shutdown = false;
     this.metricsFactory =
-        new MetricsFactory("autoembedding.replication.mongodb", this.meterRegistry);
+        new MetricsFactory(
+            AUTO_EMBEDDING.metricsNamespacePrefix + "replication.mongodb", this.meterRegistry);
     this.statusRefreshExecutor = statusRefreshExecutor;
     this.optimeUpdaterExecutor = optimeUpdaterExecutor;
     this.leaseManager = leaseManager;
@@ -371,10 +373,12 @@ public class MaterializedViewManager implements ReplicationManager {
 
     var decodingWorkScheduler =
         DecodingWorkScheduler.create(
-            materializedViewConfig.numChangeStreamDecodingThreads, meterRegistry);
+            materializedViewConfig.numChangeStreamDecodingThreads,
+            AUTO_EMBEDDING.metricsNamespacePrefix,
+            meterRegistry);
 
     var sessionRefreshExecutor =
-        Executors.singleThreadScheduledExecutor("session-refresh", meterRegistry);
+        Executors.singleThreadScheduledExecutor("auto-embedding-session-refresh", meterRegistry);
 
     var syncSourceHost = getSyncSourceHost(syncSourceConfig);
 
@@ -382,6 +386,7 @@ public class MaterializedViewManager implements ReplicationManager {
         getClientSessionRecords(
             syncSourceConfig,
             getSyncMaxConnections(materializedViewConfig),
+            AUTO_EMBEDDING.metricsNamespacePrefix,
             meterRegistry,
             sessionRefreshExecutor,
             syncSourceHost);
@@ -391,7 +396,10 @@ public class MaterializedViewManager implements ReplicationManager {
 
     var syncBatchMongoClient =
         getSyncBatchMongoClient(
-            syncSourceConfig, materializedViewConfig.numConcurrentChangeStreams, meterRegistry);
+            syncSourceConfig,
+            materializedViewConfig.numConcurrentChangeStreams,
+            AUTO_EMBEDDING.metricsNamespacePrefix,
+            meterRegistry);
 
     var steadyStateManager =
         SteadyStateManager.create(
@@ -1090,6 +1098,7 @@ public class MaterializedViewManager implements ReplicationManager {
             materializedViewConfig.getMatchCollectionUuidForUpdateLookup())
         .setEnableSplitLargeChangeStreamEvents(
             materializedViewConfig.getEnableSplitLargeChangeStreamEvents())
+        .setReplicationType(AUTO_EMBEDDING)
         .build();
   }
 

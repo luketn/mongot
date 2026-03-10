@@ -317,6 +317,11 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     return this.requestRateLimitBackoffMs;
   }
 
+  @Override
+  public Type getReplicationType() {
+    return Type.AUTO_EMBEDDING;
+  }
+
   private static int getMaxConcurrentEmbeddingInitialSyncsWithDefault(
       Runtime runtime, Optional<Integer> optionalMaxConcurrentEmbeddingInitialSyncs) {
     return optionalMaxConcurrentEmbeddingInitialSyncs.orElseGet(

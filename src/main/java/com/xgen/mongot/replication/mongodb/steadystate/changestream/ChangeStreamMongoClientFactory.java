@@ -43,24 +43,24 @@ class ChangeStreamMongoClientFactory {
       SessionRefresher sessionRefresher,
       ChangeStreamModeSelector modeSelector,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
-      int changeStreamQueryMaxTimeMs,
-      int changeStreamCursorMaxTimeSec,
-      Optional<Integer> embeddingGetMoreBatchSize,
-      List<String> excludedChangestreamFields,
-      boolean matchCollectionUuidForUpdateLookup,
-      boolean enableSplitLargeChangeStreamEvents) {
+      SteadyStateReplicationConfig replicationConfig) {
     this.mongoClient = mongoClient;
     this.sessionRefresher = sessionRefresher;
     this.modeSelector = modeSelector;
-    this.changeStreamQueryMaxTimeMs = changeStreamQueryMaxTimeMs;
-    this.changeStreamCursorMaxTime = Duration.of(changeStreamCursorMaxTimeSec, ChronoUnit.SECONDS);
-    this.embeddingGetMoreBatchSize = embeddingGetMoreBatchSize;
-    this.excludedChangestreamFields = excludedChangestreamFields;
-    this.matchCollectionUuidForUpdateLookup = matchCollectionUuidForUpdateLookup;
+    this.changeStreamQueryMaxTimeMs = replicationConfig.getChangeStreamQueryMaxTimeMs();
+    this.changeStreamCursorMaxTime =
+        Duration.of(replicationConfig.getChangeStreamCursorMaxTimeSec(), ChronoUnit.SECONDS);
+    this.embeddingGetMoreBatchSize = replicationConfig.getEmbeddingGetMoreBatchSize();
+    this.excludedChangestreamFields = replicationConfig.getExcludedChangestreamFields();
+    this.matchCollectionUuidForUpdateLookup =
+        replicationConfig.getMatchCollectionUuidForUpdateLookup();
     this.ftdcRegistry = meterAndFtdcRegistry.ftdcRegistry();
     this.meterMetricsFactory =
-        new MetricsFactory("changestream", meterAndFtdcRegistry.meterRegistry());
-    this.enableSplitLargeChangeStreamEvents = enableSplitLargeChangeStreamEvents;
+        new MetricsFactory(
+            replicationConfig.getReplicationType().metricsNamespacePrefix + "changestream",
+            meterAndFtdcRegistry.meterRegistry());
+    this.enableSplitLargeChangeStreamEvents =
+        replicationConfig.getEnableSplitLargeChangeStreamEvents();
   }
 
   static ChangeStreamMongoClientFactory create(
@@ -68,26 +68,13 @@ class ChangeStreamMongoClientFactory {
       BatchMongoClient mongoClient,
       ChangeStreamModeSelector modeSelector,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
-      int changeStreamQueryMaxTimeMs,
-      int changeStreamCursorMaxTimeSec,
-      Optional<Integer> embeddingGetMoreBatchSize,
-      List<String> excludedChangestreamFields,
-      boolean matchCollectionUuidForUpdateLookup,
-      boolean enableSplitLargeChangeStreamEvents) {
-    Check.argIsPositive(changeStreamQueryMaxTimeMs, "changeStreamQueryMaxTimeMs");
-    Check.argIsPositive(changeStreamCursorMaxTimeSec, "changeStreamCursorMaxTimeSec");
-
+      SteadyStateReplicationConfig replicationConfig) {
+    Check.argIsPositive(
+        replicationConfig.getChangeStreamQueryMaxTimeMs(), "changeStreamQueryMaxTimeMs");
+    Check.argIsPositive(
+        replicationConfig.getChangeStreamCursorMaxTimeSec(), "changeStreamCursorMaxTimeSec");
     return new ChangeStreamMongoClientFactory(
-        mongoClient,
-        sessionRefresher,
-        modeSelector,
-        meterAndFtdcRegistry,
-        changeStreamQueryMaxTimeMs,
-        changeStreamCursorMaxTimeSec,
-        embeddingGetMoreBatchSize,
-        excludedChangestreamFields,
-        matchCollectionUuidForUpdateLookup,
-        enableSplitLargeChangeStreamEvents);
+        mongoClient, sessionRefresher, modeSelector, meterAndFtdcRegistry, replicationConfig);
   }
 
   /**

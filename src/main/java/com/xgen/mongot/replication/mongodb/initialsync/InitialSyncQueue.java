@@ -159,7 +159,10 @@ public class InitialSyncQueue {
 
     this.initialSyncConfig = initialSyncConfig;
 
-    MetricsFactory metricsFactory = new MetricsFactory("initialsync.queue", meterRegistry);
+    MetricsFactory metricsFactory =
+        new MetricsFactory(
+            replicationConfig.getReplicationType().metricsNamespacePrefix + "initialsync.queue",
+            meterRegistry);
     this.requeuedEmbeddingInitialSyncs = metricsFactory.counter("requeuedEmbeddingInitialSyncs");
     String queuedSyncsName = "queuedSyncs";
     this.queuedSyncs =
@@ -210,8 +213,10 @@ public class InitialSyncQueue {
                     clientSessionRecord.sessionRefresher(),
                     meterRegistry,
                     syncSourceHost)));
-
-    MetricsFactory metricsFactory = new MetricsFactory("initialSyncManager", meterRegistry);
+    MetricsFactory metricsFactory =
+        new MetricsFactory(
+            replicationConfig.getReplicationType().metricsNamespacePrefix + "initialSyncManager",
+            meterRegistry);
     InitialSyncManagerFactory factory =
         getFactory(
             initialSyncConfig,
@@ -611,7 +616,11 @@ public class InitialSyncQueue {
       // TODO(CLOUDP-360914): refactor this after shutting down type:text indexes
       this.embeddingGetMoreBatchSize = getEmbeddingGetMoreBatchSize(replicationConfig);
 
-      this.metricsFactory = new MetricsFactory("initialsync.dispatcher", meterRegistry);
+      this.metricsFactory =
+          new MetricsFactory(
+              replicationConfig.getReplicationType().metricsNamespacePrefix
+                  + "initialsync.dispatcher",
+              meterRegistry);
       String inProgressSyncsName = "inProgressSyncs";
       this.inProgressSyncs =
           Map.of(

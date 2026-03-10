@@ -234,32 +234,47 @@ public class ServerStatusDataExtractorTest {
 
   private static void populateInitialSyncMeterData(MeterRegistry meterRegistry) {
     Tags replicationTags = Tags.of(ServerStatusDataExtractor.Scope.REPLICATION.getTag());
-
-    meterRegistry.counter(InitialSyncMeterData.WITNESSED_UPDATES, replicationTags).increment(4);
-    meterRegistry.counter(InitialSyncMeterData.APPLICABLE_UPDATES, replicationTags).increment(5);
+    String defaultNamespace = "initialSyncManager";
+    meterRegistry
+        .counter(defaultNamespace + "." + InitialSyncMeterData.WITNESSED_UPDATES, replicationTags)
+        .increment(4);
+    meterRegistry
+        .counter(defaultNamespace + "." + InitialSyncMeterData.APPLICABLE_UPDATES, replicationTags)
+        .increment(5);
   }
 
   private static void populateChangeStreamMeterData(MeterRegistry meterRegistry) {
     Tags replicationTags = Tags.of(ServerStatusDataExtractor.Scope.REPLICATION.getTag());
-
-    meterRegistry.counter(ChangeStreamMeterData.WITNESSED_UPDATES, replicationTags).increment(2);
-    meterRegistry.counter(ChangeStreamMeterData.APPLICABLE_UPDATES, replicationTags).increment(3);
+    String defaultNamespace = "indexing.steadyStateChangeStream";
+    meterRegistry
+        .counter(defaultNamespace + "." + ChangeStreamMeterData.WITNESSED_UPDATES, replicationTags)
+        .increment(2);
+    meterRegistry
+        .counter(defaultNamespace + "." + ChangeStreamMeterData.APPLICABLE_UPDATES, replicationTags)
+        .increment(3);
   }
 
   private static void populateMongoDbClientMeterData(MeterRegistry meterRegistry) {
     Tags replicationTags = Tags.of(ServerStatusDataExtractor.Scope.REPLICATION.getTag());
 
     meterRegistry
-        .counter(MongodbClientMeterData.FAILED_SESSION_REFRESHES, replicationTags)
+        .counter(
+            "replication.sessionRefresher." + MongodbClientMeterData.FAILED_SESSION_REFRESHES,
+            replicationTags)
         .increment();
     meterRegistry
-        .timer(MongodbClientMeterData.SESSION_REFRESH_DURATIONS, replicationTags)
+        .timer(
+            "replication.sessionRefresher." + MongodbClientMeterData.SESSION_REFRESH_DURATIONS,
+            replicationTags)
         .record(Duration.ofSeconds(12));
     meterRegistry
-        .counter(MongodbClientMeterData.SUCCESSFUL_DYNAMIC_LINKING, replicationTags)
+        .counter(
+            "mongoClientBuilder." + MongodbClientMeterData.SUCCESSFUL_DYNAMIC_LINKING,
+            replicationTags)
         .increment();
     meterRegistry
-        .counter(MongodbClientMeterData.FAILED_DYNAMIC_LINKING, replicationTags)
+        .counter(
+            "mongoClientBuilder." + MongodbClientMeterData.FAILED_DYNAMIC_LINKING, replicationTags)
         .increment(2);
   }
 
@@ -384,6 +399,73 @@ public class ServerStatusDataExtractorTest {
         .record(Duration.ofSeconds(5));
     meterRegistry.counter(MmsMeterData.SUCCESSFUL_CONF_CALLS_KEY, mmsTags).increment(4);
     meterRegistry.counter(MmsMeterData.FAILED_CONF_CALLS_KEY, mmsTags).increment(2);
+  }
+
+  @Test
+  public void testInitialSyncNamespacePrefixFiltersOutOtherNamespaces() {
+    populateDisableReplicationMeterData(this.meterRegistry);
+    Tags replicationTags = Tags.of(ServerStatusDataExtractor.Scope.REPLICATION.getTag());
+
+    this.meterRegistry
+        .counter("initialSyncManager." + InitialSyncMeterData.WITNESSED_UPDATES, replicationTags)
+        .increment(4);
+    this.meterRegistry
+        .counter("initialSyncManager." + InitialSyncMeterData.APPLICABLE_UPDATES, replicationTags)
+        .increment(5);
+
+    // Same short name but different namespace — should be filtered out
+    this.meterRegistry
+        .counter("autoEmbedding." + InitialSyncMeterData.WITNESSED_UPDATES, replicationTags)
+        .increment(100);
+    this.meterRegistry
+        .counter("autoEmbedding." + InitialSyncMeterData.APPLICABLE_UPDATES, replicationTags)
+        .increment(200);
+
+    ServerStatusDataExtractor.ReplicationMeterData meterData =
+        new ServerStatusDataExtractor(this.meterRegistry).createReplicationMeterData();
+
+    Assert.assertEquals(4.0, meterData.initialSyncMeterData.witnessedInitialSyncUpdates, 0.0);
+    Assert.assertEquals(5.0, meterData.initialSyncMeterData.applicableInitialSyncUpdates, 0.0);
+  }
+
+  @Test
+  public void testNamespacePrefixReturnsZeroWhenNoMetersMatchPrefix() {
+    populateDisableReplicationMeterData(this.meterRegistry);
+    Tags replicationTags = Tags.of(ServerStatusDataExtractor.Scope.REPLICATION.getTag());
+
+    // Register meters with the correct short name but under a non-matching namespace
+    this.meterRegistry
+        .counter("autoEmbedding." + InitialSyncMeterData.WITNESSED_UPDATES, replicationTags)
+        .increment(100);
+    this.meterRegistry
+        .counter("autoEmbedding." + InitialSyncMeterData.APPLICABLE_UPDATES, replicationTags)
+        .increment(200);
+
+    ServerStatusDataExtractor.ReplicationMeterData meterData =
+        new ServerStatusDataExtractor(this.meterRegistry).createReplicationMeterData();
+
+    // "initialSyncManager" prefix matches nothing, so values should be zero
+    Assert.assertEquals(0.0, meterData.initialSyncMeterData.witnessedInitialSyncUpdates, 0.0);
+    Assert.assertEquals(0.0, meterData.initialSyncMeterData.applicableInitialSyncUpdates, 0.0);
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testNamespacePrefixThrowsWhenMultipleMetersMatchSamePrefix() {
+    populateDisableReplicationMeterData(this.meterRegistry);
+    Tags replicationTags = Tags.of(ServerStatusDataExtractor.Scope.REPLICATION.getTag());
+
+    // Two meters under the same namespace prefix with the same short name
+    this.meterRegistry
+        .counter("initialSyncManager." + InitialSyncMeterData.WITNESSED_UPDATES, replicationTags)
+        .increment(1);
+    this.meterRegistry
+        .counter(
+            "initialSyncManager." + InitialSyncMeterData.WITNESSED_UPDATES,
+            replicationTags.and("extraTag", "value"))
+        .increment(2);
+
+    // This should throw because getOptionalSingleMeters finds 2 meters matching the prefix
+    new ServerStatusDataExtractor(this.meterRegistry).createReplicationMeterData();
   }
 
   @Test

@@ -42,15 +42,19 @@ public class MongoClientBuilder {
   private Optional<SSLContext> sslContext;
   private Optional<ReadConcern> readConcern;
 
-  private MongoClientBuilder(ConnectionString connectionString, MeterRegistry meterRegistry) {
+  private MongoClientBuilder(
+      ConnectionString connectionString,
+      String metricsNamespacePrefix,
+      MeterRegistry meterRegistry) {
     this.connectionString = connectionString;
-    MetricsFactory metricsFactory = new MetricsFactory("mongoClientBuilder", meterRegistry);
+    MetricsFactory metricsFactory =
+        new MetricsFactory(metricsNamespacePrefix + "mongoClientBuilder", meterRegistry);
     this.successfulDynamicLinkingCounter =
         metricsFactory.counter(MongodbClientMeterData.SUCCESSFUL_DYNAMIC_LINKING, METRIC_TAGS);
     this.failedDynamicLinkingCounter =
         metricsFactory.counter(MongodbClientMeterData.FAILED_DYNAMIC_LINKING, METRIC_TAGS);
     this.connectionPoolListenerFactory =
-        new InstrumentedConnectionPoolListenerFactory(meterRegistry);
+        new InstrumentedConnectionPoolListenerFactory(metricsNamespacePrefix, meterRegistry);
     this.sslContextFactory = Optional.empty();
     this.applicationName = Optional.empty();
     this.maxConnections = Optional.empty();
@@ -61,7 +65,14 @@ public class MongoClientBuilder {
 
   public static MongoClientBuilder builder(
       ConnectionString connectionString, MeterRegistry meterRegistry) {
-    return new MongoClientBuilder(connectionString, meterRegistry);
+    return new MongoClientBuilder(connectionString, "", meterRegistry);
+  }
+
+  public static MongoClientBuilder builder(
+      ConnectionString connectionString,
+      String metricsNamespacePrefix,
+      MeterRegistry meterRegistry) {
+    return new MongoClientBuilder(connectionString, metricsNamespacePrefix, meterRegistry);
   }
 
   /** Convenience method to create a non-replication MongoClient that prefers mongos. */
