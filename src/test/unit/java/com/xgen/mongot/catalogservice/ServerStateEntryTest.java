@@ -2,9 +2,12 @@ package com.xgen.mongot.catalogservice;
 
 import static com.xgen.testing.BsonDeserializationTestSuite.fromDocument;
 import static com.xgen.testing.BsonSerializationTestSuite.fromEncodable;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.xgen.testing.BsonDeserializationTestSuite;
 import com.xgen.testing.BsonSerializationTestSuite;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import org.bson.types.ObjectId;
@@ -17,7 +20,8 @@ import org.junit.runners.Suite;
 @Suite.SuiteClasses(
     value = {
       ServerStateEntryTest.TestDeserialization.class,
-      ServerStateEntryTest.TestSerialization.class
+      ServerStateEntryTest.TestSerialization.class,
+      ServerStateEntryTest.TestReadinessState.class
     })
 public class ServerStateEntryTest {
   private static final String RESOURCE_PATH = "src/test/unit/resources/catalogservice";
@@ -37,7 +41,7 @@ public class ServerStateEntryTest {
 
     @Parameterized.Parameters(name = "{0}")
     public static Iterable<BsonDeserializationTestSuite.TestSpecWrapper<ServerStateEntry>> data() {
-      return TEST_SUITE.withExamples(simple(), shutdownFieldUnset());
+      return TEST_SUITE.withExamples(simple(), shutdownFieldUnset(), readyFieldUnset());
     }
 
     @Test
@@ -52,6 +56,7 @@ public class ServerStateEntryTest {
               new ObjectId("000003e8464f5e2393000000"),
               "server",
               Instant.parse("2025-12-29T10:00:00Z"),
+              false,
               false));
     }
 
@@ -61,7 +66,20 @@ public class ServerStateEntryTest {
           new ServerStateEntry(
               new ObjectId("000003e8464f5e2393000001"),
               "server-old",
-              Instant.parse("2025-12-29T11:00:00Z")));
+              Instant.parse("2025-12-29T11:00:00Z"),
+              false,
+              false));
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<ServerStateEntry> readyFieldUnset() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "ready field unset",
+          new ServerStateEntry(
+              new ObjectId("000003e8464f5e2393000002"),
+              "server-old",
+              Instant.parse("2025-12-29T12:00:00Z"),
+              false,
+              false));
     }
   }
 
@@ -94,7 +112,58 @@ public class ServerStateEntryTest {
               new ObjectId("000003e8464f5e2393000000"),
               "server",
               Instant.parse("2025-12-29T10:00:00Z"),
+              false,
               false));
+    }
+  }
+
+  public static class TestReadinessState {
+
+    private static final ObjectId SERVER_ID = new ObjectId();
+    private static final String SERVER_NAME = "test-server";
+    private static final Duration RECENT = Duration.ofMinutes(5);
+    private static final Duration EXPIRED = Duration.ofMinutes(20);
+
+    @Test
+    public void isReadinessStateExpired_heartbeat20MinutesAgo_returnsTrue() {
+      ServerStateEntry entry =
+          new ServerStateEntry(SERVER_ID, SERVER_NAME, Instant.now().minus(EXPIRED), false, false);
+      assertTrue(entry.isReadinessStateExpired());
+    }
+
+    @Test
+    public void isReadinessStateExpired_heartbeat5MinutesAgo_returnsFalse() {
+      ServerStateEntry entry =
+          new ServerStateEntry(SERVER_ID, SERVER_NAME, Instant.now().minus(RECENT), false, false);
+      assertFalse(entry.isReadinessStateExpired());
+    }
+
+    @Test
+    public void shouldMaintainReadinessState_readyTrueRecentHeartbeat_returnsTrue() {
+      ServerStateEntry entry =
+          new ServerStateEntry(SERVER_ID, SERVER_NAME, Instant.now().minus(RECENT), true, false);
+      assertTrue(entry.shouldMaintainReadinessState());
+    }
+
+    @Test
+    public void shouldMaintainReadinessState_readyTrueExpiredHeartbeat_returnsFalse() {
+      ServerStateEntry entry =
+          new ServerStateEntry(SERVER_ID, SERVER_NAME, Instant.now().minus(EXPIRED), true, false);
+      assertFalse(entry.shouldMaintainReadinessState());
+    }
+
+    @Test
+    public void shouldMaintainReadinessState_readyFalseRecentHeartbeat_returnsFalse() {
+      ServerStateEntry entry =
+          new ServerStateEntry(SERVER_ID, SERVER_NAME, Instant.now().minus(RECENT), false, false);
+      assertFalse(entry.shouldMaintainReadinessState());
+    }
+
+    @Test
+    public void shouldMaintainReadinessState_readyFalseExpiredHeartbeat_returnsFalse() {
+      ServerStateEntry entry =
+          new ServerStateEntry(SERVER_ID, SERVER_NAME, Instant.now().minus(EXPIRED), false, false);
+      assertFalse(entry.shouldMaintainReadinessState());
     }
   }
 }

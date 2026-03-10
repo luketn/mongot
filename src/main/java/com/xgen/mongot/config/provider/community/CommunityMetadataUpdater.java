@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -96,7 +97,7 @@ public class CommunityMetadataUpdater {
     checkState(!this.closed, "cannot call update() after close()");
 
     if (!this.startupCompleted) {
-      if (!initializeMetadataIndexes() || !initializeCache()) {
+      if (!initializeMetadataIndexes() || !initializeServerStateEntry() || !initializeCache()) {
         LOG.info("Waiting for database to startup to initialize indexes...");
         return;
       }
@@ -133,6 +134,33 @@ public class CommunityMetadataUpdater {
               + " This typically indicates mongod has not started yet."
               + " We will backoff and retry on next run.",
           e);
+      return false;
+    }
+  }
+
+  /**
+   * Creates a new server state entry if none exists for this server-id, otherwise updates the
+   * existing entry, setting shutdown to false, updating the last heartbeat timestamp, and sets
+   * readiness from {@link ServerStateEntry#shouldMaintainReadinessState()} (so expired readiness is
+   * cleared after a long absence).
+   *
+   * @return true if there were no errors in the process
+   */
+  private boolean initializeServerStateEntry() {
+    try {
+      Optional<ServerStateEntry> serverStateEntry =
+          this.metadataService.getServerState().get(this.serverInfo.id());
+
+      this.metadataService
+          .getServerState()
+          .upsert(
+              this.serverInfo.generateServerStateEntry(
+                  serverStateEntry
+                      .map(ServerStateEntry::shouldMaintainReadinessState)
+                      .orElse(false)));
+      return true;
+    } catch (Exception e) {
+      LOG.warn("Error initializing server state entry", e);
       return false;
     }
   }
@@ -208,7 +236,13 @@ public class CommunityMetadataUpdater {
   /** Updates the current server's serverState entry with the latest heartbeatbeat ts. */
   private void updateServerState() {
     try {
-      this.metadataService.getServerState().upsert(this.serverInfo.generateServerStateEntry());
+      boolean success =
+          this.metadataService
+              .getServerState()
+              .updateOne(this.serverInfo.id(), ServerStateEntry.updateHeartbeatTs());
+      if (!success) {
+        LOG.warn("Failed to update server state entry for server: {}", this.serverInfo);
+      }
     } catch (MetadataServiceException e) {
       // Log but catch any errors writing to the server state collection. There's no need to
       // propagate the error and crash the process. The main impact from not being able to update
@@ -324,7 +358,9 @@ public class CommunityMetadataUpdater {
    */
   private void attemptToMarkServerAsShutdown() {
     try {
-      this.metadataService.getServerState().upsert(this.serverInfo.generateServerStateEntry(true));
+      this.metadataService
+          .getServerState()
+          .updateOne(this.serverInfo.id(), ServerStateEntry.updateShutdownStatus(true));
     } catch (MetadataServiceException e) {
       LOG.warn(
           "Failed best-effort attempt to mark server state entry as shutdown, continuing shutdown",

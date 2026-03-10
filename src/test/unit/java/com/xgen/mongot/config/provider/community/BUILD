@@ -7,7 +7,9 @@ java_test_suite(
         "CommunityConfigUpdaterTest.java",
         "CommunityMetadataUpdaterTest.java",
         "CommunityMongotBootstrapperTest.java",
+        "CommunityReadinessCheckerTest.java",
         "CommunityServerIdProviderTest.java",
+        "CommunityServerInfoTest.java",
         "ServerConfigTest.java",
     ],
     data = [
@@ -29,6 +31,7 @@ java_test_suite(
         "//src/main/java/com/xgen/mongot/index/definition",
         "//src/main/java/com/xgen/mongot/index/status",
         "//src/main/java/com/xgen/mongot/index/version",
+        "//src/main/java/com/xgen/mongot/server",
         "//src/main/java/com/xgen/mongot/util/bson/parser",
         "//src/main/java/com/xgen/mongot/util/mongodb",
         "//src/main/java/com/xgen/mongot/util/mongodb/serialization",

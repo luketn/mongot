@@ -42,16 +42,13 @@ public record CommunityServerInfo(ObjectId id, Optional<String> name) {
   }
 
   /**
-   * Generates a ServerStateEntry based on this server info with the latest heartbeat ts.
+   * Re-creates a server state entry with the previously cached readiness state.
    *
-   * @return A server state entry with the latest heartbeat ts
+   * @return A server state entry with the latest heartbeat ts and provided readiness state
    */
-  public ServerStateEntry generateServerStateEntry() {
-    return generateServerStateEntry(false);
-  }
-
-  public ServerStateEntry generateServerStateEntry(boolean shutdown) {
-    return new ServerStateEntry(this.id, this.getExternalName(), Instant.now(), shutdown);
+  public ServerStateEntry generateServerStateEntry(boolean isReady) {
+    return new ServerStateEntry(
+        this.id, this.getExternalName(), Instant.now(), isReady, false /* shutdown */);
   }
 
   @Override

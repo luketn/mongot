@@ -1,12 +1,14 @@
 package com.xgen.mongot.config.provider.community;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -60,7 +62,7 @@ public class CommunityMetadataUpdaterTest {
   private CommunityMetadataUpdater heartbeater;
 
   @Before
-  public void setUp() {
+  public void setUp() throws Exception {
     this.serverInfo = new CommunityServerInfo(new ObjectId(), Optional.of("test-server"));
     this.metadataService = mock(MetadataService.class);
     this.serverState = mock(ServerState.class);
@@ -69,6 +71,10 @@ public class CommunityMetadataUpdaterTest {
     this.meterRegistry = new SimpleMeterRegistry();
     when(this.metadataService.getServerState()).thenReturn(this.serverState);
     when(this.metadataService.getIndexStats()).thenReturn(this.indexStats);
+    // Default: no existing server state entry, so initializeServerStateEntry() will upsert
+    when(this.serverState.get(this.serverInfo.id())).thenReturn(Optional.empty());
+    // Default: updateOne returns true (matched a document) so initializeServerStateEntry succeeds
+    when(this.serverState.updateOne(any(), any())).thenReturn(true);
     this.heartbeater =
         new CommunityMetadataUpdater(
             this.serverInfo,
@@ -89,10 +95,12 @@ public class CommunityMetadataUpdaterTest {
     ArgumentCaptor<ServerStateEntry> entryCaptor = ArgumentCaptor.forClass(ServerStateEntry.class);
     verify(this.serverState).upsert(entryCaptor.capture());
 
-    // Verify the upserted entry has correct serverId and serverName
+    // Verify the upserted entry has correct serverId, serverName, and no existing readiness state
     ServerStateEntry capturedEntry = entryCaptor.getValue();
     assertEquals(this.serverInfo.id(), capturedEntry.serverId());
     assertEquals(this.serverInfo.getExternalName(), capturedEntry.serverName());
+    assertFalse(
+        "no existing entry => shouldMaintainReadinessState should be false", capturedEntry.ready());
   }
 
   @Test
@@ -100,7 +108,7 @@ public class CommunityMetadataUpdaterTest {
     when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
     when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
 
-    // Simulate MetadataServiceException on upsert
+    // Simulate MetadataServiceException on upsert (no existing entry)
     doThrow(MetadataServiceException.createTransient(new RuntimeException("test exception")))
         .when(this.serverState)
         .upsert(any(ServerStateEntry.class));
@@ -139,6 +147,7 @@ public class CommunityMetadataUpdaterTest {
 
     // Verify server state and index stats were updated
     verify(this.serverState).upsert(any(ServerStateEntry.class));
+    verify(this.serverState).updateOne(eq(this.serverInfo.id()), any());
     verify(this.indexInfoProvider).refreshIndexInfos();
     verify(this.indexInfoProvider).getIndexInfos();
   }
@@ -161,6 +170,7 @@ public class CommunityMetadataUpdaterTest {
 
     // Verify server state and index stats were NOT updated
     verify(this.serverState, never()).upsert(any(ServerStateEntry.class));
+    verify(this.serverState, never()).updateOne(any(), any());
     verify(this.indexInfoProvider, never()).refreshIndexInfos();
     verify(this.indexInfoProvider, never()).getIndexInfos();
   }
@@ -179,9 +189,145 @@ public class CommunityMetadataUpdaterTest {
     // Verify createCollectionIndexes was only called once
     verify(this.indexStats, times(1)).createCollectionIndexes();
 
-    // Verify server state and index stats were updated twice
-    verify(this.serverState, times(2)).upsert(any(ServerStateEntry.class));
+    // First run: initializeServerStateEntry() is called, then updateOne once
+    // (heartbeat). Second run: updateOne once (heartbeat).
+    verify(this.serverState).upsert(any(ServerStateEntry.class));
+    verify(this.serverState, times(2)).updateOne(eq(this.serverInfo.id()), any());
     verify(this.indexInfoProvider, times(2)).refreshIndexInfos();
+  }
+
+  @Test
+  public void run_firstRun_existingServerStateEntry_readyTrueRecentHeartbeat_setsReadyTrue()
+      throws Exception {
+    ServerStateEntry existingEntry =
+        new ServerStateEntry(
+            this.serverInfo.id(),
+            "test-server",
+            Instant.now().minus(Duration.ofMinutes(5)),
+            true,
+            false);
+    when(this.serverState.get(this.serverInfo.id())).thenReturn(Optional.of(existingEntry));
+    when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
+    when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
+
+    this.heartbeater.run();
+
+    ArgumentCaptor<ServerStateEntry> upsertCaptor = ArgumentCaptor.forClass(ServerStateEntry.class);
+    verify(this.serverState).upsert(upsertCaptor.capture());
+    assertTrue(
+        "shouldMaintainReadinessState() is true for ready+recent heartbeat",
+        upsertCaptor.getValue().ready());
+    verify(this.serverState, times(1)).updateOne(eq(this.serverInfo.id()), any());
+  }
+
+  @Test
+  public void run_firstRun_existingServerStateEntry_readyTrueExpiredHeartbeat_setsReadyFalse()
+      throws Exception {
+    ServerStateEntry existingEntry =
+        new ServerStateEntry(
+            this.serverInfo.id(),
+            "test-server",
+            Instant.now().minus(Duration.ofMinutes(20)),
+            true,
+            false);
+    when(this.serverState.get(this.serverInfo.id())).thenReturn(Optional.of(existingEntry));
+    when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
+    when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
+
+    this.heartbeater.run();
+
+    ArgumentCaptor<ServerStateEntry> upsertCaptor = ArgumentCaptor.forClass(ServerStateEntry.class);
+    verify(this.serverState).upsert(upsertCaptor.capture());
+    assertFalse(
+        "shouldMaintainReadinessState() is false when readiness state expired",
+        upsertCaptor.getValue().ready());
+    verify(this.serverState, times(1)).updateOne(eq(this.serverInfo.id()), any());
+  }
+
+  @Test
+  public void run_firstRun_existingServerStateEntry_handlesUpdateException() throws Exception {
+    // Simulate an existing server state entry for this server
+    ServerStateEntry existingEntry =
+        new ServerStateEntry(
+            this.serverInfo.id(), "test-server", Instant.now().minus(Duration.ofMinutes(5)));
+    when(this.serverState.get(this.serverInfo.id())).thenReturn(Optional.of(existingEntry));
+
+    // Simulate exception during upsert (called by initializeServerStateEntry)
+    doThrow(MetadataServiceException.createTransient(new RuntimeException("upsert failed")))
+        .when(this.serverState)
+        .upsert(any(ServerStateEntry.class));
+
+    when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
+    when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
+
+    this.heartbeater.run();
+
+    verify(this.serverState).upsert(any(ServerStateEntry.class));
+
+    // Because initializeServerStateEntry failed, startup did not complete:
+    // cache should not have been initialized and index stats should not have been updated
+    verify(this.indexInfoProvider, never()).refreshIndexInfos();
+    verify(this.indexInfoProvider, never()).getIndexInfos();
+  }
+
+  @Test
+  public void run_firstRun_existingServerStateEntry_withNewServerName_usesNewNameAndSameId()
+      throws Exception {
+    // Same server ID, but process restarted with new server name (e.g. config change).
+    ObjectId serverId = new ObjectId();
+    CommunityServerInfo serverInfoNewName =
+        new CommunityServerInfo(serverId, Optional.of("new-server-name"));
+    ServerStateEntry existingEntry =
+        new ServerStateEntry(
+            serverId,
+            "old-name." + serverId.toHexString(),
+            Instant.now().minus(Duration.ofMinutes(5)));
+    when(this.serverState.get(serverId)).thenReturn(Optional.of(existingEntry));
+    when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
+    when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
+
+    CommunityMetadataUpdater updater =
+        new CommunityMetadataUpdater(
+            serverInfoNewName,
+            this.metadataService,
+            this.indexInfoProvider,
+            this.meterRegistry,
+            Duration.ofMillis(10));
+    updater.run();
+
+    ArgumentCaptor<ServerStateEntry> upsertCaptor = ArgumentCaptor.forClass(ServerStateEntry.class);
+    verify(this.serverState).upsert(upsertCaptor.capture());
+    ServerStateEntry capturedEntry = upsertCaptor.getValue();
+    assertEquals(serverId, capturedEntry.serverId());
+    assertEquals("new-server-name." + serverId.toHexString(), capturedEntry.serverName());
+  }
+
+  @Test
+  public void run_firstRun_existingServerStateEntry_secondRunDoesNotReinitialize()
+      throws Exception {
+    // Simulate an existing server state entry for this server
+    ServerStateEntry existingEntry =
+        new ServerStateEntry(
+            this.serverInfo.id(), "test-server", Instant.now().minus(Duration.ofMinutes(5)));
+    when(this.serverState.get(this.serverInfo.id())).thenReturn(Optional.of(existingEntry));
+
+    when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
+    when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
+
+    // First run: initializes via upsert (existing entry)
+    this.heartbeater.run();
+
+    // Second run: startup already completed, should not call get() again
+    this.heartbeater.run();
+
+    verify(this.serverState, times(1)).get(this.serverInfo.id());
+
+    // createCollectionIndexes only called once (first run)
+    verify(this.indexStats, times(1)).createCollectionIndexes();
+
+    // upsert once (first run init), updateOne twice (one heartbeat per run)
+    verify(this.serverState, times(1)).upsert(any(ServerStateEntry.class));
+    verify(this.serverState, times(2)).updateOne(eq(this.serverInfo.id()), any());
   }
 
   @Test
@@ -605,8 +751,9 @@ public class CommunityMetadataUpdaterTest {
     when(this.indexStats.list(any())).thenReturn(Collections.emptyList());
     when(this.indexInfoProvider.getIndexInfos()).thenReturn(Collections.emptyList());
 
-    // Mock the serverState.upsert() call that happens during stop() when marking server as shutdown
-    doNothing().when(this.serverState).upsert(any(ServerStateEntry.class));
+    // Mock the serverState.updateOne() call that happens during stop() when marking server as
+    // shutdown (updateOne returns boolean, so use doReturn instead of doNothing)
+    doReturn(true).when(this.serverState).updateOne(any(), any());
 
     // Use a period that's shorter than run() execution time
     // With fixedDelay: creates a gap after slow run() completes
@@ -717,8 +864,9 @@ public class CommunityMetadataUpdaterTest {
 
     // Verify the executor was shut down properly
     verify(this.indexStats, times(1)).createCollectionIndexes();
-    // serverState.upsert() is called twice: once during run() and once during stop()
-    verify(this.serverState, times(2)).upsert(any(ServerStateEntry.class));
+    verify(this.serverState).upsert(any(ServerStateEntry.class));
+    // serverState.updateOne() is called twice: once during run() and once during stop()
+    verify(this.serverState, times(2)).updateOne(eq(this.serverInfo.id()), any());
   }
 
   @Test
@@ -885,21 +1033,18 @@ public class CommunityMetadataUpdaterTest {
 
   @Test
   public void stop_marksServerAsShutdown() throws Exception {
-    // Mock the necessary methods to allow stop() to complete
-    doNothing().when(this.serverState).upsert(any(ServerStateEntry.class));
-
     // Call stop which should invoke attemptToMarkServerAsShutdown
     this.heartbeater.stop();
 
-    // Capture the upserted entry
-    ArgumentCaptor<ServerStateEntry> entryCaptor = ArgumentCaptor.forClass(ServerStateEntry.class);
-    verify(this.serverState).upsert(entryCaptor.capture());
+    // Verify updateOne was called with the shutdown=true update
+    ArgumentCaptor<BsonDocument> updateCaptor = ArgumentCaptor.forClass(BsonDocument.class);
+    verify(this.serverState).updateOne(eq(this.serverInfo.id()), updateCaptor.capture());
 
-    // Verify the entry has shutdown=true
-    ServerStateEntry capturedEntry = entryCaptor.getValue();
-    assertEquals(this.serverInfo.id(), capturedEntry.serverId());
-    assertEquals(this.serverInfo.getExternalName(), capturedEntry.serverName());
-    assertTrue("shutdown field should be true", capturedEntry.shutdown());
+    // Verify the update sets shutdown to true
+    BsonDocument capturedUpdate = updateCaptor.getValue();
+    assertTrue(
+        "update should set shutdown to true",
+        capturedUpdate.equals(ServerStateEntry.updateShutdownStatus(true)));
   }
 
   @Test
@@ -907,13 +1052,13 @@ public class CommunityMetadataUpdaterTest {
     // Simulate MetadataServiceException when trying to mark server as shutdown
     doThrow(MetadataServiceException.createTransient(new RuntimeException("test exception")))
         .when(this.serverState)
-        .upsert(any(ServerStateEntry.class));
+        .updateOne(any(), any());
 
     // stop() should complete successfully despite the exception (best-effort behavior)
     this.heartbeater.stop();
 
-    // Verify that upsert was attempted
-    verify(this.serverState).upsert(any(ServerStateEntry.class));
+    // Verify that updateOne was attempted
+    verify(this.serverState).updateOne(eq(this.serverInfo.id()), any());
 
     // Verify the heartbeater is closed (subsequent run() should throw)
     IllegalStateException exception =

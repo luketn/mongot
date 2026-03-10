@@ -9,6 +9,7 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.ReplaceOneModel;
 import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.WriteModel;
+import com.mongodb.client.result.UpdateResult;
 import com.xgen.mongot.util.bson.parser.DocumentEncodable;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +64,19 @@ public class MetadataClient<T extends DocumentEncodable> {
         () ->
             this.getCollection()
                 .replaceOne(filter, document.toBson(), new ReplaceOptions().upsert(upsert)));
+  }
+
+  /**
+   * Updates a single document, updating specific fields as specified in the update document.
+   *
+   * @param filter filter to identify the single doc to update
+   * @param update bson document describing the fields to update
+   * @throws MetadataServiceException if there was an error updating the document
+   */
+  public synchronized UpdateResult updateOne(BsonDocument filter, BsonDocument update)
+      throws MetadataServiceException {
+    return MetadataServiceException.wrapIfThrows(
+        () -> this.getCollection().updateOne(filter, update));
   }
 
   /**

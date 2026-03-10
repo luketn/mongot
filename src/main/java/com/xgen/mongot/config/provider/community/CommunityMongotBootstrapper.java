@@ -55,6 +55,7 @@ import com.xgen.mongot.replication.mongodb.autoembedding.AutoEmbeddingMaterializ
 import com.xgen.mongot.replication.mongodb.common.AutoEmbeddingMaterializedViewConfig;
 import com.xgen.mongot.replication.mongodb.common.MongoDbReplicationConfig;
 import com.xgen.mongot.replication.mongodb.initialsync.config.InitialSyncConfig;
+import com.xgen.mongot.server.CommandServer;
 import com.xgen.mongot.server.auth.SecurityConfig;
 import com.xgen.mongot.server.command.search.SearchCommandsRegister;
 import com.xgen.mongot.server.command.search.SearchCommandsRegister.BootstrapperMetadata;
@@ -63,6 +64,7 @@ import com.xgen.mongot.server.executors.RegularBlockingRequestSettings;
 import com.xgen.mongot.server.grpc.GrpcStreamingServer;
 import com.xgen.mongot.server.grpc.HealthManager;
 import com.xgen.mongot.server.http.HealthCheckServer;
+import com.xgen.mongot.server.http.ReadinessChecker;
 import com.xgen.mongot.util.Bytes;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.Crash;
@@ -245,10 +247,7 @@ public class CommunityMongotBootstrapper {
             meterRegistry,
             internalListAllIndexesForTesting);
 
-    // Create different servers that will service $search requests from the mongod, as
-    // well as some other requests (e.g. some from the proxy), but do not start them yet.
     var healthManager = new HealthManager(configManager, meterRegistry);
-    var healthCheckServer = createHealthCheckServer(config, healthManager);
     var serverLifecycles =
         servers(
             config,
@@ -263,6 +262,12 @@ public class CommunityMongotBootstrapper {
             metadataService,
             internalListAllIndexesForTesting,
             embeddingServiceManagerSupplier);
+
+    var readinessChecker =
+        new CommunityReadinessChecker(
+            serverInfo, configManager, configManager, metadataService, serverLifecycles.servers);
+    var healthCheckServer =
+        createHealthCheckServer(config, meterRegistry, healthManager, readinessChecker);
 
     // Create a PeriodicConfigMonitor that will regularly check the authoritative catalog for
     // updates, but do not start it until the shutdown hook is registered.
@@ -453,13 +458,16 @@ public class CommunityMongotBootstrapper {
   }
 
   private static HealthCheckServer createHealthCheckServer(
-      CommunityConfig config, HealthManager healthManager) {
+      CommunityConfig config,
+      MeterRegistry meterRegistry,
+      HealthManager healthManager,
+      ReadinessChecker readinessChecker) {
     InetSocketAddress address =
         config
             .healthCheckConfig()
             .map(c -> parseInetSocketAddress(c.address()))
             .orElse(new InetSocketAddress("localhost", 8080));
-    return HealthCheckServer.create(address, healthManager);
+    return HealthCheckServer.create(address, meterRegistry, healthManager, readinessChecker);
   }
 
   private static SecurityConfig createGrpcSecurityConfig(ServerConfig config) {
@@ -773,10 +781,11 @@ public class CommunityMongotBootstrapper {
 
           // Close the executors after the servers have finished closing.
           executorManager.close();
-        });
+        },
+        List.of(grpcServer));
   }
 
-  private record ServerLifecycles(Runnable start, Runnable stop) {}
+  private record ServerLifecycles(Runnable start, Runnable stop, List<CommandServer> servers) {}
 
   record MetricsLifecycles(Runnable start, Runnable stop) {}
 

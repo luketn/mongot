@@ -1,10 +1,12 @@
 package com.xgen.mongot.catalogservice;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.MoreCollectors;
 import com.mongodb.client.MongoClient;
 import com.xgen.mongot.util.bson.parser.BsonDocumentParser;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 import org.bson.BsonDocument;
 import org.bson.types.ObjectId;
@@ -33,6 +35,14 @@ public class DefaultServerState implements ServerState {
   }
 
   @Override
+  public boolean updateOne(ObjectId serverId, BsonDocument update) throws MetadataServiceException {
+    return this.client
+            .updateOne(ServerStateEntry.serverIdFilter(serverId), update)
+            .getMatchedCount()
+        == 1;
+  }
+
+  @Override
   public void delete(ObjectId serverId) throws MetadataServiceException {
     this.client.delete(ServerStateEntry.serverIdFilter(serverId));
   }
@@ -58,6 +68,12 @@ public class DefaultServerState implements ServerState {
   @Override
   public List<ServerStateEntry> list() throws MetadataServiceException {
     return list(new BsonDocument());
+  }
+
+  @Override
+  public Optional<ServerStateEntry> get(ObjectId serverId) throws MetadataServiceException {
+    return list(ServerStateEntry.serverIdFilter(serverId)).stream()
+        .collect(MoreCollectors.toOptional());
   }
 
   public static DefaultServerState create(MongoClient mongoClient) {

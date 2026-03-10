@@ -23,6 +23,7 @@ java_library(
     exports = [
         "//src/main/java/com/xgen/mongot/index/definition",
         "@maven//:org_mongodb_bson",
+        "@maven//:org_mongodb_mongodb_driver_core",
     ],
     deps = [
         "//src/main/java/com/xgen/mongot/index",
