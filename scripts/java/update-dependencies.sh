@@ -7,6 +7,7 @@ JAVA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${JAVA_DIR}/../vars.sh"
 
 cd "${MONGOT_PATH}"
+bazel run @unpinned_lucene_fork//:pin
 bazel run @unpinned_maven//:pin
 
 "${JAVA_DIR}/update-pom-file.sh"

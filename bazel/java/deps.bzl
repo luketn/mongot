@@ -6,7 +6,7 @@ load("@contrib_rules_jvm//:setup.bzl", "contrib_rules_jvm_setup")
 load("@io_grpc_grpc_java//:repositories.bzl", "IO_GRPC_GRPC_JAVA_ARTIFACTS")
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 load("//bazel/java:dep_utils.bzl", "append_version", "as_neverlink", "as_test_only")
-load("//bazel/java:search_query_deps.bzl", "SEARCH_QUERY_DEPS")
+load("//bazel/java:search_query_deps.bzl", "LUCENE_FORK_ARTIFACTS", "LUCENE_FORK_OVERRIDE_TARGETS", "SEARCH_QUERY_DEPS")
 load("//bazel/java:systems_deps.bzl", "SYSTEMS_DEPS")
 
 GUAVA_VERSION = "33.5.0-jre"
@@ -182,6 +182,16 @@ def java_deps():
     contrib_rules_jvm_setup()
     contrib_rules_jvm_gazelle_setup()
 
+    # Lucene fork artifacts (lucene-core, lucene-backward-codecs) are resolved from our CDN
+    # in a separate install and override the upstream versions in the main install below.
+    maven_install(
+        name = "lucene_fork",
+        artifacts = LUCENE_FORK_ARTIFACTS,
+        repositories = ["https://downloads.mongodb.com/lucene-mongot/maven"],
+        fetch_sources = True,
+        maven_install_json = "//bazel/java:lucene_fork_pin_info.json",
+    )
+
     maven_install(
         artifacts = _mongot_java_artifacts(),
         repositories = ["https://repo1.maven.org/maven2"],
@@ -191,6 +201,8 @@ def java_deps():
         duplicate_version_warning = "error",
         # Use the versions we've pinned if a conflict is detected.
         version_conflict_policy = "pinned",
+        # Redirect lucene-core and lucene-backward-codecs to the fork JARs from @lucene_fork.
+        override_targets = LUCENE_FORK_OVERRIDE_TARGETS,
         excluded_artifacts = _mongot_java_excluded_artifacts(),
     )
 

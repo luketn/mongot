@@ -1,8 +1,10 @@
 load("//bazel/java:dep_utils.bzl", "append_version", "as_test_only")
 
-_LUCENE_VERSION = "9.11.1"
-_LUCENE_ARTIFACTS = append_version(
-    _LUCENE_VERSION,
+# Upstream Apache Lucene release version.
+_LUCENE_UPSTREAM_VERSION = "9.11.1"
+
+_LUCENE_UPSTREAM_ARTIFACTS = append_version(
+    _LUCENE_UPSTREAM_VERSION,
     [
         "org.apache.lucene:lucene-analysis-common",
         "org.apache.lucene:lucene-analysis-icu",
@@ -12,6 +14,9 @@ _LUCENE_ARTIFACTS = append_version(
         "org.apache.lucene:lucene-analysis-phonetic",
         "org.apache.lucene:lucene-analysis-smartcn",
         "org.apache.lucene:lucene-analysis-stempel",
+        # lucene-core and lucene-backward-codecs are also listed here (at the upstream version) so
+        # that transitive dependency resolution in the main maven_install works correctly. At build
+        # time, override_targets redirects these to the fork JARs (see deps.bzl).
         "org.apache.lucene:lucene-backward-codecs",
         "org.apache.lucene:lucene-core",
         "org.apache.lucene:lucene-expressions",
@@ -22,6 +27,27 @@ _LUCENE_ARTIFACTS = append_version(
         "org.apache.lucene:lucene-queryparser",
         "org.apache.lucene:lucene-facet",
     ],
-) + as_test_only(append_version(_LUCENE_VERSION, ["org.apache.lucene:lucene-test-framework"]))
+) + as_test_only(
+    append_version(_LUCENE_UPSTREAM_VERSION, ["org.apache.lucene:lucene-test-framework"]),
+)
 
-SEARCH_QUERY_DEPS = _LUCENE_ARTIFACTS
+# Version of mongot's Lucene fork artifacts published to
+# https://downloads.mongodb.com/lucene-mongot/*. Built from the corresponding mongot development
+# branch in the [lucene-mongot](https://github.com/mongodb-forks/lucene-mongot) repository.
+# These are resolved via the separate "lucene_fork" maven_install in deps.bzl and override the
+# upstream artifacts in the main maven_install via override_targets.
+_LUCENE_FORK_VERSION = "9.11.1-1"
+
+_LUCENE_FORK_ARTIFACT_NAMES = [
+    "org.apache.lucene:lucene-backward-codecs",
+    "org.apache.lucene:lucene-core",
+]
+
+LUCENE_FORK_ARTIFACTS = append_version(_LUCENE_FORK_VERSION, _LUCENE_FORK_ARTIFACT_NAMES)
+
+LUCENE_FORK_OVERRIDE_TARGETS = {
+    name: "@lucene_fork//:org_apache_lucene_%s" % name.split(":")[1].replace("-", "_")
+    for name in _LUCENE_FORK_ARTIFACT_NAMES
+}
+
+SEARCH_QUERY_DEPS = _LUCENE_UPSTREAM_ARTIFACTS
