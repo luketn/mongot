@@ -1,4 +1,5 @@
 load("@rules_pkg//pkg:mappings.bzl", "pkg_attributes", "pkg_files")
+load("//bazel/java:netty_tcnative.bzl", "NETTY_TCNATIVE_X86_64_AL2023_TARGET", "NETTY_TCNATIVE_X86_64_AL2_TARGET")
 load("//bazel/java:package.bzl", "java_binary_stamped_manifest")
 load("//deploy:def.bzl", "extracted_libraries")
 
@@ -66,16 +67,29 @@ extracted_libraries({
         "properties": ["-Dorg.xerial.snappy.use.systemlib=true"],
         "src": "@maven//:org_xerial_snappy_snappy_java",
     },
-    "tcnative": {
+    "tcnative-aarch64": {
         "outputs": {
             "libnetty_tcnative_linux_aarch_64.so": {
                 "linux_aarch64": "META-INF/native/libnetty_tcnative_linux_aarch_64.so",
             },
-            "libnetty_tcnative_linux_x86_64.so": {
+        },
+        "src": "//bazel/java:netty-tcnative",
+    },
+    "tcnative-x86_64-al2": {
+        "outputs": {
+            "libnetty_tcnative_x86_64_al2.so": {
                 "linux_x86_64": "META-INF/native/libnetty_tcnative_linux_x86_64.so",
             },
         },
-        "src": "//bazel/java:netty-tcnative",
+        "src": NETTY_TCNATIVE_X86_64_AL2_TARGET,
+    },
+    "tcnative-x86_64-al2023": {
+        "outputs": {
+            "libnetty_tcnative_x86_64_al2023.so": {
+                "linux_x86_64": "META-INF/native/libnetty_tcnative_linux_x86_64.so",
+            },
+        },
+        "src": NETTY_TCNATIVE_X86_64_AL2023_TARGET,
     },
     "zstd": {
         "outputs": {

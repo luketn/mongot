@@ -6,6 +6,7 @@ load("@contrib_rules_jvm//:setup.bzl", "contrib_rules_jvm_setup")
 load("@io_grpc_grpc_java//:repositories.bzl", "IO_GRPC_GRPC_JAVA_ARTIFACTS")
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 load("//bazel/java:dep_utils.bzl", "append_version", "as_neverlink", "as_test_only")
+load("//bazel/java:netty_tcnative.bzl", "netty_tcnative_deps")
 load("//bazel/java:search_query_deps.bzl", "LUCENE_FORK_ARTIFACTS", "LUCENE_FORK_OVERRIDE_TARGETS", "SEARCH_QUERY_DEPS")
 load("//bazel/java:systems_deps.bzl", "SYSTEMS_DEPS")
 
@@ -208,6 +209,7 @@ def java_deps():
 
     _adoptium_jdk()
     _test_deps()
+    netty_tcnative_deps()
 
 def _adoptium_jdk():
     _adoptium_jdk_linux_x86_64()

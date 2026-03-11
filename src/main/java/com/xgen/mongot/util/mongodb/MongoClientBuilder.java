@@ -199,10 +199,6 @@ public class MongoClientBuilder {
         // string value for direct connection.
         settings.retryWrites(false);
       }
-
-      if (Boolean.TRUE.equals(this.connectionString.getSslEnabled())) {
-        attemptOpenSslDynamicLinking(settings);
-      }
     }
 
     if (this.socketTimeoutMs.isPresent()) {
@@ -216,6 +212,10 @@ public class MongoClientBuilder {
           });
     }
 
+    if (Boolean.TRUE.equals(this.connectionString.getSslEnabled())) {
+      attemptOpenSslDynamicLinking(settings);
+    }
+    
     if (this.sslContext.isPresent()) {
       settings.applyToSslSettings(
           builder -> {
