@@ -3631,6 +3631,63 @@ public class DrillSidewaysInfoBuilderTest {
     }
   }
 
+  @Test
+  public void buildFacetOperators_directNestedEmbeddedDocs_propagatesFacetOperatorsAndPreFilter()
+      throws Exception {
+    // Nested embedded docs (outer -> outer.inner -> compound with doesNotAffect): facet operators
+    // must be propagated to the parent state and the preFilter must preserve both embedding levels.
+    FacetCollector collector =
+        parseFacetCollector(
+            """
+        {
+          "operator": {
+            "embeddedDocument": {"path": "outer", "operator":
+                {"embeddedDocument": {"path": "outer.inner", "operator":
+                    {"compound": {"filter": [
+                        {"exists":  {"path": "outer.inner.notes"}},
+                        {"equals":  {"path": "outer.inner.x", "value": "val",
+                                     "doesNotAffect": "xFacet"}}
+                    ]}}
+                }}
+            }
+          },
+          "facets": {
+            "xFacet": {"type": "string", "path": "outer.inner.x"}
+          }
+        }""");
+
+    DrillSidewaysInfo info = collector.drillSidewaysInfo().get();
+
+    assertThat(info.optimizationStatus())
+        .isEqualTo(DrillSidewaysInfo.QueryOptimizationStatus.OPTIMIZABLE);
+    assertThat(info.facetOperators()).containsKey("xFacet");
+    assertThat(info.facetOperators().get("xFacet")).isPresent();
+    Operator facetOp = info.facetOperators().get("xFacet").get();
+    assertThat(facetOp).isInstanceOf(EmbeddedDocumentOperator.class);
+    EmbeddedDocumentOperator facetEmbedded = (EmbeddedDocumentOperator) facetOp;
+    assertThat(facetEmbedded.path().toString()).isEqualTo("outer");
+
+    // PreFilter must be wrapped at both levels: embeddedDoc("outer", embeddedDoc("outer.inner",
+    // compound(filter:[exists]))).
+    assertThat(info.preFilter()).isPresent();
+    Operator preFilter = info.preFilter().get();
+    assertThat(preFilter).isInstanceOf(EmbeddedDocumentOperator.class);
+    EmbeddedDocumentOperator outerWrap = (EmbeddedDocumentOperator) preFilter;
+    assertThat(outerWrap.path().toString()).isEqualTo("outer");
+    assertThat(outerWrap.operator()).isInstanceOf(EmbeddedDocumentOperator.class);
+    EmbeddedDocumentOperator innerWrap = (EmbeddedDocumentOperator) outerWrap.operator();
+    assertThat(innerWrap.path().toString()).isEqualTo("outer.inner");
+  }
+
+  private static FacetCollector parseFacetCollector(String json) throws Exception {
+    try (var parser =
+        com.xgen.mongot.util.bson.parser.BsonDocumentParser.fromRoot(
+                org.bson.BsonDocument.parse(json))
+            .build()) {
+      return FacetCollector.fromBson(parser);
+    }
+  }
+
   private void assertRangeOperator(
       Operator operator, String expectedPath, long expectedLower, long expectedUpper) {
     assertThat(operator).isInstanceOf(RangeOperator.class);
