@@ -246,6 +246,60 @@
           "totalReplicated": 1
         }
       ]
+    },
+    {
+      "failedInserts": [],
+      "failedDeletes": [],
+      "failedUpdates": [],
+      "totalInCollection": [
+        {}
+      ],
+      "totalInSearchIndex": [
+        {
+          "totalInSearchIndex": 0
+        }
+      ],
+      "totalReplicated": [
+        {
+          "totalReplicated": 0
+        }
+      ]
+    },
+    {
+      "failedInserts": [],
+      "failedDeletes": [],
+      "failedUpdates": [],
+      "totalInCollection": [
+        {
+          "totalInCollection": 0
+        }
+      ],
+      "totalInSearchIndex": [
+        {}
+      ],
+      "totalReplicated": [
+        {
+          "totalReplicated": 0
+        }
+      ]
+    },
+    {
+      "failedInserts": [],
+      "failedDeletes": [],
+      "failedUpdates": [],
+      "totalInCollection": [
+        {
+          "totalInCollection": 0
+        }
+      ],
+      "totalInSearchIndex": [
+        {
+          "totalInSearchIndex": 0
+        }
+      ],
+      "totalReplicated": [
+        {}
+      ]
     }
   ],
   "invalid": [
@@ -376,60 +430,6 @@
         {
           "totalReplicated": 0
         }
-      ]
-    },
-    {
-      "failedInserts": [],
-      "failedDeletes": [],
-      "failedUpdates": [],
-      "totalInCollection": [
-        {}
-      ],
-      "totalInSearchIndex": [
-        {
-          "totalInSearchIndex": 0
-        }
-      ],
-      "totalReplicated": [
-        {
-          "totalReplicated": 0
-        }
-      ]
-    },
-    {
-      "failedInserts": [],
-      "failedDeletes": [],
-      "failedUpdates": [],
-      "totalInCollection": [
-        {
-          "totalInCollection": 0
-        }
-      ],
-      "totalInSearchIndex": [
-        {}
-      ],
-      "totalReplicated": [
-        {
-          "totalReplicated": 0
-        }
-      ]
-    },
-    {
-      "failedInserts": [],
-      "failedDeletes": [],
-      "failedUpdates": [],
-      "totalInCollection": [
-        {
-          "totalInCollection": 0
-        }
-      ],
-      "totalInSearchIndex": [
-        {
-          "totalInSearchIndex": 0
-        }
-      ],
-      "totalReplicated": [
-        {}
       ]
     }
   ]
