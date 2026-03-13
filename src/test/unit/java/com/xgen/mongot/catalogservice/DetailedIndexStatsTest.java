@@ -27,15 +27,15 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      DetailedIndexStatsTest.TestDeserialization.class,
-      DetailedIndexStatsTest.TestSerialization.class
+      DetailedIndexStatsTest.DeserializationTest.class,
+      DetailedIndexStatsTest.SerializationTest.class
     })
 public class DetailedIndexStatsTest {
 
   private static final String RESOURCE_PATH = "src/test/unit/resources/catalogservice";
 
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
     private static final String SUITE_NAME = "detailed-index-stats-deserialization";
     private static final BsonDeserializationTestSuite<IndexStatsEntry.DetailedIndexStats>
         TEST_SUITE =
@@ -44,7 +44,7 @@ public class DetailedIndexStatsTest {
     private final BsonDeserializationTestSuite.TestSpecWrapper<IndexStatsEntry.DetailedIndexStats>
         testSpec;
 
-    public TestDeserialization(
+    public DeserializationTest(
         BsonDeserializationTestSuite.TestSpecWrapper<IndexStatsEntry.DetailedIndexStats> testSpec) {
       this.testSpec = testSpec;
     }
@@ -112,14 +112,14 @@ public class DetailedIndexStatsTest {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
     private static final String SUITE_NAME = "detailed-index-stats-serialization";
     private static final BsonSerializationTestSuite<IndexStatsEntry.DetailedIndexStats> TEST_SUITE =
         fromEncodable(RESOURCE_PATH, SUITE_NAME);
 
     private final BsonSerializationTestSuite.TestSpec<IndexStatsEntry.DetailedIndexStats> testSpec;
 
-    public TestSerialization(
+    public SerializationTest(
         BsonSerializationTestSuite.TestSpec<IndexStatsEntry.DetailedIndexStats> testSpec) {
       this.testSpec = testSpec;
     }

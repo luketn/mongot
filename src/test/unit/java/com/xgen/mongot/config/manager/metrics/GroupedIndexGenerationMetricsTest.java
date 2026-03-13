@@ -20,12 +20,12 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      GroupedIndexGenerationMetricsTest.TestDeserialization.class,
-      GroupedIndexGenerationMetricsTest.TestSerialization.class,
+      GroupedIndexGenerationMetricsTest.DeserializationTest.class,
+      GroupedIndexGenerationMetricsTest.SerializationTest.class,
     })
 public class GroupedIndexGenerationMetricsTest {
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
     private static final String SUITE_NAME = "grouped-index-generation-metrics-deserialization";
     private static final BsonDeserializationTestSuite<GroupedIndexGenerationMetrics> TEST_SUITE =
         fromDocument(
@@ -36,7 +36,7 @@ public class GroupedIndexGenerationMetricsTest {
     private final BsonDeserializationTestSuite.TestSpecWrapper<GroupedIndexGenerationMetrics>
         testSpec;
 
-    public TestDeserialization(
+    public DeserializationTest(
         BsonDeserializationTestSuite.TestSpecWrapper<GroupedIndexGenerationMetrics> testSpec) {
       this.testSpec = testSpec;
     }
@@ -75,14 +75,14 @@ public class GroupedIndexGenerationMetricsTest {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
     private static final String SUITE_NAME = "grouped-index-generation-metrics-serialization";
     private static final BsonSerializationTestSuite<GroupedIndexGenerationMetrics> TEST_SUITE =
         fromEncodable("src/test/unit/resources/config/manager/metrics", SUITE_NAME);
 
     private final BsonSerializationTestSuite.TestSpec<GroupedIndexGenerationMetrics> testSpec;
 
-    public TestSerialization(
+    public SerializationTest(
         BsonSerializationTestSuite.TestSpec<GroupedIndexGenerationMetrics> testSpec) {
       this.testSpec = testSpec;
     }

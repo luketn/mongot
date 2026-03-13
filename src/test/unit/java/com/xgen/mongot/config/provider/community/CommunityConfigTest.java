@@ -26,14 +26,14 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      CommunityConfigTest.TestDeserialization.class,
-      CommunityConfigTest.TestSerialization.class,
+      CommunityConfigTest.DeserializationTest.class,
+      CommunityConfigTest.SerializationTest.class,
       CommunityConfigTest.CommunityConfigTestClass.class,
     })
 public class CommunityConfigTest {
 
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
     private static final String SUITE_NAME = "communityConfigDeserialization";
     private static final BsonDeserializationTestSuite<CommunityConfig> TEST_SUITE =
         fromDocument(
@@ -43,7 +43,7 @@ public class CommunityConfigTest {
 
     private final BsonDeserializationTestSuite.TestSpecWrapper<CommunityConfig> testSpec;
 
-    public TestDeserialization(
+    public DeserializationTest(
         BsonDeserializationTestSuite.TestSpecWrapper<CommunityConfig> testSpec) {
       this.testSpec = testSpec;
     }
@@ -304,14 +304,14 @@ public class CommunityConfigTest {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
     private static final String SUITE_NAME = "communityConfigSerialization";
     private static final BsonSerializationTestSuite<CommunityConfig> TEST_SUITE =
         fromEncodable("src/test/unit/resources/config/provider/community", SUITE_NAME);
 
     private final BsonSerializationTestSuite.TestSpec<CommunityConfig> testSpec;
 
-    public TestSerialization(BsonSerializationTestSuite.TestSpec<CommunityConfig> testSpec) {
+    public SerializationTest(BsonSerializationTestSuite.TestSpec<CommunityConfig> testSpec) {
       this.testSpec = testSpec;
     }
 

@@ -15,12 +15,12 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      DynamicFeatureFlagJournalTest.TestDeserialization.class,
-      DynamicFeatureFlagJournalTest.TestSerialization.class,
+      DynamicFeatureFlagJournalTest.DeserializationTest.class,
+      DynamicFeatureFlagJournalTest.SerializationTest.class,
     })
 public class DynamicFeatureFlagJournalTest {
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
 
     private static final String SUITE_NAME = "feature-flag-journal-deserialization";
     private static final BsonDeserializationTestSuite<DynamicFeatureFlagJournal> TEST_SUITE =
@@ -31,7 +31,7 @@ public class DynamicFeatureFlagJournalTest {
 
     private final BsonDeserializationTestSuite.TestSpecWrapper<DynamicFeatureFlagJournal> testSpec;
 
-    public TestDeserialization(
+    public DeserializationTest(
         BsonDeserializationTestSuite.TestSpecWrapper<DynamicFeatureFlagJournal> testSpec) {
       this.testSpec = testSpec;
     }
@@ -77,7 +77,7 @@ public class DynamicFeatureFlagJournalTest {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
 
     private static final String SUITE_NAME = "feature-flag-journal-serialization";
     private static final BsonSerializationTestSuite<DynamicFeatureFlagJournal> TEST_SUITE =
@@ -86,7 +86,7 @@ public class DynamicFeatureFlagJournalTest {
 
     private final BsonSerializationTestSuite.TestSpec<DynamicFeatureFlagJournal> testSpec;
 
-    public TestSerialization(
+    public SerializationTest(
         BsonSerializationTestSuite.TestSpec<DynamicFeatureFlagJournal> testSpec) {
       this.testSpec = testSpec;
     }

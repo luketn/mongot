@@ -45,14 +45,14 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      ConfigJournalV1Test.TestDeserialization.class,
-      ConfigJournalV1Test.TestSerialization.class,
-      ConfigJournalV1Test.TestClass.class,
+      ConfigJournalV1Test.DeserializationTest.class,
+      ConfigJournalV1Test.SerializationTest.class,
+      ConfigJournalV1Test.ClassTest.class,
     })
 public class ConfigJournalV1Test {
 
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
 
     private static final String SUITE_NAME = "config-journal-v1-deserialization";
     private static final BsonDeserializationTestSuite<ConfigJournalV1> TEST_SUITE =
@@ -61,7 +61,7 @@ public class ConfigJournalV1Test {
 
     private final BsonDeserializationTestSuite.TestSpecWrapper<ConfigJournalV1> testSpec;
 
-    public TestDeserialization(
+    public DeserializationTest(
         BsonDeserializationTestSuite.TestSpecWrapper<ConfigJournalV1> testSpec) {
       this.testSpec = testSpec;
     }
@@ -247,7 +247,7 @@ public class ConfigJournalV1Test {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
 
     private static final String SUITE_NAME = "config-journal-v1-serialization";
     private static final BsonSerializationTestSuite<ConfigJournalV1> TEST_SUITE =
@@ -256,7 +256,7 @@ public class ConfigJournalV1Test {
 
     private final BsonSerializationTestSuite.TestSpec<ConfigJournalV1> testSpec;
 
-    public TestSerialization(BsonSerializationTestSuite.TestSpec<ConfigJournalV1> testSpec) {
+    public SerializationTest(BsonSerializationTestSuite.TestSpec<ConfigJournalV1> testSpec) {
       this.testSpec = testSpec;
     }
 
@@ -433,7 +433,7 @@ public class ConfigJournalV1Test {
   }
 
   @RunWith(Theories.class)
-  public static class TestClass {
+  public static class ClassTest {
     @DataPoints("indexDefinitions")
     public static List<IndexDefinitionGeneration> indexDefinitions() {
       return List.of(

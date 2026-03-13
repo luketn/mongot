@@ -25,21 +25,21 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      IndexStatsEntryTest.TestDeserialization.class,
-      IndexStatsEntryTest.TestSerialization.class
+      IndexStatsEntryTest.DeserializationTest.class,
+      IndexStatsEntryTest.SerializationTest.class
     })
 public class IndexStatsEntryTest {
   private static final String RESOURCE_PATH = "src/test/unit/resources/catalogservice";
 
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
     private static final String SUITE_NAME = "index-stats-deserialization";
     private static final BsonDeserializationTestSuite<IndexStatsEntry> TEST_SUITE =
         fromDocument(RESOURCE_PATH, SUITE_NAME, IndexStatsEntry::fromBson);
 
     private final BsonDeserializationTestSuite.TestSpecWrapper<IndexStatsEntry> testSpec;
 
-    public TestDeserialization(
+    public DeserializationTest(
         BsonDeserializationTestSuite.TestSpecWrapper<IndexStatsEntry> testSpec) {
       this.testSpec = testSpec;
     }
@@ -152,14 +152,14 @@ public class IndexStatsEntryTest {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
     private static final String SUITE_NAME = "index-stats-serialization";
     private static final BsonSerializationTestSuite<IndexStatsEntry> TEST_SUITE =
         fromEncodable(RESOURCE_PATH, SUITE_NAME);
 
     private final BsonSerializationTestSuite.TestSpec<IndexStatsEntry> testSpec;
 
-    public TestSerialization(BsonSerializationTestSuite.TestSpec<IndexStatsEntry> testSpec) {
+    public SerializationTest(BsonSerializationTestSuite.TestSpec<IndexStatsEntry> testSpec) {
       this.testSpec = testSpec;
     }
 

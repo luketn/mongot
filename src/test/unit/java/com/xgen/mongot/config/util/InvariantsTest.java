@@ -32,12 +32,12 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      InvariantsTest.TestGenerationalInvariants.class,
-      InvariantsTest.TestValidateInvariants.class,
+      InvariantsTest.GenerationalInvariantsTest.class,
+      InvariantsTest.ValidateInvariantsTest.class,
     })
 public class InvariantsTest {
   @RunWith(Parameterized.class)
-  public static class TestGenerationalInvariants {
+  public static class GenerationalInvariantsTest {
     private final String indexType;
 
     @Parameterized.Parameters(name = "{0}")
@@ -48,7 +48,7 @@ public class InvariantsTest {
       return List.of("search", "vector");
     }
 
-    public TestGenerationalInvariants(String indexType) {
+    public GenerationalInvariantsTest(String indexType) {
       this.indexType = indexType;
     }
 
@@ -326,7 +326,7 @@ public class InvariantsTest {
     }
   }
 
-  public static class TestValidateInvariants {
+  public static class ValidateInvariantsTest {
     @Test
     public void emptyIsValid() throws Exception {
       assertValid(Collections.emptyList(), Collections.emptyList());

@@ -19,22 +19,22 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      ServerStateEntryTest.TestDeserialization.class,
-      ServerStateEntryTest.TestSerialization.class,
-      ServerStateEntryTest.TestReadinessState.class
+      ServerStateEntryTest.DeserializationTest.class,
+      ServerStateEntryTest.SerializationTest.class,
+      ServerStateEntryTest.ReadinessStateTest.class
     })
 public class ServerStateEntryTest {
   private static final String RESOURCE_PATH = "src/test/unit/resources/catalogservice";
 
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
     private static final String SUITE_NAME = "server-state-deserialization";
     private static final BsonDeserializationTestSuite<ServerStateEntry> TEST_SUITE =
         fromDocument(RESOURCE_PATH, SUITE_NAME, ServerStateEntry::fromBson);
 
     private final BsonDeserializationTestSuite.TestSpecWrapper<ServerStateEntry> testSpec;
 
-    public TestDeserialization(
+    public DeserializationTest(
         BsonDeserializationTestSuite.TestSpecWrapper<ServerStateEntry> testSpec) {
       this.testSpec = testSpec;
     }
@@ -84,14 +84,14 @@ public class ServerStateEntryTest {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
     private static final String SUITE_NAME = "server-state-serialization";
     private static final BsonSerializationTestSuite<ServerStateEntry> TEST_SUITE =
         fromEncodable(RESOURCE_PATH, SUITE_NAME);
 
     private final BsonSerializationTestSuite.TestSpec<ServerStateEntry> testSpec;
 
-    public TestSerialization(BsonSerializationTestSuite.TestSpec<ServerStateEntry> testSpec) {
+    public SerializationTest(BsonSerializationTestSuite.TestSpec<ServerStateEntry> testSpec) {
       this.testSpec = testSpec;
     }
 
@@ -117,7 +117,7 @@ public class ServerStateEntryTest {
     }
   }
 
-  public static class TestReadinessState {
+  public static class ReadinessStateTest {
 
     private static final ObjectId SERVER_ID = new ObjectId();
     private static final String SERVER_NAME = "test-server";

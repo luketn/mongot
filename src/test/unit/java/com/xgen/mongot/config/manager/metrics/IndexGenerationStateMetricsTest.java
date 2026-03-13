@@ -19,12 +19,12 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      IndexGenerationStateMetricsTest.TestSerialization.class,
-      IndexGenerationStateMetricsTest.TestDeserialization.class,
+      IndexGenerationStateMetricsTest.SerializationTest.class,
+      IndexGenerationStateMetricsTest.DeserializationTest.class,
     })
 public class IndexGenerationStateMetricsTest {
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
     private static final String SUITE_NAME = "index-generation-state-metrics-deserialization";
     private static final BsonDeserializationTestSuite<IndexGenerationStateMetrics> TEST_SUITE =
         fromDocument(
@@ -35,7 +35,7 @@ public class IndexGenerationStateMetricsTest {
     private final BsonDeserializationTestSuite.TestSpecWrapper<IndexGenerationStateMetrics>
         testSpec;
 
-    public TestDeserialization(
+    public DeserializationTest(
         BsonDeserializationTestSuite.TestSpecWrapper<IndexGenerationStateMetrics> testSpec) {
       this.testSpec = testSpec;
     }
@@ -69,14 +69,14 @@ public class IndexGenerationStateMetricsTest {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
     private static final String SUITE_NAME = "index-generation-state-metrics-serialization";
     private static final BsonSerializationTestSuite<IndexGenerationStateMetrics> TEST_SUITE =
         fromEncodable("src/test/unit/resources/config/manager/metrics", SUITE_NAME);
 
     private final BsonSerializationTestSuite.TestSpec<IndexGenerationStateMetrics> testSpec;
 
-    public TestSerialization(
+    public SerializationTest(
         BsonSerializationTestSuite.TestSpec<IndexGenerationStateMetrics> testSpec) {
       this.testSpec = testSpec;
     }
