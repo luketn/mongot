@@ -9,6 +9,7 @@ import static com.xgen.mongot.util.Check.checkState;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.errorprone.annotations.Var;
+import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.logging.DefaultKeyValueLogger;
@@ -19,6 +20,7 @@ import com.xgen.mongot.replication.mongodb.common.InitialSyncException;
 import com.xgen.mongot.replication.mongodb.common.InitialSyncResumeInfo;
 import com.xgen.mongot.util.BsonUtils;
 import com.xgen.mongot.util.Check;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
 import java.time.Duration;
@@ -44,6 +46,8 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
   private final Timer collectionScanTimer;
   /* Tracks the duration of applying change stream events */
   private final Timer changeStreamTimer;
+  private final InitialSyncMongoClient mongoClient;
+  private final Counter fsyncErrorCounter;
 
   @VisibleForTesting
   BufferlessInitialSyncManager(
@@ -53,7 +57,8 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
       ServerClusterTimeProvider clusterTimeProvider,
       Duration collectionScanTime,
       Optional<InitialSyncResumeInfo> resumeInfo,
-      MetricsFactory metricsFactory) {
+      MetricsFactory metricsFactory,
+      InitialSyncMongoClient mongoClient) {
     HashMap<String, Object> defaultKeyValues = new HashMap<>();
     defaultKeyValues.put("indexId", context.getIndexId());
     defaultKeyValues.put("generationId", context.getGenerationId());
@@ -68,6 +73,8 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
     this.resumeInfo = resumeInfo;
     this.collectionScanTimer = metricsFactory.timer("collectionScanTime");
     this.changeStreamTimer = metricsFactory.timer("changeStreamTime");
+    this.mongoClient = mongoClient;
+    this.fsyncErrorCounter = metricsFactory.counter("fsyncError");
   }
 
   static InitialSyncManagerFactory factory(
@@ -152,7 +159,8 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
         mongoClient::getMaxValidMajorityReadOptime,
         collectionScanTime,
         resumeInfo,
-        metricsFactory);
+        metricsFactory,
+        mongoClient);
   }
 
   /**
@@ -210,6 +218,34 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
         .addKeyValue("lastScannedToken", this.resumeInfo.map(InitialSyncResumeInfo::getResumeToken))
         .addKeyValue("hostName", this.resumeInfo.map(InitialSyncResumeInfo::getSyncSourceHost))
         .log("Beginning initial sync.");
+
+    InitialSyncException.wrapIfThrows(
+        () -> {
+          // run fsync to force a disk write to create a newer checkpoint
+          // lastStableRecoveryTimestamp,
+          // which ensures record id correctness for natural order scan
+          if (this.context.useNaturalOrderScan()) {
+            try {
+              var response = this.mongoClient.fsync();
+              this.logger
+                  .atInfo()
+                  .addKeyValue("response", response.toJson())
+                  .log("finish fsync successfully");
+            } catch (MongoCommandException e) {
+              this.fsyncErrorCounter.increment();
+              this.logger
+                  .atInfo()
+                  .addKeyValue("errorCode", e.getErrorCode())
+                  .addKeyValue("errorCodeName", e.getErrorCodeName())
+                  .addKeyValue("message", e.getErrorMessage())
+                  .addKeyValue("response", e.getResponse().toJson())
+                  .log("Failed to run fsync during initial sync, ignore error and continue");
+            } catch (Exception e) {
+              this.fsyncErrorCounter.increment();
+              throw e;
+            }
+          }
+        });
 
     try (changeStreamApplier) {
       // Continue the initial sync until the entire collection has been scanned.

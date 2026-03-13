@@ -25,6 +25,7 @@ java_library(
         "MongoClientBuilder.java",
         "MongoCredentials.java",
         "MongoDbDatabase.java",
+        "MongoDbFsync.java",
         "MongoDbMetadataClient.java",
         "MongoDbReplSetStatus.java",
         "MongoDbServerInfo.java",
