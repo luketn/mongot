@@ -137,7 +137,7 @@
           "datasource": { "type": "jaeger", "uid": "jaeger" },
           "queryType": "search",
           "service": "mongot",
-          "limit": 20
+          "limit": 200
         }
       ],
       "options": {
