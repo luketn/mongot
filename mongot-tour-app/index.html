@@ -1,0 +1,2898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MongoT Code Tour</title>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@emotion/react@11.11.1/dist/emotion-react.umd.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@emotion/styled@11.11.0/dist/emotion-styled.umd.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@mui/material@5.15.15/umd/material-ui.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' x2='100%25' y1='0%25' y2='100%25'%3E%3Cstop stop-color='%2369c0ff'/%3E%3Cstop offset='1' stop-color='%23ffbe6b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='16' fill='%2308111d'/%3E%3Cpath d='M16 45V19h7l9 12 9-12h7v26h-7V31l-9 11-9-11v14z' fill='url(%23g)'/%3E%3C/svg%3E" />
+
+  <style>
+    :root {
+      --bg: #08111d;
+      --bg-2: #0f1d2e;
+      --panel: rgba(12, 23, 38, 0.78);
+      --panel-2: rgba(14, 28, 46, 0.92);
+      --line: rgba(155, 192, 255, 0.16);
+      --line-strong: rgba(155, 192, 255, 0.34);
+      --text: #ecf4ff;
+      --muted: #9eb0c8;
+      --warm: #ffbe6b;
+      --peach: #ff8c69;
+      --mint: #80f0c4;
+      --sky: #69c0ff;
+      --violet: #9d8cff;
+      --shadow: 0 28px 60px rgba(0, 0, 0, 0.34);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(105, 192, 255, 0.18), transparent 28%),
+        radial-gradient(circle at top right, rgba(157, 140, 255, 0.18), transparent 24%),
+        radial-gradient(circle at bottom center, rgba(128, 240, 196, 0.14), transparent 24%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+      color: var(--text);
+      font-family: "Space Grotesk", sans-serif;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: auto;
+      width: 42vw;
+      height: 42vw;
+      border-radius: 999px;
+      filter: blur(80px);
+      opacity: 0.18;
+      pointer-events: none;
+      z-index: 0;
+      animation: drift 16s ease-in-out infinite alternate;
+    }
+
+    body::before {
+      top: -14vw;
+      left: -10vw;
+      background: #3a8dff;
+    }
+
+    body::after {
+      right: -10vw;
+      bottom: -18vw;
+      background: #18b879;
+      animation-duration: 20s;
+    }
+
+    @keyframes drift {
+      from { transform: translate3d(0, 0, 0) scale(1); }
+      to { transform: translate3d(2vw, 3vw, 0) scale(1.12); }
+    }
+
+    #root {
+      min-height: 100vh;
+      position: relative;
+      z-index: 1;
+    }
+
+    .app-shell {
+      padding: 28px;
+    }
+
+    .glass {
+      background: linear-gradient(180deg, rgba(18, 33, 53, 0.92) 0%, rgba(12, 23, 38, 0.9) 100%);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 28px;
+      padding: 28px 30px;
+      margin-bottom: 20px;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -8% -45% auto;
+      width: 320px;
+      height: 320px;
+      background: radial-gradient(circle, rgba(255, 190, 107, 0.24) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .metric-pulse {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-pulse::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.1) 45%, transparent 100%);
+      transform: translateX(-130%);
+      animation: shimmer 6s linear infinite;
+    }
+
+    @keyframes shimmer {
+      to { transform: translateX(130%); }
+    }
+
+    .graph-frame {
+      height: 100%;
+      min-height: 620px;
+      border-radius: 24px;
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)),
+        radial-gradient(circle at center, rgba(105, 192, 255, 0.09), transparent 38%),
+        rgba(8, 17, 29, 0.62);
+    }
+
+    .graph-canvas {
+      position: absolute;
+      inset: 0;
+    }
+
+    .graph-layer {
+      position: absolute;
+      inset: 0;
+    }
+
+    .graph-overlay-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .mini-note {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+
+    .codeish {
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    .node-pill {
+      border-radius: 999px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.04);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0 8px 8px 0;
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .node-pill:hover {
+      transform: translateY(-1px);
+      border-color: var(--line-strong);
+      background: rgba(255,255,255,0.08);
+    }
+
+    .tour-card {
+      border-radius: 18px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.03);
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .tour-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--line-strong);
+      background: rgba(255,255,255,0.06);
+    }
+
+    .tour-card.active {
+      border-color: rgba(255, 190, 107, 0.55);
+      background: linear-gradient(180deg, rgba(255, 190, 107, 0.12), rgba(255,255,255,0.04));
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+      margin-right: 8px;
+    }
+
+    @media (max-width: 1199px) {
+      .app-shell {
+        padding: 18px;
+      }
+
+      .graph-frame {
+        min-height: 500px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const {
+      Alert,
+      Autocomplete,
+      Box,
+      Button,
+      Card,
+      Chip,
+      CssBaseline,
+      Divider,
+      FormControl,
+      Grid,
+      InputAdornment,
+      InputLabel,
+      LinearProgress,
+      Link,
+      MenuItem,
+      Paper,
+      Select,
+      Slider,
+      Stack,
+      Tab,
+      Tabs,
+      TextField,
+      ThemeProvider,
+      Typography
+    } = MaterialUI;
+
+    const topPackages = [
+      { id: "top:blobstore", name: "com.xgen.mongot.blobstore", short: "blobstore", description: "Minimal blob-storage integration surface; currently mostly a placeholder/error boundary.", complexity: 1, links: ["com.xgen.mongot.util"] },
+      { id: "top:catalog", name: "com.xgen.mongot.catalog", short: "catalog", description: "Local index catalog abstractions and implementations used to resolve and search index state.", complexity: 2, links: ["com.xgen.mongot.index"] },
+      { id: "top:catalogservice", name: "com.xgen.mongot.catalogservice", short: "catalogservice", description: "Metadata service layer for authoritative index definitions, per-server index stats, and heartbeats.", complexity: 4, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.replication"] },
+      { id: "top:community", name: "com.xgen.mongot.community", short: "community", description: "Community-edition entrypoint and bootstrap wiring.", complexity: 1, links: ["com.xgen.mongot.util", "com.xgen.mongot.config", "com.xgen.mongot.logging"] },
+      { id: "top:config", name: "com.xgen.mongot.config", short: "config", description: "Configuration models, validation, providers, change planning, and config-management workflow.", complexity: 7, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.replication", "com.xgen.mongot.featureflag", "com.xgen.mongot.metrics", "com.xgen.mongot.catalog", "com.xgen.mongot.catalogservice", "com.xgen.mongot.embedding", "com.xgen.mongot.server", "com.xgen.mongot.monitor", "com.xgen.mongot.cursor", "com.xgen.mongot.lifecycle", "com.xgen.mongot.logging"] },
+      { id: "top:cursor", name: "com.xgen.mongot.cursor", short: "cursor", description: "Cursor domain model, managers, batching, and serialization for paged search results and getMore flows.", complexity: 5, links: ["com.xgen.mongot.index", "com.xgen.mongot.util", "com.xgen.mongot.trace", "com.xgen.mongot.catalog", "com.xgen.mongot.metrics"] },
+      { id: "top:embedding", name: "com.xgen.mongot.embedding", short: "embedding", description: "Embedding-provider integration, request context, auto-embedding helpers, and materialized-view support.", complexity: 6, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.metrics", "com.xgen.mongot.replication"] },
+      { id: "top:featureflag", name: "com.xgen.mongot.featureflag", short: "featureflag", description: "Static and dynamic feature flag definitions plus runtime flag registry and config.", complexity: 2, links: ["com.xgen.mongot.util", "com.xgen.mongot.index"] },
+      { id: "top:index", name: "com.xgen.mongot.index", short: "index", description: "Core search and vector engine: index definitions, ingestion, Lucene integration, query execution, result shaping, and index status.", complexity: 10, links: ["com.xgen.mongot.util", "com.xgen.mongot.featureflag", "com.xgen.mongot.metrics", "com.xgen.mongot.cursor", "com.xgen.mongot.embedding", "com.xgen.mongot.monitor", "com.xgen.mongot.trace", "com.xgen.mongot.server", "com.xgen.proto", "com.xgen.mongot.blobstore", "com.xgen.mongot.config", "com.xgen.mongot.logging"] },
+      { id: "top:lifecycle", name: "com.xgen.mongot.lifecycle", short: "lifecycle", description: "Startup and shutdown lifecycle coordination, especially around index lifecycle management.", complexity: 3, links: ["com.xgen.mongot.index", "com.xgen.mongot.util", "com.xgen.mongot.replication", "com.xgen.mongot.catalog", "com.xgen.mongot.metrics", "com.xgen.mongot.blobstore", "com.xgen.mongot.monitor"] },
+      { id: "top:logging", name: "com.xgen.mongot.logging", short: "logging", description: "Structured logging helpers and JSON log-format customization.", complexity: 1, links: [] },
+      { id: "top:metrics", name: "com.xgen.mongot.metrics", short: "metrics", description: "Metrics abstractions plus FTDC collection and reporting infrastructure.", complexity: 4, links: ["com.xgen.mongot.util", "com.xgen.mongot.index"] },
+      { id: "top:monitor", name: "com.xgen.mongot.monitor", short: "monitor", description: "Disk and replication-state monitoring, gates, and hysteresis controls.", complexity: 3, links: ["com.xgen.mongot.util", "com.xgen.mongot.config", "com.xgen.mongot.metrics"] },
+      { id: "top:replication", name: "com.xgen.mongot.replication", short: "replication", description: "MongoDB replication pipeline: initial sync, steady-state change streams, durability, and indexing work scheduling.", complexity: 9, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.metrics", "com.xgen.mongot.embedding", "com.xgen.mongot.logging", "com.xgen.mongot.featureflag", "com.xgen.mongot.catalog", "com.xgen.mongot.cursor", "com.xgen.mongot.monitor"] },
+      { id: "top:server", name: "com.xgen.mongot.server", short: "server", description: "External server surface: gRPC and command handling, protocol plumbing, request routing, and streaming responses.", complexity: 8, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.cursor", "com.xgen.mongot.config", "com.xgen.mongot.catalogservice", "com.xgen.mongot.catalog", "com.xgen.mongot.embedding", "com.xgen.mongot.metrics", "com.xgen.mongot.featureflag", "com.xgen.mongot.trace"] },
+      { id: "top:trace", name: "com.xgen.mongot.trace", short: "trace", description: "OpenTelemetry tracing helpers, exporters, sampling toggles, and trace parsing utilities.", complexity: 3, links: [] },
+      { id: "top:util", name: "com.xgen.mongot.util", short: "util", description: "Shared foundation code: BSON/proto conversion, concurrency helpers, collections, versioning, and general utilities.", complexity: 8, links: ["com.xgen.proto", "com.xgen.mongot.metrics", "com.xgen.mongot.logging"] },
+      { id: "top:proto", name: "com.xgen.proto", short: "proto", description: "BSON-aware protobuf runtime plus code-generation plugin for BSON-capable protobuf messages.", complexity: 4, links: [] }
+    ];
+
+    const indexPackages = [
+      { id: "index:analyzer", name: "com.xgen.mongot.index.analyzer", short: "analyzer", description: "Analyzer builders, providers, factories, and language-specific tokenization plumbing.", complexity: 6, links: ["com.xgen.mongot.index.definition", "com.xgen.mongot.index.lucene", "com.xgen.mongot.index.path", "com.xgen.mongot.index.query"] },
+      { id: "index:autoembedding", name: "com.xgen.mongot.index.autoembedding", short: "autoembedding", description: "Auto-embedding and materialized-view helpers that derive generated fields and coordinate embedding-oriented metadata.", complexity: 4, links: ["com.xgen.mongot.index.definition", "com.xgen.mongot.index.mongodb", "com.xgen.mongot.index.status", "com.xgen.mongot.index.version", "com.xgen.mongot.index.analyzer", "com.xgen.mongot.index.query"] },
+      { id: "index:blobstore", name: "com.xgen.mongot.index.blobstore", short: "blobstore", description: "Snapshotting hooks for persisting and restoring index state through blob storage.", complexity: 2, links: ["com.xgen.mongot.index.version"] },
+      { id: "index:definition", name: "com.xgen.mongot.index.definition", short: "definition", description: "Core schema model for search, vector, and view indexes, including field definitions, options, and validation logic.", complexity: 8, links: ["com.xgen.mongot.index.version", "com.xgen.mongot.index.analyzer", "com.xgen.mongot.index.query", "com.xgen.mongot.index.lucene", "com.xgen.mongot.index.path"] },
+      { id: "index:ingestion", name: "com.xgen.mongot.index.ingestion", short: "ingestion", description: "BSON document processing, field extraction, and ingestion-time transforms that feed Lucene indexing.", complexity: 5, links: ["com.xgen.mongot.index.definition", "com.xgen.mongot.index.lucene"] },
+      { id: "index:lucene", name: "com.xgen.mongot.index.lucene", short: "lucene", description: "The biggest execution layer: Lucene-backed indexing, search, highlighting, result shaping, commit management, and searcher orchestration.", complexity: 10, links: ["com.xgen.mongot.index.query", "com.xgen.mongot.index.definition", "com.xgen.mongot.index.analyzer", "com.xgen.mongot.index.path", "com.xgen.mongot.index.ingestion", "com.xgen.mongot.index.version", "com.xgen.mongot.index.synonym", "com.xgen.mongot.index.status", "com.xgen.mongot.index.blobstore"] },
+      { id: "index:mongodb", name: "com.xgen.mongot.index.mongodb", short: "mongodb", description: "Narrow MongoDB-facing helpers for materialized-view writes and index-related state propagation.", complexity: 2, links: ["com.xgen.mongot.index.lucene", "com.xgen.mongot.index.status", "com.xgen.mongot.index.version"] },
+      { id: "index:path", name: "com.xgen.mongot.index.path", short: "path", description: "Shared path abstractions for dotted field-path parsing and traversal.", complexity: 2, links: [] },
+      { id: "index:query", name: "com.xgen.mongot.index.query", short: "query", description: "Query AST, operators, collectors, pagination, score shaping, and translation into Lucene execution.", complexity: 9, links: ["com.xgen.mongot.index.path", "com.xgen.mongot.index.definition", "com.xgen.mongot.index.lucene"] },
+      { id: "index:status", name: "com.xgen.mongot.index.status", short: "status", description: "Index and synonym status enums and models used to expose lifecycle and readiness state.", complexity: 2, links: [] },
+      { id: "index:synonym", name: "com.xgen.mongot.index.synonym", short: "synonym", description: "Synonym mapping models, registries, and status tracking integrated with Lucene query behavior.", complexity: 3, links: ["com.xgen.mongot.index.status", "com.xgen.mongot.index.definition"] },
+      { id: "index:version", name: "com.xgen.mongot.index.version", short: "version", description: "Index format identifiers, generation metadata, and compatibility checks.", complexity: 3, links: [] }
+    ];
+
+    const bundledDependencies = [
+      { id: "dep:aws-crt", name: "software.amazon.awssdk.crt:aws-crt", group: "Cloud Integration", sizeMb: 17.0, website: "https://github.com/awslabs/aws-crt-java", description: "AWS Common Runtime native bindings used by AWS SDK integrations." },
+      { id: "dep:s3", name: "software.amazon.awssdk:s3", group: "Cloud Integration", sizeMb: 3.4, website: "https://aws.amazon.com/sdk-for-java/", description: "AWS SDK v2 client for Amazon S3." },
+      { id: "dep:gcs", name: "com.google.cloud:google-cloud-storage", group: "Cloud Integration", sizeMb: 1.4, website: "https://github.com/googleapis/java-storage", description: "Google Cloud Storage client library." },
+      { id: "dep:sdk-core", name: "software.amazon.awssdk:sdk-core", group: "Cloud Integration", sizeMb: 0.848, website: "https://aws.amazon.com/sdk-for-java/", description: "AWS SDK v2 shared runtime core." },
+      { id: "dep:azure-blob", name: "com.azure:azure-storage-blob", group: "Cloud Integration", sizeMb: 0.823, website: "https://github.com/Azure/azure-sdk-for-java", description: "Azure Blob Storage client library." },
+      { id: "dep:aws-regions", name: "software.amazon.awssdk:regions", group: "Cloud Integration", sizeMb: 0.811, website: "https://aws.amazon.com/sdk-for-java/", description: "AWS SDK v2 region metadata and resolution support." },
+      { id: "dep:aws-secrets", name: "software.amazon.awssdk:secretsmanager", group: "Cloud Integration", sizeMb: 0.761, website: "https://aws.amazon.com/sdk-for-java/", description: "AWS SDK v2 client for AWS Secrets Manager." },
+      { id: "dep:aws-sts", name: "software.amazon.awssdk:sts", group: "Cloud Integration", sizeMb: 0.465, website: "https://aws.amazon.com/sdk-for-java/", description: "AWS SDK v2 client for Security Token Service." },
+      { id: "dep:google-auth-http", name: "com.google.auth:google-auth-library-oauth2-http", group: "Cloud Integration", sizeMb: 0.309, website: "https://github.com/googleapis/google-auth-library-java", description: "Google Auth HTTP and OAuth2 credential support." },
+      { id: "dep:azure-identity", name: "com.azure:azure-identity", group: "Cloud Integration", sizeMb: 0.239, website: "https://github.com/Azure/azure-sdk-for-java", description: "Azure Identity client library for credentials and token acquisition." },
+      { id: "dep:s3-transfer", name: "software.amazon.awssdk:s3-transfer-manager", group: "Cloud Integration", sizeMb: 0.219, website: "https://aws.amazon.com/sdk-for-java/", description: "High-level transfer manager for S3 uploads and downloads." },
+      { id: "dep:aws-auth", name: "software.amazon.awssdk:auth", group: "Cloud Integration", sizeMb: 0.213, website: "https://aws.amazon.com/sdk-for-java/", description: "AWS SDK v2 authentication and credentials support." },
+      { id: "dep:gcs-nio", name: "com.google.cloud:google-cloud-nio", group: "Cloud Integration", sizeMb: 0.109, website: "https://github.com/googleapis/java-storage-nio", description: "NIO filesystem adapter for Google Cloud Storage." },
+      { id: "dep:gcs-control", name: "com.google.cloud:google-cloud-storage-control", group: "Cloud Integration", sizeMb: 0.074, website: "https://github.com/googleapis/google-cloud-java", description: "Google Cloud Storage Control API client." },
+      { id: "dep:azure-blob-batch", name: "com.azure:azure-storage-blob-batch", group: "Cloud Integration", sizeMb: 0.034, website: "https://github.com/Azure/azure-sdk-for-java", description: "Azure Blob Storage batch operations client." },
+      { id: "dep:google-auth-creds", name: "com.google.auth:google-auth-library-credentials", group: "Cloud Integration", sizeMb: 0.008, website: "https://github.com/googleapis/google-auth-library-java", description: "Google Auth core credential primitives." },
+      { id: "dep:lucene-nori", name: "org.apache.lucene:lucene-analysis-nori", group: "Lucene", sizeMb: 7.4, website: "https://lucene.apache.org/", description: "Lucene language analyzers and token filters." },
+      { id: "dep:lucene-kuromoji", name: "org.apache.lucene:lucene-analysis-kuromoji", group: "Lucene", sizeMb: 4.5, website: "https://lucene.apache.org/", description: "Lucene language analyzers and token filters." },
+      { id: "dep:lucene-core", name: "org.apache.lucene:lucene-core", group: "Lucene", sizeMb: 4.0, website: "https://lucene.apache.org/", description: "Lucene core indexing and search engine library." },
+      { id: "dep:lucene-smartcn", name: "org.apache.lucene:lucene-analysis-smartcn", group: "Lucene", sizeMb: 3.4, website: "https://lucene.apache.org/", description: "Lucene language analyzers and token filters." },
+      { id: "dep:lucene-common", name: "org.apache.lucene:lucene-analysis-common", group: "Lucene", sizeMb: 1.7, website: "https://lucene.apache.org/", description: "Lucene language analyzers and token filters." },
+      { id: "dep:lucene-stempel", name: "org.apache.lucene:lucene-analysis-stempel", group: "Lucene", sizeMb: 0.504, website: "https://lucene.apache.org/", description: "Lucene language analyzers and token filters." },
+      { id: "dep:lucene-queryparser", name: "org.apache.lucene:lucene-queryparser", group: "Lucene", sizeMb: 0.41, website: "https://lucene.apache.org/", description: "Classic Lucene query parser and supporting parsers." },
+      { id: "dep:lucene-icu", name: "org.apache.lucene:lucene-analysis-icu", group: "Lucene", sizeMb: 0.09, website: "https://lucene.apache.org/", description: "Lucene analyzers and token filters." },
+      { id: "dep:lucene-morfologik", name: "org.apache.lucene:lucene-analysis-morfologik", group: "Lucene", sizeMb: 0.039, website: "https://lucene.apache.org/", description: "Lucene analyzers and token filters." },
+      { id: "dep:lucene-phonetic", name: "org.apache.lucene:lucene-analysis-phonetic", group: "Lucene", sizeMb: 0.035, website: "https://lucene.apache.org/", description: "Lucene analyzers and token filters." },
+      { id: "dep:zstd", name: "com.github.luben:zstd-jni", group: "Compression", sizeMb: 6.5, website: "https://github.com/luben/zstd-jni", description: "JNI bindings for Zstandard compression." },
+      { id: "dep:snappy", name: "org.xerial.snappy:snappy-java", group: "Compression", sizeMb: 2.3, website: "https://github.com/xerial/snappy-java", description: "Java bindings for Snappy compression." },
+      { id: "dep:commons-compress", name: "org.apache.commons:commons-compress", group: "Compression", sizeMb: 1.1, website: "https://commons.apache.org/proper/commons-compress/", description: "Apache Commons archive and compression formats library." },
+      { id: "dep:commons-codec", name: "commons-codec:commons-codec", group: "Compression", sizeMb: 0.367, website: "https://commons.apache.org/proper/commons-codec/", description: "Apache Commons codecs for hashes and binary and text encodings." },
+      { id: "dep:guava", name: "com.google.guava:guava", group: "Utilities/Runtime", sizeMb: 2.9, website: "https://github.com/google/guava", description: "Google Guava collections, caching, hashing, and utilities." },
+      { id: "dep:commons-math3", name: "org.apache.commons:commons-math3", group: "Utilities/Runtime", sizeMb: 2.1, website: "https://commons.apache.org/proper/commons-math/", description: "Apache Commons mathematics and statistics library." },
+      { id: "dep:collections4", name: "org.apache.commons:commons-collections4", group: "Utilities/Runtime", sizeMb: 0.867, website: "https://commons.apache.org/proper/commons-collections/", description: "Apache Commons advanced collection types and utilities." },
+      { id: "dep:caffeine", name: "com.github.ben-manes.caffeine:caffeine", group: "Utilities/Runtime", sizeMb: 0.863, website: "https://github.com/ben-manes/caffeine", description: "High-performance Java caching library." },
+      { id: "dep:commons-lang3", name: "org.apache.commons:commons-lang3", group: "Utilities/Runtime", sizeMb: 0.68, website: "https://commons.apache.org/proper/commons-lang/", description: "Apache Commons general-purpose Java language utilities." },
+      { id: "dep:commons-io", name: "commons-io:commons-io", group: "Utilities/Runtime", sizeMb: 0.547, website: "https://commons.apache.org/proper/commons-io/", description: "Apache Commons file and stream utilities." },
+      { id: "dep:commons-text", name: "org.apache.commons:commons-text", group: "Utilities/Runtime", sizeMb: 0.258, website: "https://commons.apache.org/proper/commons-text/", description: "Apache Commons string templating and text utilities." },
+      { id: "dep:rng-sampling", name: "org.apache.commons:commons-rng-sampling", group: "Utilities/Runtime", sizeMb: 0.218, website: "https://commons.apache.org/proper/commons-rng/", description: "Apache Commons RNG modules for random-number APIs and sampling." },
+      { id: "dep:failsafe", name: "net.jodah:failsafe", group: "Utilities/Runtime", sizeMb: 0.105, website: "https://failsafe.dev/", description: "Fault-tolerance library with retries, timeouts, and circuit breakers." },
+      { id: "dep:okio", name: "com.squareup.okio:okio", group: "Utilities/Runtime", sizeMb: 0.071, website: "https://square.github.io/okio/", description: "Efficient I/O primitives from Square." },
+      { id: "dep:rng-simple", name: "org.apache.commons:commons-rng-simple", group: "Utilities/Runtime", sizeMb: 0.051, website: "https://commons.apache.org/proper/commons-rng/", description: "Apache Commons RNG modules for random-number APIs and sampling." },
+      { id: "dep:rng-client-api", name: "org.apache.commons:commons-rng-client-api", group: "Utilities/Runtime", sizeMb: 0.024, website: "https://commons.apache.org/proper/commons-rng/", description: "Apache Commons RNG modules for random-number APIs and sampling." },
+      { id: "dep:auto-service", name: "com.google.auto.service:auto-service", group: "Utilities/Runtime", sizeMb: 0.023, website: "https://github.com/google/auto/tree/main/service", description: "Service provider configuration generator." },
+      { id: "dep:reactive-streams", name: "org.reactivestreams:reactive-streams", group: "Utilities/Runtime", sizeMb: 0.011, website: "https://www.reactive-streams.org/", description: "Standard interfaces for async stream processing." },
+      { id: "dep:bc-fips", name: "org.bouncycastle:bc-fips", group: "Security/Crypto", sizeMb: 3.9, website: "https://www.bouncycastle.org/download/bouncy-castle-java-fips/", description: "Bouncy Castle FIPS-certified cryptography provider." },
+      { id: "dep:bctls-fips", name: "org.bouncycastle:bctls-fips", group: "Security/Crypto", sizeMb: 1.5, website: "https://www.bouncycastle.org/download/bouncy-castle-java-fips/", description: "Bouncy Castle FIPS TLS and JSSE implementation." },
+      { id: "dep:bcpkix-fips", name: "org.bouncycastle:bcpkix-fips", group: "Security/Crypto", sizeMb: 1.0, website: "https://www.bouncycastle.org/download/bouncy-castle-java-fips/", description: "Bouncy Castle FIPS PKIX, CMS, and TSP APIs." },
+      { id: "dep:log4j-core", name: "org.apache.logging.log4j:log4j-core", group: "Logging", sizeMb: 1.9, website: "https://logging.apache.org/log4j/2.x/", description: "Log4j 2 core logging implementation." },
+      { id: "dep:logstash", name: "net.logstash.logback:logstash-logback-encoder", group: "Logging", sizeMb: 0.43, website: "https://github.com/logfellow/logstash-logback-encoder", description: "Structured JSON encoders for Logback." },
+      { id: "dep:logback-classic", name: "ch.qos.logback:logback-classic", group: "Logging", sizeMb: 0.305, website: "https://logback.qos.ch/", description: "Logback SLF4J backend implementation." },
+      { id: "dep:flogger", name: "com.google.flogger:flogger", group: "Logging", sizeMb: 0.207, website: "https://github.com/google/flogger", description: "Google Fluent Logger API." },
+      { id: "dep:slf4j", name: "org.slf4j:slf4j-api", group: "Logging", sizeMb: 0.078, website: "https://www.slf4j.org/", description: "SLF4J logging facade." },
+      { id: "dep:flogger-slf4j", name: "com.google.flogger:flogger-slf4j-backend", group: "Logging", sizeMb: 0.016, website: "https://github.com/google/flogger", description: "SLF4J backend for Flogger." },
+      { id: "dep:jul-to-slf4j", name: "org.slf4j:jul-to-slf4j", group: "Logging", sizeMb: 0.016, website: "https://www.slf4j.org/", description: "JUL bridge into SLF4J." },
+      { id: "dep:oshi", name: "com.github.oshi:oshi-core", group: "Monitoring", sizeMb: 0.977, website: "https://github.com/oshi/oshi", description: "Cross-platform operating system and hardware information library." },
+      { id: "dep:micrometer-core", name: "io.micrometer:micrometer-core", group: "Monitoring", sizeMb: 0.836, website: "https://micrometer.io/", description: "Micrometer core metrics facade and meter implementations." },
+      { id: "dep:otel-otlp-common", name: "io.opentelemetry:opentelemetry-exporter-otlp-common", group: "Monitoring", sizeMb: 0.223, website: "https://opentelemetry.io/", description: "Shared OTLP exporter support for OpenTelemetry." },
+      { id: "dep:otel-api", name: "io.opentelemetry:opentelemetry-api", group: "Monitoring", sizeMb: 0.16, website: "https://opentelemetry.io/", description: "OpenTelemetry tracing and metrics API." },
+      { id: "dep:otel-exporter-common", name: "io.opentelemetry:opentelemetry-exporter-common", group: "Monitoring", sizeMb: 0.141, website: "https://opentelemetry.io/", description: "Common exporter utilities for OpenTelemetry." },
+      { id: "dep:otel-sdk-trace", name: "io.opentelemetry:opentelemetry-sdk-trace", group: "Monitoring", sizeMb: 0.137, website: "https://opentelemetry.io/", description: "OpenTelemetry trace SDK implementation." },
+      { id: "dep:otel-otlp", name: "io.opentelemetry:opentelemetry-exporter-otlp", group: "Monitoring", sizeMb: 0.079, website: "https://opentelemetry.io/", description: "OTLP exporter bundle for telemetry data." },
+      { id: "dep:otel-sdk-common", name: "io.opentelemetry:opentelemetry-sdk-common", group: "Monitoring", sizeMb: 0.078, website: "https://opentelemetry.io/", description: "Common OpenTelemetry SDK infrastructure." },
+      { id: "dep:micrometer-otlp", name: "io.micrometer:micrometer-registry-otlp", group: "Monitoring", sizeMb: 0.07, website: "https://micrometer.io/", description: "Micrometer registry for exporting metrics via OTLP." },
+      { id: "dep:otel-context", name: "io.opentelemetry:opentelemetry-context", group: "Monitoring", sizeMb: 0.059, website: "https://opentelemetry.io/", description: "OpenTelemetry context propagation library." },
+      { id: "dep:micrometer-prometheus", name: "io.micrometer:micrometer-registry-prometheus", group: "Monitoring", sizeMb: 0.051, website: "https://micrometer.io/", description: "Micrometer registry for Prometheus." },
+      { id: "dep:otel-semconv", name: "io.opentelemetry:opentelemetry-semconv", group: "Monitoring", sizeMb: 0.047, website: "https://opentelemetry.io/", description: "OpenTelemetry semantic conventions model." },
+      { id: "dep:otel-logging-otlp", name: "io.opentelemetry:opentelemetry-exporter-logging-otlp", group: "Monitoring", sizeMb: 0.032, website: "https://opentelemetry.io/", description: "Exporter that logs OTLP-formatted telemetry." },
+      { id: "dep:otel-sdk", name: "io.opentelemetry:opentelemetry-sdk", group: "Monitoring", sizeMb: 0.016, website: "https://opentelemetry.io/", description: "OpenTelemetry SDK aggregate module." },
+      { id: "dep:otel-resources", name: "io.opentelemetry:opentelemetry-sdk-extension-resources", group: "Monitoring", sizeMb: 0.016, website: "https://opentelemetry.io/", description: "OpenTelemetry resource detection extensions." },
+      { id: "dep:jackson-databind", name: "com.fasterxml.jackson.core:jackson-databind", group: "Serialization", sizeMb: 1.6, website: "https://github.com/FasterXML/jackson-databind", description: "Jackson data binding for mapping JSON and YAML to POJOs." },
+      { id: "dep:jackson-core", name: "com.fasterxml.jackson.core:jackson-core", group: "Serialization", sizeMb: 0.574, website: "https://github.com/FasterXML/jackson-core", description: "Jackson streaming JSON parser and generator core." },
+      { id: "dep:snakeyaml", name: "org.yaml:snakeyaml", group: "Serialization", sizeMb: 0.332, website: "https://github.com/snakeyaml/snakeyaml", description: "YAML parser and emitter for Java." },
+      { id: "dep:jackson-jsr310", name: "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", group: "Serialization", sizeMb: 0.13, website: "https://github.com/FasterXML/jackson-modules-java8", description: "Jackson support for Java date and time types." },
+      { id: "dep:jackson-annotations", name: "com.fasterxml.jackson.core:jackson-annotations", group: "Serialization", sizeMb: 0.086, website: "https://github.com/FasterXML/jackson-annotations", description: "Jackson annotations for serialization and deserialization." },
+      { id: "dep:jackson-yaml", name: "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml", group: "Serialization", sizeMb: 0.066, website: "https://github.com/FasterXML/jackson-dataformats-text", description: "Jackson YAML module built on SnakeYAML." },
+      { id: "dep:jackson-jdk8", name: "com.fasterxml.jackson.datatype:jackson-datatype-jdk8", group: "Serialization", sizeMb: 0.043, website: "https://github.com/FasterXML/jackson-modules-java8", description: "Jackson support for JDK 8 types like Optional." },
+      { id: "dep:jackson-params", name: "com.fasterxml.jackson.module:jackson-module-parameter-names", group: "Serialization", sizeMb: 0.01, website: "https://github.com/FasterXML/jackson-modules-java8", description: "Jackson module that infers constructor parameter names." },
+      { id: "dep:httpclient", name: "org.apache.httpcomponents:httpclient", group: "HTTP/Networking", sizeMb: 0.758, website: "https://hc.apache.org/httpcomponents-client-4.5.x/", description: "Apache HttpClient 4 synchronous HTTP client." },
+      { id: "dep:httpcore", name: "org.apache.httpcomponents:httpcore", group: "HTTP/Networking", sizeMb: 0.324, website: "https://hc.apache.org/httpcomponents-core-4.4.x/", description: "Apache HttpCore 4 low-level HTTP components." },
+      { id: "dep:picocli", name: "info.picocli:picocli", group: "CLI/Runtime", sizeMb: 0.406, website: "https://picocli.info/", description: "Command-line parser and ANSI CLI framework for Java." },
+      { id: "dep:mongodb-driver", name: "org.mongodb:mongodb-driver-sync", group: "Data Access", sizeMb: 0.156, website: "https://www.mongodb.com/docs/drivers/java/sync/current/", description: "Official synchronous MongoDB Java driver." }
+    ];
+
+    const STORIES = {
+      system: [
+        { key: "top:index", title: "Search Engine Heart", body: "Start at the `index` package. It is the gravitational center of MongoT and fans into config, metrics, server, embedding, and trace concerns." },
+        { key: "top:replication", title: "Replication Conveyor", body: "Follow `replication` next. It is the big operational pipeline that keeps indexes fed with steady-state and initial-sync work." },
+        { key: "top:server", title: "Serving Layer", body: "Then move outward to `server`, where request protocols, routing, and response streaming connect runtime clients to the index engine." },
+        { key: "top:util", title: "Shared Bedrock", body: "Finally, `util` and `proto` show the low-level support that many packages lean on without becoming the product narrative themselves." }
+      ],
+      index: [
+        { key: "index:lucene", title: "Lucene Planet", body: "Inside `com.xgen.mongot.index`, the Lucene layer dominates. It is where ingestion, query execution, highlighting, and result shaping converge." },
+        { key: "index:definition", title: "Schema Contract", body: "The `definition` package sets the contract for search, vector, and view indexes. Many subpackages orbit around it." },
+        { key: "index:query", title: "Query Language", body: "The `query` package translates request semantics into execution primitives and collector behavior." },
+        { key: "index:analyzer", title: "Tokenization Workshop", body: "Analyzers provide the language-specific and field-specific tokenization machinery that makes text search behave well." }
+      ],
+      deps: [
+        { key: "group:Cloud Integration", title: "Cloud Reach", body: "The runtime payload is surprisingly cloud-heavy, with AWS, GCP, and Azure libraries grouped into a large storage and credential surface." },
+        { key: "group:Lucene", title: "Search Payload", body: "Lucene is the next major dependency cluster. The analyzers are large because international text support ships with real data and dictionaries." },
+        { key: "group:Monitoring", title: "Observe Everything", body: "Micrometer, OpenTelemetry, and OSHI show how much runtime support exists around monitoring and machine introspection." },
+        { key: "group:Serialization", title: "Config and Wire Formats", body: "Jackson and SnakeYAML give MongoT its config and serialization vocabulary across APIs, metadata, and tooling." }
+      ]
+    };
+
+    const VIEW_META = {
+      system: {
+        label: "System Map",
+        blurb: "Major package boundaries and their import relationships.",
+        accent: "#69c0ff"
+      },
+      index: {
+        label: "Index Core",
+        blurb: "One level deeper into `com.xgen.mongot.index`.",
+        accent: "#ffbe6b"
+      },
+      deps: {
+        label: "Runtime Payload",
+        blurb: "Bundled libraries grouped by responsibility and aggregate weight.",
+        accent: "#80f0c4"
+      }
+    };
+
+    function titleCaseSize(sizeMb) {
+      return sizeMb >= 1 ? `${sizeMb.toFixed(1)} MB` : `${Math.round(sizeMb * 1024)} KB`;
+    }
+
+    function groupTotals(deps) {
+      return deps.reduce((acc, dep) => {
+        acc[dep.group] = (acc[dep.group] || 0) + dep.sizeMb;
+        return acc;
+      }, {});
+    }
+
+    const dependencyGroupTotals = groupTotals(bundledDependencies);
+
+    const STYLE_PRESETS = {
+      aurora: {
+        label: "Aurora",
+        shellBackground: "radial-gradient(circle at top left, rgba(105, 192, 255, 0.18), transparent 28%), radial-gradient(circle at top right, rgba(157, 140, 255, 0.18), transparent 24%), radial-gradient(circle at bottom center, rgba(128, 240, 196, 0.14), transparent 24%), linear-gradient(180deg, #08111d 0%, #0f1d2e 100%)",
+        panelBackground: "linear-gradient(180deg, rgba(18, 33, 53, 0.92) 0%, rgba(12, 23, 38, 0.9) 100%)",
+        graphBackground: "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)), radial-gradient(circle at center, rgba(105, 192, 255, 0.09), transparent 38%), rgba(8, 17, 29, 0.62)",
+        warm: "#ffbe6b",
+        hot: "#ff8c69",
+        cool: "#80f0c4",
+        support: "#69c0ff",
+        group: "#80f0c4",
+        root: "#ffbe6b",
+        edge: "rgba(140, 184, 255, 0.34)",
+        edgeIndex: "rgba(255, 190, 107, 0.34)",
+        edgeDeps: "rgba(105, 192, 255, 0.25)"
+      },
+      ember: {
+        label: "Ember",
+        shellBackground: "radial-gradient(circle at top left, rgba(255, 139, 92, 0.22), transparent 28%), radial-gradient(circle at top right, rgba(255, 200, 87, 0.16), transparent 24%), radial-gradient(circle at bottom center, rgba(255, 112, 87, 0.16), transparent 24%), linear-gradient(180deg, #170d0b 0%, #241311 100%)",
+        panelBackground: "linear-gradient(180deg, rgba(47, 24, 20, 0.94) 0%, rgba(25, 13, 11, 0.92) 100%)",
+        graphBackground: "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)), radial-gradient(circle at center, rgba(255, 177, 120, 0.10), transparent 40%), rgba(23, 13, 11, 0.68)",
+        warm: "#ffd166",
+        hot: "#ff7f51",
+        cool: "#f6bd60",
+        support: "#ffb178",
+        group: "#ffd166",
+        root: "#ff7f51",
+        edge: "rgba(255, 177, 120, 0.34)",
+        edgeIndex: "rgba(255, 209, 102, 0.34)",
+        edgeDeps: "rgba(255, 159, 110, 0.26)"
+      },
+      glacier: {
+        label: "Glacier",
+        shellBackground: "radial-gradient(circle at top left, rgba(148, 210, 189, 0.16), transparent 28%), radial-gradient(circle at top right, rgba(142, 202, 230, 0.18), transparent 24%), radial-gradient(circle at bottom center, rgba(168, 218, 220, 0.16), transparent 24%), linear-gradient(180deg, #07161a 0%, #0d2027 100%)",
+        panelBackground: "linear-gradient(180deg, rgba(12, 34, 40, 0.92) 0%, rgba(8, 24, 28, 0.92) 100%)",
+        graphBackground: "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)), radial-gradient(circle at center, rgba(142, 202, 230, 0.10), transparent 38%), rgba(7, 22, 26, 0.64)",
+        warm: "#e9c46a",
+        hot: "#f28482",
+        cool: "#94d2bd",
+        support: "#8ecae6",
+        group: "#94d2bd",
+        root: "#e9c46a",
+        edge: "rgba(142, 202, 230, 0.34)",
+        edgeIndex: "rgba(233, 196, 106, 0.34)",
+        edgeDeps: "rgba(148, 210, 189, 0.26)"
+      },
+      midnightSignal: {
+        label: "Midnight Signal",
+        shellBackground: "radial-gradient(circle at top left, rgba(76, 204, 230, 0.18), transparent 28%), radial-gradient(circle at top right, rgba(91, 91, 214, 0.16), transparent 24%), radial-gradient(circle at bottom center, rgba(229, 70, 102, 0.14), transparent 22%), linear-gradient(180deg, #111113 0%, #212225 100%)",
+        panelBackground: "linear-gradient(180deg, rgba(24, 25, 27, 0.94) 0%, rgba(39, 42, 45, 0.92) 100%)",
+        graphBackground: "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)), radial-gradient(circle at center, rgba(76, 204, 230, 0.10), transparent 40%), rgba(17, 17, 19, 0.66)",
+        warm: "#ffc53d",
+        hot: "#e54666",
+        cool: "#5b5bd6",
+        support: "#4ccce6",
+        group: "#5b5bd6",
+        root: "#ffc53d",
+        edge: "rgba(76, 204, 230, 0.34)",
+        edgeIndex: "rgba(255, 197, 61, 0.34)",
+        edgeDeps: "rgba(91, 91, 214, 0.26)"
+      },
+      jadeTerminal: {
+        label: "Jade Terminal",
+        shellBackground: "radial-gradient(circle at top left, rgba(88, 213, 186, 0.18), transparent 28%), radial-gradient(circle at top right, rgba(41, 163, 131, 0.16), transparent 24%), radial-gradient(circle at bottom center, rgba(247, 107, 21, 0.14), transparent 22%), linear-gradient(180deg, #101211 0%, #202221 100%)",
+        panelBackground: "linear-gradient(180deg, rgba(23, 25, 24, 0.94) 0%, rgba(39, 42, 41, 0.92) 100%)",
+        graphBackground: "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)), radial-gradient(circle at center, rgba(88, 213, 186, 0.11), transparent 40%), rgba(16, 18, 17, 0.66)",
+        warm: "#ffc53d",
+        hot: "#f76b15",
+        cool: "#29a383",
+        support: "#58d5ba",
+        group: "#29a383",
+        root: "#ffc53d",
+        edge: "rgba(88, 213, 186, 0.34)",
+        edgeIndex: "rgba(255, 197, 61, 0.34)",
+        edgeDeps: "rgba(41, 163, 131, 0.26)"
+      },
+      plumRelay: {
+        label: "Plum Relay",
+        shellBackground: "radial-gradient(circle at top left, rgba(186, 167, 255, 0.18), transparent 28%), radial-gradient(circle at top right, rgba(110, 86, 207, 0.16), transparent 24%), radial-gradient(circle at bottom center, rgba(171, 74, 186, 0.16), transparent 22%), linear-gradient(180deg, #121113 0%, #232225 100%)",
+        panelBackground: "linear-gradient(180deg, rgba(26, 25, 27, 0.94) 0%, rgba(43, 41, 45, 0.92) 100%)",
+        graphBackground: "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)), radial-gradient(circle at center, rgba(186, 167, 255, 0.10), transparent 40%), rgba(18, 17, 19, 0.66)",
+        warm: "#ffc53d",
+        hot: "#ab4aba",
+        cool: "#6e56cf",
+        support: "#baa7ff",
+        group: "#6e56cf",
+        root: "#ffc53d",
+        edge: "rgba(186, 167, 255, 0.34)",
+        edgeIndex: "rgba(255, 197, 61, 0.34)",
+        edgeDeps: "rgba(110, 86, 207, 0.26)"
+      },
+      skyMoss: {
+        label: "Sky Moss",
+        shellBackground: "radial-gradient(circle at top left, rgba(117, 199, 240, 0.18), transparent 28%), radial-gradient(circle at top right, rgba(124, 226, 254, 0.14), transparent 24%), radial-gradient(circle at bottom center, rgba(70, 167, 88, 0.16), transparent 22%), linear-gradient(180deg, #111113 0%, #212225 100%)",
+        panelBackground: "linear-gradient(180deg, rgba(24, 25, 27, 0.94) 0%, rgba(39, 42, 45, 0.92) 100%)",
+        graphBackground: "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)), radial-gradient(circle at center, rgba(124, 226, 254, 0.11), transparent 40%), rgba(17, 17, 19, 0.66)",
+        warm: "#bdee63",
+        hot: "#46a758",
+        cool: "#7ce2fe",
+        support: "#75c7f0",
+        group: "#46a758",
+        root: "#bdee63",
+        edge: "rgba(117, 199, 240, 0.34)",
+        edgeIndex: "rgba(189, 238, 99, 0.34)",
+        edgeDeps: "rgba(70, 167, 88, 0.26)"
+      },
+      bronzeLedger: {
+        label: "Bronze Ledger",
+        shellBackground: "radial-gradient(circle at top left, rgba(203, 185, 159, 0.16), transparent 28%), radial-gradient(circle at top right, rgba(0, 162, 199, 0.14), transparent 24%), radial-gradient(circle at bottom center, rgba(247, 107, 21, 0.16), transparent 22%), linear-gradient(180deg, #121211 0%, #24231f 100%)",
+        panelBackground: "linear-gradient(180deg, rgba(27, 26, 23, 0.94) 0%, rgba(45, 43, 38, 0.92) 100%)",
+        graphBackground: "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)), radial-gradient(circle at center, rgba(203, 185, 159, 0.10), transparent 40%), rgba(18, 18, 17, 0.66)",
+        warm: "#978365",
+        hot: "#f76b15",
+        cool: "#00a2c7",
+        support: "#cbb99f",
+        group: "#00a2c7",
+        root: "#978365",
+        edge: "rgba(203, 185, 159, 0.34)",
+        edgeIndex: "rgba(151, 131, 101, 0.34)",
+        edgeDeps: "rgba(0, 162, 199, 0.26)"
+      }
+    };
+
+    const NODE_STYLES = {
+      dot: { id: "dot", label: "Glow Dots", kind: "builtin", shape: "dot", borderRadius: 999, fontSize: 16, shadow: 20 },
+      box: { id: "box", label: "Pill Tags", kind: "builtin", shape: "box", borderRadius: 18, fontSize: 15, shadow: 14 },
+      hexagon: { id: "hexagon", label: "Hex Tiles", kind: "builtin", shape: "hexagon", borderRadius: 12, fontSize: 15, shadow: 18 },
+      concentricBeacon: { id: "concentricBeacon", label: "Concentric Beacon", kind: "svg", fontSize: 16, shadow: 20 },
+      eclipseDisc: { id: "eclipseDisc", label: "Eclipse Disc", kind: "svg", fontSize: 16, shadow: 20 },
+      prismaticHex: { id: "prismaticHex", label: "Prismatic Hex", kind: "svg", fontSize: 16, shadow: 20 },
+      cutCornerPlate: { id: "cutCornerPlate", label: "Cut-Corner Plate", kind: "svg", fontSize: 15, shadow: 18 },
+      circuitChip: { id: "circuitChip", label: "Circuit Chip", kind: "svg", fontSize: 15, shadow: 18 },
+      radarBloom: { id: "radarBloom", label: "Radar Bloom", kind: "svg", fontSize: 16, shadow: 20 },
+      shieldCrest: { id: "shieldCrest", label: "Shield Crest", kind: "svg", fontSize: 15, shadow: 20 },
+      nestedDiamond: { id: "nestedDiamond", label: "Nested Diamond", kind: "svg", fontSize: 15, shadow: 20 },
+      orbitalCluster: { id: "orbitalCluster", label: "Orbital Cluster", kind: "svg", fontSize: 15, shadow: 20 },
+      glassLensTile: { id: "glassLensTile", label: "Glass Lens Tile", kind: "svg", fontSize: 15, shadow: 20 }
+    };
+
+    const EFFECT_PRESETS = {
+      crisp: {
+        label: "Crisp",
+        nodeShadow: 8,
+        edgeBoost: 0,
+        labelStrokeWidth: 0,
+        borderBoost: 0,
+        glowAlpha: 0.18,
+        selectedGlowAlpha: 0.32,
+        selectedSizeBoost: 0,
+        fontBoost: 0
+      },
+      halo: {
+        label: "Halo Glow",
+        nodeShadow: 22,
+        edgeBoost: 0.5,
+        labelStrokeWidth: 2,
+        borderBoost: 1.2,
+        glowAlpha: 0.34,
+        selectedGlowAlpha: 0.6,
+        selectedSizeBoost: 8,
+        fontBoost: 1
+      },
+      dream: {
+        label: "Dream Mist",
+        nodeShadow: 28,
+        edgeBoost: 0.55,
+        labelStrokeWidth: 3,
+        borderBoost: 1.6,
+        glowAlpha: 0.4,
+        selectedGlowAlpha: 0.68,
+        selectedSizeBoost: 10,
+        fontBoost: 1
+      },
+      scan: {
+        label: "Scanner",
+        nodeShadow: 16,
+        edgeBoost: 0.35,
+        labelStrokeWidth: 1,
+        borderBoost: 2.2,
+        glowAlpha: 0.24,
+        selectedGlowAlpha: 0.44,
+        selectedSizeBoost: 6,
+        fontBoost: 0
+      }
+    };
+
+    const theme = MaterialUI.createTheme({
+      palette: {
+        mode: "dark",
+        primary: { main: "#69c0ff" },
+        secondary: { main: "#ffbe6b" },
+        background: {
+          default: "#08111d",
+          paper: "#102033"
+        },
+        text: {
+          primary: "#ecf4ff",
+          secondary: "#9eb0c8"
+        },
+        divider: "rgba(155, 192, 255, 0.16)"
+      },
+      typography: {
+        fontFamily: '"Space Grotesk", sans-serif',
+        button: {
+          textTransform: "none",
+          fontWeight: 700
+        }
+      },
+      components: {
+        MuiPaper: {
+          styleOverrides: {
+            root: {
+              backgroundImage: "none"
+            }
+          }
+        },
+        MuiPopover: {
+          styleOverrides: {
+            paper: {
+              background: "#102033",
+              color: "#ecf4ff",
+              border: "1px solid rgba(155, 192, 255, 0.16)",
+              backdropFilter: "blur(12px)"
+            }
+          }
+        },
+        MuiMenu: {
+          styleOverrides: {
+            paper: {
+              background: "#102033",
+              color: "#ecf4ff",
+              border: "1px solid rgba(155, 192, 255, 0.16)"
+            }
+          }
+        },
+        MuiAutocomplete: {
+          styleOverrides: {
+            paper: {
+              background: "#102033",
+              color: "#ecf4ff",
+              border: "1px solid rgba(155, 192, 255, 0.16)"
+            },
+            option: {
+              '&[aria-selected="true"]': {
+                backgroundColor: "rgba(105, 192, 255, 0.16)"
+              },
+              '&.Mui-focused': {
+                backgroundColor: "rgba(255, 190, 107, 0.14)"
+              }
+            }
+          }
+        },
+        MuiMenuItem: {
+          styleOverrides: {
+            root: {
+              '&.Mui-selected': {
+                backgroundColor: "rgba(105, 192, 255, 0.16)"
+              },
+              '&.Mui-selected:hover': {
+                backgroundColor: "rgba(105, 192, 255, 0.22)"
+              }
+            }
+          }
+        }
+      }
+    });
+
+    function hexToRgba(hex, alpha) {
+      const normalized = hex.replace("#", "");
+      const value = normalized.length === 3
+        ? normalized.split("").map(ch => ch + ch).join("")
+        : normalized;
+      const int = parseInt(value, 16);
+      const r = (int >> 16) & 255;
+      const g = (int >> 8) & 255;
+      const b = int & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function mixHex(hexA, hexB, weight) {
+      const parse = hex => {
+        const normalized = hex.replace("#", "");
+        const value = normalized.length === 3
+          ? normalized.split("").map(ch => ch + ch).join("")
+          : normalized;
+        const int = parseInt(value, 16);
+        return [(int >> 16) & 255, (int >> 8) & 255, int & 255];
+      };
+      const [ar, ag, ab] = parse(hexA);
+      const [br, bg, bb] = parse(hexB);
+      const blend = channel => Math.round(channel[0] + (channel[1] - channel[0]) * weight);
+      const toHex = value => value.toString(16).padStart(2, "0");
+      return `#${toHex(blend([ar, br]))}${toHex(blend([ag, bg]))}${toHex(blend([ab, bb]))}`;
+    }
+
+    const nodeArtCache = new Map();
+
+    function svgToDataUri(svg) {
+      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    }
+
+    function buildNodeStyleSvg(styleId, color, preset) {
+      const ink = "#eef4ff";
+      const shell = mixHex("#0b1118", color, 0.18);
+      const shellSoft = mixHex("#101824", color, 0.28);
+      const inner = mixHex(color, "#ffffff", 0.16);
+      const core = mixHex(color, "#ffffff", 0.08);
+      const halo = hexToRgba(color, 0.22);
+      const support = preset.support;
+      const warm = preset.warm;
+      const cool = preset.cool;
+      const hot = preset.hot;
+      const svgOpen = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">';
+      const svgClose = "</svg>";
+
+      switch (styleId) {
+        case "concentricBeacon":
+          return `${svgOpen}
+            <circle cx="60" cy="60" r="54" fill="${halo}"/>
+            <circle cx="60" cy="60" r="34" fill="${core}" stroke="${ink}" stroke-width="2"/>
+            <circle cx="60" cy="60" r="46" fill="none" stroke="${support}" stroke-width="6"/>
+            <circle cx="60" cy="60" r="58" fill="none" stroke="${hexToRgba(support, 0.72)}" stroke-width="3"/>
+            <rect x="55" y="10" width="10" height="18" rx="4" fill="${warm}"/>
+          ${svgClose}`;
+        case "eclipseDisc":
+          return `${svgOpen}
+            <circle cx="60" cy="60" r="56" fill="${hexToRgba(cool, 0.18)}"/>
+            <circle cx="60" cy="60" r="48" fill="${cool}" stroke="${ink}" stroke-width="2"/>
+            <circle cx="72" cy="60" r="34" fill="${shell}"/>
+            <circle cx="60" cy="60" r="60" fill="none" stroke="${hexToRgba(ink, 0.55)}" stroke-width="3"/>
+          ${svgClose}`;
+        case "prismaticHex":
+          return `${svgOpen}
+            <polygon points="60,8 105,34 105,86 60,112 15,86 15,34" fill="${shell}" stroke="${hexToRgba(ink, 0.7)}" stroke-width="2"/>
+            <polygon points="60,22 92,40 92,80 60,98 28,80 28,40" fill="${inner}" stroke="${hexToRgba(ink, 0.8)}" stroke-width="2"/>
+            <polygon points="60,40 76,56 60,72 44,56" fill="${warm}" stroke="${ink}" stroke-width="2"/>
+          ${svgClose}`;
+        case "cutCornerPlate":
+          return `${svgOpen}
+            <path d="M36 16h48l20 20v48l-20 20H36L16 84V36z" fill="${shell}" stroke="${ink}" stroke-width="2"/>
+            <path d="M42 28h36l14 14v36L78 92H42L28 78V42z" fill="${inner}" stroke="${hexToRgba(ink, 0.86)}" stroke-width="2"/>
+            <path d="M44 60h32" stroke="${hexToRgba(ink, 0.8)}" stroke-width="2" stroke-linecap="round"/>
+          ${svgClose}`;
+        case "circuitChip":
+          return `${svgOpen}
+            <rect x="24" y="24" width="72" height="72" rx="14" fill="${shell}" stroke="${ink}" stroke-width="2"/>
+            <rect x="36" y="36" width="48" height="48" rx="10" fill="${inner}" stroke="${hexToRgba(ink, 0.85)}" stroke-width="2"/>
+            <path d="M48 50h24M48 62h18m-18 12h28" stroke="${hexToRgba(ink, 0.88)}" stroke-width="2" stroke-linecap="round"/>
+            <g fill="${warm}">
+              <rect x="12" y="40" width="10" height="6" rx="3"/><rect x="12" y="57" width="10" height="6" rx="3"/><rect x="12" y="74" width="10" height="6" rx="3"/>
+              <rect x="98" y="40" width="10" height="6" rx="3"/><rect x="98" y="57" width="10" height="6" rx="3"/><rect x="98" y="74" width="10" height="6" rx="3"/>
+            </g>
+          ${svgClose}`;
+        case "radarBloom":
+          return `${svgOpen}
+            <circle cx="60" cy="60" r="14" fill="${warm}" stroke="${ink}" stroke-width="2"/>
+            <circle cx="60" cy="60" r="30" fill="none" stroke="${hexToRgba(support, 0.86)}" stroke-width="2"/>
+            <circle cx="60" cy="60" r="44" fill="none" stroke="${hexToRgba(support, 0.7)}" stroke-width="2"/>
+            <circle cx="60" cy="60" r="58" fill="none" stroke="${hexToRgba(support, 0.45)}" stroke-width="2"/>
+            <path d="M60 2v116M2 60h116M20 20l80 80M100 20L20 100" stroke="${hexToRgba(ink, 0.35)}" stroke-width="1.5"/>
+          ${svgClose}`;
+        case "shieldCrest":
+          return `${svgOpen}
+            <path d="M28 20h64v38c0 18-14 34-32 48-18-14-32-30-32-48z" fill="${shell}" stroke="${ink}" stroke-width="2"/>
+            <path d="M36 30h48v26c0 12-10 22-24 34-14-12-24-22-24-34z" fill="${hot}" stroke="${hexToRgba(ink, 0.85)}" stroke-width="2"/>
+            <rect x="40" y="22" width="40" height="12" rx="5" fill="${warm}"/>
+          ${svgClose}`;
+        case "nestedDiamond":
+          return `${svgOpen}
+            <polygon points="60,10 110,60 60,110 10,60" fill="${shell}" stroke="${ink}" stroke-width="2"/>
+            <polygon points="60,24 96,60 60,96 24,60" fill="${inner}" stroke="${hexToRgba(ink, 0.86)}" stroke-width="2"/>
+            <polygon points="60,44 76,60 60,76 44,60" fill="${support}" stroke="${ink}" stroke-width="2"/>
+          ${svgClose}`;
+        case "orbitalCluster":
+          return `${svgOpen}
+            <circle cx="60" cy="60" r="42" fill="none" stroke="${hexToRgba(ink, 0.5)}" stroke-width="2"/>
+            <circle cx="60" cy="60" r="20" fill="${inner}" stroke="${ink}" stroke-width="2"/>
+            <circle cx="95" cy="66" r="7" fill="${warm}" stroke="${ink}" stroke-width="1.5"/>
+            <circle cx="42" cy="24" r="7" fill="${pinkFromPreset(preset)}" stroke="${ink}" stroke-width="1.5"/>
+            <circle cx="26" cy="80" r="7" fill="${support}" stroke="${ink}" stroke-width="1.5"/>
+          ${svgClose}`;
+        case "glassLensTile":
+          return `${svgOpen}
+            <polygon points="60,12 100,36 100,84 60,108 20,84 20,36" fill="${shellSoft}" stroke="${ink}" stroke-width="2"/>
+            <circle cx="60" cy="60" r="32" fill="${support}" stroke="${hexToRgba(ink, 0.9)}" stroke-width="2"/>
+            <circle cx="60" cy="60" r="12" fill="${hexToRgba(ink, 0.25)}"/>
+            <path d="M46 34a24 24 0 0 1 20 8" fill="none" stroke="${hexToRgba(ink, 0.88)}" stroke-width="5" stroke-linecap="round"/>
+          ${svgClose}`;
+        default:
+          return `${svgOpen}
+            <circle cx="60" cy="60" r="44" fill="${color}" stroke="${ink}" stroke-width="2"/>
+          ${svgClose}`;
+      }
+    }
+
+    function pinkFromPreset(preset) {
+      return mixHex(preset.hot, preset.cool, 0.5);
+    }
+
+    function getNodeStyleImage(styleId, color, preset) {
+      const key = [styleId, color, preset.warm, preset.hot, preset.cool, preset.support].join("|");
+      if (!nodeArtCache.has(key)) {
+        nodeArtCache.set(key, svgToDataUri(buildNodeStyleSvg(styleId, color, preset)));
+      }
+      return nodeArtCache.get(key);
+    }
+
+    function hashString(input) {
+      let hash = 0;
+      for (let index = 0; index < input.length; index += 1) {
+        hash = ((hash << 5) - hash) + input.charCodeAt(index);
+        hash |= 0;
+      }
+      return Math.abs(hash);
+    }
+
+    function splitDenseToken(token, maxChars) {
+      const chunks = [];
+      for (let start = 0; start < token.length; start += maxChars) {
+        chunks.push(token.slice(start, start + maxChars));
+      }
+      return chunks;
+    }
+
+    function wrapLabel(label, maxChars) {
+      const prepared = label
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .replace(/[:_]/g, " ")
+        .replace(/-/g, "- ")
+        .trim();
+      const rawTokens = prepared.split(/\s+/).filter(Boolean);
+      const tokens = rawTokens.flatMap(token => token.length > maxChars ? splitDenseToken(token, maxChars) : [token]);
+      const lines = [];
+      let current = "";
+      tokens.forEach(token => {
+        if (!current) {
+          current = token;
+          return;
+        }
+        if (`${current} ${token}`.length <= maxChars) {
+          current = `${current} ${token}`;
+          return;
+        }
+        lines.push(current);
+        current = token;
+      });
+      if (current) {
+        lines.push(current);
+      }
+      return lines.slice(0, 3).join("\n");
+    }
+
+    function formatNodeLabel(label, view, compactLabels) {
+      if (!label) {
+        return "";
+      }
+      const maxChars = compactLabels
+        ? view === "deps" ? 10 : 12
+        : view === "deps" ? 15 : 14;
+      if (compactLabels && view !== "deps" && label.length > maxChars) {
+        return `${label.slice(0, maxChars - 1)}…`;
+      }
+      if (label.length <= maxChars && !label.includes("-")) {
+        return label;
+      }
+      return wrapLabel(label, maxChars);
+    }
+
+    function getViewAnchorId(view, data) {
+      const preferredId = view === "system"
+        ? "top:index"
+        : view === "index"
+          ? "index:lucene"
+          : "root:runtime";
+      if (data.nodes.some(node => node.id === preferredId)) {
+        return preferredId;
+      }
+      return [...data.nodes]
+        .sort((left, right) => (right.value || 0) - (left.value || 0))[0]?.id || null;
+    }
+
+    function buildAdjacencyMap(data) {
+      const adjacency = new Map(data.nodes.map(node => [node.id, new Set()]));
+      data.edges.forEach(edge => {
+        if (!adjacency.has(edge.from) || !adjacency.has(edge.to)) {
+          return;
+        }
+        adjacency.get(edge.from).add(edge.to);
+        adjacency.get(edge.to).add(edge.from);
+      });
+      return adjacency;
+    }
+
+    function sharedNeighborCount(leftId, rightId, adjacency) {
+      const left = adjacency.get(leftId) || new Set();
+      const right = adjacency.get(rightId) || new Set();
+      let count = 0;
+      left.forEach(candidate => {
+        if (right.has(candidate)) {
+          count += 1;
+        }
+      });
+      return count;
+    }
+
+    function createOrbitLayout(data, view, width, height) {
+      const anchorId = getViewAnchorId(view, data);
+      if (!anchorId) {
+        return null;
+      }
+
+      const adjacency = buildAdjacencyMap(data);
+      const nodeById = new Map(data.nodes.map(node => [node.id, node]));
+      const hubIds = [...(adjacency.get(anchorId) || [])].sort((leftId, rightId) => {
+        const leftNode = nodeById.get(leftId);
+        const rightNode = nodeById.get(rightId);
+        const leftScore = (leftNode?.value || 0) + sharedNeighborCount(leftId, anchorId, adjacency) * 6;
+        const rightScore = (rightNode?.value || 0) + sharedNeighborCount(rightId, anchorId, adjacency) * 6;
+        return rightScore - leftScore;
+      });
+
+      const minDimension = Math.max(520, Math.min(width, height || width));
+      const primaryRadius = Math.max(165, minDimension * (view === "deps" ? 0.24 : 0.22));
+      const satelliteStride = Math.max(58, minDimension * 0.085);
+      const verticalScale = view === "deps" ? 0.82 : 0.72;
+      const hubs = hubIds.map((id, index) => {
+        const node = nodeById.get(id);
+        const emphasis = Math.max(0.78, Math.min(1.34, (node?.value || 18) / 42));
+        return {
+          id,
+          baseAngle: (index / Math.max(hubIds.length, 1)) * Math.PI * 2 + (hashString(id) % 45) * (Math.PI / 180),
+          radius: primaryRadius + (index % 2) * 34 + (1.24 - emphasis) * 26,
+          speed: 0.0001 + emphasis * 0.0001,
+          direction: index % 2 === 0 ? 1 : -1
+        };
+      });
+
+      const satellitesByHost = new Map([[anchorId, []]]);
+      hubs.forEach(hub => satellitesByHost.set(hub.id, []));
+      const remainingIds = data.nodes
+        .map(node => node.id)
+        .filter(id => id !== anchorId && !hubIds.includes(id));
+
+      remainingIds.forEach(id => {
+        const candidates = hubIds.length > 0 ? hubIds : [anchorId];
+        let bestHost = anchorId;
+        let bestScore = -Infinity;
+        candidates.forEach(hostId => {
+          let score = adjacency.get(id)?.has(hostId) ? 7 : 0;
+          score += adjacency.get(id)?.has(anchorId) ? 2 : 0;
+          score += sharedNeighborCount(id, hostId, adjacency) * 1.8;
+          score += (nodeById.get(hostId)?.value || 0) * 0.05;
+          if (score > bestScore) {
+            bestScore = score;
+            bestHost = hostId;
+          }
+        });
+        satellitesByHost.get(bestHost).push(id);
+      });
+
+      satellitesByHost.forEach(ids => {
+        ids.sort((leftId, rightId) => (nodeById.get(rightId)?.value || 0) - (nodeById.get(leftId)?.value || 0));
+      });
+
+      const satellites = [];
+      satellitesByHost.forEach((ids, hostId) => {
+        ids.forEach((id, index) => {
+          const slotsPerRing = hostId === anchorId ? 7 : 5;
+          const band = Math.floor(index / slotsPerRing);
+          const slot = index % slotsPerRing;
+          const remaining = ids.length - band * slotsPerRing;
+          const bandSize = Math.max(1, Math.min(slotsPerRing, remaining));
+          satellites.push({
+            id,
+            hostId,
+            baseAngle: (slot / bandSize) * Math.PI * 2 + (hashString(id) % 90) * (Math.PI / 180),
+            radius: (hostId === anchorId ? primaryRadius * 0.58 : Math.max(54, satelliteStride * 0.92)) + band * satelliteStride * 0.7,
+            speed: 0.00028 + band * 0.00004 + (hashString(id) % 6) * 0.00001,
+            direction: slot % 2 === 0 ? 1 : -1,
+            wobble: 0.04 + (hashString(id) % 6) * 0.008
+          });
+        });
+      });
+
+      return {
+        anchorId,
+        hubs,
+        satellites,
+        verticalScale,
+        fitScale: view === "deps" ? 0.86 : 1
+      };
+    }
+
+    const RUNTIME_PACKAGE_IDS = {
+      community: "top:community",
+      config: "top:config",
+      metrics: "top:metrics",
+      monitor: "top:monitor",
+      catalogservice: "top:catalogservice",
+      embedding: "top:embedding",
+      cursor: "top:cursor",
+      server: "top:server",
+      lifecycle: "top:lifecycle",
+      replication: "top:replication",
+      index: "top:index",
+      logging: "top:logging"
+    };
+
+    const RUNTIME_TIMELINE_DURATION = 90;
+
+    const RUNTIME_TIMELINE_PHASES = [
+      {
+        id: "bootstrap",
+        label: "Bootstrap",
+        start: 0,
+        end: 6,
+        description: "Community bootstrap fans out through config to assemble logging, metrics, monitors, metadata, cursors, and servers.",
+        streams: [
+          {
+            id: "boot-core",
+            label: "bootstrap fan-out",
+            colorKey: "support",
+            width: 2.6,
+            intensity: 0.92,
+            tempo: 0.95,
+            particles: 3,
+            modulation: "ramp",
+            edges: [
+              ["community", "config"],
+              ["config", "metrics"],
+              ["config", "monitor"],
+              ["config", "catalogservice"],
+              ["config", "cursor"],
+              ["config", "server"]
+            ]
+          },
+          {
+            id: "boot-support",
+            label: "support wiring",
+            colorKey: "cool",
+            width: 2.1,
+            intensity: 0.72,
+            tempo: 0.8,
+            particles: 2,
+            modulation: "drift",
+            edges: [
+              ["config", "embedding"],
+              ["config", "lifecycle"],
+              ["community", "logging"]
+            ]
+          }
+        ]
+      },
+      {
+        id: "bringup",
+        label: "Index Bring-Up",
+        start: 6,
+        end: 18,
+        description: "Config state starts lifecycle managers, initializes indexes, and hands those generations into replication.",
+        streams: [
+          {
+            id: "bringup-lifecycle",
+            label: "lifecycle startup",
+            colorKey: "warm",
+            width: 3.0,
+            intensity: 0.88,
+            tempo: 1.05,
+            particles: 3,
+            modulation: "surge",
+            edges: [
+              ["config", "lifecycle"],
+              ["lifecycle", "index"],
+              ["lifecycle", "replication"]
+            ]
+          },
+          {
+            id: "bringup-control",
+            label: "control-plane polling",
+            colorKey: "support",
+            width: 1.8,
+            intensity: 0.54,
+            tempo: 0.7,
+            particles: 2,
+            modulation: "ping",
+            edges: [
+              ["config", "catalogservice"],
+              ["catalogservice", "config"]
+            ]
+          }
+        ]
+      },
+      {
+        id: "initialsync",
+        label: "Initial Sync",
+        start: 18,
+        end: 34,
+        description: "Replication dominates while collection scan, buffered change capture, and buffered replay all feed the index.",
+        streams: [
+          {
+            id: "initialsync-feed",
+            label: "initial sync ingestion",
+            colorKey: "hot",
+            width: 3.5,
+            intensity: 0.98,
+            tempo: 1.35,
+            particles: 4,
+            modulation: "surge",
+            edges: [
+              ["replication", "index"]
+            ]
+          },
+          {
+            id: "initialsync-supervision",
+            label: "status and lifecycle supervision",
+            colorKey: "warm",
+            width: 2.2,
+            intensity: 0.62,
+            tempo: 0.84,
+            particles: 2,
+            modulation: "drift",
+            edges: [
+              ["lifecycle", "replication"],
+              ["config", "lifecycle"]
+            ]
+          }
+        ]
+      },
+      {
+        id: "steady",
+        label: "Stable State",
+        start: 34,
+        end: 44,
+        description: "Change streams keep indexes current while config polling and metadata updates continue quietly beside serving.",
+        streams: [
+          {
+            id: "steady-repl",
+            label: "steady-state replication",
+            colorKey: "cool",
+            width: 2.6,
+            intensity: 0.68,
+            tempo: 0.92,
+            particles: 3,
+            modulation: "drift",
+            edges: [
+              ["replication", "index"]
+            ]
+          },
+          {
+            id: "steady-config",
+            label: "catalog polling",
+            colorKey: "support",
+            width: 1.8,
+            intensity: 0.46,
+            tempo: 0.66,
+            particles: 2,
+            modulation: "ping",
+            edges: [
+              ["config", "catalogservice"],
+              ["catalogservice", "config"]
+            ]
+          },
+          {
+            id: "steady-guardrails",
+            label: "monitoring feedback",
+            colorKey: "warm",
+            width: 1.7,
+            intensity: 0.34,
+            tempo: 0.54,
+            particles: 1,
+            modulation: "ping",
+            edges: [
+              ["monitor", "config"]
+            ]
+          }
+        ]
+      },
+      {
+        id: "queryburst",
+        label: "30s Query Burst",
+        start: 44,
+        end: 74,
+        description: "A modeled 30-second surge: classic search and vector search hammer the serving path while steady-state replication keeps running.",
+        streams: [
+          {
+            id: "burst-search",
+            label: "search query flow",
+            colorKey: "warm",
+            width: 3.9,
+            intensity: 1,
+            tempo: 2.15,
+            particles: 5,
+            modulation: "burst",
+            edges: [
+              ["server", "cursor"],
+              ["cursor", "index"]
+            ]
+          },
+          {
+            id: "burst-vector",
+            label: "vector query flow",
+            colorKey: "hot",
+            width: 3.6,
+            intensity: 0.94,
+            tempo: 1.9,
+            particles: 4,
+            modulation: "burst",
+            edges: [
+              ["server", "embedding"],
+              ["embedding", "index"]
+            ]
+          },
+          {
+            id: "burst-repl",
+            label: "background replication",
+            colorKey: "cool",
+            width: 2.2,
+            intensity: 0.52,
+            tempo: 0.92,
+            particles: 2,
+            modulation: "drift",
+            edges: [
+              ["replication", "index"]
+            ]
+          }
+        ]
+      },
+      {
+        id: "taper",
+        label: "Traffic Taper",
+        start: 74,
+        end: 82,
+        description: "The same serving paths remain active, but visibly thin out before shutdown begins.",
+        streams: [
+          {
+            id: "taper-search",
+            label: "search tail",
+            colorKey: "warm",
+            width: 2.8,
+            intensity: 0.54,
+            tempo: 1.2,
+            particles: 3,
+            modulation: "fade",
+            edges: [
+              ["server", "cursor"],
+              ["cursor", "index"]
+            ]
+          },
+          {
+            id: "taper-vector",
+            label: "vector tail",
+            colorKey: "hot",
+            width: 2.5,
+            intensity: 0.44,
+            tempo: 1.05,
+            particles: 2,
+            modulation: "fade",
+            edges: [
+              ["server", "embedding"],
+              ["embedding", "index"]
+            ]
+          },
+          {
+            id: "taper-repl",
+            label: "steady-state replication",
+            colorKey: "cool",
+            width: 1.9,
+            intensity: 0.34,
+            tempo: 0.72,
+            particles: 2,
+            modulation: "fade",
+            edges: [
+              ["replication", "index"]
+            ]
+          }
+        ]
+      },
+      {
+        id: "shutdown",
+        label: "Shutdown",
+        start: 82,
+        end: 90,
+        description: "Terminal health state triggers server stop, metrics stop, config close, lifecycle shutdown, and replication teardown.",
+        streams: [
+          {
+            id: "shutdown-fanout",
+            label: "controlled shutdown",
+            colorKey: "support",
+            width: 2.7,
+            intensity: 0.86,
+            tempo: 1.05,
+            particles: 3,
+            modulation: "surge",
+            edges: [
+              ["community", "config"],
+              ["config", "server"],
+              ["config", "metrics"],
+              ["config", "catalogservice"]
+            ]
+          },
+          {
+            id: "shutdown-core",
+            label: "lifecycle and replication teardown",
+            colorKey: "cool",
+            width: 2.5,
+            intensity: 0.78,
+            tempo: 0.9,
+            particles: 2,
+            modulation: "surge",
+            edges: [
+              ["config", "lifecycle"],
+              ["lifecycle", "replication"],
+              ["community", "logging"]
+            ]
+          }
+        ]
+      }
+    ];
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function smoothstep(edge0, edge1, value) {
+      if (edge0 === edge1) {
+        return value >= edge1 ? 1 : 0;
+      }
+      const x = clamp((value - edge0) / (edge1 - edge0), 0, 1);
+      return x * x * (3 - 2 * x);
+    }
+
+    function formatRuntimeClock(totalSeconds) {
+      const bounded = Math.max(0, Math.floor(totalSeconds));
+      const minutes = Math.floor(bounded / 60);
+      const seconds = bounded % 60;
+      return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+    }
+
+    function getRuntimePhaseAtTime(timeSec) {
+      return RUNTIME_TIMELINE_PHASES.find(
+        phase => timeSec >= phase.start && (timeSec < phase.end || phase.end === RUNTIME_TIMELINE_DURATION)
+      ) || RUNTIME_TIMELINE_PHASES[RUNTIME_TIMELINE_PHASES.length - 1];
+    }
+
+    function getTimelineStreamModulation(stream, localTime, phaseDuration) {
+      switch (stream.modulation) {
+        case "burst":
+          return 0.78 + 0.22 * Math.abs(Math.sin(localTime * 2.8 + hashString(stream.id) * 0.01));
+        case "surge":
+          return 0.72 + 0.28 * ((Math.sin(localTime * 1.4 + hashString(stream.id) * 0.02) + 1) / 2);
+        case "ping":
+          return 0.42 + 0.58 * Math.max(0, Math.sin(localTime * 1.8 + hashString(stream.id) * 0.015));
+        case "fade":
+          return 1 - clamp(localTime / Math.max(phaseDuration, 1), 0, 1) * 0.72;
+        case "ramp":
+          return 0.48 + 0.52 * clamp(localTime / Math.max(phaseDuration, 1), 0, 1);
+        case "drift":
+        default:
+          return 0.76 + 0.16 * Math.sin(localTime * 0.7 + hashString(stream.id) * 0.01);
+      }
+    }
+
+    function getTimelineEnvelope(phase, timeSec) {
+      const ramp = Math.min(1.6, Math.max(0.8, (phase.end - phase.start) * 0.18));
+      const intro = smoothstep(phase.start, phase.start + ramp, timeSec);
+      const outro = 1 - smoothstep(phase.end - ramp, phase.end, timeSec);
+      return clamp(intro * outro, 0, 1);
+    }
+
+    function getActiveRuntimeStreams(timeSec) {
+      const phase = getRuntimePhaseAtTime(timeSec);
+      const localTime = timeSec - phase.start;
+      const duration = phase.end - phase.start;
+      const envelope = getTimelineEnvelope(phase, timeSec);
+      const streams = phase.streams
+        .map(stream => ({
+          ...stream,
+          alpha: clamp(stream.intensity * envelope * getTimelineStreamModulation(stream, localTime, duration), 0, 1)
+        }))
+        .filter(stream => stream.alpha > 0.08);
+      return { phase, streams };
+    }
+
+    function resolveTimelineColor(colorKey, preset) {
+      return preset[colorKey] || preset.support;
+    }
+
+    function getRuntimeNodeId(key) {
+      return RUNTIME_PACKAGE_IDS[key] || key;
+    }
+
+    function getNetworkNodeDomPosition(network, nodeId) {
+      const positions = network.getPositions([nodeId]);
+      const point = positions[nodeId];
+      if (!point) {
+        return null;
+      }
+      return network.canvasToDOM(point);
+    }
+
+    function getCurveControlPoint(from, to, bend) {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const length = Math.max(1, Math.hypot(dx, dy));
+      const nx = -dy / length;
+      const ny = dx / length;
+      return {
+        x: (from.x + to.x) / 2 + nx * bend,
+        y: (from.y + to.y) / 2 + ny * bend
+      };
+    }
+
+    function pointOnQuadraticBezier(start, control, end, t) {
+      const inverse = 1 - t;
+      return {
+        x: (inverse * inverse * start.x) + (2 * inverse * t * control.x) + (t * t * end.x),
+        y: (inverse * inverse * start.y) + (2 * inverse * t * control.y) + (t * t * end.y)
+      };
+    }
+
+    function edgeCurveBias(fromId, toId, streamId, edgeIndex) {
+      const hash = hashString(`${streamId}:${fromId}:${toId}:${edgeIndex}`);
+      const sign = hash % 2 === 0 ? 1 : -1;
+      return sign * (18 + (hash % 34));
+    }
+
+    function getNodeColor(view, item, preset) {
+      if (view === "deps") {
+        if (item.kind === "root") return preset.root;
+        if (item.kind === "group") return preset.group;
+        return preset.support;
+      }
+      const c = item.complexity;
+      if (c >= 9) return preset.hot;
+      if (c >= 7) return preset.warm;
+      if (c >= 5) return preset.cool;
+      return preset.support;
+    }
+
+    function makeTopGraph(searchTerm, minComplexity, preset) {
+      const kept = topPackages.filter(pkg =>
+        pkg.complexity >= minComplexity &&
+        (searchTerm === "" ||
+          pkg.name.toLowerCase().includes(searchTerm) ||
+          pkg.description.toLowerCase().includes(searchTerm) ||
+          pkg.short.toLowerCase().includes(searchTerm))
+      );
+      const names = new Set(kept.map(pkg => pkg.name));
+      const nodes = kept.map(pkg => ({
+        id: pkg.id,
+        label: pkg.short,
+        title: pkg.name,
+        value: pkg.complexity * 7 + pkg.links.length * 2 + 10,
+        color: getNodeColor("system", pkg, preset),
+        item: pkg
+      }));
+      const nameToId = Object.fromEntries(kept.map(pkg => [pkg.name, pkg.id]));
+      const edges = [];
+      kept.forEach(pkg => {
+        pkg.links.forEach(link => {
+          if (names.has(link)) {
+            edges.push({
+              id: `${pkg.id}->${nameToId[link]}`,
+              from: pkg.id,
+              to: nameToId[link],
+              arrows: "to",
+              width: pkg.name === "com.xgen.mongot.index" ? 2.7 : 1.1,
+              color: { color: preset.edge, highlight: preset.warm }
+            });
+          }
+        });
+      });
+      return { nodes, edges };
+    }
+
+    function makeIndexGraph(searchTerm, minComplexity, preset) {
+      const kept = indexPackages.filter(pkg =>
+        pkg.complexity >= minComplexity &&
+        (searchTerm === "" ||
+          pkg.name.toLowerCase().includes(searchTerm) ||
+          pkg.description.toLowerCase().includes(searchTerm) ||
+          pkg.short.toLowerCase().includes(searchTerm))
+      );
+      const names = new Set(kept.map(pkg => pkg.name));
+      const nodes = kept.map(pkg => ({
+        id: pkg.id,
+        label: pkg.short,
+        title: pkg.name,
+        value: pkg.complexity * 8 + pkg.links.length * 2 + 12,
+        color: getNodeColor("index", pkg, preset),
+        item: pkg
+      }));
+      const nameToId = Object.fromEntries(kept.map(pkg => [pkg.name, pkg.id]));
+      const edges = [];
+      kept.forEach(pkg => {
+        pkg.links.forEach(link => {
+          if (names.has(link)) {
+            edges.push({
+              id: `${pkg.id}->${nameToId[link]}`,
+              from: pkg.id,
+              to: nameToId[link],
+              arrows: "to",
+              width: pkg.short === "lucene" ? 3.2 : 1.4,
+              color: { color: preset.edgeIndex, highlight: preset.hot }
+            });
+          }
+        });
+      });
+      return { nodes, edges };
+    }
+
+    function makeDependencyGraph(searchTerm, minSize, groupFilter, preset) {
+      const deps = bundledDependencies.filter(dep => {
+        const matchesText =
+          searchTerm === "" ||
+          dep.name.toLowerCase().includes(searchTerm) ||
+          dep.group.toLowerCase().includes(searchTerm) ||
+          dep.description.toLowerCase().includes(searchTerm);
+        const matchesGroup = groupFilter === "All" || dep.group === groupFilter;
+        return dep.sizeMb >= minSize && matchesText && matchesGroup;
+      });
+      const groups = [...new Set(deps.map(dep => dep.group))].sort((a, b) => dependencyGroupTotals[b] - dependencyGroupTotals[a]);
+      const nodes = [{
+        id: "root:runtime",
+        label: "Runtime\nBundle",
+        shape: "dot",
+        value: 46,
+        color: getNodeColor("deps", { kind: "root" }, preset),
+        item: { kind: "root", name: "Bundled runtime payload", description: "All libraries that ship with the deployed MongoT app.", totalSize: Object.values(dependencyGroupTotals).reduce((a, b) => a + b, 0) }
+      }];
+      groups.forEach(group => {
+        nodes.push({
+          id: `group:${group}`,
+          label: group.replace("/", "/\n"),
+          shape: "dot",
+          value: 16 + dependencyGroupTotals[group] * 2.1,
+          color: getNodeColor("deps", { kind: "group" }, preset),
+          item: { kind: "group", name: group, group, totalSize: dependencyGroupTotals[group], description: `${group} libraries bundled into the deployed application.` }
+        });
+      });
+      deps.forEach(dep => {
+        nodes.push({
+          id: dep.id,
+          label: dep.name.split(":")[1] || dep.name,
+          shape: "dot",
+          value: 10 + dep.sizeMb * 4.6,
+          color: getNodeColor("deps", { kind: "dep" }, preset),
+          item: dep
+        });
+      });
+      const edges = groups.map(group => ({
+        id: `root->${group}`,
+        from: "root:runtime",
+        to: `group:${group}`,
+        width: Math.max(1.5, dependencyGroupTotals[group] / 5),
+        color: { color: preset.group, highlight: preset.warm }
+      }));
+      deps.forEach(dep => {
+        edges.push({
+          id: `group:${dep.group}->${dep.id}`,
+          from: `group:${dep.group}`,
+          to: dep.id,
+          width: Math.max(1, dep.sizeMb * 0.8),
+          color: { color: preset.edgeDeps, highlight: preset.warm }
+        });
+      });
+      return { nodes, edges };
+    }
+
+    function useGraphData(view, searchTerm, threshold, groupFilter, preset) {
+      return React.useMemo(() => {
+        if (view === "system") {
+          return makeTopGraph(searchTerm.toLowerCase(), threshold, preset);
+        }
+        if (view === "index") {
+          return makeIndexGraph(searchTerm.toLowerCase(), threshold, preset);
+        }
+        return makeDependencyGraph(searchTerm.toLowerCase(), threshold, groupFilter, preset);
+      }, [view, searchTerm, threshold, groupFilter, preset]);
+    }
+
+    function GraphView({ view, data, selectedId, onSelect, nodeStyle, effects, preset, layoutMode, layoutFrozen, compactLabels, command, motionMode, timelineClock }) {
+      const graphRef = React.useRef(null);
+      const overlayRef = React.useRef(null);
+      const networkRef = React.useRef(null);
+      const orbitFrameRef = React.useRef(null);
+      const overlayFrameRef = React.useRef(null);
+      const orbitModelRef = React.useRef(null);
+      const timelineStateRef = React.useRef({ view, motionMode, timelineClock, preset });
+
+      React.useEffect(() => {
+        timelineStateRef.current = { view, motionMode, timelineClock, preset };
+      }, [motionMode, preset, timelineClock, view]);
+
+      React.useEffect(() => {
+        if (!graphRef.current) {
+          return undefined;
+        }
+
+        const stopOrbit = () => {
+          if (orbitFrameRef.current) {
+            cancelAnimationFrame(orbitFrameRef.current);
+            orbitFrameRef.current = null;
+          }
+        };
+
+        const isOrbitMode = layoutMode === "orbit";
+        const orbitModel = isOrbitMode
+          ? createOrbitLayout(data, view, graphRef.current.clientWidth, graphRef.current.clientHeight)
+          : null;
+        orbitModelRef.current = orbitModel;
+
+        const physicsOptions = isOrbitMode || layoutFrozen
+          ? false
+          : view === "deps"
+            ? layoutMode === "spread"
+              ? {
+                  solver: "forceAtlas2Based",
+                  stabilization: { iterations: 220, fit: true },
+                  forceAtlas2Based: { springLength: 180, damping: 0.78, gravitationalConstant: -76, avoidOverlap: 0.95 },
+                  minVelocity: 0.22
+                }
+              : {
+                  solver: "forceAtlas2Based",
+                  stabilization: { iterations: 160, fit: true },
+                  forceAtlas2Based: { springLength: 130, damping: 0.72, gravitationalConstant: -52, avoidOverlap: 0.45 }
+                }
+            : layoutMode === "spread"
+              ? {
+                  solver: "barnesHut",
+                  stabilization: { iterations: 240, fit: true },
+                  barnesHut: { springLength: 210, damping: 0.86, gravitationalConstant: -6800, centralGravity: 0.08, avoidOverlap: 0.44 },
+                  minVelocity: 0.22
+                }
+              : {
+                  solver: "barnesHut",
+                  stabilization: { iterations: 180, fit: true },
+                  barnesHut: { springLength: 140, damping: 0.82, gravitationalConstant: -4600, centralGravity: 0.14, avoidOverlap: 0.16 }
+                };
+
+        const nodes = new vis.DataSet(
+          data.nodes.map(node => {
+            const borderColor = hexToRgba(node.color, 0.45 + effects.glowAlpha * 0.3);
+            const glowColor = hexToRgba(node.color, effects.glowAlpha);
+            const selectedGlow = hexToRgba(node.color, effects.selectedGlowAlpha);
+            const isSvgNode = nodeStyle.kind === "svg";
+            const labelBackground = compactLabels ? "rgba(8, 17, 29, 0.82)" : "rgba(8, 17, 29, 0.66)";
+            return {
+              id: node.id,
+              label: formatNodeLabel(node.label, view, compactLabels),
+              value: node.value,
+              title: node.title || node.item?.name || node.label,
+              shape: isSvgNode ? "image" : nodeStyle.shape,
+              image: isSvgNode ? getNodeStyleImage(nodeStyle.id, node.color, preset) : undefined,
+              borderWidth: 1.5 + effects.borderBoost,
+              borderWidthSelected: 3 + effects.borderBoost,
+              color: {
+                background: node.color,
+                border: borderColor,
+                highlight: { background: node.color, border: hexToRgba(node.color, 0.92) },
+                hover: { background: node.color, border: hexToRgba(node.color, 0.82) }
+              },
+              shadow: {
+                enabled: true,
+                color: glowColor,
+                x: 0,
+                y: 0,
+                size: nodeStyle.shadow + effects.nodeShadow
+              },
+              size: isSvgNode ? Math.max(22, Math.round(node.value * 0.92)) : undefined,
+              chosen: {
+                node(values, id, selected, hovering) {
+                  values.borderWidth = selected ? 4 + effects.borderBoost : 2 + effects.borderBoost;
+                  values.shadow = true;
+                  values.shadowColor = selected ? selectedGlow : hovering ? hexToRgba(node.color, effects.selectedGlowAlpha * 0.82) : glowColor;
+                  values.shadowSize = selected
+                    ? nodeStyle.shadow + effects.nodeShadow + 18
+                    : hovering
+                      ? nodeStyle.shadow + effects.nodeShadow + 8
+                      : nodeStyle.shadow + effects.nodeShadow;
+                  if (selected || hovering) {
+                    values.size = (values.size || (isSvgNode ? Math.max(22, Math.round(node.value * 0.92)) : node.value)) + effects.selectedSizeBoost;
+                  }
+                }
+              },
+              font: {
+                color: "#eff6ff",
+                face: "Space Grotesk",
+                strokeWidth: effects.labelStrokeWidth || 0,
+                strokeColor: "rgba(8, 17, 29, 0.72)",
+                background: labelBackground,
+                size: Math.max(12, nodeStyle.fontSize + effects.fontBoost - (compactLabels ? 1 : 0)),
+                vadjust: isSvgNode ? (compactLabels ? -10 : -4) : 0,
+                multi: true
+              },
+              widthConstraint: { maximum: compactLabels ? 92 : 116 },
+              labelHighlightBold: false
+            };
+          })
+        );
+        const edges = new vis.DataSet(
+          data.edges.map(edge => ({
+            ...edge,
+            width: (edge.width || 1) + effects.edgeBoost,
+            smooth: { enabled: true, type: isOrbitMode ? "continuous" : "dynamic", roundness: isOrbitMode ? 0.22 : 0.38 }
+          }))
+        );
+
+        const network = new vis.Network(
+          graphRef.current,
+          { nodes, edges },
+          {
+            autoResize: true,
+            interaction: {
+              hover: true,
+              multiselect: false,
+              navigationButtons: true,
+              keyboard: true,
+              dragNodes: !isOrbitMode
+            },
+            layout: {
+              improvedLayout: true
+            },
+            physics: physicsOptions,
+            nodes: {
+              shapeProperties: nodeStyle.kind === "builtin" ? { borderRadius: nodeStyle.borderRadius } : {},
+              scaling: { min: 14, max: 48, label: { enabled: true, min: compactLabels ? 11 : 13, max: compactLabels ? 20 : 26, drawThreshold: 5 } }
+            },
+            edges: {
+              shadow: false,
+              selectionWidth: 0,
+              hoverWidth: 0
+            }
+          }
+        );
+
+        network.on("click", params => {
+          if (params.nodes.length > 0) {
+            onSelect(params.nodes[0]);
+          }
+        });
+
+        network.on("doubleClick", params => {
+          if (params.nodes.length > 0) {
+            network.focus(params.nodes[0], { scale: 1.35, animation: { duration: 650, easingFunction: "easeInOutQuart" } });
+          }
+        });
+
+        networkRef.current = network;
+        window.__mongotNetwork = network;
+        window.__mongotEffects = effects;
+
+        if (isOrbitMode && orbitModel) {
+          const applyOrbitFrame = timestamp => {
+            const updates = [{
+              id: orbitModel.anchorId,
+              x: 0,
+              y: 0,
+              fixed: { x: true, y: true }
+            }];
+            const hostPositions = new Map([[orbitModel.anchorId, { x: 0, y: 0 }]]);
+
+            orbitModel.hubs.forEach(hub => {
+              const angle = hub.baseAngle + timestamp * hub.speed * hub.direction;
+              const x = Math.cos(angle) * hub.radius;
+              const y = Math.sin(angle) * hub.radius * orbitModel.verticalScale;
+              hostPositions.set(hub.id, { x, y });
+              updates.push({
+                id: hub.id,
+                x,
+                y,
+                fixed: { x: true, y: true }
+              });
+            });
+
+            orbitModel.satellites.forEach(satellite => {
+              const host = hostPositions.get(satellite.hostId) || { x: 0, y: 0 };
+              const wave = 1 + Math.sin(timestamp * 0.0018 + hashString(satellite.id) * 0.02) * satellite.wobble;
+              const angle = satellite.baseAngle + timestamp * satellite.speed * satellite.direction;
+              updates.push({
+                id: satellite.id,
+                x: host.x + Math.cos(angle) * satellite.radius * wave,
+                y: host.y + Math.sin(angle) * satellite.radius * orbitModel.verticalScale * wave,
+                fixed: { x: true, y: true }
+              });
+            });
+
+            nodes.update(updates);
+            network.redraw();
+
+            if (!layoutFrozen) {
+              orbitFrameRef.current = requestAnimationFrame(applyOrbitFrame);
+            }
+          };
+
+          applyOrbitFrame(performance.now());
+          network.moveTo({
+            position: { x: 0, y: 0 },
+            scale: orbitModel.fitScale,
+            animation: { duration: 700, easingFunction: "easeInOutCubic" }
+          });
+        } else if (!layoutFrozen) {
+          network.stabilize(layoutMode === "spread" ? 240 : 180);
+        }
+
+        return () => {
+          stopOrbit();
+          networkRef.current = null;
+          network.destroy();
+        };
+      }, [compactLabels, data, effects, layoutFrozen, layoutMode, nodeStyle, onSelect, preset, view]);
+
+      React.useEffect(() => {
+        if (!overlayRef.current) {
+          return undefined;
+        }
+
+        const canvas = overlayRef.current;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          return undefined;
+        }
+
+        const syncCanvasSize = () => {
+          const width = graphRef.current?.clientWidth || canvas.clientWidth || 0;
+          const height = graphRef.current?.clientHeight || canvas.clientHeight || 0;
+          const ratio = window.devicePixelRatio || 1;
+          const scaledWidth = Math.max(1, Math.round(width * ratio));
+          const scaledHeight = Math.max(1, Math.round(height * ratio));
+          if (canvas.width !== scaledWidth || canvas.height !== scaledHeight) {
+            canvas.width = scaledWidth;
+            canvas.height = scaledHeight;
+          }
+          canvas.style.width = `${width}px`;
+          canvas.style.height = `${height}px`;
+          context.setTransform(ratio, 0, 0, ratio, 0, 0);
+          return { width, height };
+        };
+
+        const drawCurve = (start, control, end) => {
+          context.beginPath();
+          context.moveTo(start.x, start.y);
+          context.quadraticCurveTo(control.x, control.y, end.x, end.y);
+        };
+
+        const drawStream = (network, stream, clock, streamIndex, activePreset) => {
+          const color = resolveTimelineColor(stream.colorKey, activePreset);
+          stream.edges.forEach(([fromKey, toKey], edgeIndex) => {
+            const fromId = getRuntimeNodeId(fromKey);
+            const toId = getRuntimeNodeId(toKey);
+            const from = getNetworkNodeDomPosition(network, fromId);
+            const to = getNetworkNodeDomPosition(network, toId);
+            if (!from || !to) {
+              return;
+            }
+
+            const distance = Math.hypot(to.x - from.x, to.y - from.y);
+            const bend = edgeCurveBias(fromId, toId, stream.id, edgeIndex) + distance * 0.03;
+            const control = getCurveControlPoint(from, to, bend);
+            const width = stream.width + stream.alpha * 1.4;
+            const dashDrift = clock * (32 + stream.tempo * 38);
+
+            context.save();
+            context.lineCap = "round";
+            context.lineJoin = "round";
+            context.shadowBlur = 18 + stream.alpha * 22;
+            context.shadowColor = hexToRgba(color, 0.22 + stream.alpha * 0.32);
+            drawCurve(from, control, to);
+            context.strokeStyle = hexToRgba(color, 0.14 + stream.alpha * 0.12);
+            context.lineWidth = width + 5.5;
+            context.stroke();
+            context.restore();
+
+            context.save();
+            context.lineCap = "round";
+            context.lineJoin = "round";
+            drawCurve(from, control, to);
+            context.strokeStyle = hexToRgba(color, 0.22 + stream.alpha * 0.16);
+            context.lineWidth = width + 1.8;
+            context.stroke();
+
+            context.setLineDash([12 + width * 1.6, 10 + width * 1.25]);
+            context.lineDashOffset = -dashDrift - edgeIndex * 18 - streamIndex * 9;
+            drawCurve(from, control, to);
+            context.strokeStyle = hexToRgba(color, 0.84 * stream.alpha);
+            context.lineWidth = width;
+            context.stroke();
+
+            context.setLineDash([2.5, 17 + width * 1.3]);
+            context.lineDashOffset = -(dashDrift * 2.2) - edgeIndex * 11;
+            drawCurve(from, control, to);
+            context.strokeStyle = hexToRgba("#f7fbff", 0.92 * stream.alpha);
+            context.lineWidth = Math.max(1.2, width * 0.28);
+            context.stroke();
+            context.restore();
+
+            const pulseCount = Math.max(1, Math.round(stream.particles + stream.alpha * 2));
+            for (let pulseIndex = 0; pulseIndex < pulseCount; pulseIndex += 1) {
+              const t = ((clock * stream.tempo * 0.13) + (pulseIndex / pulseCount) + edgeIndex * 0.17) % 1;
+              const point = pointOnQuadraticBezier(from, control, to, t);
+              context.save();
+              context.shadowBlur = 12 + stream.alpha * 8;
+              context.shadowColor = hexToRgba(color, 0.34 + stream.alpha * 0.32);
+              context.beginPath();
+              context.fillStyle = hexToRgba("#f7fbff", 0.18 + stream.alpha * 0.22);
+              context.arc(point.x, point.y, width * 0.88 + 1.6, 0, Math.PI * 2);
+              context.fill();
+              context.beginPath();
+              context.fillStyle = hexToRgba(color, 0.56 + stream.alpha * 0.28);
+              context.arc(point.x, point.y, width * 0.38 + 1, 0, Math.PI * 2);
+              context.fill();
+              context.restore();
+            }
+          });
+        };
+
+        const renderOverlay = () => {
+          const { width, height } = syncCanvasSize();
+          context.clearRect(0, 0, width, height);
+
+          const network = networkRef.current;
+          const state = timelineStateRef.current;
+          if (network && state.view === "system" && state.motionMode === "timeline") {
+            const { streams } = getActiveRuntimeStreams(state.timelineClock);
+            context.save();
+            context.globalCompositeOperation = "lighter";
+            streams.forEach((stream, streamIndex) => {
+              drawStream(network, stream, state.timelineClock, streamIndex, state.preset);
+            });
+            context.restore();
+          }
+        };
+
+        const animateOverlay = () => {
+          renderOverlay();
+          overlayFrameRef.current = requestAnimationFrame(animateOverlay);
+        };
+
+        animateOverlay();
+        window.addEventListener("resize", renderOverlay);
+
+        return () => {
+          if (overlayFrameRef.current) {
+            cancelAnimationFrame(overlayFrameRef.current);
+            overlayFrameRef.current = null;
+          }
+          window.removeEventListener("resize", renderOverlay);
+        };
+      }, []);
+
+      React.useEffect(() => {
+        if (!networkRef.current || !command) {
+          return;
+        }
+
+        const network = networkRef.current;
+        if (command.type === "fit") {
+          network.fit({ animation: { duration: 560, easingFunction: "easeInOutCubic" } });
+          return;
+        }
+
+        if (command.type === "anchor") {
+          const anchorId = getViewAnchorId(view, data);
+          if (!anchorId) {
+            return;
+          }
+          onSelect(anchorId);
+          network.selectNodes([anchorId]);
+          if (layoutMode === "orbit") {
+            network.moveTo({ position: { x: 0, y: 0 }, scale: orbitModelRef.current?.fitScale || 1, animation: { duration: 640, easingFunction: "easeInOutCubic" } });
+            return;
+          }
+          network.focus(anchorId, { scale: 1.28, animation: { duration: 640, easingFunction: "easeInOutCubic" } });
+          return;
+        }
+
+        if (command.type === "stabilize" && layoutMode !== "orbit" && !layoutFrozen) {
+          network.stabilize(layoutMode === "spread" ? 240 : 180);
+          network.fit({ animation: { duration: 520, easingFunction: "easeInOutCubic" } });
+        }
+      }, [command, data, layoutFrozen, layoutMode, onSelect, view]);
+
+      React.useEffect(() => {
+        if (!networkRef.current || !selectedId) {
+          return;
+        }
+        const ids = data.nodes.map(node => node.id);
+        if (!ids.includes(selectedId)) {
+          return;
+        }
+        networkRef.current.selectNodes([selectedId]);
+        if (layoutMode === "orbit") {
+          const position = selectedId === orbitModelRef.current?.anchorId
+            ? { x: 0, y: 0 }
+            : networkRef.current.getPositions([selectedId])[selectedId];
+          if (position) {
+            networkRef.current.moveTo({ position, scale: selectedId === orbitModelRef.current?.anchorId ? orbitModelRef.current?.fitScale || 1 : 1.12, animation: { duration: 700, easingFunction: "easeInOutCubic" } });
+          }
+          return;
+        }
+        networkRef.current.focus(selectedId, { scale: 1.25, animation: { duration: 700, easingFunction: "easeInOutCubic" } });
+      }, [selectedId, data.nodes, layoutMode]);
+
+      return (
+        <div className="graph-layer">
+          <div ref={graphRef} className="graph-canvas" />
+          <canvas ref={overlayRef} className="graph-overlay-canvas" />
+        </div>
+      );
+    }
+
+    function StatCard({ label, value, tone }) {
+      return (
+        <Paper className="glass metric-pulse" sx={{ p: 2, borderRadius: 4 }}>
+          <Typography sx={{ color: "rgba(236,244,255,0.72)", fontSize: 13 }}>{label}</Typography>
+          <Typography sx={{ color: tone, fontSize: 28, fontWeight: 700, lineHeight: 1.15 }}>{value}</Typography>
+        </Paper>
+      );
+    }
+
+    function App() {
+      const [view, setView] = React.useState("system");
+      const [searchTerm, setSearchTerm] = React.useState("");
+      const [threshold, setThreshold] = React.useState(1);
+      const [groupFilter, setGroupFilter] = React.useState("All");
+      const [selectedId, setSelectedId] = React.useState("top:index");
+      const [storyIndex, setStoryIndex] = React.useState(0);
+      const [stylePresetId, setStylePresetId] = React.useState("aurora");
+      const [nodeStyleId, setNodeStyleId] = React.useState("dot");
+      const [effectsId, setEffectsId] = React.useState("crisp");
+      const [layoutMode, setLayoutMode] = React.useState("spread");
+      const [layoutFrozen, setLayoutFrozen] = React.useState(false);
+      const [compactLabels, setCompactLabels] = React.useState(true);
+      const [motionMode, setMotionMode] = React.useState("ambient");
+      const [timelineClock, setTimelineClock] = React.useState(0);
+      const [timelinePlaying, setTimelinePlaying] = React.useState(false);
+      const [timelineSpeed, setTimelineSpeed] = React.useState(4);
+      const [viewerCommand, setViewerCommand] = React.useState(null);
+      const stylePreset = STYLE_PRESETS[stylePresetId];
+      const nodeStyle = NODE_STYLES[nodeStyleId];
+      const effects = EFFECT_PRESETS[effectsId];
+
+      const data = useGraphData(view, searchTerm, threshold, groupFilter, stylePreset);
+
+      const currentStories = STORIES[view];
+      const selectedItem = React.useMemo(
+        () => data.nodes.find(node => node.id === selectedId)?.item || null,
+        [data.nodes, selectedId]
+      );
+      const orbitAnchorId = React.useMemo(() => getViewAnchorId(view, data), [view, data]);
+      const orbitAnchorLabel = React.useMemo(() => {
+        const anchorNode = data.nodes.find(node => node.id === orbitAnchorId);
+        return anchorNode?.item?.short || anchorNode?.label || "anchor";
+      }, [data.nodes, orbitAnchorId]);
+      const runtimeTimeline = React.useMemo(() => getActiveRuntimeStreams(timelineClock), [timelineClock]);
+      const currentTimelinePhase = runtimeTimeline.phase;
+      const timelineActiveStreams = runtimeTimeline.streams;
+      const issueViewerCommand = commandType => {
+        setViewerCommand({ type: commandType, issuedAt: `${commandType}-${Date.now()}` });
+      };
+
+      React.useEffect(() => {
+        const fallback = view === "system" ? "top:index" : view === "index" ? "index:lucene" : "group:Cloud Integration";
+        setSelectedId(fallback);
+        setThreshold(view === "deps" ? 0 : 1);
+        setGroupFilter("All");
+        setStoryIndex(0);
+        setLayoutFrozen(false);
+      }, [view]);
+
+      React.useEffect(() => {
+        if (view !== "system" && motionMode === "timeline") {
+          setMotionMode("ambient");
+          setTimelinePlaying(false);
+        }
+      }, [motionMode, view]);
+
+      React.useEffect(() => {
+        const story = currentStories[storyIndex];
+        if (story) {
+          setSelectedId(story.key);
+        }
+      }, [storyIndex, currentStories]);
+
+      React.useEffect(() => {
+        if (data.nodes.length === 0) {
+          return;
+        }
+        const hasSelected = data.nodes.some(node => node.id === selectedId);
+        if (!hasSelected) {
+          setSelectedId(data.nodes[0].id);
+        }
+      }, [data.nodes, selectedId]);
+
+      React.useEffect(() => {
+        if (motionMode !== "timeline" || !timelinePlaying || view !== "system") {
+          return undefined;
+        }
+
+        const intervalId = window.setInterval(() => {
+          React.startTransition(() => {
+            setTimelineClock(current => {
+              const next = current + (0.033 * timelineSpeed);
+              return next >= RUNTIME_TIMELINE_DURATION ? next % RUNTIME_TIMELINE_DURATION : next;
+            });
+          });
+        }, 33);
+
+        return () => window.clearInterval(intervalId);
+      }, [motionMode, timelinePlaying, timelineSpeed, view]);
+
+      const metrics = React.useMemo(() => {
+        if (view === "system") {
+          const central = [...topPackages].sort((a, b) => b.links.length - a.links.length)[0];
+          return {
+            one: { label: "Major Packages", value: topPackages.length, tone: stylePreset.support },
+            two: { label: "Highest Complexity", value: "10 / index", tone: stylePreset.hot },
+            three: { label: "Most Linked", value: central.short, tone: stylePreset.cool }
+          };
+        }
+        if (view === "index") {
+          return {
+            one: { label: "Index Subpackages", value: indexPackages.length, tone: stylePreset.warm },
+            two: { label: "Execution Peak", value: "lucene", tone: stylePreset.hot },
+            three: { label: "Query Layer", value: "query", tone: stylePreset.cool }
+          };
+        }
+        const biggestGroup = Object.entries(dependencyGroupTotals).sort((a, b) => b[1] - a[1])[0];
+        return {
+          one: { label: "Bundled Libraries", value: bundledDependencies.length, tone: stylePreset.cool },
+          two: { label: "Largest Group", value: biggestGroup[0], tone: stylePreset.support },
+          three: { label: "Largest Single Lib", value: "aws-crt", tone: stylePreset.warm }
+        };
+      }, [view, stylePreset]);
+
+      const detailConnections = React.useMemo(() => {
+        if (!selectedItem) return [];
+        if (view === "deps") {
+          if (selectedItem.kind === "root") {
+            return Object.keys(dependencyGroupTotals).sort((a, b) => dependencyGroupTotals[b] - dependencyGroupTotals[a]).map(group => ({
+              label: `${group} • ${titleCaseSize(dependencyGroupTotals[group])}`,
+              target: `group:${group}`
+            }));
+          }
+          if (selectedItem.kind === "group") {
+            return bundledDependencies
+              .filter(dep => dep.group === selectedItem.group)
+              .sort((a, b) => b.sizeMb - a.sizeMb)
+              .map(dep => ({ label: `${dep.name} • ${titleCaseSize(dep.sizeMb)}`, target: dep.id }));
+          }
+          return [{ label: `${selectedItem.group} cluster`, target: `group:${selectedItem.group}` }];
+        }
+        return (selectedItem.links || []).map(link => {
+          const collection = view === "system" ? topPackages : indexPackages;
+          const match = collection.find(item => item.name === link);
+          return { label: link, target: match?.id };
+        });
+      }, [selectedItem, view]);
+
+      const autocompleteOptions = React.useMemo(() => data.nodes.map(node => ({
+        label: node.item?.name || node.label,
+        id: node.id
+      })), [data.nodes]);
+      const layoutSummary = layoutMode === "orbit"
+        ? `Orbit mode anchors the map around ${orbitAnchorLabel} and spins correlated nodes as satellites.`
+        : layoutMode === "spread"
+          ? "Spread mode adds more breathing room between labels and large nodes."
+          : "Flow mode keeps the graph loose and reactive so you can drag packages around freely.";
+      const animationSummary = motionMode === "timeline"
+        ? `${currentTimelinePhase.label} at ${formatRuntimeClock(timelineClock)} of ${formatRuntimeClock(RUNTIME_TIMELINE_DURATION)}.`
+        : "Ambient mode shows the architecture without a runtime story overlaid on top.";
+      const activateTimelineMode = () => {
+        if (view !== "system") {
+          setView("system");
+        }
+        setMotionMode("timeline");
+        setTimelinePlaying(true);
+        setSelectedId("top:index");
+      };
+      const pauseTimeline = () => setTimelinePlaying(false);
+      const restartTimeline = () => {
+        setTimelineClock(0);
+        setTimelinePlaying(true);
+      };
+
+      return (
+        <Box className="app-shell" sx={{ background: stylePreset.shellBackground, minHeight: "100vh" }}>
+          <Paper className="glass hero" sx={{ background: stylePreset.panelBackground }}>
+            <Grid container spacing={3} alignItems="center">
+              <Grid item xs={12} lg={7}>
+                <Stack spacing={1.6}>
+                  <Chip
+                    label="Interactive Architecture Tour"
+                    sx={{
+                      alignSelf: "flex-start",
+                      color: "#08111d",
+                      background: `linear-gradient(90deg, ${stylePreset.warm}, ${stylePreset.cool})`
+                    }}
+                  />
+                  <Typography variant="h2" sx={{ fontWeight: 700, lineHeight: 1.04, letterSpacing: "-0.04em", fontSize: { xs: 34, md: 56 } }}>
+                    MongoT, as a living graph.
+                  </Typography>
+                  <Typography sx={{ color: "rgba(236,244,255,0.76)", maxWidth: 760, fontSize: 17 }}>
+                    Fly across package boundaries, dive into the index engine, and inspect the shipped runtime payload. Nodes animate, edges respond, and the side panels turn the code map into a guided tour instead of a static document.
+                  </Typography>
+                  <Stack direction="row" spacing={1.2} flexWrap="wrap" useFlexGap>
+                    <Chip label="Drag nodes" icon={<span className="material-icons">gesture</span>} sx={{ color: "var(--text)", borderColor: "var(--line)" }} variant="outlined" />
+                    <Chip label="Double-click to zoom" icon={<span className="material-icons">zoom_in</span>} sx={{ color: "var(--text)", borderColor: "var(--line)" }} variant="outlined" />
+                    <Chip label="Search + focus" icon={<span className="material-icons">travel_explore</span>} sx={{ color: "var(--text)", borderColor: "var(--line)" }} variant="outlined" />
+                  </Stack>
+                </Stack>
+              </Grid>
+              <Grid item xs={12} lg={5}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}>
+                    <StatCard {...metrics.one} />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <StatCard {...metrics.two} />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <StatCard {...metrics.three} />
+                  </Grid>
+                </Grid>
+              </Grid>
+            </Grid>
+          </Paper>
+
+          <Paper className="glass" sx={{ borderRadius: 6, p: 2, mb: 2.5, background: stylePreset.panelBackground }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.7 }}>
+                  Style Lab
+                </Typography>
+                <Typography sx={{ color: "rgba(236,244,255,0.76)", fontSize: 14 }}>
+                  Try different colour schemes and node treatments without changing the tour data.
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={2.5}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: "#9eb0c8" }}>Colour Scheme</InputLabel>
+                  <Select
+                    value={stylePresetId}
+                    label="Colour Scheme"
+                    onChange={event => setStylePresetId(event.target.value)}
+                    sx={selectStyles}
+                  >
+                    {Object.entries(STYLE_PRESETS).map(([id, preset]) => (
+                      <MenuItem key={id} value={id}>{preset.label}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={2.5}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: "#9eb0c8" }}>Node Type</InputLabel>
+                  <Select
+                    value={nodeStyleId}
+                    label="Node Type"
+                    onChange={event => setNodeStyleId(event.target.value)}
+                    sx={selectStyles}
+                  >
+                    {Object.entries(NODE_STYLES).map(([id, style]) => (
+                      <MenuItem key={id} value={id}>{style.label}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={2.5}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: "#9eb0c8" }}>Effects</InputLabel>
+                  <Select
+                    value={effectsId}
+                    label="Effects"
+                    onChange={event => setEffectsId(event.target.value)}
+                    sx={selectStyles}
+                  >
+                    {Object.entries(EFFECT_PRESETS).map(([id, effect]) => (
+                      <MenuItem key={id} value={id}>{effect.label}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Stack direction="row" spacing={1} justifyContent={{ xs: "flex-start", md: "flex-end" }} flexWrap="wrap" useFlexGap>
+                  <Chip label={STYLE_PRESETS[stylePresetId].label} sx={{ ...chipStyles, borderColor: stylePreset.support }} />
+                  <Chip label={NODE_STYLES[nodeStyleId].label} sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
+                  <Chip label={EFFECT_PRESETS[effectsId].label} sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
+                </Stack>
+              </Grid>
+            </Grid>
+          </Paper>
+
+          <Grid container spacing={2.5}>
+            <Grid item xs={12} xl={3}>
+              <Paper className="glass" sx={{ borderRadius: 6, p: 2.2, height: "100%", background: stylePreset.panelBackground }}>
+                <Stack spacing={2.2}>
+                  <Box>
+                    <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.6 }}>
+                      Modes
+                    </Typography>
+                    <Tabs
+                      value={view}
+                      onChange={(event, next) => setView(next)}
+                      variant="fullWidth"
+                      sx={{
+                        minHeight: 44,
+                        "& .MuiTabs-indicator": { display: "none" },
+                        "& .MuiTab-root": {
+                          minHeight: 44,
+                          borderRadius: 999,
+                          color: "var(--muted)",
+                          textTransform: "none",
+                          fontWeight: 700
+                        },
+                        "& .Mui-selected": {
+                          color: "#08111d !important",
+                          background: stylePreset.warm
+                        }
+                      }}
+                    >
+                      <Tab value="system" label="System" />
+                      <Tab value="index" label="Index" />
+                      <Tab value="deps" label="Libraries" />
+                    </Tabs>
+                  </Box>
+
+                  <Paper sx={{ p: 1.8, borderRadius: 4, background: "rgba(255,255,255,0.04)", border: "1px solid var(--line)" }}>
+                    <Typography sx={{ fontWeight: 700, mb: 0.5 }}>{VIEW_META[view].label}</Typography>
+                    <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>{VIEW_META[view].blurb}</Typography>
+                  </Paper>
+
+                  <TextField
+                    fullWidth
+                    value={searchTerm}
+                    onChange={event => setSearchTerm(event.target.value)}
+                    placeholder={view === "deps" ? "Search library, group, or detail" : "Search package or concept"}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <span className="material-icons" style={{ fontSize: 20, color: "#9eb0c8" }}>search</span>
+                        </InputAdornment>
+                      )
+                    }}
+                    sx={textFieldStyles}
+                  />
+
+                  <Autocomplete
+                    size="small"
+                    options={autocompleteOptions}
+                    value={autocompleteOptions.find(option => option.id === selectedId) || null}
+                    onChange={(event, option) => option && setSelectedId(option.id)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Jump To Node"
+                        sx={textFieldStyles}
+                      />
+                    )}
+                    sx={{
+                      "& .MuiAutocomplete-popupIndicator, & .MuiAutocomplete-clearIndicator": { color: "#9eb0c8" }
+                    }}
+                  />
+
+                  <Box>
+                    <Typography sx={{ fontSize: 13, color: "var(--muted)", mb: 1 }}>
+                      {view === "deps" ? "Minimum library size" : "Minimum complexity"}
+                    </Typography>
+                    <Slider
+                      value={threshold}
+                      min={view === "deps" ? 0 : 1}
+                      max={view === "deps" ? 2 : 10}
+                      step={view === "deps" ? 0.05 : 1}
+                      onChange={(event, next) => setThreshold(next)}
+                      valueLabelDisplay="auto"
+                      valueLabelFormat={value => view === "deps" ? titleCaseSize(value) : value}
+                      sx={{
+                        color: stylePreset.support,
+                        "& .MuiSlider-thumb": { boxShadow: "0 0 0 6px rgba(255,255,255,0.08)" }
+                      }}
+                    />
+                  </Box>
+
+                  {view === "deps" && (
+                    <FormControl fullWidth>
+                      <InputLabel sx={{ color: "#9eb0c8" }}>Dependency Group</InputLabel>
+                      <Select
+                        value={groupFilter}
+                        label="Dependency Group"
+                        onChange={event => setGroupFilter(event.target.value)}
+                        sx={selectStyles}
+                      >
+                        <MenuItem value="All">All groups</MenuItem>
+                        {Object.keys(dependencyGroupTotals)
+                          .sort((a, b) => dependencyGroupTotals[b] - dependencyGroupTotals[a])
+                          .map(group => (
+                            <MenuItem key={group} value={group}>{group}</MenuItem>
+                          ))}
+                      </Select>
+                    </FormControl>
+                  )}
+
+                  <Divider sx={{ borderColor: "var(--line)" }} />
+
+                  <Box>
+                    <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
+                      Guided Stops
+                    </Typography>
+                    <Stack spacing={1}>
+                      {currentStories.map((story, index) => (
+                        <Box
+                          key={story.key}
+                          className={`tour-card ${storyIndex === index ? "active" : ""}`}
+                          onClick={() => {
+                            setStoryIndex(index);
+                            setSelectedId(story.key);
+                          }}
+                        >
+                          <Typography sx={{ fontWeight: 700 }}>{story.title}</Typography>
+                          <Typography sx={{ color: "var(--muted)", mt: 0.4, fontSize: 14 }}>{story.body}</Typography>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                </Stack>
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} xl={6}>
+              <Paper className="glass graph-frame">
+                <Box sx={{ position: "absolute", inset: 0, background: stylePreset.graphBackground }} />
+                <Box sx={{ position: "absolute", top: 14, left: 16, right: 16, zIndex: 2 }}>
+                  <Stack spacing={1.15}>
+                    <Stack direction={{ xs: "column", md: "row" }} spacing={1.2} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Chip label={`${data.nodes.length} nodes`} size="small" sx={chipStyles} />
+                        <Chip label={`${data.edges.length} edges`} size="small" sx={chipStyles} />
+                        <Chip label={view === "deps" ? "grouped by bundle role" : "imports shown as arrows"} size="small" sx={chipStyles} />
+                        <Chip label={layoutMode === "orbit" ? `orbiting ${orbitAnchorLabel}` : layoutMode} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
+                        <Chip label={motionMode === "timeline" ? "runtime timeline" : "ambient motion"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
+                      </Stack>
+                      <Typography className="mini-note">{layoutSummary}</Typography>
+                    </Stack>
+
+                    <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
+                      <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
+                        {[
+                          { id: "flow", label: "Flow" },
+                          { id: "spread", label: "Spread" },
+                          { id: "orbit", label: "Orbit" }
+                        ].map(option => (
+                          <Button
+                            key={option.id}
+                            size="small"
+                            variant={layoutMode === option.id ? "contained" : "outlined"}
+                            onClick={() => {
+                              setLayoutMode(option.id);
+                              setLayoutFrozen(false);
+                            }}
+                            sx={{
+                              borderRadius: 999,
+                              minWidth: 0,
+                              color: layoutMode === option.id ? "#08111d" : "var(--text)",
+                              background: layoutMode === option.id ? stylePreset.warm : "rgba(8, 17, 29, 0.28)",
+                              borderColor: "var(--line)",
+                              "&:hover": {
+                                borderColor: stylePreset.warm,
+                                background: layoutMode === option.id ? stylePreset.warm : "rgba(255,255,255,0.08)"
+                              }
+                            }}
+                          >
+                            {option.label}
+                          </Button>
+                        ))}
+                      </Stack>
+
+                      <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => issueViewerCommand("fit")}
+                          sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
+                        >
+                          Fit View
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => issueViewerCommand("anchor")}
+                          sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
+                        >
+                          Center {orbitAnchorLabel}
+                        </Button>
+                        {layoutMode !== "orbit" && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => issueViewerCommand("stabilize")}
+                            sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
+                          >
+                            Settle
+                          </Button>
+                        )}
+                        <Button
+                          size="small"
+                          variant={layoutFrozen ? "contained" : "outlined"}
+                          onClick={() => setLayoutFrozen(current => !current)}
+                          sx={{
+                            borderRadius: 999,
+                            color: layoutFrozen ? "#08111d" : "var(--text)",
+                            background: layoutFrozen ? stylePreset.cool : "transparent",
+                            borderColor: "var(--line)"
+                          }}
+                        >
+                          {layoutMode === "orbit" ? (layoutFrozen ? "Resume Orbit" : "Pause Orbit") : (layoutFrozen ? "Unfreeze" : "Freeze")}
+                        </Button>
+                        <Button
+                          size="small"
+                          variant={compactLabels ? "contained" : "outlined"}
+                          onClick={() => setCompactLabels(current => !current)}
+                          sx={{
+                            borderRadius: 999,
+                            color: compactLabels ? "#08111d" : "var(--text)",
+                            background: compactLabels ? stylePreset.support : "transparent",
+                            borderColor: "var(--line)"
+                          }}
+                        >
+                          {compactLabels ? "Labels: Compact" : "Labels: Full"}
+                        </Button>
+                      </Stack>
+                    </Stack>
+
+                    <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
+                      <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
+                        <Button
+                          size="small"
+                          variant={motionMode === "ambient" ? "contained" : "outlined"}
+                          onClick={() => {
+                            setMotionMode("ambient");
+                            setTimelinePlaying(false);
+                          }}
+                          sx={{
+                            borderRadius: 999,
+                            minWidth: 0,
+                            color: motionMode === "ambient" ? "#08111d" : "var(--text)",
+                            background: motionMode === "ambient" ? stylePreset.support : "rgba(8, 17, 29, 0.28)",
+                            borderColor: "var(--line)"
+                          }}
+                        >
+                          Ambient
+                        </Button>
+                        <Button
+                          size="small"
+                          variant={motionMode === "timeline" ? "contained" : "outlined"}
+                          onClick={activateTimelineMode}
+                          sx={{
+                            borderRadius: 999,
+                            minWidth: 0,
+                            color: motionMode === "timeline" ? "#08111d" : "var(--text)",
+                            background: motionMode === "timeline" ? stylePreset.cool : "rgba(8, 17, 29, 0.28)",
+                            borderColor: "var(--line)"
+                          }}
+                        >
+                          Timeline
+                        </Button>
+                      </Stack>
+
+                      {view === "system" && motionMode === "timeline" && (
+                        <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
+                          <Button
+                            size="small"
+                            variant={timelinePlaying ? "contained" : "outlined"}
+                            onClick={() => setTimelinePlaying(current => !current)}
+                            sx={{
+                              borderRadius: 999,
+                              color: timelinePlaying ? "#08111d" : "var(--text)",
+                              background: timelinePlaying ? stylePreset.warm : "transparent",
+                              borderColor: "var(--line)"
+                            }}
+                          >
+                            {timelinePlaying ? "Pause Timeline" : "Play Timeline"}
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={restartTimeline}
+                            sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
+                          >
+                            Restart
+                          </Button>
+                          {[1, 2, 4].map(speed => (
+                            <Button
+                              key={speed}
+                              size="small"
+                              variant={timelineSpeed === speed ? "contained" : "outlined"}
+                              onClick={() => setTimelineSpeed(speed)}
+                              sx={{
+                                borderRadius: 999,
+                                minWidth: 0,
+                                color: timelineSpeed === speed ? "#08111d" : "var(--text)",
+                                background: timelineSpeed === speed ? stylePreset.hot : "transparent",
+                                borderColor: "var(--line)"
+                              }}
+                            >
+                              {speed}x
+                            </Button>
+                          ))}
+                        </Stack>
+                      )}
+                    </Stack>
+
+                    {view === "system" && motionMode === "timeline" && (
+                      <Stack spacing={0.7}>
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
+                          <Typography className="mini-note">
+                            {currentTimelinePhase.label} over a 90s modeled runtime story. The 30s query burst is compressed into this playback.
+                          </Typography>
+                          <Chip label={`${formatRuntimeClock(timelineClock)} / ${formatRuntimeClock(RUNTIME_TIMELINE_DURATION)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
+                        </Stack>
+                        <Slider
+                          value={timelineClock}
+                          min={0}
+                          max={RUNTIME_TIMELINE_DURATION}
+                          step={0.25}
+                          onChange={(event, next) => {
+                            setTimelineClock(Array.isArray(next) ? next[0] : next);
+                            pauseTimeline();
+                          }}
+                          sx={{
+                            color: stylePreset.cool,
+                            width: "100%",
+                            "& .MuiSlider-thumb": { boxShadow: "0 0 0 6px rgba(255,255,255,0.08)" }
+                          }}
+                        />
+                      </Stack>
+                    )}
+
+                    <Typography className="mini-note">
+                      Double-click a node to zoom. Use Flow for free dragging, Spread for cleaner labels, Orbit for the solar-system layout, and Timeline to show runtime calls flowing across the major packages.
+                    </Typography>
+                    {view === "system" && motionMode === "timeline" && (
+                      <Typography className="mini-note">{animationSummary}</Typography>
+                    )}
+                  </Stack>
+                </Box>
+                <GraphView
+                  view={view}
+                  data={data}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  nodeStyle={nodeStyle}
+                  effects={effects}
+                  preset={stylePreset}
+                  layoutMode={layoutMode}
+                  layoutFrozen={layoutFrozen}
+                  compactLabels={compactLabels}
+                  command={viewerCommand}
+                  motionMode={motionMode}
+                  timelineClock={timelineClock}
+                />
+                {view === "system" && motionMode === "timeline" && (
+                  <Paper
+                    className="glass"
+                    sx={{
+                      position: "absolute",
+                      left: 18,
+                      bottom: 18,
+                      zIndex: 2,
+                      maxWidth: 360,
+                      p: 1.8,
+                      borderRadius: 4,
+                      background: "rgba(8, 17, 29, 0.72)",
+                      borderColor: hexToRgba(stylePreset.cool, 0.26)
+                    }}
+                  >
+                    <Stack spacing={1.1}>
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                        <Chip label={currentTimelinePhase.label} size="small" sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
+                        <Chip label={timelinePlaying ? `Playing ${timelineSpeed}x` : "Paused"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
+                      </Stack>
+                      <Typography sx={{ fontWeight: 700, lineHeight: 1.15 }}>
+                        Runtime Flow Story
+                      </Typography>
+                      <Typography sx={{ color: "var(--muted)", fontSize: 13.5 }}>
+                        {currentTimelinePhase.description}
+                      </Typography>
+                      <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
+                        {timelineActiveStreams.map(stream => (
+                          <Chip
+                            key={stream.id}
+                            label={stream.label}
+                            size="small"
+                            sx={{
+                              ...chipStyles,
+                              borderColor: resolveTimelineColor(stream.colorKey, stylePreset),
+                              background: hexToRgba(resolveTimelineColor(stream.colorKey, stylePreset), 0.1)
+                            }}
+                          />
+                        ))}
+                      </Stack>
+                    </Stack>
+                  </Paper>
+                )}
+              </Paper>
+            </Grid>
+
+            <Grid item xs={12} xl={3}>
+              <Paper className="glass" sx={{ borderRadius: 6, p: 2.2, height: "100%", background: stylePreset.panelBackground }}>
+                {selectedItem ? (
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase" }}>
+                        Focus
+                      </Typography>
+                      <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, lineHeight: 1.08 }}>
+                        {selectedItem.name}
+                      </Typography>
+                      <Typography sx={{ color: "var(--muted)", mt: 1 }}>
+                        {selectedItem.description}
+                      </Typography>
+                    </Box>
+
+                    {view !== "deps" ? (
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        <Chip label={`Complexity ${selectedItem.complexity}/10`} sx={chipStyles} />
+                        <Chip label={`${(selectedItem.links || []).length} outgoing links`} sx={chipStyles} />
+                      </Stack>
+                    ) : (
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {selectedItem.totalSize && <Chip label={titleCaseSize(selectedItem.totalSize)} sx={chipStyles} />}
+                        {selectedItem.sizeMb && <Chip label={titleCaseSize(selectedItem.sizeMb)} sx={chipStyles} />}
+                        {selectedItem.group && <Chip label={selectedItem.group} sx={chipStyles} />}
+                      </Stack>
+                    )}
+
+                    {view !== "deps" && (
+                      <Box>
+                        <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
+                          Complexity Signal
+                        </Typography>
+                        <LinearProgress
+                          variant="determinate"
+                          value={(selectedItem.complexity / 10) * 100}
+                          sx={{
+                            height: 12,
+                            borderRadius: 999,
+                            backgroundColor: "rgba(255,255,255,0.08)",
+                            "& .MuiLinearProgress-bar": {
+                              background: `linear-gradient(90deg, ${stylePreset.support}, ${stylePreset.hot})`
+                            }
+                          }}
+                        />
+                      </Box>
+                    )}
+
+                    {selectedItem.website && (
+                      <Alert severity="info" sx={{ borderRadius: 3, background: "rgba(105,192,255,0.08)", color: "var(--text)", border: "1px solid var(--line)" }}>
+                        <Link href={selectedItem.website} target="_blank" rel="noreferrer" color="inherit" underline="hover">
+                          Open upstream project
+                        </Link>
+                      </Alert>
+                    )}
+
+                    <Divider sx={{ borderColor: "var(--line)" }} />
+
+                    <Box>
+                      <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
+                        Connected Next Steps
+                      </Typography>
+                      {detailConnections.length > 0 ? (
+                        <Box>
+                          {detailConnections.map(connection => (
+                            <Box
+                              key={`${selectedId}-${connection.label}`}
+                              className="node-pill"
+                              onClick={() => connection.target && setSelectedId(connection.target)}
+                              style={{ opacity: connection.target ? 1 : 0.74, cursor: connection.target ? "pointer" : "default" }}
+                            >
+                              <span className="material-icons" style={{ fontSize: 16, color: stylePreset.warm }}>north_east</span>
+                              <span className="codeish" style={{ fontSize: 12 }}>{connection.label}</span>
+                            </Box>
+                          ))}
+                        </Box>
+                      ) : (
+                        <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>This node is more terminal than connective in the selected view.</Typography>
+                      )}
+                    </Box>
+
+                    <Divider sx={{ borderColor: "var(--line)" }} />
+
+                    <Box>
+                      <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
+                        Legend
+                      </Typography>
+                      {view !== "deps" ? (
+                        <Stack spacing={0.8}>
+                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.hot }} />hot path / high complexity</Typography>
+                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.warm }} />broad coordination layer</Typography>
+                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.cool }} />specialized subsystem</Typography>
+                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.support }} />supporting package</Typography>
+                        </Stack>
+                      ) : (
+                        <Stack spacing={0.8}>
+                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.root }} />runtime bundle root</Typography>
+                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.group }} />dependency group hub</Typography>
+                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.support }} />individual bundled library</Typography>
+                        </Stack>
+                      )}
+                    </Box>
+                  </Stack>
+                ) : (
+                  <Typography sx={{ color: "var(--muted)" }}>Select a node to inspect it.</Typography>
+                )}
+              </Paper>
+            </Grid>
+          </Grid>
+        </Box>
+      );
+    }
+
+    const textFieldStyles = {
+      "& .MuiOutlinedInput-root": {
+        color: "#ecf4ff",
+        borderRadius: 3,
+        background: "rgba(255,255,255,0.04)",
+        "& fieldset": { borderColor: "rgba(155, 192, 255, 0.18)" },
+        "&:hover fieldset": { borderColor: "rgba(155, 192, 255, 0.34)" },
+        "&.Mui-focused fieldset": { borderColor: "#ffbe6b" }
+      },
+      "& .MuiInputLabel-root": { color: "#9eb0c8" }
+    };
+
+    const selectStyles = {
+      color: "#ecf4ff",
+      borderRadius: 3,
+      background: "rgba(255,255,255,0.04)",
+      "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(155, 192, 255, 0.18)" },
+      "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(155, 192, 255, 0.34)" },
+      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#ffbe6b" },
+      "& .MuiSvgIcon-root": { color: "#9eb0c8" }
+    };
+
+    const chipStyles = {
+      color: "#ecf4ff",
+      background: "rgba(255,255,255,0.06)",
+      border: "1px solid rgba(155, 192, 255, 0.18)"
+    };
+
+    ReactDOM.createRoot(document.getElementById("root")).render(
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <App />
+      </ThemeProvider>
+    );
+  </script>
+</body>
+</html>
