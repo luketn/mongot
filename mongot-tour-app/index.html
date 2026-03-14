@@ -2183,7 +2183,7 @@
             return;
           }
           onSelect(anchorId);
-          network.selectNodes([anchorId]);
+          network.selectNodes([anchorId], false);
           if (!moveCameraKeepingGraphVisible(
             network,
             graphRef.current,
@@ -2213,7 +2213,7 @@
         if (!ids.includes(selectedId)) {
           return;
         }
-        networkRef.current.selectNodes([selectedId]);
+        networkRef.current.selectNodes([selectedId], false);
         if (motionMode === "timeline" && view === "system") {
           return;
         }
