@@ -6,6 +6,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.xgen.mongot.featureflag.Feature;
 import com.xgen.mongot.featureflag.FeatureFlags;
 import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlagRegistry;
+import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlags;
 import com.xgen.mongot.index.Index;
 import com.xgen.mongot.index.IndexFactory;
 import com.xgen.mongot.index.IndexMetricsUpdater;
@@ -47,6 +48,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.lucene.index.MergePolicy;
 import org.slf4j.Logger;
@@ -173,6 +175,7 @@ public class LuceneIndexFactory implements IndexFactory {
   protected final NamedScheduledExecutorService refreshExecutor;
   private final Optional<NamedExecutorService> concurrentSearchExecutor;
   private final Optional<NamedExecutorService> concurrentVectorRescoringExecutor;
+  private final Optional<NamedExecutorService> metricRefreshExecutor;
   private final Optional<LuceneIndexSnapshotterManager> luceneIndexSnapshotterManager;
   private final Optional<ByteReadCollector> byteReadCollector;
 
@@ -198,6 +201,7 @@ public class LuceneIndexFactory implements IndexFactory {
       NamedScheduledExecutorService refreshExecutor,
       Optional<NamedExecutorService> concurrentSearchExecutor,
       Optional<NamedExecutorService> concurrentVectorRescoringExecutor,
+      Optional<NamedExecutorService> metricRefreshExecutor,
       Optional<LuceneIndexSnapshotterManager> luceneSnapshotterManager,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
       MetricsFactory metricsFactory,
@@ -216,6 +220,7 @@ public class LuceneIndexFactory implements IndexFactory {
     this.refreshExecutor = refreshExecutor;
     this.concurrentSearchExecutor = concurrentSearchExecutor;
     this.concurrentVectorRescoringExecutor = concurrentVectorRescoringExecutor;
+    this.metricRefreshExecutor = metricRefreshExecutor;
     this.luceneIndexSnapshotterManager = luceneSnapshotterManager;
     this.meterAndFtdcRegistry = meterAndFtdcRegistry;
     this.metricsFactory = metricsFactory;
@@ -246,6 +251,7 @@ public class LuceneIndexFactory implements IndexFactory {
       NamedScheduledExecutorService refreshExecutor,
       Optional<NamedExecutorService> concurrentSearchExecutor,
       Optional<NamedExecutorService> concurrentVectorRescoringExecutor,
+      Optional<NamedExecutorService> metricRefreshExecutor,
       Optional<LuceneIndexSnapshotterManager> luceneSnapshotterManager,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
       MetricsFactory metricsFactory,
@@ -264,6 +270,7 @@ public class LuceneIndexFactory implements IndexFactory {
         refreshExecutor,
         concurrentSearchExecutor,
         concurrentVectorRescoringExecutor,
+        metricRefreshExecutor,
         luceneSnapshotterManager,
         meterAndFtdcRegistry,
         metricsFactory,
@@ -278,6 +285,7 @@ public class LuceneIndexFactory implements IndexFactory {
   protected LuceneIndexFactory(
       LuceneConfig config,
       IndexFactoryContext ctx,
+      Optional<NamedExecutorService> metricRefreshExecutor,
       Optional<LuceneIndexSnapshotterManager> snapshotterManager,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
       FeatureFlags featureFlags,
@@ -295,6 +303,7 @@ public class LuceneIndexFactory implements IndexFactory {
         ctx.refreshExecutor(),
         ctx.concurrentSearchExecutor(),
         ctx.concurrentVectorRescoringExecutor(),
+        metricRefreshExecutor,
         snapshotterManager,
         meterAndFtdcRegistry,
         ctx.metricsFactory(),
@@ -303,6 +312,23 @@ public class LuceneIndexFactory implements IndexFactory {
         dynamicFeatureFlagRegistry,
         environmentVariantPerfConfig,
         systemInfo);
+  }
+
+  /**
+   * Creates the metric refresh executor if the numFieldsPerDatatype DFF is enabled. Single thread
+   * is sufficient: refresh runs at most once per cache TTL per index and stale values are
+   * acceptable for this diagnostic metric.
+   */
+  protected static Optional<NamedExecutorService> createMetricRefreshExecutor(
+      DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry,
+      MeterAndFtdcRegistry meterAndFtdcRegistry) {
+    return dynamicFeatureFlagRegistry.evaluateClusterInvariant(
+            DynamicFeatureFlags.NUM_FIELDS_PER_DATATYPE_METRIC.getName(),
+            DynamicFeatureFlags.NUM_FIELDS_PER_DATATYPE_METRIC.getFallback())
+        ? Optional.of(
+            Executors.fixedSizeThreadPool(
+                "metric-refresh", 1, meterAndFtdcRegistry.meterRegistry()))
+        : Optional.empty();
   }
 
   /** Creates LuceneIndexFactory. */
@@ -320,9 +346,12 @@ public class LuceneIndexFactory implements IndexFactory {
     var ctx =
         IndexFactoryContext.create(
             config, featureFlags, meterAndFtdcRegistry, analyzerRegistryFactory, diskMonitor);
+    Optional<NamedExecutorService> metricRefreshExecutor =
+        createMetricRefreshExecutor(dynamicFeatureFlagRegistry, meterAndFtdcRegistry);
     return new LuceneIndexFactory(
         config,
         ctx,
+        metricRefreshExecutor,
         snapshotterManager,
         meterAndFtdcRegistry,
         featureFlags,
@@ -371,6 +400,7 @@ public class LuceneIndexFactory implements IndexFactory {
     LOG.info("Shutting down.");
     Executors.shutdownOrFail(this.refreshExecutor);
     this.concurrentSearchExecutor.ifPresent(Executors::shutdownOrFail);
+    this.metricRefreshExecutor.ifPresent(Executors::shutdownOrFail);
 
     // Cancel all ongoing merges across all indices before closing the scheduler.
     // This is an optimization to speed up shutdown - if it fails, we log a warning
@@ -458,7 +488,8 @@ public class LuceneIndexFactory implements IndexFactory {
         definitionGeneration.generation().indexFormatVersion,
         analyzerRegistry,
         this.indexRemover,
-        metricsFactory);
+        metricsFactory,
+        this.metricRefreshExecutor.<Executor>map(e -> e).orElse(Runnable::run));
   }
 
   protected Index createCustomVectorEngineIndex(

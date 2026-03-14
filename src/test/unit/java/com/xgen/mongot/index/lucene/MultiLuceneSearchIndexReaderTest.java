@@ -261,7 +261,8 @@ public class MultiLuceneSearchIndexReaderTest {
             defGeneration.generation().indexFormatVersion,
             AnalyzerRegistryBuilder.empty(),
             new AtomicDirectoryRemover(TestUtils.getTempFolder().getRoot().toPath()),
-            metricsFactory);
+            metricsFactory,
+            Runnable::run);
     return InitializedLuceneSearchIndex.create(
         index,
         defGeneration.getGenerationId(),

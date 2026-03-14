@@ -217,6 +217,8 @@ public class LuceneIndexFactoryTest {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     var refreshExecutor = spy(Executors.singleThreadScheduledExecutor("test", 1, meterRegistry));
     var concurrentExecutor = spy(Executors.singleThreadScheduledExecutor("test", 1, meterRegistry));
+    var metricRefreshExecutor =
+        spy(Executors.fixedSizeThreadPool("metric-refresh", 1, meterRegistry));
     var metricsFactory = spy(new MetricsFactory("indexFactory", meterRegistry));
     var factory =
         new LuceneIndexFactory(
@@ -230,6 +232,7 @@ public class LuceneIndexFactoryTest {
             refreshExecutor,
             Optional.of(concurrentExecutor),
             Optional.empty(),
+            Optional.of(metricRefreshExecutor),
             Optional.empty(),
             MeterAndFtdcRegistry.createWithSimpleRegistries(),
             metricsFactory,
@@ -246,6 +249,7 @@ public class LuceneIndexFactoryTest {
 
     verify(refreshExecutor, times(1)).shutdown();
     verify(concurrentExecutor, times(1)).shutdown();
+    verify(metricRefreshExecutor, times(1)).shutdown();
     verify(mergeScheduler, times(1)).close();
     verify(metricsFactory, times(1)).close();
   }

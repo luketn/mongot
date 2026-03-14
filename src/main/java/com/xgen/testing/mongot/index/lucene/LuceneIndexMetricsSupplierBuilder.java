@@ -29,6 +29,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
 public class LuceneIndexMetricsSupplierBuilder {
@@ -44,6 +45,7 @@ public class LuceneIndexMetricsSupplierBuilder {
   private MeterRegistry meterRegistry = new SimpleMeterRegistry();
   private Duration numFieldsCacheDuration =
       LuceneSearchIndexMetricValuesSupplier.DEFAULT_NUM_FIELDS_CACHE_DURATION;
+  private Executor asyncRefreshExecutor = Runnable::run;
   private DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry =
       new DynamicFeatureFlagRegistry(
           Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -115,6 +117,11 @@ public class LuceneIndexMetricsSupplierBuilder {
     return this;
   }
 
+  public LuceneIndexMetricsSupplierBuilder asyncRefreshExecutor(Executor executor) {
+    this.asyncRefreshExecutor = executor;
+    return this;
+  }
+
   public LuceneIndexMetricsSupplierBuilder dynamicFeatureFlagRegistry(
       DynamicFeatureFlagRegistry registry) {
     this.dynamicFeatureFlagRegistry = registry;
@@ -144,6 +151,7 @@ public class LuceneIndexMetricsSupplierBuilder {
             SearchIndexCapabilities.CURRENT_FEATURE_VERSION,
             true,
             this.numFieldsCacheDuration,
+            this.asyncRefreshExecutor,
             this.dynamicFeatureFlagRegistry);
       }
       case VECTOR_SEARCH -> {

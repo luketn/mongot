@@ -174,7 +174,8 @@ public class LuceneSearchIndexReaderTest {
             MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
             AnalyzerRegistryBuilder.empty(),
             new AtomicDirectoryRemover(TestUtils.getTempFolder().getRoot().toPath()),
-            metricsFactory);
+            metricsFactory,
+            Runnable::run);
     this.queryFactory =
         spy(
             LuceneSearchQueryFactoryDistributor.create(

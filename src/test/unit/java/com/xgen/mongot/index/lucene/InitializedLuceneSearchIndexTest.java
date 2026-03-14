@@ -106,7 +106,8 @@ public class InitializedLuceneSearchIndexTest {
             MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
             AnalyzerRegistryBuilder.empty(),
             new AtomicDirectoryRemover(TestUtils.getTempFolder().getRoot().toPath()),
-            SearchIndex.mockMetricsFactory());
+            SearchIndex.mockMetricsFactory(),
+            Runnable::run);
     var initializedIndex =
         InitializedLuceneSearchIndex.create(
             index,
@@ -241,7 +242,8 @@ public class InitializedLuceneSearchIndexTest {
             MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
             AnalyzerRegistryBuilder.empty(),
             indexDirectoryHelper.getIndexRemover(),
-            SearchIndex.mockMetricsFactory());
+            SearchIndex.mockMetricsFactory(),
+            Runnable::run);
     var initializedIndex =
         InitializedLuceneSearchIndex.create(
             index,
@@ -305,7 +307,8 @@ public class InitializedLuceneSearchIndexTest {
                 MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
                 AnalyzerRegistryBuilder.empty(),
                 directoryRemover,
-                SearchIndex.mockMetricsFactory()));
+                SearchIndex.mockMetricsFactory(),
+                Runnable::run));
     doThrow(RuntimeException.class).when(index).getSearchIndexProperties();
     assertThrows(
         RuntimeException.class,
@@ -368,7 +371,8 @@ public class InitializedLuceneSearchIndexTest {
                 MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
                 AnalyzerRegistryBuilder.empty(),
                 new AtomicDirectoryRemover(TestUtils.getTempFolder().getRoot().toPath()),
-                SearchIndex.mockMetricsFactory()));
+                SearchIndex.mockMetricsFactory(),
+                Runnable::run));
     doThrow(RuntimeException.class).doCallRealMethod().when(index).getSearchIndexProperties();
 
     InitializedLuceneSearchIndex initializedLuceneSearchIndex =
@@ -427,7 +431,8 @@ public class InitializedLuceneSearchIndexTest {
                 MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
                 AnalyzerRegistryBuilder.empty(),
                 new AtomicDirectoryRemover(TestUtils.getTempFolder().getRoot().toPath()),
-                SearchIndex.mockMetricsFactory()));
+                SearchIndex.mockMetricsFactory(),
+                Runnable::run));
     // Simulate an error that happens only the first time the index is created.
     doThrow(RuntimeException.class).doCallRealMethod().when(index).getSearchIndexProperties();
     index.close();
@@ -495,7 +500,8 @@ public class InitializedLuceneSearchIndexTest {
                 MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
                 AnalyzerRegistryBuilder.empty(),
                 indexDirectoryHelper.getIndexRemover(),
-                SearchIndex.mockMetricsFactory()));
+                SearchIndex.mockMetricsFactory(),
+                Runnable::run));
     doThrow(RuntimeException.class).when(index).getSearchIndexProperties();
     assertThrows(
         IOException.class,
@@ -546,7 +552,8 @@ public class InitializedLuceneSearchIndexTest {
             MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
             AnalyzerRegistryBuilder.empty(),
             indexDirectoryHelper.getIndexRemover(),
-            SearchIndex.mockMetricsFactory());
+            SearchIndex.mockMetricsFactory(),
+            Runnable::run);
 
     var initializedIndex =
         InitializedLuceneSearchIndex.create(
@@ -633,7 +640,8 @@ public class InitializedLuceneSearchIndexTest {
                 MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
                 AnalyzerRegistryBuilder.empty(),
                 new AtomicDirectoryRemover(TestUtils.getTempFolder().getRoot().toPath()),
-                SearchIndex.mockMetricsFactory()));
+                SearchIndex.mockMetricsFactory(),
+                Runnable::run));
     InitializedLuceneSearchIndex.create(
         index,
         MOCK_INDEX_GENERATION_ID,
@@ -721,7 +729,8 @@ public class InitializedLuceneSearchIndexTest {
         MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
         AnalyzerRegistryBuilder.empty(),
         new AtomicDirectoryRemover(TestUtils.getTempFolder().getRoot().toPath()),
-        metricsFactory);
+        metricsFactory,
+        Runnable::run);
   }
 
   private InitializedLuceneSearchIndex createInitializedIndex(
@@ -761,7 +770,8 @@ public class InitializedLuceneSearchIndexTest {
         IndexFormatVersion.CURRENT,
         mock(PerIndexMetricsFactory.class),
         Optional.empty(),
-        Optional.empty());
+        Optional.empty(),
+        Runnable::run);
   }
 
   private IndexDirectoryFactory createDirectoryFactory(Path path) {

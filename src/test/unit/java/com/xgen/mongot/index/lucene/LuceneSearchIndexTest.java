@@ -76,7 +76,8 @@ public class LuceneSearchIndexTest {
             MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
             AnalyzerRegistryBuilder.empty(),
             new AtomicDirectoryRemover(TestUtils.getTempFolder().getRoot().toPath()),
-            SearchIndex.mockMetricsFactory());
+            SearchIndex.mockMetricsFactory(),
+            Runnable::run);
     // Ensure the directory does not exist.
     Assert.assertFalse(indexPath.toFile().exists());
     Assert.assertFalse(metadataPath.toFile().exists());
@@ -111,7 +112,8 @@ public class LuceneSearchIndexTest {
             MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
             AnalyzerRegistryBuilder.empty(),
             new AtomicDirectoryRemover(TestUtils.getTempFolder().getRoot().toPath()),
-            SearchIndex.mockMetricsFactory());
+            SearchIndex.mockMetricsFactory(),
+            Runnable::run);
 
     // Ensure the directory exists after creating the Index.
     Assert.assertTrue(indexPath.toFile().exists());
@@ -206,7 +208,8 @@ public class LuceneSearchIndexTest {
             MOCK_INDEX_DEFINITION_GENERATION.generation().indexFormatVersion,
             AnalyzerRegistryBuilder.empty(),
             new AtomicDirectoryRemover(TestUtils.getTempFolder().getRoot().toPath()),
-            SearchIndex.mockMetricsFactory());
+            SearchIndex.mockMetricsFactory(),
+            Runnable::run);
 
     // it is not necessary for these definitions to be the same object, but better test this way
     // since we do not define equality for these objects.

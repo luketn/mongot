@@ -37,11 +37,14 @@ import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
@@ -241,7 +244,7 @@ public class LuceneIndexMetricValuesSupplierTest {
                 SearchIndexDefinitionBuilder.VALID_INDEX.createFieldDefinitionResolver(
                     IndexFormatVersion.CURRENT))
             .meterRegistry(meterRegistry)
-            .numFieldsCacheDuration(java.time.Duration.ofMillis(100))
+            .numFieldsCacheDuration(Duration.ofMillis(100))
             .dynamicFeatureFlagRegistry(createEnabledFeatureFlagRegistry())
             .build();
 
@@ -346,6 +349,271 @@ public class LuceneIndexMetricValuesSupplierTest {
         1.0,
         result.get(FieldName.TypeField.STRING),
         0.001);
+  }
+
+  @Test
+  public void testNumFieldsPerDatatypeReturnsStaleValueDuringAsyncRefresh()
+      throws ReaderClosedException, IOException {
+    var indexReader = Mockito.mock(LuceneSearchIndexReader.class);
+    var indexWriter = Mockito.mock(SingleLuceneIndexWriter.class);
+
+    List<FieldInfo> fieldInfos = new ArrayList<>();
+    fieldInfos.add(createFieldInfo("$type:autocomplete/field1", 1));
+
+    FieldInfos mockedFieldInfos = Mockito.mock(FieldInfos.class);
+    Mockito.when(mockedFieldInfos.spliterator()).thenAnswer(inv -> fieldInfos.spliterator());
+    Mockito.when(indexReader.getFieldInfos()).thenReturn(List.of(mockedFieldInfos));
+
+    // Executor that captures tasks without running them
+    List<Runnable> capturedTasks = new ArrayList<>();
+    Executor capturingExecutor = capturedTasks::add;
+
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    LuceneIndexMetricValuesSupplier supplier =
+        LuceneIndexMetricsSupplierBuilder.builder()
+            .isEmbedded(false)
+            .indexWriter(indexWriter)
+            .indexReader(indexReader)
+            .resolver(
+                SearchIndexDefinitionBuilder.VALID_INDEX.createFieldDefinitionResolver(
+                    IndexFormatVersion.CURRENT))
+            .meterRegistry(meterRegistry)
+            .asyncRefreshExecutor(capturingExecutor)
+            .dynamicFeatureFlagRegistry(createEnabledFeatureFlagRegistry())
+            .build();
+
+    // First call: triggers async refresh (captured, not yet executed), returns empty (stale) value
+    Map<FieldName.TypeField, Double> firstResult = supplier.getNumFieldsPerDatatype();
+    Assert.assertEquals(Collections.emptyMap(), firstResult);
+    Assert.assertEquals(1, capturedTasks.size());
+
+    // Execute the captured async task
+    capturedTasks.get(0).run();
+
+    // Second call: returns the now-populated cached value
+    Map<FieldName.TypeField, Double> secondResult = supplier.getNumFieldsPerDatatype();
+    Assert.assertEquals(1.0, secondResult.get(FieldName.TypeField.AUTOCOMPLETE), 0.001);
+    Mockito.verify(indexReader, Mockito.times(1)).getFieldInfos();
+  }
+
+  @Test
+  public void testNumFieldsPerDatatypeOnlySingleConcurrentRefresh()
+      throws ReaderClosedException, IOException {
+    var indexReader = Mockito.mock(LuceneSearchIndexReader.class);
+    var indexWriter = Mockito.mock(SingleLuceneIndexWriter.class);
+
+    List<FieldInfo> fieldInfos = new ArrayList<>();
+    fieldInfos.add(createFieldInfo("$type:string/field1", 1));
+
+    FieldInfos mockedFieldInfos = Mockito.mock(FieldInfos.class);
+    Mockito.when(mockedFieldInfos.spliterator()).thenAnswer(inv -> fieldInfos.spliterator());
+    Mockito.when(indexReader.getFieldInfos()).thenReturn(List.of(mockedFieldInfos));
+
+    // Executor that captures tasks without running them
+    List<Runnable> capturedTasks = new ArrayList<>();
+    Executor capturingExecutor = capturedTasks::add;
+
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    LuceneIndexMetricValuesSupplier supplier =
+        LuceneIndexMetricsSupplierBuilder.builder()
+            .isEmbedded(false)
+            .indexWriter(indexWriter)
+            .indexReader(indexReader)
+            .resolver(
+                SearchIndexDefinitionBuilder.VALID_INDEX.createFieldDefinitionResolver(
+                    IndexFormatVersion.CURRENT))
+            .meterRegistry(meterRegistry)
+            .asyncRefreshExecutor(capturingExecutor)
+            .dynamicFeatureFlagRegistry(createEnabledFeatureFlagRegistry())
+            .build();
+
+    // Multiple calls while refresh is pending should only submit one task
+    supplier.getNumFieldsPerDatatype();
+    supplier.getNumFieldsPerDatatype();
+    supplier.getNumFieldsPerDatatype();
+    Assert.assertEquals(
+        "Only one async refresh should be submitted at a time", 1, capturedTasks.size());
+
+    // Execute the captured task to complete the refresh
+    capturedTasks.get(0).run();
+
+    // The cached value should now be populated
+    Map<FieldName.TypeField, Double> result = supplier.getNumFieldsPerDatatype();
+    Assert.assertEquals(1.0, result.get(FieldName.TypeField.STRING), 0.001);
+    Mockito.verify(indexReader, Mockito.times(1)).getFieldInfos();
+  }
+
+  @Test
+  public void testNumFieldsPerDatatypeNoAsyncTaskWhenFlagDisabled()
+      throws ReaderClosedException, IOException {
+    var indexReader = Mockito.mock(LuceneSearchIndexReader.class);
+    var indexWriter = Mockito.mock(SingleLuceneIndexWriter.class);
+
+    List<FieldInfo> fieldInfos = new ArrayList<>();
+    fieldInfos.add(createFieldInfo("$type:string/field1", 1));
+
+    FieldInfos mockedFieldInfos = Mockito.mock(FieldInfos.class);
+    Mockito.when(mockedFieldInfos.spliterator()).thenAnswer(inv -> fieldInfos.spliterator());
+    Mockito.when(indexReader.getFieldInfos()).thenReturn(List.of(mockedFieldInfos));
+
+    List<Runnable> capturedTasks = new ArrayList<>();
+    Executor capturingExecutor = capturedTasks::add;
+
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    // Default registry has the flag disabled
+    LuceneIndexMetricValuesSupplier supplier =
+        LuceneIndexMetricsSupplierBuilder.builder()
+            .isEmbedded(false)
+            .indexWriter(indexWriter)
+            .indexReader(indexReader)
+            .resolver(
+                SearchIndexDefinitionBuilder.VALID_INDEX.createFieldDefinitionResolver(
+                    IndexFormatVersion.CURRENT))
+            .meterRegistry(meterRegistry)
+            .asyncRefreshExecutor(capturingExecutor)
+            .build();
+
+    Map<FieldName.TypeField, Double> result = supplier.getNumFieldsPerDatatype();
+    Assert.assertEquals(Collections.emptyMap(), result);
+    Assert.assertEquals(
+        "No async refresh should be submitted when feature flag is disabled",
+        0,
+        capturedTasks.size());
+    Mockito.verify(indexReader, never()).getFieldInfos();
+  }
+
+  @Test
+  public void testNumFieldsPerDatatypeBacksOffRetryAfterFailure()
+      throws ReaderClosedException, IOException {
+    var indexReader = Mockito.mock(LuceneSearchIndexReader.class);
+    var indexWriter = Mockito.mock(SingleLuceneIndexWriter.class);
+
+    Mockito.when(indexReader.getFieldInfos())
+        .thenThrow(new RuntimeException("Unexpected error"));
+
+    List<Runnable> capturedTasks = new ArrayList<>();
+    Executor capturingExecutor = capturedTasks::add;
+
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    LuceneIndexMetricValuesSupplier supplier =
+        LuceneIndexMetricsSupplierBuilder.builder()
+            .isEmbedded(false)
+            .indexWriter(indexWriter)
+            .indexReader(indexReader)
+            .resolver(
+                SearchIndexDefinitionBuilder.VALID_INDEX.createFieldDefinitionResolver(
+                    IndexFormatVersion.CURRENT))
+            .meterRegistry(meterRegistry)
+            .asyncRefreshExecutor(capturingExecutor)
+            .dynamicFeatureFlagRegistry(createEnabledFeatureFlagRegistry())
+            .build();
+
+    supplier.getNumFieldsPerDatatype();
+    Assert.assertEquals(1, capturedTasks.size());
+
+    capturedTasks.get(0).run();
+
+    // Immediately after failure, the backoff prevents a new task submission
+    Map<FieldName.TypeField, Double> afterFailure = supplier.getNumFieldsPerDatatype();
+    Assert.assertEquals(Collections.emptyMap(), afterFailure);
+    Assert.assertEquals(
+        "Backoff should prevent immediate retry after failure", 1, capturedTasks.size());
+  }
+
+  @Test
+  public void testNumFieldsPerDatatypeRetriesAfterBackoffExpires()
+      throws ReaderClosedException, IOException, InterruptedException {
+    var indexReader = Mockito.mock(LuceneSearchIndexReader.class);
+    var indexWriter = Mockito.mock(SingleLuceneIndexWriter.class);
+
+    List<FieldInfo> fieldInfos = new ArrayList<>();
+    fieldInfos.add(createFieldInfo("$type:token/field1", 1));
+
+    FieldInfos mockedFieldInfos = Mockito.mock(FieldInfos.class);
+    Mockito.when(mockedFieldInfos.spliterator()).thenAnswer(inv -> fieldInfos.spliterator());
+    Mockito.when(indexReader.getFieldInfos())
+        .thenThrow(new RuntimeException("Unexpected error"))
+        .thenReturn(List.of(mockedFieldInfos));
+
+    List<Runnable> capturedTasks = new ArrayList<>();
+    Executor capturingExecutor = capturedTasks::add;
+
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    LuceneIndexMetricValuesSupplier supplier =
+        LuceneIndexMetricsSupplierBuilder.builder()
+            .isEmbedded(false)
+            .indexWriter(indexWriter)
+            .indexReader(indexReader)
+            .resolver(
+                SearchIndexDefinitionBuilder.VALID_INDEX.createFieldDefinitionResolver(
+                    IndexFormatVersion.CURRENT))
+            .meterRegistry(meterRegistry)
+            .numFieldsCacheDuration(Duration.ofMillis(1))
+            .asyncRefreshExecutor(capturingExecutor)
+            .dynamicFeatureFlagRegistry(createEnabledFeatureFlagRegistry())
+            .build();
+
+    supplier.getNumFieldsPerDatatype();
+    Assert.assertEquals(1, capturedTasks.size());
+
+    capturedTasks.get(0).run();
+
+    // Wait for the 1ms backoff to elapse
+    Thread.sleep(5);
+
+    // After backoff expires, a new refresh task should be submitted
+    supplier.getNumFieldsPerDatatype();
+    Assert.assertEquals(2, capturedTasks.size());
+
+    capturedTasks.get(1).run();
+
+    Map<FieldName.TypeField, Double> afterRetry = supplier.getNumFieldsPerDatatype();
+    Assert.assertEquals(1.0, afterRetry.get(FieldName.TypeField.TOKEN), 0.001);
+    Mockito.verify(indexReader, Mockito.times(2)).getFieldInfos();
+  }
+
+  @Test
+  public void testNumFieldsPerDatatypeBacksOffAfterTaskSubmissionRejection()
+      throws ReaderClosedException, IOException {
+    var indexReader = Mockito.mock(LuceneSearchIndexReader.class);
+    var indexWriter = Mockito.mock(SingleLuceneIndexWriter.class);
+
+    List<FieldInfo> fieldInfos = new ArrayList<>();
+    fieldInfos.add(createFieldInfo("$type:string/field1", 1));
+
+    FieldInfos mockedFieldInfos = Mockito.mock(FieldInfos.class);
+    Mockito.when(mockedFieldInfos.spliterator()).thenAnswer(inv -> fieldInfos.spliterator());
+    Mockito.when(indexReader.getFieldInfos()).thenReturn(List.of(mockedFieldInfos));
+
+    Executor rejectingExecutor =
+        task -> {
+          throw new RejectedExecutionException("Pool shut down");
+        };
+
+    MeterRegistry meterRegistry = new SimpleMeterRegistry();
+    LuceneIndexMetricValuesSupplier supplier =
+        LuceneIndexMetricsSupplierBuilder.builder()
+            .isEmbedded(false)
+            .indexWriter(indexWriter)
+            .indexReader(indexReader)
+            .resolver(
+                SearchIndexDefinitionBuilder.VALID_INDEX.createFieldDefinitionResolver(
+                    IndexFormatVersion.CURRENT))
+            .meterRegistry(meterRegistry)
+            .asyncRefreshExecutor(rejectingExecutor)
+            .dynamicFeatureFlagRegistry(createEnabledFeatureFlagRegistry())
+            .build();
+
+    // First call: submission is rejected, but should not throw
+    Map<FieldName.TypeField, Double> firstResult = supplier.getNumFieldsPerDatatype();
+    Assert.assertEquals(Collections.emptyMap(), firstResult);
+
+    // Second call: backoff prevents immediate resubmission (expiration was advanced)
+    Map<FieldName.TypeField, Double> secondResult = supplier.getNumFieldsPerDatatype();
+    Assert.assertEquals(Collections.emptyMap(), secondResult);
+
+    // computeNumFieldsPerDatatype was never invoked because tasks were never executed
+    Mockito.verify(indexReader, never()).getFieldInfos();
   }
 
   private static FieldInfo createFieldInfo(String name, int fieldNumber) {

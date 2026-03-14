@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -60,6 +61,7 @@ public class LuceneSearchIndex implements SearchIndex {
     PerIndexMetricsFactory metricsFactory;
     Optional<NamedExecutorService> concurrentSearchExecutor;
     Optional<NamedExecutorService> concurrentVectorRescoringExecutor;
+    Executor metricRefreshExecutor;
 
     @VisibleForTesting
     SearchIndexProperties(
@@ -78,7 +80,8 @@ public class LuceneSearchIndex implements SearchIndex {
         IndexFormatVersion indexFormatVersion,
         PerIndexMetricsFactory metricsFactory,
         Optional<NamedExecutorService> concurrentSearchExecutor,
-        Optional<NamedExecutorService> concurrentVectorRescoringExecutor) {
+        Optional<NamedExecutorService> concurrentVectorRescoringExecutor,
+        Executor metricRefreshExecutor) {
       this.synonymRegistry = synonymRegistry;
       this.analyzerRegistry = analyzerRegistry;
       this.indexBackingStrategy = indexBackingStrategy;
@@ -95,6 +98,7 @@ public class LuceneSearchIndex implements SearchIndex {
       this.metricsFactory = metricsFactory;
       this.concurrentSearchExecutor = concurrentSearchExecutor;
       this.concurrentVectorRescoringExecutor = concurrentVectorRescoringExecutor;
+      this.metricRefreshExecutor = metricRefreshExecutor;
     }
   }
 
@@ -129,6 +133,7 @@ public class LuceneSearchIndex implements SearchIndex {
       IndexBackingStrategy indexBackingStrategy,
       Optional<NamedExecutorService> concurrentSearchExecutor,
       Optional<NamedExecutorService> concurrentVectorRescoringExecutor,
+      Executor metricRefreshExecutor,
       IndexStatus initialIndexStatus)
       throws IOException {
     checkOverriddenAnalyzersSatisfied(indexDefinition, analyzerRegistry);
@@ -157,7 +162,8 @@ public class LuceneSearchIndex implements SearchIndex {
                 indexFormatVersion,
                 metricsFactory,
                 concurrentSearchExecutor,
-                concurrentVectorRescoringExecutor));
+                concurrentVectorRescoringExecutor,
+                metricRefreshExecutor));
     return index;
   }
 
@@ -180,7 +186,8 @@ public class LuceneSearchIndex implements SearchIndex {
       IndexFormatVersion indexFormatVersion,
       AnalyzerRegistry analyzerRegistry,
       AtomicDirectoryRemover directoryRemover,
-      PerIndexMetricsFactory metricsFactory)
+      PerIndexMetricsFactory metricsFactory,
+      Executor metricRefreshExecutor)
       throws IOException {
     return create(
         mergeScheduler,
@@ -207,6 +214,7 @@ public class LuceneSearchIndex implements SearchIndex {
             indexDefinition.getNumPartitions()),
         concurrentSearchExecutor,
         concurrentVectorRescoringExecutor,
+        metricRefreshExecutor,
         featureFlags.isEnabled(Feature.INITIAL_INDEX_STATUS_UNKNOWN)
             ? IndexStatus.unknown()
             : IndexStatus.notStarted());

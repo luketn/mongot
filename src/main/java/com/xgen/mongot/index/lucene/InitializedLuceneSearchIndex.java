@@ -217,7 +217,8 @@ class InitializedLuceneSearchIndex implements InitializedSearchIndex {
             searchIndexProperties.metricsFactory,
             definition.getParsedIndexFeatureVersion(),
             featureFlags.isEnabled(Feature.INDEX_FEATURE_VERSION_FOUR),
-            dynamicFeatureFlagRegistry);
+            dynamicFeatureFlagRegistry,
+            searchIndexProperties.metricRefreshExecutor);
 
     IndexMetricsUpdater indexMetricsUpdater =
         indexMetricsUpdaterBuilder.build(indexMetricValuesSupplier);

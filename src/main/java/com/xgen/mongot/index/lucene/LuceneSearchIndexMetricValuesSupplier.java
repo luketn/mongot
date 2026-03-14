@@ -4,6 +4,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.FluentLogger;
+import com.google.errorprone.annotations.Var;
 import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlagRegistry;
 import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlags;
 import com.xgen.mongot.index.DocCounts;
@@ -32,9 +33,12 @@ import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -56,7 +60,9 @@ public final class LuceneSearchIndexMetricValuesSupplier extends LuceneIndexMetr
   private final boolean hasEmbeddedFields;
   private final SearchFieldDefinitionResolver resolver;
   private final Set<String> autocompleteLikeCustomAnalyzerNames;
-  private final Supplier<Map<FieldName.TypeField, Double>> cachedNumFieldsPerDatatype;
+  private final AtomicReference<Map<FieldName.TypeField, Double>> cachedNumFieldsPerDatatype =
+      new AtomicReference<>(Collections.emptyMap());
+  private final Supplier<Void> numFieldsRefreshTrigger;
   private final DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry;
 
   public static class MetricNames extends IndexMetricValuesSupplier.MetricNames {
@@ -76,6 +82,7 @@ public final class LuceneSearchIndexMetricValuesSupplier extends LuceneIndexMetr
       SearchFieldDefinitionResolver resolver,
       List<CustomAnalyzerDefinition> customAnalyzerDefinitions,
       Duration numFieldsCacheDuration,
+      Executor asyncRefreshExecutor,
       DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry) {
     super(indexStatusSupplier, indexBackingStrategy, searchIndexReader, luceneIndexWriter);
 
@@ -84,17 +91,45 @@ public final class LuceneSearchIndexMetricValuesSupplier extends LuceneIndexMetr
     this.resolver = resolver;
     this.autocompleteLikeCustomAnalyzerNames =
         getAutocompleteLikeCustomAnalyzerNames(customAnalyzerDefinitions);
-    this.cachedNumFieldsPerDatatype =
-        Suppliers.memoizeWithExpiration(
-            this::computeNumFieldsPerDatatype,
-            numFieldsCacheDuration.toMillis(),
-            TimeUnit.MILLISECONDS);
     this.dynamicFeatureFlagRegistry = dynamicFeatureFlagRegistry;
+    if (!this.dynamicFeatureFlagRegistry.evaluateClusterInvariant(
+        DynamicFeatureFlags.NUM_FIELDS_PER_DATATYPE_METRIC.getName(),
+        DynamicFeatureFlags.NUM_FIELDS_PER_DATATYPE_METRIC.getFallback())) {
+      this.numFieldsRefreshTrigger = () -> null;
+    } else {
+      @Var Duration effectiveDuration = numFieldsCacheDuration;
+      if (numFieldsCacheDuration.isNegative() || numFieldsCacheDuration.isZero()) {
+        FLOGGER.atWarning().atMostEvery(1, TimeUnit.HOURS).log(
+            "numFieldsCacheDuration must be positive, got %s; using default %s",
+            numFieldsCacheDuration, DEFAULT_NUM_FIELDS_CACHE_DURATION);
+        effectiveDuration = DEFAULT_NUM_FIELDS_CACHE_DURATION;
+      }
+      Objects.requireNonNull(asyncRefreshExecutor, "asyncRefreshExecutor must not be null");
+      this.numFieldsRefreshTrigger =
+          Suppliers.memoizeWithExpiration(
+              () -> {
+                try {
+                  asyncRefreshExecutor.execute(
+                      () -> {
+                        try {
+                          this.cachedNumFieldsPerDatatype.set(computeNumFieldsPerDatatype());
+                        } catch (Exception e) {
+                          FLOGGER.atWarning().atMostEvery(5, TimeUnit.MINUTES).withCause(e).log(
+                              "Failed to compute numFieldsPerDatatype metric");
+                        }
+                      });
+                } catch (Exception e) {
+                  FLOGGER.atWarning().atMostEvery(5, TimeUnit.MINUTES).withCause(e).log(
+                      "Failed to submit async numFieldsPerDatatype refresh task");
+                }
+                return null;
+              },
+              effectiveDuration.toMillis(),
+              TimeUnit.MILLISECONDS);
+    }
   }
 
-  /**
-   * Static factory method that constructs the supplier and registers all gauges.
-   */
+  /** Static factory method that constructs the supplier and registers all gauges. */
   public static LuceneSearchIndexMetricValuesSupplier create(
       Supplier<IndexStatus> indexStatusSupplier,
       IndexBackingStrategy indexBackingStrategy,
@@ -105,7 +140,8 @@ public final class LuceneSearchIndexMetricValuesSupplier extends LuceneIndexMetr
       PerIndexMetricsFactory indexStatsMetricFactory,
       int indexFeatureVersion,
       boolean isIndexFeatureVersionFourEnabled,
-      DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry) {
+      DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry,
+      Executor asyncRefreshExecutor) {
     return create(
         indexStatusSupplier,
         indexBackingStrategy,
@@ -118,12 +154,11 @@ public final class LuceneSearchIndexMetricValuesSupplier extends LuceneIndexMetr
         indexFeatureVersion,
         isIndexFeatureVersionFourEnabled,
         DEFAULT_NUM_FIELDS_CACHE_DURATION,
+        asyncRefreshExecutor,
         dynamicFeatureFlagRegistry);
   }
 
-  /**
-   * Static factory method that constructs the supplier and registers all gauges.
-   */
+  /** Static factory method that constructs the supplier and registers all gauges. */
   public static LuceneSearchIndexMetricValuesSupplier create(
       Supplier<IndexStatus> indexStatusSupplier,
       IndexBackingStrategy indexBackingStrategy,
@@ -135,7 +170,8 @@ public final class LuceneSearchIndexMetricValuesSupplier extends LuceneIndexMetr
       PerIndexMetricsFactory indexStatsMetricFactory,
       int indexFeatureVersion,
       boolean isIndexFeatureVersionFourEnabled,
-      DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry) {
+      DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry,
+      Executor asyncRefreshExecutor) {
     return create(
         indexStatusSupplier,
         indexBackingStrategy,
@@ -148,11 +184,13 @@ public final class LuceneSearchIndexMetricValuesSupplier extends LuceneIndexMetr
         indexFeatureVersion,
         isIndexFeatureVersionFourEnabled,
         DEFAULT_NUM_FIELDS_CACHE_DURATION,
+        asyncRefreshExecutor,
         dynamicFeatureFlagRegistry);
   }
 
   /**
    * Static factory method with configurable cache duration for the numFieldsPerDatatype metric.
+   * Uses a synchronous executor for the async refresh, suitable for tests.
    */
   @VisibleForTesting
   public static LuceneSearchIndexMetricValuesSupplier create(
@@ -168,6 +206,41 @@ public final class LuceneSearchIndexMetricValuesSupplier extends LuceneIndexMetr
       boolean isIndexFeatureVersionFourEnabled,
       Duration numFieldsCacheDuration,
       DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry) {
+    return create(
+        indexStatusSupplier,
+        indexBackingStrategy,
+        searchIndexReader,
+        luceneIndexWriter,
+        hasEmbeddedFields,
+        resolver,
+        customAnalyzerDefinitions,
+        indexStatsMetricFactory,
+        indexFeatureVersion,
+        isIndexFeatureVersionFourEnabled,
+        numFieldsCacheDuration,
+        Runnable::run,
+        dynamicFeatureFlagRegistry);
+  }
+
+  /**
+   * Static factory method with configurable cache duration and executor for the
+   * numFieldsPerDatatype metric.
+   */
+  @VisibleForTesting
+  public static LuceneSearchIndexMetricValuesSupplier create(
+      Supplier<IndexStatus> indexStatusSupplier,
+      IndexBackingStrategy indexBackingStrategy,
+      SearchIndexReader searchIndexReader,
+      LuceneIndexWriter luceneIndexWriter,
+      boolean hasEmbeddedFields,
+      SearchFieldDefinitionResolver resolver,
+      List<CustomAnalyzerDefinition> customAnalyzerDefinitions,
+      PerIndexMetricsFactory indexStatsMetricFactory,
+      int indexFeatureVersion,
+      boolean isIndexFeatureVersionFourEnabled,
+      Duration numFieldsCacheDuration,
+      Executor asyncRefreshExecutor,
+      DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry) {
     LuceneSearchIndexMetricValuesSupplier supplier =
         new LuceneSearchIndexMetricValuesSupplier(
             indexStatusSupplier,
@@ -178,6 +251,7 @@ public final class LuceneSearchIndexMetricValuesSupplier extends LuceneIndexMetr
             resolver,
             customAnalyzerDefinitions,
             numFieldsCacheDuration,
+            asyncRefreshExecutor,
             dynamicFeatureFlagRegistry);
 
     // Register common gauges after construction is complete
@@ -230,6 +304,7 @@ public final class LuceneSearchIndexMetricValuesSupplier extends LuceneIndexMetr
         DynamicFeatureFlags.NUM_FIELDS_PER_DATATYPE_METRIC.getFallback())) {
       return Collections.emptyMap();
     }
+    this.numFieldsRefreshTrigger.get();
     return this.cachedNumFieldsPerDatatype.get();
   }
 
