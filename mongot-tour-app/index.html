@@ -149,6 +149,44 @@
         rgba(8, 17, 29, 0.62);
     }
 
+    .viewer-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .viewer-shell:fullscreen,
+    .viewer-shell:-webkit-full-screen {
+      padding: 18px;
+      gap: 18px;
+      background:
+        radial-gradient(circle at top left, rgba(186, 167, 255, 0.16), transparent 28%),
+        radial-gradient(circle at top right, rgba(255, 197, 61, 0.12), transparent 26%),
+        linear-gradient(180deg, rgba(9, 10, 16, 0.98), rgba(17, 16, 23, 0.98));
+      box-sizing: border-box;
+    }
+
+    .viewer-shell:fullscreen .viewer-stage,
+    .viewer-shell:-webkit-full-screen .viewer-stage {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .viewer-shell:fullscreen .graph-frame,
+    .viewer-shell:-webkit-full-screen .graph-frame {
+      flex: 1 1 auto;
+      min-height: 0;
+      height: auto;
+    }
+
+    .viewer-stage {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 0;
+    }
+
     .graph-canvas {
       position: absolute;
       inset: 0;
@@ -248,10 +286,15 @@
       Button,
       Card,
       Chip,
+      Collapse,
       CssBaseline,
+      Dialog,
+      DialogContent,
+      DialogTitle,
       Divider,
       FormControl,
       Grid,
+      IconButton,
       InputAdornment,
       InputLabel,
       LinearProgress,
@@ -1054,6 +1097,7 @@
       {
         id: "bootstrap",
         label: "Bootstrap",
+        focusKey: "config",
         start: 0,
         end: 6,
         description: "Community bootstrap fans out through config to assemble logging, metrics, monitors, metadata, cursors, and servers.",
@@ -1096,6 +1140,7 @@
       {
         id: "bringup",
         label: "Index Bring-Up",
+        focusKey: "index",
         start: 6,
         end: 18,
         description: "Config state starts lifecycle managers, initializes indexes, and hands those generations into replication.",
@@ -1134,6 +1179,7 @@
       {
         id: "initialsync",
         label: "Initial Sync",
+        focusKey: "index",
         start: 18,
         end: 34,
         description: "Replication dominates while collection scan, buffered change capture, and buffered replay all feed the index.",
@@ -1170,6 +1216,7 @@
       {
         id: "steady",
         label: "Stable State",
+        focusKey: "index",
         start: 34,
         end: 44,
         description: "Change streams keep indexes current while config polling and metadata updates continue quietly beside serving.",
@@ -1219,6 +1266,7 @@
       {
         id: "queryburst",
         label: "30s Query Burst",
+        focusKey: "index",
         start: 44,
         end: 74,
         description: "A modeled 30-second surge: classic search and vector search hammer the serving path while steady-state replication keeps running.",
@@ -1269,6 +1317,7 @@
       {
         id: "taper",
         label: "Traffic Taper",
+        focusKey: "index",
         start: 74,
         end: 82,
         description: "The same serving paths remain active, but visibly thin out before shutdown begins.",
@@ -1319,6 +1368,7 @@
       {
         id: "shutdown",
         label: "Shutdown",
+        focusKey: "config",
         start: 82,
         end: 90,
         description: "Terminal health state triggers server stop, metrics stop, config close, lifecycle shutdown, and replication teardown.",
@@ -1463,6 +1513,85 @@
       const hash = hashString(`${streamId}:${fromId}:${toId}:${edgeIndex}`);
       const sign = hash % 2 === 0 ? 1 : -1;
       return sign * (18 + (hash % 34));
+    }
+
+    function getNetworkGraphBounds(network, nodeIds) {
+      let bounds = null;
+      nodeIds.forEach(nodeId => {
+        try {
+          const box = network.getBoundingBox(nodeId);
+          if (!box) {
+            return;
+          }
+          if (!bounds) {
+            bounds = { ...box };
+            return;
+          }
+          bounds.left = Math.min(bounds.left, box.left);
+          bounds.top = Math.min(bounds.top, box.top);
+          bounds.right = Math.max(bounds.right, box.right);
+          bounds.bottom = Math.max(bounds.bottom, box.bottom);
+        } catch (error) {
+          // Ignore nodes that cannot provide a bounding box during transitions.
+        }
+      });
+      return bounds;
+    }
+
+    function moveCameraKeepingGraphVisible(network, container, nodeIds, targetId, options = {}) {
+      if (!network || !container || !nodeIds.length || !targetId) {
+        return false;
+      }
+
+      const targetPosition = network.getPositions([targetId])[targetId];
+      const bounds = getNetworkGraphBounds(network, nodeIds);
+      if (!targetPosition || !bounds) {
+        return false;
+      }
+
+      const viewportWidth = container.clientWidth || 0;
+      const viewportHeight = container.clientHeight || 0;
+      if (viewportWidth <= 0 || viewportHeight <= 0) {
+        return false;
+      }
+
+      const marginX = options.marginX ?? Math.max(72, viewportWidth * 0.1);
+      const marginY = options.marginY ?? Math.max(72, viewportHeight * 0.12);
+      const focusBias = options.focusBias ?? 0.4;
+      const usableWidth = Math.max(180, viewportWidth - marginX * 2);
+      const usableHeight = Math.max(180, viewportHeight - marginY * 2);
+      const graphWidth = Math.max(1, bounds.right - bounds.left);
+      const graphHeight = Math.max(1, bounds.bottom - bounds.top);
+      const fitScale = Math.min(usableWidth / graphWidth, usableHeight / graphHeight);
+      const currentScale = network.getScale() || fitScale;
+      const maxScale = Math.min(options.maxScale ?? fitScale, fitScale);
+      const minScale = options.minScale ?? 0.16;
+      const safeScale = clamp(Math.min(currentScale, maxScale), minScale, Math.max(minScale, fitScale));
+      const halfVisibleWidth = usableWidth / (2 * safeScale);
+      const halfVisibleHeight = usableHeight / (2 * safeScale);
+
+      const minCenterX = bounds.right - halfVisibleWidth;
+      const maxCenterX = bounds.left + halfVisibleWidth;
+      const minCenterY = bounds.bottom - halfVisibleHeight;
+      const maxCenterY = bounds.top + halfVisibleHeight;
+      const graphCenterX = (bounds.left + bounds.right) / 2;
+      const graphCenterY = (bounds.top + bounds.bottom) / 2;
+      const desiredCenterX = graphCenterX + (targetPosition.x - graphCenterX) * focusBias;
+      const desiredCenterY = graphCenterY + (targetPosition.y - graphCenterY) * focusBias;
+
+      const targetCenterX = minCenterX > maxCenterX
+        ? graphCenterX
+        : clamp(desiredCenterX, minCenterX, maxCenterX);
+      const targetCenterY = minCenterY > maxCenterY
+        ? graphCenterY
+        : clamp(desiredCenterY, minCenterY, maxCenterY);
+
+      network.moveTo({
+        position: { x: targetCenterX, y: targetCenterY },
+        scale: safeScale,
+        animation: options.animation || { duration: 720, easingFunction: "easeInOutCubic" }
+      });
+      return true;
     }
 
     function getNodeColor(view, item, preset) {
@@ -1646,6 +1775,7 @@
         };
 
         const isOrbitMode = layoutMode === "orbit";
+        const isTimelineSystem = view === "system" && motionMode === "timeline";
         const orbitModel = isOrbitMode
           ? createOrbitLayout(data, view, graphRef.current.clientWidth, graphRef.current.clientHeight)
           : null;
@@ -1756,7 +1886,7 @@
               hover: true,
               multiselect: false,
               navigationButtons: true,
-              keyboard: true,
+              keyboard: !isTimelineSystem,
               dragNodes: !isOrbitMode
             },
             layout: {
@@ -1790,6 +1920,27 @@
         networkRef.current = network;
         window.__mongotNetwork = network;
         window.__mongotEffects = effects;
+
+        if (isTimelineSystem && !isOrbitMode) {
+          network.once("stabilizationIterationsDone", () => {
+            network.setOptions({ physics: false });
+            const focusId = selectedId && data.nodes.some(node => node.id === selectedId)
+              ? selectedId
+              : getRuntimeNodeId(getRuntimePhaseAtTime(timelineClock).focusKey || "index");
+            moveCameraKeepingGraphVisible(
+              network,
+              graphRef.current,
+              data.nodes.map(node => node.id),
+              focusId,
+              {
+                marginX: Math.max(88, (graphRef.current?.clientWidth || 0) * 0.12),
+                marginY: Math.max(84, (graphRef.current?.clientHeight || 0) * 0.13),
+                focusBias: 0.32,
+                animation: { duration: 620, easingFunction: "easeInOutCubic" }
+              }
+            );
+          });
+        }
 
         if (isOrbitMode && orbitModel) {
           const applyOrbitFrame = timestamp => {
@@ -2007,11 +2158,18 @@
           }
           onSelect(anchorId);
           network.selectNodes([anchorId]);
-          if (layoutMode === "orbit") {
-            network.moveTo({ position: { x: 0, y: 0 }, scale: orbitModelRef.current?.fitScale || 1, animation: { duration: 640, easingFunction: "easeInOutCubic" } });
-            return;
+          if (!moveCameraKeepingGraphVisible(
+            network,
+            graphRef.current,
+            data.nodes.map(node => node.id),
+            anchorId,
+            {
+              maxScale: layoutMode === "orbit" ? orbitModelRef.current?.fitScale || undefined : undefined,
+              animation: { duration: 680, easingFunction: "easeInOutCubic" }
+            }
+          )) {
+            network.fit({ animation: { duration: 560, easingFunction: "easeInOutCubic" } });
           }
-          network.focus(anchorId, { scale: 1.28, animation: { duration: 640, easingFunction: "easeInOutCubic" } });
           return;
         }
 
@@ -2030,6 +2188,9 @@
           return;
         }
         networkRef.current.selectNodes([selectedId]);
+        if (motionMode === "timeline" && view === "system") {
+          return;
+        }
         if (layoutMode === "orbit") {
           const position = selectedId === orbitModelRef.current?.anchorId
             ? { x: 0, y: 0 }
@@ -2040,7 +2201,7 @@
           return;
         }
         networkRef.current.focus(selectedId, { scale: 1.25, animation: { duration: 700, easingFunction: "easeInOutCubic" } });
-      }, [selectedId, data.nodes, layoutMode]);
+      }, [selectedId, data.nodes, layoutMode, motionMode, view]);
 
       return (
         <div className="graph-layer">
@@ -2059,6 +2220,49 @@
       );
     }
 
+    function PanelHeader({ eyebrow, title, subtitle, open, onToggle, action }) {
+      return (
+        <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
+          <Box sx={{ minWidth: 0 }}>
+            {eyebrow && (
+              <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: title || subtitle ? 0.5 : 0 }}>
+                {eyebrow}
+              </Typography>
+            )}
+            {title && (
+              <Typography sx={{ fontWeight: 700, lineHeight: 1.1 }}>
+                {title}
+              </Typography>
+            )}
+            {subtitle && (
+              <Typography sx={{ color: "var(--muted)", fontSize: 13.5, mt: title ? 0.5 : 0 }}>
+                {subtitle}
+              </Typography>
+            )}
+          </Box>
+          <Stack direction="row" spacing={0.8} alignItems="center" sx={{ flexShrink: 0 }}>
+            {action}
+            {onToggle && (
+              <IconButton
+                size="small"
+                onClick={onToggle}
+                sx={{
+                  color: "var(--text)",
+                  border: "1px solid var(--line)",
+                  background: "rgba(255,255,255,0.04)",
+                  "&:hover": { background: "rgba(255,255,255,0.1)" }
+                }}
+              >
+                <span className="material-icons" style={{ fontSize: 18 }}>
+                  {open ? "expand_less" : "expand_more"}
+                </span>
+              </IconButton>
+            )}
+          </Stack>
+        </Stack>
+      );
+    }
+
     function App() {
       const [view, setView] = React.useState("system");
       const [searchTerm, setSearchTerm] = React.useState("");
@@ -2066,17 +2270,29 @@
       const [groupFilter, setGroupFilter] = React.useState("All");
       const [selectedId, setSelectedId] = React.useState("top:index");
       const [storyIndex, setStoryIndex] = React.useState(0);
-      const [stylePresetId, setStylePresetId] = React.useState("aurora");
-      const [nodeStyleId, setNodeStyleId] = React.useState("dot");
+      const [stylePresetId, setStylePresetId] = React.useState("plumRelay");
+      const [nodeStyleId, setNodeStyleId] = React.useState("radarBloom");
       const [effectsId, setEffectsId] = React.useState("crisp");
-      const [layoutMode, setLayoutMode] = React.useState("spread");
+      const [layoutMode, setLayoutMode] = React.useState("flow");
       const [layoutFrozen, setLayoutFrozen] = React.useState(false);
       const [compactLabels, setCompactLabels] = React.useState(true);
-      const [motionMode, setMotionMode] = React.useState("ambient");
+      const [motionMode, setMotionMode] = React.useState("timeline");
       const [timelineClock, setTimelineClock] = React.useState(0);
       const [timelinePlaying, setTimelinePlaying] = React.useState(false);
-      const [timelineSpeed, setTimelineSpeed] = React.useState(4);
+      const [timelineSpeed, setTimelineSpeed] = React.useState(2);
+      const [timelineLoop, setTimelineLoop] = React.useState(false);
       const [viewerCommand, setViewerCommand] = React.useState(null);
+      const [settingsOpen, setSettingsOpen] = React.useState(false);
+      const [sidebarOpen, setSidebarOpen] = React.useState(true);
+      const [controlsOpen, setControlsOpen] = React.useState(true);
+      const [storyOpen, setStoryOpen] = React.useState(true);
+      const [focusOpen, setFocusOpen] = React.useState(true);
+      const [filtersOpen, setFiltersOpen] = React.useState(true);
+      const [guidedStopsOpen, setGuidedStopsOpen] = React.useState(true);
+      const [legendOpen, setLegendOpen] = React.useState(true);
+      const [viewerFullscreen, setViewerFullscreen] = React.useState(false);
+      const lastTimelineFocusRef = React.useRef("");
+      const viewerShellRef = React.useRef(null);
       const stylePreset = STYLE_PRESETS[stylePresetId];
       const nodeStyle = NODE_STYLES[nodeStyleId];
       const effects = EFFECT_PRESETS[effectsId];
@@ -2096,6 +2312,8 @@
       const runtimeTimeline = React.useMemo(() => getActiveRuntimeStreams(timelineClock), [timelineClock]);
       const currentTimelinePhase = runtimeTimeline.phase;
       const timelineActiveStreams = runtimeTimeline.streams;
+      const isTimelineView = view === "system" && motionMode === "timeline";
+      const showStoryPanel = isTimelineView;
       const issueViewerCommand = commandType => {
         setViewerCommand({ type: commandType, issuedAt: `${commandType}-${Date.now()}` });
       };
@@ -2142,13 +2360,125 @@
           React.startTransition(() => {
             setTimelineClock(current => {
               const next = current + (0.033 * timelineSpeed);
-              return next >= RUNTIME_TIMELINE_DURATION ? next % RUNTIME_TIMELINE_DURATION : next;
+              if (next >= RUNTIME_TIMELINE_DURATION) {
+                return timelineLoop ? next % RUNTIME_TIMELINE_DURATION : RUNTIME_TIMELINE_DURATION;
+              }
+              return next;
             });
           });
         }, 33);
 
         return () => window.clearInterval(intervalId);
-      }, [motionMode, timelinePlaying, timelineSpeed, view]);
+      }, [motionMode, timelineLoop, timelinePlaying, timelineSpeed, view]);
+
+      React.useEffect(() => {
+        if (!timelineLoop && timelinePlaying && view === "system" && motionMode === "timeline" && timelineClock >= RUNTIME_TIMELINE_DURATION) {
+          setTimelinePlaying(false);
+        }
+      }, [motionMode, timelineClock, timelineLoop, timelinePlaying, view]);
+
+      React.useEffect(() => {
+        if (view !== "system" || motionMode !== "timeline") {
+          lastTimelineFocusRef.current = "";
+          return;
+        }
+
+        const focusId = getRuntimeNodeId(currentTimelinePhase.focusKey || "index");
+        const focusToken = `${currentTimelinePhase.id}:${focusId}`;
+        if (lastTimelineFocusRef.current === focusToken) {
+          return;
+        }
+
+        lastTimelineFocusRef.current = focusToken;
+        setSelectedId(focusId);
+      }, [currentTimelinePhase.focusKey, currentTimelinePhase.id, motionMode, view]);
+
+      React.useEffect(() => {
+        const syncFullscreen = () => {
+          setViewerFullscreen(Boolean(document.fullscreenElement || document.webkitFullscreenElement));
+        };
+
+        document.addEventListener("fullscreenchange", syncFullscreen);
+        document.addEventListener("webkitfullscreenchange", syncFullscreen);
+        syncFullscreen();
+
+        return () => {
+          document.removeEventListener("fullscreenchange", syncFullscreen);
+          document.removeEventListener("webkitfullscreenchange", syncFullscreen);
+        };
+      }, []);
+
+      React.useEffect(() => {
+        const timerId = window.setTimeout(() => {
+          issueViewerCommand("fit");
+        }, 200);
+        return () => window.clearTimeout(timerId);
+      }, [controlsOpen, showStoryPanel, sidebarOpen, storyOpen, viewerFullscreen]);
+
+      React.useEffect(() => {
+        if (!isTimelineView) {
+          return undefined;
+        }
+
+        const isEditableTarget = target => {
+          if (!target || !(target instanceof HTMLElement)) {
+            return false;
+          }
+          const tagName = target.tagName;
+          return target.isContentEditable || tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT";
+        };
+
+        const scanTimeline = delta => {
+          setTimelinePlaying(false);
+          setTimelineClock(current => Math.max(0, Math.min(RUNTIME_TIMELINE_DURATION, current + delta)));
+        };
+
+        const handleKeydown = event => {
+          if (isEditableTarget(event.target) || settingsOpen) {
+            return;
+          }
+
+          if (event.key === " " || event.code === "Space") {
+            event.preventDefault();
+            event.stopPropagation();
+            if (timelinePlaying) {
+              setTimelinePlaying(false);
+              return;
+            }
+            if (!timelineLoop && timelineClock >= RUNTIME_TIMELINE_DURATION) {
+              setTimelineClock(0);
+            }
+            setTimelinePlaying(true);
+            return;
+          }
+
+          if (event.key === "Home") {
+            event.preventDefault();
+            event.stopPropagation();
+            setTimelinePlaying(false);
+            setTimelineClock(0);
+            return;
+          }
+
+          if (event.key === "ArrowLeft") {
+            event.preventDefault();
+            event.stopPropagation();
+            scanTimeline(event.shiftKey ? -8 : -2.5);
+            return;
+          }
+
+          if (event.key === "ArrowRight") {
+            event.preventDefault();
+            event.stopPropagation();
+            scanTimeline(event.shiftKey ? 8 : 2.5);
+          }
+        };
+
+        window.addEventListener("keydown", handleKeydown, true);
+        return () => {
+          window.removeEventListener("keydown", handleKeydown, true);
+        };
+      }, [isTimelineView, settingsOpen, timelineClock, timelineLoop, timelinePlaying]);
 
       const metrics = React.useMemo(() => {
         if (view === "system") {
@@ -2210,19 +2540,60 @@
       const animationSummary = motionMode === "timeline"
         ? `${currentTimelinePhase.label} at ${formatRuntimeClock(timelineClock)} of ${formatRuntimeClock(RUNTIME_TIMELINE_DURATION)}.`
         : "Ambient mode shows the architecture without a runtime story overlaid on top.";
+      const toggleTimelinePlayback = () => {
+        if (timelinePlaying) {
+          setTimelinePlaying(false);
+          return;
+        }
+        if (!timelineLoop && timelineClock >= RUNTIME_TIMELINE_DURATION) {
+          setTimelineClock(0);
+        }
+        setTimelinePlaying(true);
+      };
       const activateTimelineMode = () => {
         if (view !== "system") {
           setView("system");
         }
         setMotionMode("timeline");
+        if (!timelineLoop && timelineClock >= RUNTIME_TIMELINE_DURATION) {
+          setTimelineClock(0);
+        }
         setTimelinePlaying(true);
-        setSelectedId("top:index");
+        setSelectedId(getRuntimeNodeId(getRuntimePhaseAtTime(timelineClock).focusKey || "index"));
       };
       const pauseTimeline = () => setTimelinePlaying(false);
       const restartTimeline = () => {
         setTimelineClock(0);
         setTimelinePlaying(true);
       };
+      const toggleViewerFullscreen = async () => {
+        const shell = viewerShellRef.current;
+        if (!shell) {
+          return;
+        }
+
+        try {
+          const activeFullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
+          if (activeFullscreenElement) {
+            if (document.exitFullscreen) {
+              await document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+              document.webkitExitFullscreen();
+            }
+            return;
+          }
+
+          if (shell.requestFullscreen) {
+            await shell.requestFullscreen();
+          } else if (shell.webkitRequestFullscreen) {
+            shell.webkitRequestFullscreen();
+          }
+        } catch (error) {
+          console.error("Viewer fullscreen toggle failed", error);
+        }
+      };
+      const sidebarXl = sidebarOpen ? 4 : 2;
+      const viewerXl = sidebarOpen ? 8 : 10;
 
       return (
         <Box className="app-shell" sx={{ background: stylePreset.shellBackground, minHeight: "100vh" }}>
@@ -2230,25 +2601,39 @@
             <Grid container spacing={3} alignItems="center">
               <Grid item xs={12} lg={7}>
                 <Stack spacing={1.6}>
-                  <Chip
-                    label="Interactive Architecture Tour"
-                    sx={{
-                      alignSelf: "flex-start",
-                      color: "#08111d",
-                      background: `linear-gradient(90deg, ${stylePreset.warm}, ${stylePreset.cool})`
-                    }}
-                  />
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1.1} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }}>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      <Chip
+                        label="Interactive Architecture Tour"
+                        sx={{
+                          color: "#08111d",
+                          background: `linear-gradient(90deg, ${stylePreset.warm}, ${stylePreset.cool})`
+                        }}
+                      />
+                      <Chip label={stylePreset.label} sx={{ ...chipStyles, borderColor: stylePreset.support }} />
+                      <Chip label={nodeStyle.label} sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
+                      <Chip label={effects.label} sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
+                    </Stack>
+                    <Button
+                      variant="outlined"
+                      onClick={() => setSettingsOpen(true)}
+                      sx={{
+                        borderRadius: 999,
+                        color: "var(--text)",
+                        borderColor: "var(--line)",
+                        whiteSpace: "nowrap"
+                      }}
+                      startIcon={<span className="material-icons" style={{ fontSize: 18 }}>tune</span>}
+                    >
+                      Settings
+                    </Button>
+                  </Stack>
                   <Typography variant="h2" sx={{ fontWeight: 700, lineHeight: 1.04, letterSpacing: "-0.04em", fontSize: { xs: 34, md: 56 } }}>
                     MongoT, as a living graph.
                   </Typography>
                   <Typography sx={{ color: "rgba(236,244,255,0.76)", maxWidth: 760, fontSize: 17 }}>
-                    Fly across package boundaries, dive into the index engine, and inspect the shipped runtime payload. Nodes animate, edges respond, and the side panels turn the code map into a guided tour instead of a static document.
+                    Trace MongoT’s package graph, index engine, and shipped runtime as one animated system.
                   </Typography>
-                  <Stack direction="row" spacing={1.2} flexWrap="wrap" useFlexGap>
-                    <Chip label="Drag nodes" icon={<span className="material-icons">gesture</span>} sx={{ color: "var(--text)", borderColor: "var(--line)" }} variant="outlined" />
-                    <Chip label="Double-click to zoom" icon={<span className="material-icons">zoom_in</span>} sx={{ color: "var(--text)", borderColor: "var(--line)" }} variant="outlined" />
-                    <Chip label="Search + focus" icon={<span className="material-icons">travel_explore</span>} sx={{ color: "var(--text)", borderColor: "var(--line)" }} variant="outlined" />
-                  </Stack>
                 </Stack>
               </Grid>
               <Grid item xs={12} lg={5}>
@@ -2267,594 +2652,762 @@
             </Grid>
           </Paper>
 
-          <Paper className="glass" sx={{ borderRadius: 6, p: 2, mb: 2.5, background: stylePreset.panelBackground }}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={4}>
-                <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.7 }}>
-                  Style Lab
-                </Typography>
-                <Typography sx={{ color: "rgba(236,244,255,0.76)", fontSize: 14 }}>
-                  Try different colour schemes and node treatments without changing the tour data.
-                </Typography>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2.5}>
-                <FormControl fullWidth>
-                  <InputLabel sx={{ color: "#9eb0c8" }}>Colour Scheme</InputLabel>
-                  <Select
-                    value={stylePresetId}
-                    label="Colour Scheme"
-                    onChange={event => setStylePresetId(event.target.value)}
-                    sx={selectStyles}
-                  >
-                    {Object.entries(STYLE_PRESETS).map(([id, preset]) => (
-                      <MenuItem key={id} value={id}>{preset.label}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2.5}>
-                <FormControl fullWidth>
-                  <InputLabel sx={{ color: "#9eb0c8" }}>Node Type</InputLabel>
-                  <Select
-                    value={nodeStyleId}
-                    label="Node Type"
-                    onChange={event => setNodeStyleId(event.target.value)}
-                    sx={selectStyles}
-                  >
-                    {Object.entries(NODE_STYLES).map(([id, style]) => (
-                      <MenuItem key={id} value={id}>{style.label}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6} md={2.5}>
-                <FormControl fullWidth>
-                  <InputLabel sx={{ color: "#9eb0c8" }}>Effects</InputLabel>
-                  <Select
-                    value={effectsId}
-                    label="Effects"
-                    onChange={event => setEffectsId(event.target.value)}
-                    sx={selectStyles}
-                  >
-                    {Object.entries(EFFECT_PRESETS).map(([id, effect]) => (
-                      <MenuItem key={id} value={id}>{effect.label}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <Stack direction="row" spacing={1} justifyContent={{ xs: "flex-start", md: "flex-end" }} flexWrap="wrap" useFlexGap>
-                  <Chip label={STYLE_PRESETS[stylePresetId].label} sx={{ ...chipStyles, borderColor: stylePreset.support }} />
-                  <Chip label={NODE_STYLES[nodeStyleId].label} sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
-                  <Chip label={EFFECT_PRESETS[effectsId].label} sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
-                </Stack>
-              </Grid>
-            </Grid>
-          </Paper>
-
           <Grid container spacing={2.5}>
-            <Grid item xs={12} xl={3}>
+            <Grid item xs={12} xl={sidebarXl}>
               <Paper className="glass" sx={{ borderRadius: 6, p: 2.2, height: "100%", background: stylePreset.panelBackground }}>
-                <Stack spacing={2.2}>
-                  <Box>
-                    <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.6 }}>
-                      Modes
-                    </Typography>
-                    <Tabs
-                      value={view}
-                      onChange={(event, next) => setView(next)}
-                      variant="fullWidth"
-                      sx={{
-                        minHeight: 44,
-                        "& .MuiTabs-indicator": { display: "none" },
-                        "& .MuiTab-root": {
-                          minHeight: 44,
-                          borderRadius: 999,
-                          color: "var(--muted)",
-                          textTransform: "none",
-                          fontWeight: 700
-                        },
-                        "& .Mui-selected": {
-                          color: "#08111d !important",
-                          background: stylePreset.warm
-                        }
-                      }}
-                    >
-                      <Tab value="system" label="System" />
-                      <Tab value="index" label="Index" />
-                      <Tab value="deps" label="Libraries" />
-                    </Tabs>
-                  </Box>
-
-                  <Paper sx={{ p: 1.8, borderRadius: 4, background: "rgba(255,255,255,0.04)", border: "1px solid var(--line)" }}>
-                    <Typography sx={{ fontWeight: 700, mb: 0.5 }}>{VIEW_META[view].label}</Typography>
-                    <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>{VIEW_META[view].blurb}</Typography>
-                  </Paper>
-
-                  <TextField
-                    fullWidth
-                    value={searchTerm}
-                    onChange={event => setSearchTerm(event.target.value)}
-                    placeholder={view === "deps" ? "Search library, group, or detail" : "Search package or concept"}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <span className="material-icons" style={{ fontSize: 20, color: "#9eb0c8" }}>search</span>
-                        </InputAdornment>
-                      )
-                    }}
-                    sx={textFieldStyles}
+                <Stack spacing={1.8}>
+                  <PanelHeader
+                    eyebrow="Navigator"
+                    title="Modes, focus, and graph filters"
+                    subtitle={sidebarOpen ? "Collapse the rail to give the graph more room." : null}
+                    open={sidebarOpen}
+                    onToggle={() => setSidebarOpen(current => !current)}
                   />
 
-                  <Autocomplete
-                    size="small"
-                    options={autocompleteOptions}
-                    value={autocompleteOptions.find(option => option.id === selectedId) || null}
-                    onChange={(event, option) => option && setSelectedId(option.id)}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Jump To Node"
-                        sx={textFieldStyles}
-                      />
-                    )}
-                    sx={{
-                      "& .MuiAutocomplete-popupIndicator, & .MuiAutocomplete-clearIndicator": { color: "#9eb0c8" }
-                    }}
-                  />
-
-                  <Box>
-                    <Typography sx={{ fontSize: 13, color: "var(--muted)", mb: 1 }}>
-                      {view === "deps" ? "Minimum library size" : "Minimum complexity"}
-                    </Typography>
-                    <Slider
-                      value={threshold}
-                      min={view === "deps" ? 0 : 1}
-                      max={view === "deps" ? 2 : 10}
-                      step={view === "deps" ? 0.05 : 1}
-                      onChange={(event, next) => setThreshold(next)}
-                      valueLabelDisplay="auto"
-                      valueLabelFormat={value => view === "deps" ? titleCaseSize(value) : value}
-                      sx={{
-                        color: stylePreset.support,
-                        "& .MuiSlider-thumb": { boxShadow: "0 0 0 6px rgba(255,255,255,0.08)" }
-                      }}
-                    />
-                  </Box>
-
-                  {view === "deps" && (
-                    <FormControl fullWidth>
-                      <InputLabel sx={{ color: "#9eb0c8" }}>Dependency Group</InputLabel>
-                      <Select
-                        value={groupFilter}
-                        label="Dependency Group"
-                        onChange={event => setGroupFilter(event.target.value)}
-                        sx={selectStyles}
-                      >
-                        <MenuItem value="All">All groups</MenuItem>
-                        {Object.keys(dependencyGroupTotals)
-                          .sort((a, b) => dependencyGroupTotals[b] - dependencyGroupTotals[a])
-                          .map(group => (
-                            <MenuItem key={group} value={group}>{group}</MenuItem>
-                          ))}
-                      </Select>
-                    </FormControl>
-                  )}
-
-                  <Divider sx={{ borderColor: "var(--line)" }} />
-
-                  <Box>
-                    <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
-                      Guided Stops
-                    </Typography>
-                    <Stack spacing={1}>
-                      {currentStories.map((story, index) => (
-                        <Box
-                          key={story.key}
-                          className={`tour-card ${storyIndex === index ? "active" : ""}`}
-                          onClick={() => {
-                            setStoryIndex(index);
-                            setSelectedId(story.key);
+                  <Collapse in={sidebarOpen}>
+                    <Stack spacing={2.2}>
+                      <Box>
+                        <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.6 }}>
+                          Modes
+                        </Typography>
+                        <Tabs
+                          value={view}
+                          onChange={(event, next) => setView(next)}
+                          variant="fullWidth"
+                          sx={{
+                            minHeight: 44,
+                            "& .MuiTabs-indicator": { display: "none" },
+                            "& .MuiTab-root": {
+                              minHeight: 44,
+                              borderRadius: 999,
+                              color: "var(--muted)",
+                              textTransform: "none",
+                              fontWeight: 700
+                            },
+                            "& .Mui-selected": {
+                              color: "#08111d !important",
+                              background: stylePreset.warm
+                            }
                           }}
                         >
-                          <Typography sx={{ fontWeight: 700 }}>{story.title}</Typography>
-                          <Typography sx={{ color: "var(--muted)", mt: 0.4, fontSize: 14 }}>{story.body}</Typography>
-                        </Box>
-                      ))}
+                          <Tab value="system" label="System" />
+                          <Tab value="index" label="Index" />
+                          <Tab value="deps" label="Libraries" />
+                        </Tabs>
+                      </Box>
+
+                      <Paper sx={{ p: 1.8, borderRadius: 4, background: "rgba(255,255,255,0.04)", border: "1px solid var(--line)" }}>
+                        <Typography sx={{ fontWeight: 700, mb: 0.5 }}>{VIEW_META[view].label}</Typography>
+                        <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>{VIEW_META[view].blurb}</Typography>
+                      </Paper>
+
+                      <Box>
+                        <PanelHeader
+                          eyebrow="Focus"
+                          title={selectedItem ? selectedItem.name : "No node selected"}
+                          subtitle={selectedItem ? selectedItem.description : "Select a node to inspect it."}
+                          open={focusOpen}
+                          onToggle={() => setFocusOpen(current => !current)}
+                        />
+                        <Collapse in={focusOpen}>
+                          <Stack spacing={1.4} sx={{ mt: 1.2 }}>
+                            {selectedItem ? (
+                              <>
+                                {view !== "deps" ? (
+                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                    <Chip label={`Complexity ${selectedItem.complexity}/10`} sx={chipStyles} />
+                                    <Chip label={`${(selectedItem.links || []).length} outgoing links`} sx={chipStyles} />
+                                  </Stack>
+                                ) : (
+                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                    {selectedItem.totalSize && <Chip label={titleCaseSize(selectedItem.totalSize)} sx={chipStyles} />}
+                                    {selectedItem.sizeMb && <Chip label={titleCaseSize(selectedItem.sizeMb)} sx={chipStyles} />}
+                                    {selectedItem.group && <Chip label={selectedItem.group} sx={chipStyles} />}
+                                  </Stack>
+                                )}
+
+                                {view !== "deps" && (
+                                  <Box>
+                                    <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
+                                      Complexity Signal
+                                    </Typography>
+                                    <LinearProgress
+                                      variant="determinate"
+                                      value={(selectedItem.complexity / 10) * 100}
+                                      sx={{
+                                        height: 12,
+                                        borderRadius: 999,
+                                        backgroundColor: "rgba(255,255,255,0.08)",
+                                        "& .MuiLinearProgress-bar": {
+                                          background: `linear-gradient(90deg, ${stylePreset.support}, ${stylePreset.hot})`
+                                        }
+                                      }}
+                                    />
+                                  </Box>
+                                )}
+
+                                {selectedItem.website && (
+                                  <Alert severity="info" sx={{ borderRadius: 3, background: "rgba(105,192,255,0.08)", color: "var(--text)", border: "1px solid var(--line)" }}>
+                                    <Link href={selectedItem.website} target="_blank" rel="noreferrer" color="inherit" underline="hover">
+                                      Open upstream project
+                                    </Link>
+                                  </Alert>
+                                )}
+
+                                <Box>
+                                  <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
+                                    Connected Next Steps
+                                  </Typography>
+                                  {detailConnections.length > 0 ? (
+                                    <Box>
+                                      {detailConnections.map(connection => (
+                                        <Box
+                                          key={`${selectedId}-${connection.label}`}
+                                          className="node-pill"
+                                          onClick={() => connection.target && setSelectedId(connection.target)}
+                                          style={{ opacity: connection.target ? 1 : 0.74, cursor: connection.target ? "pointer" : "default" }}
+                                        >
+                                          <span className="material-icons" style={{ fontSize: 16, color: stylePreset.warm }}>north_east</span>
+                                          <span className="codeish" style={{ fontSize: 12 }}>{connection.label}</span>
+                                        </Box>
+                                      ))}
+                                    </Box>
+                                  ) : (
+                                    <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>This node is more terminal than connective in the selected view.</Typography>
+                                  )}
+                                </Box>
+                              </>
+                            ) : (
+                              <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>Select a node to inspect it.</Typography>
+                            )}
+                          </Stack>
+                        </Collapse>
+                      </Box>
+
+                      <Divider sx={{ borderColor: "var(--line)" }} />
+
+                      <Box>
+                        <PanelHeader
+                          eyebrow="Filters"
+                          title="Search, jump, and threshold"
+                          subtitle="Trim the graph or jump directly to a package."
+                          open={filtersOpen}
+                          onToggle={() => setFiltersOpen(current => !current)}
+                        />
+                        <Collapse in={filtersOpen}>
+                          <Stack spacing={1.5} sx={{ mt: 1.2 }}>
+                            <TextField
+                              fullWidth
+                              value={searchTerm}
+                              onChange={event => setSearchTerm(event.target.value)}
+                              placeholder={view === "deps" ? "Search library, group, or detail" : "Search package or concept"}
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <span className="material-icons" style={{ fontSize: 20, color: "#9eb0c8" }}>search</span>
+                                  </InputAdornment>
+                                )
+                              }}
+                              sx={textFieldStyles}
+                            />
+
+                            <Autocomplete
+                              size="small"
+                              options={autocompleteOptions}
+                              value={autocompleteOptions.find(option => option.id === selectedId) || null}
+                              onChange={(event, option) => option && setSelectedId(option.id)}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  label="Jump To Node"
+                                  sx={textFieldStyles}
+                                />
+                              )}
+                              sx={{
+                                "& .MuiAutocomplete-popupIndicator, & .MuiAutocomplete-clearIndicator": { color: "#9eb0c8" }
+                              }}
+                            />
+
+                            <Box>
+                              <Typography sx={{ fontSize: 13, color: "var(--muted)", mb: 1 }}>
+                                {view === "deps" ? "Minimum library size" : "Minimum complexity"}
+                              </Typography>
+                              <Slider
+                                value={threshold}
+                                min={view === "deps" ? 0 : 1}
+                                max={view === "deps" ? 2 : 10}
+                                step={view === "deps" ? 0.05 : 1}
+                                onChange={(event, next) => setThreshold(next)}
+                                valueLabelDisplay="auto"
+                                valueLabelFormat={value => view === "deps" ? titleCaseSize(value) : value}
+                                sx={{
+                                  color: stylePreset.support,
+                                  "& .MuiSlider-thumb": { boxShadow: "0 0 0 6px rgba(255,255,255,0.08)" }
+                                }}
+                              />
+                            </Box>
+
+                            {view === "deps" && (
+                              <FormControl fullWidth>
+                                <InputLabel sx={{ color: "#9eb0c8" }}>Dependency Group</InputLabel>
+                                <Select
+                                  value={groupFilter}
+                                  label="Dependency Group"
+                                  onChange={event => setGroupFilter(event.target.value)}
+                                  sx={selectStyles}
+                                >
+                                  <MenuItem value="All">All groups</MenuItem>
+                                  {Object.keys(dependencyGroupTotals)
+                                    .sort((a, b) => dependencyGroupTotals[b] - dependencyGroupTotals[a])
+                                    .map(group => (
+                                      <MenuItem key={group} value={group}>{group}</MenuItem>
+                                    ))}
+                                </Select>
+                              </FormControl>
+                            )}
+                          </Stack>
+                        </Collapse>
+                      </Box>
+
+                      <Divider sx={{ borderColor: "var(--line)" }} />
+
+                      <Box>
+                        <PanelHeader
+                          eyebrow="Guided Stops"
+                          title="Curated path through this view"
+                          subtitle="Select a stop to focus the graph and narrative."
+                          open={guidedStopsOpen}
+                          onToggle={() => setGuidedStopsOpen(current => !current)}
+                        />
+                        <Collapse in={guidedStopsOpen}>
+                          <Stack spacing={1} sx={{ mt: 1.2 }}>
+                            {currentStories.map((story, index) => (
+                              <Box
+                                key={story.key}
+                                className={`tour-card ${storyIndex === index ? "active" : ""}`}
+                                onClick={() => {
+                                  setStoryIndex(index);
+                                  setSelectedId(story.key);
+                                }}
+                              >
+                                <Typography sx={{ fontWeight: 700 }}>{story.title}</Typography>
+                                <Typography sx={{ color: "var(--muted)", mt: 0.4, fontSize: 14 }}>{story.body}</Typography>
+                              </Box>
+                            ))}
+                          </Stack>
+                        </Collapse>
+                      </Box>
+
+                      <Divider sx={{ borderColor: "var(--line)" }} />
+
+                      <Box>
+                        <PanelHeader
+                          eyebrow="Legend"
+                          title="What the colours mean"
+                          subtitle="The palette shifts with the current preset, but the roles stay stable."
+                          open={legendOpen}
+                          onToggle={() => setLegendOpen(current => !current)}
+                        />
+                        <Collapse in={legendOpen}>
+                          <Box sx={{ mt: 1.2 }}>
+                            {view !== "deps" ? (
+                              <Stack spacing={0.8}>
+                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.hot }} />hot path / high complexity</Typography>
+                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.warm }} />broad coordination layer</Typography>
+                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.cool }} />specialized subsystem</Typography>
+                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.support }} />supporting package</Typography>
+                              </Stack>
+                            ) : (
+                              <Stack spacing={0.8}>
+                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.root }} />runtime bundle root</Typography>
+                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.group }} />dependency group hub</Typography>
+                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.support }} />individual bundled library</Typography>
+                              </Stack>
+                            )}
+                          </Box>
+                        </Collapse>
+                      </Box>
                     </Stack>
-                  </Box>
+                  </Collapse>
                 </Stack>
               </Paper>
             </Grid>
 
-            <Grid item xs={12} xl={6}>
-              <Paper className="glass graph-frame">
-                <Box sx={{ position: "absolute", inset: 0, background: stylePreset.graphBackground }} />
-                <Box sx={{ position: "absolute", top: 14, left: 16, right: 16, zIndex: 2 }}>
+            <Grid item xs={12} xl={viewerXl}>
+              <Stack
+                ref={viewerShellRef}
+                className="viewer-shell"
+                spacing={1.5}
+                sx={{ minHeight: 0 }}
+              >
+                <Paper
+                  className="glass"
+                  sx={{
+                    borderRadius: 6,
+                    p: 2,
+                    background: stylePreset.panelBackground
+                  }}
+                >
                   <Stack spacing={1.15}>
-                    <Stack direction={{ xs: "column", md: "row" }} spacing={1.2} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        <Chip label={`${data.nodes.length} nodes`} size="small" sx={chipStyles} />
-                        <Chip label={`${data.edges.length} edges`} size="small" sx={chipStyles} />
-                        <Chip label={view === "deps" ? "grouped by bundle role" : "imports shown as arrows"} size="small" sx={chipStyles} />
-                        <Chip label={layoutMode === "orbit" ? `orbiting ${orbitAnchorLabel}` : layoutMode} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
-                        <Chip label={motionMode === "timeline" ? "runtime timeline" : "ambient motion"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
-                      </Stack>
-                      <Typography className="mini-note">{layoutSummary}</Typography>
-                    </Stack>
-
-                    <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
-                      <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                        {[
-                          { id: "flow", label: "Flow" },
-                          { id: "spread", label: "Spread" },
-                          { id: "orbit", label: "Orbit" }
-                        ].map(option => (
-                          <Button
-                            key={option.id}
-                            size="small"
-                            variant={layoutMode === option.id ? "contained" : "outlined"}
-                            onClick={() => {
-                              setLayoutMode(option.id);
-                              setLayoutFrozen(false);
-                            }}
-                            sx={{
-                              borderRadius: 999,
-                              minWidth: 0,
-                              color: layoutMode === option.id ? "#08111d" : "var(--text)",
-                              background: layoutMode === option.id ? stylePreset.warm : "rgba(8, 17, 29, 0.28)",
-                              borderColor: "var(--line)",
-                              "&:hover": {
-                                borderColor: stylePreset.warm,
-                                background: layoutMode === option.id ? stylePreset.warm : "rgba(255,255,255,0.08)"
-                              }
-                            }}
-                          >
-                            {option.label}
-                          </Button>
-                        ))}
-                      </Stack>
-
-                      <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => issueViewerCommand("fit")}
-                          sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                        >
-                          Fit View
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => issueViewerCommand("anchor")}
-                          sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                        >
-                          Center {orbitAnchorLabel}
-                        </Button>
-                        {layoutMode !== "orbit" && (
+                    <PanelHeader
+                      eyebrow="Viewer"
+                      title="Layout and playback controls"
+                      subtitle={controlsOpen ? "Keep this open while arranging the graph, or collapse it for more canvas." : null}
+                      open={controlsOpen}
+                      onToggle={() => setControlsOpen(current => !current)}
+                      action={(
+                        <Stack direction="row" spacing={0.8}>
                           <Button
                             size="small"
                             variant="outlined"
-                            onClick={() => issueViewerCommand("stabilize")}
+                            onClick={toggleViewerFullscreen}
                             sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
                           >
-                            Settle
-                          </Button>
-                        )}
-                        <Button
-                          size="small"
-                          variant={layoutFrozen ? "contained" : "outlined"}
-                          onClick={() => setLayoutFrozen(current => !current)}
-                          sx={{
-                            borderRadius: 999,
-                            color: layoutFrozen ? "#08111d" : "var(--text)",
-                            background: layoutFrozen ? stylePreset.cool : "transparent",
-                            borderColor: "var(--line)"
-                          }}
-                        >
-                          {layoutMode === "orbit" ? (layoutFrozen ? "Resume Orbit" : "Pause Orbit") : (layoutFrozen ? "Unfreeze" : "Freeze")}
-                        </Button>
-                        <Button
-                          size="small"
-                          variant={compactLabels ? "contained" : "outlined"}
-                          onClick={() => setCompactLabels(current => !current)}
-                          sx={{
-                            borderRadius: 999,
-                            color: compactLabels ? "#08111d" : "var(--text)",
-                            background: compactLabels ? stylePreset.support : "transparent",
-                            borderColor: "var(--line)"
-                          }}
-                        >
-                          {compactLabels ? "Labels: Compact" : "Labels: Full"}
-                        </Button>
-                      </Stack>
-                    </Stack>
-
-                    <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
-                      <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                        <Button
-                          size="small"
-                          variant={motionMode === "ambient" ? "contained" : "outlined"}
-                          onClick={() => {
-                            setMotionMode("ambient");
-                            setTimelinePlaying(false);
-                          }}
-                          sx={{
-                            borderRadius: 999,
-                            minWidth: 0,
-                            color: motionMode === "ambient" ? "#08111d" : "var(--text)",
-                            background: motionMode === "ambient" ? stylePreset.support : "rgba(8, 17, 29, 0.28)",
-                            borderColor: "var(--line)"
-                          }}
-                        >
-                          Ambient
-                        </Button>
-                        <Button
-                          size="small"
-                          variant={motionMode === "timeline" ? "contained" : "outlined"}
-                          onClick={activateTimelineMode}
-                          sx={{
-                            borderRadius: 999,
-                            minWidth: 0,
-                            color: motionMode === "timeline" ? "#08111d" : "var(--text)",
-                            background: motionMode === "timeline" ? stylePreset.cool : "rgba(8, 17, 29, 0.28)",
-                            borderColor: "var(--line)"
-                          }}
-                        >
-                          Timeline
-                        </Button>
-                      </Stack>
-
-                      {view === "system" && motionMode === "timeline" && (
-                        <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                          <Button
-                            size="small"
-                            variant={timelinePlaying ? "contained" : "outlined"}
-                            onClick={() => setTimelinePlaying(current => !current)}
-                            sx={{
-                              borderRadius: 999,
-                              color: timelinePlaying ? "#08111d" : "var(--text)",
-                              background: timelinePlaying ? stylePreset.warm : "transparent",
-                              borderColor: "var(--line)"
-                            }}
-                          >
-                            {timelinePlaying ? "Pause Timeline" : "Play Timeline"}
+                            {viewerFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                           </Button>
                           <Button
                             size="small"
                             variant="outlined"
-                            onClick={restartTimeline}
+                            onClick={() => setSettingsOpen(true)}
                             sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
                           >
-                            Restart
+                            Settings
                           </Button>
-                          {[1, 2, 4].map(speed => (
+                        </Stack>
+                      )}
+                    />
+
+                    <Collapse in={controlsOpen}>
+                      <Stack spacing={1.15}>
+                        <Stack direction={{ xs: "column", md: "row" }} spacing={1.2} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
+                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            <Chip label={`${data.nodes.length} nodes`} size="small" sx={chipStyles} />
+                            <Chip label={`${data.edges.length} edges`} size="small" sx={chipStyles} />
+                            <Chip label={view === "deps" ? "grouped by bundle role" : "imports shown as arrows"} size="small" sx={chipStyles} />
+                            <Chip label={layoutMode === "orbit" ? `orbiting ${orbitAnchorLabel}` : layoutMode} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
+                            <Chip label={motionMode === "timeline" ? "runtime timeline" : "ambient motion"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
+                          </Stack>
+                          {layoutMode !== "flow" && (
+                            <Typography className="mini-note">{layoutSummary}</Typography>
+                          )}
+                        </Stack>
+
+                        <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
+                          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
+                            {[
+                              { id: "flow", label: "Flow" },
+                              { id: "spread", label: "Spread" },
+                              { id: "orbit", label: "Orbit" }
+                            ].map(option => (
+                              <Button
+                                key={option.id}
+                                size="small"
+                                variant={layoutMode === option.id ? "contained" : "outlined"}
+                                onClick={() => {
+                                  setLayoutMode(option.id);
+                                  setLayoutFrozen(false);
+                                }}
+                                sx={{
+                                  borderRadius: 999,
+                                  minWidth: 0,
+                                  color: layoutMode === option.id ? "#08111d" : "var(--text)",
+                                  background: layoutMode === option.id ? stylePreset.warm : "rgba(8, 17, 29, 0.28)",
+                                  borderColor: "var(--line)",
+                                  "&:hover": {
+                                    borderColor: stylePreset.warm,
+                                    background: layoutMode === option.id ? stylePreset.warm : "rgba(255,255,255,0.08)"
+                                  }
+                                }}
+                              >
+                                {option.label}
+                              </Button>
+                            ))}
+                          </Stack>
+
+                          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
                             <Button
-                              key={speed}
                               size="small"
-                              variant={timelineSpeed === speed ? "contained" : "outlined"}
-                              onClick={() => setTimelineSpeed(speed)}
+                              variant="outlined"
+                              onClick={() => issueViewerCommand("fit")}
+                              sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
+                            >
+                              Fit View
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => issueViewerCommand("anchor")}
+                              sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
+                            >
+                              Center {orbitAnchorLabel}
+                            </Button>
+                            {layoutMode !== "orbit" && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() => issueViewerCommand("stabilize")}
+                                sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
+                              >
+                                Settle
+                              </Button>
+                            )}
+                            <Button
+                              size="small"
+                              variant={layoutFrozen ? "contained" : "outlined"}
+                              onClick={() => setLayoutFrozen(current => !current)}
                               sx={{
                                 borderRadius: 999,
-                                minWidth: 0,
-                                color: timelineSpeed === speed ? "#08111d" : "var(--text)",
-                                background: timelineSpeed === speed ? stylePreset.hot : "transparent",
+                                color: layoutFrozen ? "#08111d" : "var(--text)",
+                                background: layoutFrozen ? stylePreset.cool : "transparent",
                                 borderColor: "var(--line)"
                               }}
                             >
-                              {speed}x
+                              {layoutMode === "orbit" ? (layoutFrozen ? "Resume Orbit" : "Pause Orbit") : (layoutFrozen ? "Unfreeze" : "Freeze")}
                             </Button>
-                          ))}
-                        </Stack>
-                      )}
-                    </Stack>
-
-                    {view === "system" && motionMode === "timeline" && (
-                      <Stack spacing={0.7}>
-                        <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
-                          <Typography className="mini-note">
-                            {currentTimelinePhase.label} over a 90s modeled runtime story. The 30s query burst is compressed into this playback.
-                          </Typography>
-                          <Chip label={`${formatRuntimeClock(timelineClock)} / ${formatRuntimeClock(RUNTIME_TIMELINE_DURATION)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
-                        </Stack>
-                        <Slider
-                          value={timelineClock}
-                          min={0}
-                          max={RUNTIME_TIMELINE_DURATION}
-                          step={0.25}
-                          onChange={(event, next) => {
-                            setTimelineClock(Array.isArray(next) ? next[0] : next);
-                            pauseTimeline();
-                          }}
-                          sx={{
-                            color: stylePreset.cool,
-                            width: "100%",
-                            "& .MuiSlider-thumb": { boxShadow: "0 0 0 6px rgba(255,255,255,0.08)" }
-                          }}
-                        />
-                      </Stack>
-                    )}
-
-                    <Typography className="mini-note">
-                      Double-click a node to zoom. Use Flow for free dragging, Spread for cleaner labels, Orbit for the solar-system layout, and Timeline to show runtime calls flowing across the major packages.
-                    </Typography>
-                    {view === "system" && motionMode === "timeline" && (
-                      <Typography className="mini-note">{animationSummary}</Typography>
-                    )}
-                  </Stack>
-                </Box>
-                <GraphView
-                  view={view}
-                  data={data}
-                  selectedId={selectedId}
-                  onSelect={setSelectedId}
-                  nodeStyle={nodeStyle}
-                  effects={effects}
-                  preset={stylePreset}
-                  layoutMode={layoutMode}
-                  layoutFrozen={layoutFrozen}
-                  compactLabels={compactLabels}
-                  command={viewerCommand}
-                  motionMode={motionMode}
-                  timelineClock={timelineClock}
-                />
-                {view === "system" && motionMode === "timeline" && (
-                  <Paper
-                    className="glass"
-                    sx={{
-                      position: "absolute",
-                      left: 18,
-                      bottom: 18,
-                      zIndex: 2,
-                      maxWidth: 360,
-                      p: 1.8,
-                      borderRadius: 4,
-                      background: "rgba(8, 17, 29, 0.72)",
-                      borderColor: hexToRgba(stylePreset.cool, 0.26)
-                    }}
-                  >
-                    <Stack spacing={1.1}>
-                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                        <Chip label={currentTimelinePhase.label} size="small" sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
-                        <Chip label={timelinePlaying ? `Playing ${timelineSpeed}x` : "Paused"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
-                      </Stack>
-                      <Typography sx={{ fontWeight: 700, lineHeight: 1.15 }}>
-                        Runtime Flow Story
-                      </Typography>
-                      <Typography sx={{ color: "var(--muted)", fontSize: 13.5 }}>
-                        {currentTimelinePhase.description}
-                      </Typography>
-                      <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                        {timelineActiveStreams.map(stream => (
-                          <Chip
-                            key={stream.id}
-                            label={stream.label}
-                            size="small"
-                            sx={{
-                              ...chipStyles,
-                              borderColor: resolveTimelineColor(stream.colorKey, stylePreset),
-                              background: hexToRgba(resolveTimelineColor(stream.colorKey, stylePreset), 0.1)
-                            }}
-                          />
-                        ))}
-                      </Stack>
-                    </Stack>
-                  </Paper>
-                )}
-              </Paper>
-            </Grid>
-
-            <Grid item xs={12} xl={3}>
-              <Paper className="glass" sx={{ borderRadius: 6, p: 2.2, height: "100%", background: stylePreset.panelBackground }}>
-                {selectedItem ? (
-                  <Stack spacing={2}>
-                    <Box>
-                      <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase" }}>
-                        Focus
-                      </Typography>
-                      <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, lineHeight: 1.08 }}>
-                        {selectedItem.name}
-                      </Typography>
-                      <Typography sx={{ color: "var(--muted)", mt: 1 }}>
-                        {selectedItem.description}
-                      </Typography>
-                    </Box>
-
-                    {view !== "deps" ? (
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        <Chip label={`Complexity ${selectedItem.complexity}/10`} sx={chipStyles} />
-                        <Chip label={`${(selectedItem.links || []).length} outgoing links`} sx={chipStyles} />
-                      </Stack>
-                    ) : (
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        {selectedItem.totalSize && <Chip label={titleCaseSize(selectedItem.totalSize)} sx={chipStyles} />}
-                        {selectedItem.sizeMb && <Chip label={titleCaseSize(selectedItem.sizeMb)} sx={chipStyles} />}
-                        {selectedItem.group && <Chip label={selectedItem.group} sx={chipStyles} />}
-                      </Stack>
-                    )}
-
-                    {view !== "deps" && (
-                      <Box>
-                        <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
-                          Complexity Signal
-                        </Typography>
-                        <LinearProgress
-                          variant="determinate"
-                          value={(selectedItem.complexity / 10) * 100}
-                          sx={{
-                            height: 12,
-                            borderRadius: 999,
-                            backgroundColor: "rgba(255,255,255,0.08)",
-                            "& .MuiLinearProgress-bar": {
-                              background: `linear-gradient(90deg, ${stylePreset.support}, ${stylePreset.hot})`
-                            }
-                          }}
-                        />
-                      </Box>
-                    )}
-
-                    {selectedItem.website && (
-                      <Alert severity="info" sx={{ borderRadius: 3, background: "rgba(105,192,255,0.08)", color: "var(--text)", border: "1px solid var(--line)" }}>
-                        <Link href={selectedItem.website} target="_blank" rel="noreferrer" color="inherit" underline="hover">
-                          Open upstream project
-                        </Link>
-                      </Alert>
-                    )}
-
-                    <Divider sx={{ borderColor: "var(--line)" }} />
-
-                    <Box>
-                      <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
-                        Connected Next Steps
-                      </Typography>
-                      {detailConnections.length > 0 ? (
-                        <Box>
-                          {detailConnections.map(connection => (
-                            <Box
-                              key={`${selectedId}-${connection.label}`}
-                              className="node-pill"
-                              onClick={() => connection.target && setSelectedId(connection.target)}
-                              style={{ opacity: connection.target ? 1 : 0.74, cursor: connection.target ? "pointer" : "default" }}
+                            <Button
+                              size="small"
+                              variant={compactLabels ? "contained" : "outlined"}
+                              onClick={() => setCompactLabels(current => !current)}
+                              sx={{
+                                borderRadius: 999,
+                                color: compactLabels ? "#08111d" : "var(--text)",
+                                background: compactLabels ? stylePreset.support : "transparent",
+                                borderColor: "var(--line)"
+                              }}
                             >
-                              <span className="material-icons" style={{ fontSize: 16, color: stylePreset.warm }}>north_east</span>
-                              <span className="codeish" style={{ fontSize: 12 }}>{connection.label}</span>
-                            </Box>
-                          ))}
-                        </Box>
-                      ) : (
-                        <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>This node is more terminal than connective in the selected view.</Typography>
-                      )}
-                    </Box>
-
-                    <Divider sx={{ borderColor: "var(--line)" }} />
-
-                    <Box>
-                      <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
-                        Legend
-                      </Typography>
-                      {view !== "deps" ? (
-                        <Stack spacing={0.8}>
-                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.hot }} />hot path / high complexity</Typography>
-                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.warm }} />broad coordination layer</Typography>
-                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.cool }} />specialized subsystem</Typography>
-                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.support }} />supporting package</Typography>
+                              {compactLabels ? "Labels: Compact" : "Labels: Full"}
+                            </Button>
+                          </Stack>
                         </Stack>
-                      ) : (
-                        <Stack spacing={0.8}>
-                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.root }} />runtime bundle root</Typography>
-                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.group }} />dependency group hub</Typography>
-                          <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.support }} />individual bundled library</Typography>
+
+                        <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
+                          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
+                            <Button
+                              size="small"
+                              variant={motionMode === "ambient" ? "contained" : "outlined"}
+                              onClick={() => {
+                                setMotionMode("ambient");
+                                setTimelinePlaying(false);
+                              }}
+                              sx={{
+                                borderRadius: 999,
+                                minWidth: 0,
+                                color: motionMode === "ambient" ? "#08111d" : "var(--text)",
+                                background: motionMode === "ambient" ? stylePreset.support : "rgba(8, 17, 29, 0.28)",
+                                borderColor: "var(--line)"
+                              }}
+                            >
+                              Ambient
+                            </Button>
+                            <Button
+                              size="small"
+                              variant={motionMode === "timeline" ? "contained" : "outlined"}
+                              onClick={activateTimelineMode}
+                              sx={{
+                                borderRadius: 999,
+                                minWidth: 0,
+                                color: motionMode === "timeline" ? "#08111d" : "var(--text)",
+                                background: motionMode === "timeline" ? stylePreset.cool : "rgba(8, 17, 29, 0.28)",
+                                borderColor: "var(--line)"
+                              }}
+                            >
+                              Timeline
+                            </Button>
+                          </Stack>
+
+                          {isTimelineView && (
+                            <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
+                              <Button
+                                size="small"
+                                variant={timelinePlaying ? "contained" : "outlined"}
+                                onClick={toggleTimelinePlayback}
+                                sx={{
+                                  borderRadius: 999,
+                                  color: timelinePlaying ? "#08111d" : "var(--text)",
+                                  background: timelinePlaying ? stylePreset.warm : "transparent",
+                                  borderColor: "var(--line)"
+                                }}
+                              >
+                                {timelinePlaying ? "Pause Timeline" : "Play Timeline"}
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={restartTimeline}
+                                sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
+                              >
+                                Restart
+                              </Button>
+                              {[
+                                { id: "once", label: "Once", active: !timelineLoop, onClick: () => setTimelineLoop(false) },
+                                { id: "loop", label: "Loop", active: timelineLoop, onClick: () => setTimelineLoop(true) }
+                              ].map(option => (
+                                <Button
+                                  key={option.id}
+                                  size="small"
+                                  variant={option.active ? "contained" : "outlined"}
+                                  onClick={option.onClick}
+                                  sx={{
+                                    borderRadius: 999,
+                                    minWidth: 0,
+                                    color: option.active ? "#08111d" : "var(--text)",
+                                    background: option.active ? stylePreset.support : "transparent",
+                                    borderColor: "var(--line)"
+                                  }}
+                                >
+                                  {option.label}
+                                </Button>
+                              ))}
+                              {[1, 2, 4].map(speed => (
+                                <Button
+                                  key={speed}
+                                  size="small"
+                                  variant={timelineSpeed === speed ? "contained" : "outlined"}
+                                  onClick={() => setTimelineSpeed(speed)}
+                                  sx={{
+                                    borderRadius: 999,
+                                    minWidth: 0,
+                                    color: timelineSpeed === speed ? "#08111d" : "var(--text)",
+                                    background: timelineSpeed === speed ? stylePreset.hot : "transparent",
+                                    borderColor: "var(--line)"
+                                  }}
+                                >
+                                  {speed}x
+                                </Button>
+                              ))}
+                            </Stack>
+                          )}
                         </Stack>
-                      )}
-                    </Box>
+
+                        {isTimelineView && (
+                          <Stack spacing={0.7}>
+                            <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
+                              <Chip label={`${formatRuntimeClock(timelineClock)} / ${formatRuntimeClock(RUNTIME_TIMELINE_DURATION)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
+                              <Chip label={timelineLoop ? "Looping enabled" : "Stops at the end"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
+                            </Stack>
+                            <Slider
+                              value={timelineClock}
+                              min={0}
+                              max={RUNTIME_TIMELINE_DURATION}
+                              step={0.25}
+                              onChange={(event, next) => {
+                                setTimelineClock(Array.isArray(next) ? next[0] : next);
+                                pauseTimeline();
+                              }}
+                              sx={{
+                                color: stylePreset.cool,
+                                width: "100%",
+                                "& .MuiSlider-thumb": { boxShadow: "0 0 0 6px rgba(255,255,255,0.08)" }
+                              }}
+                            />
+                            <Typography className="mini-note">{animationSummary}</Typography>
+                          </Stack>
+                        )}
+                      </Stack>
+                    </Collapse>
                   </Stack>
-                ) : (
-                  <Typography sx={{ color: "var(--muted)" }}>Select a node to inspect it.</Typography>
-                )}
-              </Paper>
+                </Paper>
+
+                <Box
+                  className="viewer-stage"
+                  sx={{
+                    minHeight: viewerFullscreen ? "100%" : 0,
+                    height: viewerFullscreen ? "100%" : "auto"
+                  }}
+                >
+                  {showStoryPanel && (
+                    <Paper
+                      className="glass"
+                      sx={{
+                        borderRadius: 6,
+                        p: 2,
+                        height: storyOpen ? 184 : 84,
+                        overflow: "hidden",
+                        background: stylePreset.panelBackground,
+                        borderColor: hexToRgba(stylePreset.cool, 0.26),
+                        flexShrink: 0,
+                        transition: "height 220ms ease"
+                      }}
+                    >
+                      <Stack spacing={1.1} sx={{ height: "100%" }}>
+                        <PanelHeader
+                          eyebrow="Story"
+                          title={currentTimelinePhase.label}
+                          subtitle={null}
+                          open={storyOpen}
+                          onToggle={() => setStoryOpen(current => !current)}
+                          action={<Chip label={timelinePlaying ? `Playing ${timelineSpeed}x` : "Paused"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />}
+                        />
+                        <Collapse in={storyOpen}>
+                          <Stack spacing={1.1}>
+                            <Typography
+                              sx={{
+                                color: "var(--muted)",
+                                fontSize: 13.5,
+                                minHeight: 38,
+                                display: "-webkit-box",
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden"
+                              }}
+                            >
+                              {currentTimelinePhase.description}
+                            </Typography>
+                            <Typography className="mini-note">{animationSummary}</Typography>
+                            <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap sx={{ minHeight: 32, alignContent: "flex-start" }}>
+                              {timelineActiveStreams.map(stream => (
+                                <Chip
+                                  key={stream.id}
+                                  label={stream.label}
+                                  size="small"
+                                  sx={{
+                                    ...chipStyles,
+                                    borderColor: resolveTimelineColor(stream.colorKey, stylePreset),
+                                    background: hexToRgba(resolveTimelineColor(stream.colorKey, stylePreset), 0.1)
+                                  }}
+                                />
+                              ))}
+                            </Stack>
+                          </Stack>
+                        </Collapse>
+                      </Stack>
+                    </Paper>
+                  )}
+
+                  <Paper className="glass graph-frame">
+                    <Box sx={{ position: "absolute", inset: 0, background: stylePreset.graphBackground }} />
+                    <GraphView
+                      view={view}
+                      data={data}
+                      selectedId={selectedId}
+                      onSelect={setSelectedId}
+                      nodeStyle={nodeStyle}
+                      effects={effects}
+                      preset={stylePreset}
+                      layoutMode={layoutMode}
+                      layoutFrozen={layoutFrozen}
+                      compactLabels={compactLabels}
+                      command={viewerCommand}
+                      motionMode={motionMode}
+                      timelineClock={timelineClock}
+                    />
+                  </Paper>
+                </Box>
+              </Stack>
             </Grid>
           </Grid>
+
+          <Dialog
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            fullWidth
+            maxWidth="md"
+            PaperProps={{
+              sx: {
+                borderRadius: 6,
+                color: "var(--text)",
+                background: stylePreset.panelBackground,
+                border: "1px solid var(--line)",
+                boxShadow: "var(--shadow)"
+              }
+            }}
+          >
+            <DialogTitle sx={{ pb: 1 }}>
+              <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="center">
+                <Box>
+                  <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.5 }}>
+                    Viewer Settings
+                  </Typography>
+                  <Typography sx={{ fontWeight: 700, fontSize: 24, lineHeight: 1.1 }}>
+                    Style Lab
+                  </Typography>
+                </Box>
+                <IconButton
+                  onClick={() => setSettingsOpen(false)}
+                  sx={{
+                    color: "var(--text)",
+                    border: "1px solid var(--line)",
+                    background: "rgba(255,255,255,0.04)"
+                  }}
+                >
+                  <span className="material-icons">close</span>
+                </IconButton>
+              </Stack>
+            </DialogTitle>
+            <DialogContent sx={{ pt: "8px !important" }}>
+              <Stack spacing={2.2}>
+                <Typography sx={{ color: "rgba(236,244,255,0.76)", fontSize: 14.5 }}>
+                  Tune the palette, node artwork, and rendering effects without changing the tour data.
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel sx={{ color: "#9eb0c8" }}>Colour Scheme</InputLabel>
+                      <Select
+                        value={stylePresetId}
+                        label="Colour Scheme"
+                        onChange={event => setStylePresetId(event.target.value)}
+                        sx={selectStyles}
+                      >
+                        {Object.entries(STYLE_PRESETS).map(([id, preset]) => (
+                          <MenuItem key={id} value={id}>{preset.label}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel sx={{ color: "#9eb0c8" }}>Node Type</InputLabel>
+                      <Select
+                        value={nodeStyleId}
+                        label="Node Type"
+                        onChange={event => setNodeStyleId(event.target.value)}
+                        sx={selectStyles}
+                      >
+                        {Object.entries(NODE_STYLES).map(([id, style]) => (
+                          <MenuItem key={id} value={id}>{style.label}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel sx={{ color: "#9eb0c8" }}>Effects</InputLabel>
+                      <Select
+                        value={effectsId}
+                        label="Effects"
+                        onChange={event => setEffectsId(event.target.value)}
+                        sx={selectStyles}
+                      >
+                        {Object.entries(EFFECT_PRESETS).map(([id, effect]) => (
+                          <MenuItem key={id} value={id}>{effect.label}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                </Grid>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Chip label={stylePreset.label} sx={{ ...chipStyles, borderColor: stylePreset.support }} />
+                  <Chip label={nodeStyle.label} sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
+                  <Chip label={effects.label} sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
+                </Stack>
+                <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                  <Button
+                    variant="contained"
+                    onClick={() => setSettingsOpen(false)}
+                    sx={{
+                      borderRadius: 999,
+                      color: "#08111d",
+                      background: stylePreset.warm,
+                      "&:hover": { background: stylePreset.warm }
+                    }}
+                  >
+                    Close Settings
+                  </Button>
+                </Box>
+              </Stack>
+            </DialogContent>
+          </Dialog>
         </Box>
       );
     }
