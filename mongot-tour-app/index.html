@@ -669,6 +669,27 @@
       }
     };
 
+    const SPACING_PRESETS = {
+      tight: {
+        id: "tight",
+        label: "Tight",
+        scale: 0.94,
+        summary: "Keeps the graph compact."
+      },
+      balanced: {
+        id: "balanced",
+        label: "Balanced",
+        scale: 1.1,
+        summary: "Adds a bit more air between packages."
+      },
+      wide: {
+        id: "wide",
+        label: "Wide",
+        scale: 1.48,
+        summary: "Stretches the graph so nodes and labels get more breathing room."
+      }
+    };
+
     const theme = MaterialUI.createTheme({
       palette: {
         mode: "dark",
@@ -988,7 +1009,7 @@
       return count;
     }
 
-    function createOrbitLayout(data, view, width, height) {
+    function createOrbitLayout(data, view, width, height, spacingScale = 1) {
       const anchorId = getViewAnchorId(view, data);
       if (!anchorId) {
         return null;
@@ -1005,8 +1026,9 @@
       });
 
       const minDimension = Math.max(520, Math.min(width, height || width));
-      const primaryRadius = Math.max(165, minDimension * (view === "deps" ? 0.24 : 0.22));
-      const satelliteStride = Math.max(58, minDimension * 0.085);
+      const radiusScale = clamp(spacingScale, 0.88, 1.6);
+      const primaryRadius = Math.max(165, minDimension * (view === "deps" ? 0.24 : 0.22) * radiusScale);
+      const satelliteStride = Math.max(58, minDimension * 0.085 * Math.max(0.94, radiusScale));
       const verticalScale = view === "deps" ? 0.82 : 0.72;
       const hubs = hubIds.map((id, index) => {
         const node = nodeById.get(id);
@@ -1072,7 +1094,7 @@
         hubs,
         satellites,
         verticalScale,
-        fitScale: view === "deps" ? 0.86 : 1
+        fitScale: view === "deps" ? Math.min(0.86, 0.94 / radiusScale) : Math.min(1, 1.02 / radiusScale)
       };
     }
 
@@ -1749,7 +1771,7 @@
       }, [view, searchTerm, threshold, groupFilter, preset]);
     }
 
-    function GraphView({ view, data, selectedId, onSelect, nodeStyle, effects, preset, layoutMode, layoutFrozen, compactLabels, command, motionMode, timelineClock }) {
+    function GraphView({ view, data, selectedId, onSelect, nodeStyle, effects, preset, layoutMode, layoutFrozen, compactLabels, command, motionMode, timelineClock, spacingScale }) {
       const graphRef = React.useRef(null);
       const overlayRef = React.useRef(null);
       const networkRef = React.useRef(null);
@@ -1776,8 +1798,12 @@
 
         const isOrbitMode = layoutMode === "orbit";
         const isTimelineSystem = view === "system" && motionMode === "timeline";
+        const safeSpacingScale = clamp(spacingScale || 1, 0.88, 1.6);
+        const repulsionScale = 0.88 + safeSpacingScale * 0.24;
+        const overlapBoost = Math.max(0, (safeSpacingScale - 1) * 0.36);
+        const gravityEase = 1 / safeSpacingScale;
         const orbitModel = isOrbitMode
-          ? createOrbitLayout(data, view, graphRef.current.clientWidth, graphRef.current.clientHeight)
+          ? createOrbitLayout(data, view, graphRef.current.clientWidth, graphRef.current.clientHeight, safeSpacingScale)
           : null;
         orbitModelRef.current = orbitModel;
 
@@ -1788,25 +1814,25 @@
               ? {
                   solver: "forceAtlas2Based",
                   stabilization: { iterations: 220, fit: true },
-                  forceAtlas2Based: { springLength: 180, damping: 0.78, gravitationalConstant: -76, avoidOverlap: 0.95 },
+                  forceAtlas2Based: { springLength: 180 * safeSpacingScale, damping: 0.78, gravitationalConstant: -76 * repulsionScale, avoidOverlap: Math.min(1.15, 0.95 + overlapBoost) },
                   minVelocity: 0.22
                 }
               : {
                   solver: "forceAtlas2Based",
                   stabilization: { iterations: 160, fit: true },
-                  forceAtlas2Based: { springLength: 130, damping: 0.72, gravitationalConstant: -52, avoidOverlap: 0.45 }
+                  forceAtlas2Based: { springLength: 130 * safeSpacingScale, damping: 0.72, gravitationalConstant: -52 * repulsionScale, avoidOverlap: Math.min(0.92, 0.45 + overlapBoost) }
                 }
             : layoutMode === "spread"
               ? {
                   solver: "barnesHut",
                   stabilization: { iterations: 240, fit: true },
-                  barnesHut: { springLength: 210, damping: 0.86, gravitationalConstant: -6800, centralGravity: 0.08, avoidOverlap: 0.44 },
+                  barnesHut: { springLength: 210 * safeSpacingScale, damping: 0.86, gravitationalConstant: -6800 * repulsionScale, centralGravity: 0.08 * gravityEase, avoidOverlap: Math.min(0.84, 0.44 + overlapBoost) },
                   minVelocity: 0.22
                 }
               : {
                   solver: "barnesHut",
                   stabilization: { iterations: 180, fit: true },
-                  barnesHut: { springLength: 140, damping: 0.82, gravitationalConstant: -4600, centralGravity: 0.14, avoidOverlap: 0.16 }
+                  barnesHut: { springLength: 140 * safeSpacingScale, damping: 0.82, gravitationalConstant: -4600 * repulsionScale, centralGravity: 0.14 * gravityEase, avoidOverlap: Math.min(0.56, 0.16 + overlapBoost) }
                 };
 
         const nodes = new vis.DataSet(
@@ -1864,7 +1890,7 @@
                 vadjust: isSvgNode ? (compactLabels ? -10 : -4) : 0,
                 multi: true
               },
-              widthConstraint: { maximum: compactLabels ? 92 : 116 },
+              widthConstraint: { maximum: Math.round((compactLabels ? 92 : 116) * Math.min(1.2, safeSpacingScale)) },
               labelHighlightBold: false
             };
           })
@@ -2000,7 +2026,7 @@
           networkRef.current = null;
           network.destroy();
         };
-      }, [compactLabels, data, effects, layoutFrozen, layoutMode, nodeStyle, onSelect, preset, view]);
+      }, [compactLabels, data, effects, layoutFrozen, layoutMode, nodeStyle, onSelect, preset, spacingScale, view]);
 
       React.useEffect(() => {
         if (!overlayRef.current) {
@@ -2274,6 +2300,7 @@
       const [nodeStyleId, setNodeStyleId] = React.useState("radarBloom");
       const [effectsId, setEffectsId] = React.useState("crisp");
       const [layoutMode, setLayoutMode] = React.useState("flow");
+      const [spacingPresetId, setSpacingPresetId] = React.useState("balanced");
       const [layoutFrozen, setLayoutFrozen] = React.useState(false);
       const [compactLabels, setCompactLabels] = React.useState(true);
       const [motionMode, setMotionMode] = React.useState("timeline");
@@ -2296,6 +2323,7 @@
       const stylePreset = STYLE_PRESETS[stylePresetId];
       const nodeStyle = NODE_STYLES[nodeStyleId];
       const effects = EFFECT_PRESETS[effectsId];
+      const spacingPreset = SPACING_PRESETS[spacingPresetId];
 
       const data = useGraphData(view, searchTerm, threshold, groupFilter, stylePreset);
 
@@ -2413,7 +2441,7 @@
           issueViewerCommand("fit");
         }, 200);
         return () => window.clearTimeout(timerId);
-      }, [controlsOpen, showStoryPanel, sidebarOpen, storyOpen, viewerFullscreen]);
+      }, [controlsOpen, showStoryPanel, sidebarOpen, spacingPresetId, storyOpen, viewerFullscreen]);
 
       React.useEffect(() => {
         if (!isTimelineView) {
@@ -2537,6 +2565,7 @@
         : layoutMode === "spread"
           ? "Spread mode adds more breathing room between labels and large nodes."
           : "Flow mode keeps the graph loose and reactive so you can drag packages around freely.";
+      const spacingSummary = spacingPreset.summary;
       const animationSummary = motionMode === "timeline"
         ? `${currentTimelinePhase.label} at ${formatRuntimeClock(timelineClock)} of ${formatRuntimeClock(RUNTIME_TIMELINE_DURATION)}.`
         : "Ambient mode shows the architecture without a runtime story overlaid on top.";
@@ -2985,6 +3014,7 @@
                             <Chip label={`${data.edges.length} edges`} size="small" sx={chipStyles} />
                             <Chip label={view === "deps" ? "grouped by bundle role" : "imports shown as arrows"} size="small" sx={chipStyles} />
                             <Chip label={layoutMode === "orbit" ? `orbiting ${orbitAnchorLabel}` : layoutMode} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
+                            <Chip label={`room ${spacingPreset.label.toLowerCase()}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
                             <Chip label={motionMode === "timeline" ? "runtime timeline" : "ambient motion"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
                           </Stack>
                           {layoutMode !== "flow" && (
@@ -3078,6 +3108,32 @@
                               {compactLabels ? "Labels: Compact" : "Labels: Full"}
                             </Button>
                           </Stack>
+                        </Stack>
+
+                        <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
+                          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
+                            {Object.values(SPACING_PRESETS).map(option => (
+                              <Button
+                                key={option.id}
+                                size="small"
+                                variant={spacingPresetId === option.id ? "contained" : "outlined"}
+                                onClick={() => {
+                                  setSpacingPresetId(option.id);
+                                  setLayoutFrozen(false);
+                                }}
+                                sx={{
+                                  borderRadius: 999,
+                                  minWidth: 0,
+                                  color: spacingPresetId === option.id ? "#08111d" : "var(--text)",
+                                  background: spacingPresetId === option.id ? stylePreset.support : "transparent",
+                                  borderColor: "var(--line)"
+                                }}
+                              >
+                                {option.label}
+                              </Button>
+                            ))}
+                          </Stack>
+                          <Typography className="mini-note">{spacingSummary}</Typography>
                         </Stack>
 
                         <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
@@ -3286,13 +3342,14 @@
                       preset={stylePreset}
                       layoutMode={layoutMode}
                       layoutFrozen={layoutFrozen}
-                      compactLabels={compactLabels}
-                      command={viewerCommand}
-                      motionMode={motionMode}
-                      timelineClock={timelineClock}
-                    />
-                  </Paper>
-                </Box>
+                    compactLabels={compactLabels}
+                    command={viewerCommand}
+                    motionMode={motionMode}
+                    timelineClock={timelineClock}
+                    spacingScale={spacingPreset.scale}
+                  />
+                </Paper>
+              </Box>
               </Stack>
             </Grid>
           </Grid>
