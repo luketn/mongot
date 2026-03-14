@@ -1,5 +1,6 @@
 package com.xgen.mongot.index.lucene.codec;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.xgen.mongot.index.lucene.field.FieldName.TypeField.KNN_BIT;
 import static com.xgen.mongot.index.lucene.field.FieldName.TypeField.KNN_BYTE;
 import static com.xgen.mongot.index.lucene.field.FieldName.TypeField.KNN_F32_Q1;
@@ -8,6 +9,7 @@ import static com.xgen.mongot.index.lucene.field.FieldName.TypeField.KNN_VECTOR;
 import static com.xgen.mongot.index.lucene.field.FieldName.TypeField.NUMBER_INT64;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.DEFAULT_BEAM_WIDTH;
 import static org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat.DEFAULT_MAX_CONN;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
 import com.xgen.mongot.index.definition.VectorFieldSpecification;
@@ -24,9 +26,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.lucene.codecs.KnnVectorsFormat;
+import org.apache.lucene.codecs.lucene90.Lucene90CompoundFormat;
+import org.apache.lucene.codecs.lucene90.Lucene90DocValuesFormat;
+import org.apache.lucene.codecs.lucene90.Lucene90LiveDocsFormat;
+import org.apache.lucene.codecs.lucene90.Lucene90NormsFormat;
+import org.apache.lucene.codecs.lucene90.Lucene90PointsFormat;
+import org.apache.lucene.codecs.lucene90.Lucene90TermVectorsFormat;
+import org.apache.lucene.codecs.lucene94.Lucene94FieldInfosFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
+import org.apache.lucene.codecs.lucene99.Lucene99PostingsFormat;
+import org.apache.lucene.codecs.lucene99.Lucene99SegmentInfoFormat;
+import org.apache.lucene.codecs.perfield.PerFieldDocValuesFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
+import org.apache.lucene.codecs.perfield.PerFieldPostingsFormat;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.experimental.theories.DataPoints;
@@ -167,6 +180,60 @@ public class LuceneCodecTest {
         format.getKnnVectorsFormatForField(KNN_BYTE.getLuceneFieldName(path, Optional.empty()));
 
     Assert.assertTrue(vectorsFormat instanceof Float32AndByteFlatVectorsFormat);
+  }
+
+  /**
+   * Checks every subformat of LuceneCodec to its expected implementation. This is an intentional
+   * change-detector test: it should break whenever a Lucene upgrade changes a codec subformat.
+   * Breaking this test means a codec subformat changed. This could break forward compatibility that
+   * old subformats cannot read segments written by newer versions, which means rollbacks will
+   * require reindexing.
+   *
+   * <p>For the per-field formats (postings, docValues, knnVectors), we check both the wrapper class
+   * and its registered name (written into segment metadata), as well as the underlying per-field
+   * delegate class. For the remaining formats, we check the implementation class.
+   */
+  @Test
+  public void subformatNames_defaultCodec_matchExpectedLucene99Formats() {
+    LuceneCodec codec = new LuceneCodec();
+
+    assertEquals("Lucene99", codec.getName());
+
+    // Per-field formats: check wrapper class, registered name, and underlying delegate.
+    // The registered name is written into FieldInfo attributes and must stay stable across
+    // upgrades.
+    assertThat(codec.postingsFormat()).isInstanceOf(PerFieldPostingsFormat.class);
+    PerFieldPostingsFormat postingsFormat = (PerFieldPostingsFormat) codec.postingsFormat();
+    assertEquals("PerField40", postingsFormat.getName());
+    assertThat(postingsFormat.getPostingsFormatForField("any"))
+        .isInstanceOf(Lucene99PostingsFormat.class);
+
+    assertThat(codec.docValuesFormat()).isInstanceOf(PerFieldDocValuesFormat.class);
+    PerFieldDocValuesFormat docValuesFormat = (PerFieldDocValuesFormat) codec.docValuesFormat();
+    assertEquals("PerFieldDV40", docValuesFormat.getName());
+    assertThat(docValuesFormat.getDocValuesFormatForField("any"))
+        .isInstanceOf(Lucene90DocValuesFormat.class);
+
+    // knnVectorsFormat requires a typed field name because LuceneCodec.getKnnVectorsFormatForField
+    // parses the type prefix to resolve the format.
+    assertThat(codec.knnVectorsFormat()).isInstanceOf(PerFieldKnnVectorsFormat.class);
+    PerFieldKnnVectorsFormat knnVectorsFormat = (PerFieldKnnVectorsFormat) codec.knnVectorsFormat();
+    assertEquals("PerFieldVectors90", knnVectorsFormat.getName());
+    assertThat(
+            knnVectorsFormat.getKnnVectorsFormatForField(
+                KNN_VECTOR.getLuceneFieldName(FieldPath.parse("any"), Optional.empty())))
+        .isInstanceOf(Lucene99HnswVectorsFormat.class);
+
+    // Remaining formats delegated from Lucene99Codec (except storedFieldsFormat, which LuceneCodec
+    // overrides with its own LuceneStoredFieldsFormat).
+    assertThat(codec.storedFieldsFormat()).isInstanceOf(LuceneStoredFieldsFormat.class);
+    assertThat(codec.fieldInfosFormat()).isInstanceOf(Lucene94FieldInfosFormat.class);
+    assertThat(codec.segmentInfoFormat()).isInstanceOf(Lucene99SegmentInfoFormat.class);
+    assertThat(codec.termVectorsFormat()).isInstanceOf(Lucene90TermVectorsFormat.class);
+    assertThat(codec.liveDocsFormat()).isInstanceOf(Lucene90LiveDocsFormat.class);
+    assertThat(codec.compoundFormat()).isInstanceOf(Lucene90CompoundFormat.class);
+    assertThat(codec.normsFormat()).isInstanceOf(Lucene90NormsFormat.class);
+    assertThat(codec.pointsFormat()).isInstanceOf(Lucene90PointsFormat.class);
   }
 
   private VectorFieldSpecification createFlatVectorFieldDefinition() {
