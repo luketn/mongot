@@ -13,9 +13,11 @@ Arrows are package-level flows, backed by representative classes such as:
 - `index`: initialized index creation plus Lucene-backed readers/writers
 - `catalogservice`: authoritative catalog and metadata service
 
-The startup, indexing, steady-state, and shutdown flows below are grounded in code. The later "high-volume query burst for 30s" section is a modeled scenario inferred from the serving paths, not a captured production trace.
+The startup, indexing, steady-state, and shutdown flows below are grounded in code. The later Atlas Search and Vector Search load stages are modeled from the serving paths so their different dependencies stay visible in the graph, not from a captured production trace.
 
-## 1. Bootstrap, Control Plane, and Service Bring-Up
+## 1. Bootstrap, Control Plane, and Service Initialization
+
+MongoT starts by letting `community` hand control to `config`, which fans out into logging, metrics, monitors, metadata, cursors, and serving infrastructure.
 
 ```mermaid
 sequenceDiagram
@@ -61,7 +63,9 @@ sequenceDiagram
     end
 ```
 
-## 2. Index Bring-Up, Initial Sync, and Transition to Steady State
+## 2. Initialize, Initial Sync, and Transition to Steady State
+
+Once the process is up, lifecycle and replication cooperate to initialize indexes, establish durable resume state, and move each generation into steady service.
 
 ```mermaid
 sequenceDiagram
@@ -115,7 +119,9 @@ sequenceDiagram
     end
 ```
 
-## 3. Stable Serving: Search, Vector Search, and Cursor Continuations
+## 3. Stable Serving: Atlas Search, Vector Search, and Cursor Continuations
+
+Stable serving splits into two distinct query paths: Atlas Search uses the server-cursor-index chain, while Vector Search adds the embedding service before the index reader.
 
 ```mermaid
 sequenceDiagram
@@ -128,7 +134,7 @@ sequenceDiagram
     participant config as config
     participant catalogservice as catalogservice
 
-    par search request stream
+    par Atlas Search request stream
         server->>server: ServerCallHandler.parseCommand(...)
         server->>server: CommandRegistry lookup + BulkheadCommandExecutor.execute(...)
         server->>cursor: SearchCommand.run() then newCursor(...)
@@ -141,7 +147,7 @@ sequenceDiagram
             index-->>cursor: next batch
             cursor-->>server: page of results
         end
-    and vector search request stream
+    and Vector Search request stream
         server->>server: ServerCallHandler.parseCommand(...)
         server->>server: BulkheadCommandExecutor.execute(...)
         server->>embedding: VectorSearchCommand.maybeEmbed(...)
@@ -158,6 +164,8 @@ sequenceDiagram
 ```
 
 ## 4. Shutdown
+
+Shutdown unwinds the same stack in reverse order so serving, telemetry, config, lifecycle, and replication all stop cleanly without orphaned work.
 
 ```mermaid
 sequenceDiagram
@@ -192,16 +200,18 @@ The tour app animation should treat this as a compressed runtime story with mult
 | Virtual Time | Phase | Main Streams |
 | --- | --- | --- |
 | `0s-6s` | Bootstrap | `community -> config -> metrics/monitor/catalogservice/cursor/server` |
-| `6s-18s` | Index bring-up | `config -> lifecycle -> index -> replication` |
+| `6s-18s` | Initialize | `config -> lifecycle -> index -> replication` |
 | `18s-34s` | Initial sync | `replication.initialsync -> index` plus buffered write capture |
 | `34s-44s` | Stable state | `replication.steadystate -> index` with config and metadata polling in the background |
-| `44s-74s` | High-volume query burst | Parallel `server -> cursor -> index` search flow and `server -> embedding -> index` vector flow, while steady-state replication continues |
-| `74s-82s` | Traffic taper | Same serving edges, but at visibly reduced intensity |
+| `44s-59s` | Atlas Search load | `server -> cursor -> index` Atlas Search flow with steady-state replication continuing behind it |
+| `59s-74s` | Vector Search load | `server -> embedding -> index` Vector Search flow with steady-state replication continuing behind it |
+| `74s-78s` | Atlas Search taper | The Atlas Search path remains active, but at visibly reduced intensity |
+| `78s-82s` | Vector Search taper | The Vector Search path remains active, but at visibly reduced intensity |
 | `82s-90s` | Shutdown | `community -> server/metrics/config -> lifecycle -> replication -> catalogservice/logging` |
 
 ### Edge Groups to Animate
 
-- Bootstrap and bring-up:
+- Bootstrap and initialize:
   - `community -> config`
   - `config -> metrics`
   - `config -> monitor`
@@ -218,9 +228,10 @@ The tour app animation should treat this as a compressed runtime story with mult
   - `catalogservice -> config`
   - `replication -> index`
   - `monitor -> config`
-- Query load:
+- Atlas Search load:
   - `server -> cursor`
   - `cursor -> index`
+- Vector Search load:
   - `server -> embedding`
   - `embedding -> index`
 - Shutdown:
@@ -236,4 +247,4 @@ The tour app animation should treat this as a compressed runtime story with mult
 
 - The package graph is import-oriented, so a few animation edges represent runtime call direction rather than the static import arrow direction.
 - The steady-state and config-monitor streams are genuinely concurrent in code.
-- The `44s-74s` burst is intentionally modeled as a 30-second workload window so the visualization can show sustained search and vector traffic over a stable replicated index.
+- The `44s-74s` query-load window is intentionally split into separate Atlas Search and Vector Search slices so the visualization can show the Lucene/cursor path and the embedding/vector path independently.
