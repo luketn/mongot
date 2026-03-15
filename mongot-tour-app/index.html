@@ -197,6 +197,63 @@
       inset: 0;
     }
 
+    .graph-frame .vis-network div.vis-navigation {
+      background: transparent !important;
+      box-shadow: none !important;
+      border: 0 !important;
+    }
+
+    .graph-frame .vis-network div.vis-button {
+      width: 34px !important;
+      height: 34px !important;
+      border-radius: 999px !important;
+      border: 1px solid rgba(228, 234, 243, 0.18) !important;
+      background-color: rgba(27, 28, 33, 0.76) !important;
+      background-repeat: no-repeat !important;
+      background-position: center !important;
+      background-size: 20px 20px !important;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+      transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease !important;
+    }
+
+    .graph-frame .vis-network div.vis-button:hover {
+      background-color: rgba(41, 44, 52, 0.88) !important;
+      border-color: rgba(236, 244, 255, 0.28) !important;
+      transform: translateY(-1px);
+    }
+
+    .graph-frame .vis-network div.vis-button:active {
+      transform: translateY(1px);
+    }
+
+    .graph-frame .vis-network div.vis-button.vis-up {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d7dde8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 18V6'/%3E%3Cpath d='M7 11l5-5 5 5'/%3E%3C/svg%3E") !important;
+    }
+
+    .graph-frame .vis-network div.vis-button.vis-down {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d7dde8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6v12'/%3E%3Cpath d='M7 13l5 5 5-5'/%3E%3C/svg%3E") !important;
+    }
+
+    .graph-frame .vis-network div.vis-button.vis-left {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d7dde8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 12H6'/%3E%3Cpath d='M11 7l-5 5 5 5'/%3E%3C/svg%3E") !important;
+    }
+
+    .graph-frame .vis-network div.vis-button.vis-right {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d7dde8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12h12'/%3E%3Cpath d='M13 7l5 5-5 5'/%3E%3C/svg%3E") !important;
+    }
+
+    .graph-frame .vis-network div.vis-button.vis-zoomIn {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d7dde8' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M12 6v12'/%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E") !important;
+    }
+
+    .graph-frame .vis-network div.vis-button.vis-zoomOut {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d7dde8' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E") !important;
+    }
+
+    .graph-frame .vis-network div.vis-button.vis-zoomExtends {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d7dde8' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 4H4v5'/%3E%3Cpath d='M15 4h5v5'/%3E%3Cpath d='M20 15v5h-5'/%3E%3Cpath d='M4 15v5h5'/%3E%3C/svg%3E") !important;
+    }
+
     .graph-overlay-canvas {
       position: absolute;
       inset: 0;
@@ -1113,322 +1170,74 @@
       logging: "top:logging"
     };
 
-    const RUNTIME_TIMELINE_DURATION = 90;
+    const DEFAULT_RUNTIME_TIMELINE_DURATION = 90;
+    const EMPTY_RUNTIME_TIMELINE = {
+      duration: DEFAULT_RUNTIME_TIMELINE_DURATION,
+      phases: [
+        {
+          id: "loading",
+          label: "Story Loading",
+          focusKey: "config",
+          start: 0,
+          end: DEFAULT_RUNTIME_TIMELINE_DURATION,
+          description: "Loading story-animation.json...",
+          streams: []
+        }
+      ]
+    };
 
-    const RUNTIME_TIMELINE_PHASES = [
-      {
-        id: "bootstrap",
-        label: "Bootstrap",
-        focusKey: "config",
-        start: 0,
-        end: 6,
-        description: "Community bootstrap fans out through config to assemble logging, metrics, monitors, metadata, cursors, and servers.",
-        streams: [
-          {
-            id: "boot-core",
-            label: "bootstrap fan-out",
-            colorKey: "support",
-            width: 2.6,
-            intensity: 0.92,
-            tempo: 0.95,
-            particles: 3,
-            modulation: "ramp",
-            edges: [
-              ["community", "config"],
-              ["config", "metrics"],
-              ["config", "monitor"],
-              ["config", "catalogservice"],
-              ["config", "cursor"],
-              ["config", "server"]
-            ]
-          },
-          {
-            id: "boot-support",
-            label: "support wiring",
-            colorKey: "cool",
-            width: 2.1,
-            intensity: 0.72,
-            tempo: 0.8,
-            particles: 2,
-            modulation: "drift",
-            edges: [
-              ["config", "embedding"],
-              ["config", "lifecycle"],
-              ["community", "logging"]
-            ]
-          }
-        ]
-      },
-      {
-        id: "bringup",
-        label: "Index Initialization",
-        focusKey: "index",
-        start: 6,
-        end: 18,
-        description: "Config state starts lifecycle managers, initializes indexes, and hands those generations into replication.",
-        streams: [
-          {
-            id: "bringup-lifecycle",
-            label: "lifecycle startup",
-            colorKey: "warm",
-            width: 3.0,
-            intensity: 0.88,
-            tempo: 1.05,
-            particles: 3,
-            modulation: "surge",
-            edges: [
-              ["config", "lifecycle"],
-              ["lifecycle", "index"],
-              ["lifecycle", "replication"]
-            ]
-          },
-          {
-            id: "bringup-control",
-            label: "control-plane polling",
-            colorKey: "support",
-            width: 1.8,
-            intensity: 0.54,
-            tempo: 0.7,
-            particles: 2,
-            modulation: "ping",
-            edges: [
-              ["config", "catalogservice"],
-              ["catalogservice", "config"]
-            ]
-          }
-        ]
-      },
-      {
-        id: "initialsync",
-        label: "Initial Sync",
-        focusKey: "index",
-        start: 18,
-        end: 34,
-        description: "Replication dominates while collection scan, buffered change capture, and buffered replay all feed the index.",
-        streams: [
-          {
-            id: "initialsync-feed",
-            label: "initial sync ingestion",
-            colorKey: "hot",
-            width: 3.5,
-            intensity: 0.98,
-            tempo: 1.35,
-            particles: 4,
-            modulation: "surge",
-            edges: [
-              ["replication", "index"]
-            ]
-          },
-          {
-            id: "initialsync-supervision",
-            label: "status and lifecycle supervision",
-            colorKey: "warm",
-            width: 2.2,
-            intensity: 0.62,
-            tempo: 0.84,
-            particles: 2,
-            modulation: "drift",
-            edges: [
-              ["lifecycle", "replication"],
-              ["config", "lifecycle"]
-            ]
-          }
-        ]
-      },
-      {
-        id: "steady",
-        label: "Stable State",
-        focusKey: "index",
-        start: 34,
-        end: 44,
-        description: "Change streams keep indexes current while config polling and metadata updates continue quietly beside serving.",
-        streams: [
-          {
-            id: "steady-repl",
-            label: "steady-state replication",
-            colorKey: "cool",
-            width: 2.6,
-            intensity: 0.68,
-            tempo: 0.92,
-            particles: 3,
-            modulation: "drift",
-            edges: [
-              ["replication", "index"]
-            ]
-          },
-          {
-            id: "steady-config",
-            label: "catalog polling",
-            colorKey: "support",
-            width: 1.8,
-            intensity: 0.46,
-            tempo: 0.66,
-            particles: 2,
-            modulation: "ping",
-            edges: [
-              ["config", "catalogservice"],
-              ["catalogservice", "config"]
-            ]
-          },
-          {
-            id: "steady-guardrails",
-            label: "monitoring feedback",
-            colorKey: "warm",
-            width: 1.7,
-            intensity: 0.34,
-            tempo: 0.54,
-            particles: 1,
-            modulation: "ping",
-            edges: [
-              ["monitor", "config"]
-            ]
-          }
-        ]
-      },
-      {
-        id: "queryburst",
-        label: "Heavy Query Load",
-        focusKey: "index",
-        start: 44,
-        end: 74,
-        description: "A modeled 30-second surge: classic search and vector search hammer the serving path while steady-state replication keeps running.",
-        streams: [
-          {
-            id: "burst-search",
-            label: "search query flow",
-            colorKey: "warm",
-            width: 3.9,
-            intensity: 1,
-            tempo: 2.15,
-            particles: 5,
-            modulation: "burst",
-            edges: [
-              ["server", "cursor"],
-              ["cursor", "index"]
-            ]
-          },
-          {
-            id: "burst-vector",
-            label: "vector query flow",
-            colorKey: "hot",
-            width: 3.6,
-            intensity: 0.94,
-            tempo: 1.9,
-            particles: 4,
-            modulation: "burst",
-            edges: [
-              ["server", "embedding"],
-              ["embedding", "index"]
-            ]
-          },
-          {
-            id: "burst-repl",
-            label: "background replication",
-            colorKey: "cool",
-            width: 2.2,
-            intensity: 0.52,
-            tempo: 0.92,
-            particles: 2,
-            modulation: "drift",
-            edges: [
-              ["replication", "index"]
-            ]
-          }
-        ]
-      },
-      {
-        id: "taper",
-        label: "Light Query Load",
-        focusKey: "index",
-        start: 74,
-        end: 82,
-        description: "The same serving paths remain active, but visibly thins out.",
-        streams: [
-          {
-            id: "taper-search",
-            label: "search tail",
-            colorKey: "warm",
-            width: 2.8,
-            intensity: 0.54,
-            tempo: 1.2,
-            particles: 3,
-            modulation: "fade",
-            edges: [
-              ["server", "cursor"],
-              ["cursor", "index"]
-            ]
-          },
-          {
-            id: "taper-vector",
-            label: "vector tail",
-            colorKey: "hot",
-            width: 2.5,
-            intensity: 0.44,
-            tempo: 1.05,
-            particles: 2,
-            modulation: "fade",
-            edges: [
-              ["server", "embedding"],
-              ["embedding", "index"]
-            ]
-          },
-          {
-            id: "taper-repl",
-            label: "steady-state replication",
-            colorKey: "cool",
-            width: 1.9,
-            intensity: 0.34,
-            tempo: 0.72,
-            particles: 2,
-            modulation: "fade",
-            edges: [
-              ["replication", "index"]
-            ]
-          }
-        ]
-      },
-      {
-        id: "shutdown",
-        label: "Shutdown",
-        focusKey: "config",
-        start: 82,
-        end: 90,
-        description: "Terminal health state triggers server stop, metrics stop, config close, lifecycle shutdown, and replication teardown.",
-        streams: [
-          {
-            id: "shutdown-fanout",
-            label: "controlled shutdown",
-            colorKey: "support",
-            width: 2.7,
-            intensity: 0.86,
-            tempo: 1.05,
-            particles: 3,
-            modulation: "surge",
-            edges: [
-              ["community", "config"],
-              ["config", "server"],
-              ["config", "metrics"],
-              ["config", "catalogservice"]
-            ]
-          },
-          {
-            id: "shutdown-core",
-            label: "lifecycle and replication teardown",
-            colorKey: "cool",
-            width: 2.5,
-            intensity: 0.78,
-            tempo: 0.9,
-            particles: 2,
-            modulation: "surge",
-            edges: [
-              ["config", "lifecycle"],
-              ["lifecycle", "replication"],
-              ["community", "logging"]
-            ]
-          }
-        ]
+    function normalizeRuntimeTimelineDefinition(rawDefinition) {
+      const duration = Number.isFinite(rawDefinition?.duration) && rawDefinition.duration > 0
+        ? rawDefinition.duration
+        : DEFAULT_RUNTIME_TIMELINE_DURATION;
+      const phases = Array.isArray(rawDefinition?.phases)
+        ? rawDefinition.phases
+          .map(phase => ({
+            ...phase,
+            start: Number.isFinite(phase?.start) ? phase.start : 0,
+            end: Number.isFinite(phase?.end) ? phase.end : duration,
+            streams: Array.isArray(phase?.streams)
+              ? phase.streams.map(stream => ({
+                ...stream,
+                edges: Array.isArray(stream?.edges) ? stream.edges : []
+              }))
+              : []
+          }))
+          .sort((left, right) => left.start - right.start)
+        : [];
+
+      if (phases.length === 0) {
+        return EMPTY_RUNTIME_TIMELINE;
       }
-    ];
+
+      return { duration, phases };
+    }
+
+    function buildRuntimeTimelineFallback(message) {
+      return {
+        duration: DEFAULT_RUNTIME_TIMELINE_DURATION,
+        phases: [
+          {
+            id: "unavailable",
+            label: "Story Unavailable",
+            focusKey: "config",
+            start: 0,
+            end: DEFAULT_RUNTIME_TIMELINE_DURATION,
+            description: message,
+            streams: []
+          }
+        ]
+      };
+    }
+
+    async function loadRuntimeTimelineDefinition() {
+      const response = await fetch("./story-animation.json", { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`Failed to load story-animation.json (${response.status})`);
+      }
+      const rawDefinition = await response.json();
+      return normalizeRuntimeTimelineDefinition(rawDefinition);
+    }
 
     function clamp(value, min, max) {
       return Math.max(min, Math.min(max, value));
@@ -1449,10 +1258,15 @@
       return `${minutes}:${seconds.toString().padStart(2, "0")}`;
     }
 
-    function getRuntimePhaseAtTime(timeSec) {
-      return RUNTIME_TIMELINE_PHASES.find(
-        phase => timeSec >= phase.start && (timeSec < phase.end || phase.end === RUNTIME_TIMELINE_DURATION)
-      ) || RUNTIME_TIMELINE_PHASES[RUNTIME_TIMELINE_PHASES.length - 1];
+    function getRuntimePhaseAtTime(runtimeTimelineDefinition, timeSec) {
+      const runtimeTimeline = runtimeTimelineDefinition || EMPTY_RUNTIME_TIMELINE;
+      const phases = Array.isArray(runtimeTimeline.phases) && runtimeTimeline.phases.length > 0
+        ? runtimeTimeline.phases
+        : EMPTY_RUNTIME_TIMELINE.phases;
+      const duration = runtimeTimeline.duration || DEFAULT_RUNTIME_TIMELINE_DURATION;
+      return phases.find(
+        phase => timeSec >= phase.start && (timeSec < phase.end || phase.end === duration)
+      ) || phases[phases.length - 1] || EMPTY_RUNTIME_TIMELINE.phases[0];
     }
 
     function getTimelineStreamModulation(stream, localTime, phaseDuration) {
@@ -1480,8 +1294,8 @@
       return clamp(intro * outro, 0, 1);
     }
 
-    function getActiveRuntimeStreams(timeSec) {
-      const phase = getRuntimePhaseAtTime(timeSec);
+    function getActiveRuntimeStreams(runtimeTimelineDefinition, timeSec) {
+      const phase = getRuntimePhaseAtTime(runtimeTimelineDefinition, timeSec);
       const localTime = timeSec - phase.start;
       const duration = phase.end - phase.start;
       const envelope = getTimelineEnvelope(phase, timeSec);
@@ -1771,18 +1585,18 @@
       }, [view, searchTerm, threshold, groupFilter, preset]);
     }
 
-    function GraphView({ view, data, selectedId, onSelect, nodeStyle, effects, preset, layoutMode, layoutFrozen, compactLabels, command, motionMode, timelineClock, spacingScale }) {
+    function GraphView({ view, data, selectedId, onSelect, nodeStyle, effects, preset, layoutMode, layoutFrozen, compactLabels, command, motionMode, timelineClock, runtimeTimelineDefinition, spacingScale }) {
       const graphRef = React.useRef(null);
       const overlayRef = React.useRef(null);
       const networkRef = React.useRef(null);
       const orbitFrameRef = React.useRef(null);
       const overlayFrameRef = React.useRef(null);
       const orbitModelRef = React.useRef(null);
-      const timelineStateRef = React.useRef({ view, motionMode, timelineClock, preset });
+      const timelineStateRef = React.useRef({ view, motionMode, timelineClock, preset, runtimeTimelineDefinition });
 
       React.useEffect(() => {
-        timelineStateRef.current = { view, motionMode, timelineClock, preset };
-      }, [motionMode, preset, timelineClock, view]);
+        timelineStateRef.current = { view, motionMode, timelineClock, preset, runtimeTimelineDefinition };
+      }, [motionMode, preset, runtimeTimelineDefinition, timelineClock, view]);
 
       React.useEffect(() => {
         if (!graphRef.current) {
@@ -1952,7 +1766,7 @@
             network.setOptions({ physics: false });
             const focusId = selectedId && data.nodes.some(node => node.id === selectedId)
               ? selectedId
-              : getRuntimeNodeId(getRuntimePhaseAtTime(timelineClock).focusKey || "index");
+              : getRuntimeNodeId(getRuntimePhaseAtTime(runtimeTimelineDefinition, timelineClock).focusKey || "index");
             moveCameraKeepingGraphVisible(
               network,
               graphRef.current,
@@ -2026,7 +1840,7 @@
           networkRef.current = null;
           network.destroy();
         };
-      }, [compactLabels, data, effects, layoutFrozen, layoutMode, nodeStyle, onSelect, preset, spacingScale, view]);
+      }, [compactLabels, data, effects, layoutFrozen, layoutMode, nodeStyle, onSelect, preset, runtimeTimelineDefinition, spacingScale, view]);
 
       React.useEffect(() => {
         if (!overlayRef.current) {
@@ -2139,7 +1953,7 @@
           const network = networkRef.current;
           const state = timelineStateRef.current;
           if (network && state.view === "system" && state.motionMode === "timeline") {
-            const { streams } = getActiveRuntimeStreams(state.timelineClock);
+            const { streams } = getActiveRuntimeStreams(state.runtimeTimelineDefinition, state.timelineClock);
             context.save();
             context.globalCompositeOperation = "lighter";
             streams.forEach((stream, streamIndex) => {
@@ -2304,6 +2118,7 @@
       const [layoutFrozen, setLayoutFrozen] = React.useState(false);
       const [compactLabels, setCompactLabels] = React.useState(true);
       const [motionMode, setMotionMode] = React.useState("timeline");
+      const [runtimeTimelineDefinition, setRuntimeTimelineDefinition] = React.useState(EMPTY_RUNTIME_TIMELINE);
       const [timelineClock, setTimelineClock] = React.useState(0);
       const [timelinePlaying, setTimelinePlaying] = React.useState(false);
       const [timelineSpeed, setTimelineSpeed] = React.useState(2);
@@ -2337,14 +2152,47 @@
         const anchorNode = data.nodes.find(node => node.id === orbitAnchorId);
         return anchorNode?.item?.short || anchorNode?.label || "anchor";
       }, [data.nodes, orbitAnchorId]);
-      const runtimeTimeline = React.useMemo(() => getActiveRuntimeStreams(timelineClock), [timelineClock]);
-      const currentTimelinePhase = runtimeTimeline.phase;
-      const timelineActiveStreams = runtimeTimeline.streams;
+      const runtimeTimelineDuration = runtimeTimelineDefinition.duration || DEFAULT_RUNTIME_TIMELINE_DURATION;
+      const activeRuntimeTimeline = React.useMemo(
+        () => getActiveRuntimeStreams(runtimeTimelineDefinition, timelineClock),
+        [runtimeTimelineDefinition, timelineClock]
+      );
+      const currentTimelinePhase = activeRuntimeTimeline.phase;
+      const timelineActiveStreams = activeRuntimeTimeline.streams;
       const isTimelineView = view === "system" && motionMode === "timeline";
       const showStoryPanel = isTimelineView;
       const issueViewerCommand = commandType => {
         setViewerCommand({ type: commandType, issuedAt: `${commandType}-${Date.now()}` });
       };
+
+      React.useEffect(() => {
+        let cancelled = false;
+
+        loadRuntimeTimelineDefinition()
+          .then(nextDefinition => {
+            if (cancelled) {
+              return;
+            }
+            React.startTransition(() => {
+              setRuntimeTimelineDefinition(nextDefinition);
+              setTimelineClock(current => Math.min(current, nextDefinition.duration || DEFAULT_RUNTIME_TIMELINE_DURATION));
+            });
+          })
+          .catch(error => {
+            if (cancelled) {
+              return;
+            }
+            console.error("Failed to load story animation definition", error);
+            setTimelinePlaying(false);
+            setRuntimeTimelineDefinition(
+              buildRuntimeTimelineFallback(error?.message || "Unable to load story-animation.json.")
+            );
+          });
+
+        return () => {
+          cancelled = true;
+        };
+      }, []);
 
       React.useEffect(() => {
         const fallback = view === "system" ? "top:index" : view === "index" ? "index:lucene" : "group:Cloud Integration";
@@ -2388,8 +2236,8 @@
           React.startTransition(() => {
             setTimelineClock(current => {
               const next = current + (0.033 * timelineSpeed);
-              if (next >= RUNTIME_TIMELINE_DURATION) {
-                return timelineLoop ? next % RUNTIME_TIMELINE_DURATION : RUNTIME_TIMELINE_DURATION;
+              if (next >= runtimeTimelineDuration) {
+                return timelineLoop ? next % runtimeTimelineDuration : runtimeTimelineDuration;
               }
               return next;
             });
@@ -2397,13 +2245,13 @@
         }, 33);
 
         return () => window.clearInterval(intervalId);
-      }, [motionMode, timelineLoop, timelinePlaying, timelineSpeed, view]);
+      }, [motionMode, runtimeTimelineDuration, timelineLoop, timelinePlaying, timelineSpeed, view]);
 
       React.useEffect(() => {
-        if (!timelineLoop && timelinePlaying && view === "system" && motionMode === "timeline" && timelineClock >= RUNTIME_TIMELINE_DURATION) {
+        if (!timelineLoop && timelinePlaying && view === "system" && motionMode === "timeline" && timelineClock >= runtimeTimelineDuration) {
           setTimelinePlaying(false);
         }
-      }, [motionMode, timelineClock, timelineLoop, timelinePlaying, view]);
+      }, [motionMode, runtimeTimelineDuration, timelineClock, timelineLoop, timelinePlaying, view]);
 
       React.useEffect(() => {
         if (view !== "system" || motionMode !== "timeline") {
@@ -2458,7 +2306,7 @@
 
         const scanTimeline = delta => {
           setTimelinePlaying(false);
-          setTimelineClock(current => Math.max(0, Math.min(RUNTIME_TIMELINE_DURATION, current + delta)));
+          setTimelineClock(current => Math.max(0, Math.min(runtimeTimelineDuration, current + delta)));
         };
 
         const handleKeydown = event => {
@@ -2473,7 +2321,7 @@
               setTimelinePlaying(false);
               return;
             }
-            if (!timelineLoop && timelineClock >= RUNTIME_TIMELINE_DURATION) {
+            if (!timelineLoop && timelineClock >= runtimeTimelineDuration) {
               setTimelineClock(0);
             }
             setTimelinePlaying(true);
@@ -2506,7 +2354,7 @@
         return () => {
           window.removeEventListener("keydown", handleKeydown, true);
         };
-      }, [isTimelineView, settingsOpen, timelineClock, timelineLoop, timelinePlaying]);
+      }, [isTimelineView, runtimeTimelineDuration, settingsOpen, timelineClock, timelineLoop, timelinePlaying]);
 
       const metrics = React.useMemo(() => {
         if (view === "system") {
@@ -2567,14 +2415,14 @@
           : "Flow mode keeps the graph loose and reactive so you can drag packages around freely.";
       const spacingSummary = spacingPreset.summary;
       const animationSummary = motionMode === "timeline"
-        ? `${currentTimelinePhase.label} at ${formatRuntimeClock(timelineClock)} of ${formatRuntimeClock(RUNTIME_TIMELINE_DURATION)}.`
+        ? `${currentTimelinePhase.label} at ${formatRuntimeClock(timelineClock)} of ${formatRuntimeClock(runtimeTimelineDuration)}.`
         : "Ambient mode shows the architecture without a runtime story overlaid on top.";
       const toggleTimelinePlayback = () => {
         if (timelinePlaying) {
           setTimelinePlaying(false);
           return;
         }
-        if (!timelineLoop && timelineClock >= RUNTIME_TIMELINE_DURATION) {
+        if (!timelineLoop && timelineClock >= runtimeTimelineDuration) {
           setTimelineClock(0);
         }
         setTimelinePlaying(true);
@@ -2584,11 +2432,11 @@
           setView("system");
         }
         setMotionMode("timeline");
-        if (!timelineLoop && timelineClock >= RUNTIME_TIMELINE_DURATION) {
+        if (!timelineLoop && timelineClock >= runtimeTimelineDuration) {
           setTimelineClock(0);
         }
         setTimelinePlaying(true);
-        setSelectedId(getRuntimeNodeId(getRuntimePhaseAtTime(timelineClock).focusKey || "index"));
+        setSelectedId(getRuntimeNodeId(getRuntimePhaseAtTime(runtimeTimelineDefinition, timelineClock).focusKey || "index"));
       };
       const pauseTimeline = () => setTimelinePlaying(false);
       const restartTimeline = () => {
@@ -3238,13 +3086,13 @@
                         {isTimelineView && (
                           <Stack spacing={0.7}>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
-                              <Chip label={`${formatRuntimeClock(timelineClock)} / ${formatRuntimeClock(RUNTIME_TIMELINE_DURATION)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
+                              <Chip label={`${formatRuntimeClock(timelineClock)} / ${formatRuntimeClock(runtimeTimelineDuration)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
                               <Chip label={timelineLoop ? "Looping enabled" : "Stops at the end"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
                             </Stack>
                             <Slider
                               value={timelineClock}
                               min={0}
-                              max={RUNTIME_TIMELINE_DURATION}
+                              max={runtimeTimelineDuration}
                               step={0.25}
                               onChange={(event, next) => {
                                 setTimelineClock(Array.isArray(next) ? next[0] : next);
@@ -3346,6 +3194,7 @@
                     command={viewerCommand}
                     motionMode={motionMode}
                     timelineClock={timelineClock}
+                    runtimeTimelineDefinition={runtimeTimelineDefinition}
                     spacingScale={spacingPreset.scale}
                   />
                 </Paper>

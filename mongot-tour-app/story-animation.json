@@ -1,0 +1,363 @@
+{
+  "duration": 90,
+  "phases": [
+    {
+      "id": "bootstrap",
+      "label": "Bootstrap",
+      "focusKey": "config",
+      "start": 0,
+      "end": 6,
+      "description": "Community bootstrap fans out through config to assemble logging, metrics, monitors, metadata, cursors, and servers.",
+      "streams": [
+        {
+          "id": "boot-core",
+          "label": "bootstrap fan-out",
+          "colorKey": "support",
+          "width": 2.6,
+          "intensity": 0.92,
+          "tempo": 0.95,
+          "particles": 3,
+          "modulation": "ramp",
+          "edges": [
+            ["community", "config"],
+            ["config", "metrics"],
+            ["config", "monitor"],
+            ["config", "catalogservice"],
+            ["config", "cursor"],
+            ["config", "server"]
+          ]
+        },
+        {
+          "id": "boot-support",
+          "label": "support wiring",
+          "colorKey": "cool",
+          "width": 2.1,
+          "intensity": 0.72,
+          "tempo": 0.8,
+          "particles": 2,
+          "modulation": "drift",
+          "edges": [
+            ["config", "embedding"],
+            ["config", "lifecycle"],
+            ["community", "logging"]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "initialize",
+      "label": "Initialize",
+      "focusKey": "index",
+      "start": 6,
+      "end": 18,
+      "description": "Config state starts lifecycle managers, initializes indexes, and hands those generations into replication.",
+      "streams": [
+        {
+          "id": "initialize-lifecycle",
+          "label": "initialize lifecycle",
+          "colorKey": "warm",
+          "width": 3.0,
+          "intensity": 0.88,
+          "tempo": 1.05,
+          "particles": 3,
+          "modulation": "surge",
+          "edges": [
+            ["config", "lifecycle"],
+            ["lifecycle", "index"],
+            ["lifecycle", "replication"]
+          ]
+        },
+        {
+          "id": "initialize-control",
+          "label": "control-plane polling",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.54,
+          "tempo": 0.7,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            ["config", "catalogservice"],
+            ["catalogservice", "config"]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "initialsync",
+      "label": "Initial Sync",
+      "focusKey": "index",
+      "start": 18,
+      "end": 34,
+      "description": "Replication dominates while collection scan, buffered change capture, and buffered replay all feed the index.",
+      "streams": [
+        {
+          "id": "initialsync-feed",
+          "label": "initial sync ingestion",
+          "colorKey": "hot",
+          "width": 3.5,
+          "intensity": 0.98,
+          "tempo": 1.35,
+          "particles": 4,
+          "modulation": "surge",
+          "edges": [
+            ["replication", "index"]
+          ]
+        },
+        {
+          "id": "initialsync-supervision",
+          "label": "status and lifecycle supervision",
+          "colorKey": "warm",
+          "width": 2.2,
+          "intensity": 0.62,
+          "tempo": 0.84,
+          "particles": 2,
+          "modulation": "drift",
+          "edges": [
+            ["lifecycle", "replication"],
+            ["config", "lifecycle"]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "steady",
+      "label": "Stable State",
+      "focusKey": "index",
+      "start": 34,
+      "end": 44,
+      "description": "Change streams keep indexes current while config polling and metadata updates continue quietly beside serving.",
+      "streams": [
+        {
+          "id": "steady-repl",
+          "label": "steady-state replication",
+          "colorKey": "cool",
+          "width": 2.6,
+          "intensity": 0.68,
+          "tempo": 0.92,
+          "particles": 3,
+          "modulation": "drift",
+          "edges": [
+            ["replication", "index"]
+          ]
+        },
+        {
+          "id": "steady-config",
+          "label": "catalog polling",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.46,
+          "tempo": 0.66,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            ["config", "catalogservice"],
+            ["catalogservice", "config"]
+          ]
+        },
+        {
+          "id": "steady-guardrails",
+          "label": "monitoring feedback",
+          "colorKey": "warm",
+          "width": 1.7,
+          "intensity": 0.34,
+          "tempo": 0.54,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            ["monitor", "config"]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "atlasload",
+      "label": "Atlas Search Load",
+      "focusKey": "cursor",
+      "start": 44,
+      "end": 59,
+      "description": "A modeled Atlas Search surge lights up the Lucene-serving path through cursors while steady-state replication keeps running underneath.",
+      "streams": [
+        {
+          "id": "atlas-load",
+          "label": "atlas search flow",
+          "colorKey": "warm",
+          "width": 3.9,
+          "intensity": 1,
+          "tempo": 2.15,
+          "particles": 5,
+          "modulation": "burst",
+          "edges": [
+            ["server", "cursor"],
+            ["cursor", "index"]
+          ]
+        },
+        {
+          "id": "atlas-repl",
+          "label": "background replication",
+          "colorKey": "cool",
+          "width": 2.2,
+          "intensity": 0.52,
+          "tempo": 0.92,
+          "particles": 2,
+          "modulation": "drift",
+          "edges": [
+            ["replication", "index"]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vectorload",
+      "label": "Vector Search Load",
+      "focusKey": "embedding",
+      "start": 59,
+      "end": 74,
+      "description": "A modeled Vector Search surge lights up the embedding path before the vector index reader while steady-state replication continues.",
+      "streams": [
+        {
+          "id": "vector-load",
+          "label": "vector search flow",
+          "colorKey": "hot",
+          "width": 3.6,
+          "intensity": 0.94,
+          "tempo": 1.9,
+          "particles": 4,
+          "modulation": "burst",
+          "edges": [
+            ["server", "embedding"],
+            ["embedding", "index"]
+          ]
+        },
+        {
+          "id": "vector-repl",
+          "label": "background replication",
+          "colorKey": "cool",
+          "width": 2.2,
+          "intensity": 0.52,
+          "tempo": 0.92,
+          "particles": 2,
+          "modulation": "drift",
+          "edges": [
+            ["replication", "index"]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "atlastaper",
+      "label": "Atlas Search Taper",
+      "focusKey": "cursor",
+      "start": 74,
+      "end": 78,
+      "description": "Atlas Search traffic thins out, but the cursor-backed Lucene path is still active at lower intensity.",
+      "streams": [
+        {
+          "id": "atlas-taper",
+          "label": "atlas search tail",
+          "colorKey": "warm",
+          "width": 2.8,
+          "intensity": 0.54,
+          "tempo": 1.2,
+          "particles": 3,
+          "modulation": "fade",
+          "edges": [
+            ["server", "cursor"],
+            ["cursor", "index"]
+          ]
+        },
+        {
+          "id": "atlas-taper-repl",
+          "label": "steady-state replication",
+          "colorKey": "cool",
+          "width": 1.9,
+          "intensity": 0.34,
+          "tempo": 0.72,
+          "particles": 2,
+          "modulation": "fade",
+          "edges": [
+            ["replication", "index"]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vectortaper",
+      "label": "Vector Search Taper",
+      "focusKey": "embedding",
+      "start": 78,
+      "end": 82,
+      "description": "Vector traffic ebbs, leaving the embedding and vector-reader path active at reduced intensity.",
+      "streams": [
+        {
+          "id": "vector-taper",
+          "label": "vector search tail",
+          "colorKey": "hot",
+          "width": 2.5,
+          "intensity": 0.44,
+          "tempo": 1.05,
+          "particles": 2,
+          "modulation": "fade",
+          "edges": [
+            ["server", "embedding"],
+            ["embedding", "index"]
+          ]
+        },
+        {
+          "id": "vector-taper-repl",
+          "label": "steady-state replication",
+          "colorKey": "cool",
+          "width": 1.9,
+          "intensity": 0.34,
+          "tempo": 0.72,
+          "particles": 2,
+          "modulation": "fade",
+          "edges": [
+            ["replication", "index"]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shutdown",
+      "label": "Shutdown",
+      "focusKey": "config",
+      "start": 82,
+      "end": 90,
+      "description": "Terminal health state triggers server stop, metrics stop, config close, lifecycle shutdown, and replication teardown.",
+      "streams": [
+        {
+          "id": "shutdown-fanout",
+          "label": "controlled shutdown",
+          "colorKey": "support",
+          "width": 2.7,
+          "intensity": 0.86,
+          "tempo": 1.05,
+          "particles": 3,
+          "modulation": "surge",
+          "edges": [
+            ["community", "config"],
+            ["config", "server"],
+            ["config", "metrics"],
+            ["config", "catalogservice"]
+          ]
+        },
+        {
+          "id": "shutdown-core",
+          "label": "lifecycle and replication teardown",
+          "colorKey": "cool",
+          "width": 2.5,
+          "intensity": 0.78,
+          "tempo": 0.9,
+          "particles": 2,
+          "modulation": "surge",
+          "edges": [
+            ["config", "lifecycle"],
+            ["lifecycle", "replication"],
+            ["community", "logging"]
+          ]
+        }
+      ]
+    }
+  ]
+}
