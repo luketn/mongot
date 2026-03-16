@@ -99,6 +99,24 @@
           }
         }
       }
+    },
+    {
+      "description": "vector-search-with-deadline",
+      "value": {
+        "vectorSearch": "my-collection",
+        "$db": "my-database",
+        "collectionUUID": "522cdf5e-54fc-4230-9d45-49da990e8ea7",
+        "path": "vec",
+        "queryVector": [
+          1,
+          2,
+          3
+        ],
+        "index": "vecSearch",
+        "limit": 100,
+        "numCandidates": 100,
+        "deadlineTimestampMs": 1234567890123
+      }
     }
   ],
   "invalid": [

@@ -20,7 +20,8 @@ public record VectorSearchCommandDefinition(
     String collectionName,
     UUID collectionUuid,
     Optional<String> viewName,
-    Optional<ExplainDefinition> explain)
+    Optional<ExplainDefinition> explain,
+    Optional<Long> deadlineTimestampMs)
     implements DocumentEncodable {
 
   static class Fields {
@@ -41,6 +42,9 @@ public record VectorSearchCommandDefinition(
             .disallowUnknownFields()
             .optional()
             .noDefault();
+
+    static final Field.Optional<Long> DEADLINE_TIMESTAMP_MS =
+        Field.builder("deadlineTimestampMs").longField().optional().noDefault();
   }
 
   public static final String NAME = "vectorSearch";
@@ -109,7 +113,8 @@ public record VectorSearchCommandDefinition(
         parser.getField(Fields.VECTOR_SEARCH).unwrap(),
         parser.getField(Fields.COLLECTION_UUID).unwrap(),
         parser.getField(Fields.VIEW_NAME).unwrap(),
-        parser.getField(Fields.EXPLAIN).unwrap());
+        parser.getField(Fields.EXPLAIN).unwrap(),
+        parser.getField(Fields.DEADLINE_TIMESTAMP_MS).unwrap());
   }
 
   @Override
@@ -125,6 +130,7 @@ public record VectorSearchCommandDefinition(
             .field(Fields.DB, this.db)
             .field(Fields.COLLECTION_UUID, this.collectionUuid)
             .field(Fields.EXPLAIN, this.explain)
+            .field(Fields.DEADLINE_TIMESTAMP_MS, this.deadlineTimestampMs)
             .build();
 
     withoutVectorQuery.putAll(

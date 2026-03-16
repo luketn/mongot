@@ -51,7 +51,8 @@ public class VectorSearchCommandDefinitionTest {
         vectorSearchOnView(),
         vectorSearchWithExplain(),
         vectorSearchWithGtFilter(),
-        vectorSearchWithGtLtFilter());
+        vectorSearchWithGtLtFilter(),
+        vectorSearchWithDeadline());
   }
 
   @Test
@@ -191,6 +192,29 @@ public class VectorSearchCommandDefinitionTest {
                                         .build()))
                             .build())
                     .build())
+            .build());
+  }
+
+  private static BsonDeserializationTestSuite.ValidSpec<VectorSearchCommandDefinition>
+      vectorSearchWithDeadline() {
+    return BsonDeserializationTestSuite.TestSpec.valid(
+        "vector-search-with-deadline",
+        VectorSearchCommandDefinitionBuilder.builder()
+            .collectionName("my-collection")
+            .db("my-database")
+            .collectionUuid(UUID.fromString("522cdf5e-54fc-4230-9d45-49da990e8ea7"))
+            .vectorSearchQuery(
+                VectorQueryBuilder.builder()
+                    .index("vecSearch")
+                    .criteria(
+                        ApproximateVectorQueryCriteriaBuilder.builder()
+                            .path(FieldPath.parse("vec"))
+                            .limit(100)
+                            .numCandidates(100)
+                            .queryVector(Vector.fromFloats(new float[] {1f, 2f, 3f}, NATIVE))
+                            .build())
+                    .build())
+            .deadlineTimestampMs(1234567890123L)
             .build());
   }
 }
