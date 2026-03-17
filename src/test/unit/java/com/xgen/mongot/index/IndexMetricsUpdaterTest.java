@@ -13,6 +13,7 @@ import static org.mockito.Mockito.spy;
 
 import com.google.common.base.CaseFormat;
 import com.xgen.mongot.index.IndexMetricsUpdater.IndexingMetricsUpdater;
+import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.definition.SearchIndexCapabilities;
 import com.xgen.mongot.index.definition.VectorIndexCapabilities;
 import com.xgen.mongot.index.query.collectors.Collector;
@@ -36,6 +37,7 @@ import com.xgen.testing.mongot.mock.index.SearchIndex;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.bson.BsonTimestamp;
@@ -173,7 +175,11 @@ public class IndexMetricsUpdaterTest {
                 .replicationLagMs()
                 .isPresent());
         // it should also be reported to the meter registry
-        Gauge gauge = factory.get(IndexingMetricsUpdater.REPLICATION_LAG_MILLISECONDS_NAME).gauge();
+        Gauge gauge =
+            factory
+                .get(IndexingMetricsUpdater.REPLICATION_LAG_MILLISECONDS_NAME)
+                .tag(INDEX_TYPE_TAG_NAME, "search")
+                .gauge();
         Assert.assertEquals(1000, gauge.value(), 0.1d);
       }
 
@@ -191,8 +197,12 @@ public class IndexMetricsUpdaterTest {
         indexingMetricsUpdater.getReplicationOpTimeInfo().unset(() -> true);
         Assert.assertTrue(indexingMetricsUpdater.getReplicationOpTimeInfo().snapshot().isEmpty());
 
-        // should report as 0 to meter registry if its not present
-        Gauge gauge = factory.get(IndexingMetricsUpdater.REPLICATION_LAG_MILLISECONDS_NAME).gauge();
+        // should report as NaN to meter registry if its not present
+        Gauge gauge =
+            factory
+                .get(IndexingMetricsUpdater.REPLICATION_LAG_MILLISECONDS_NAME)
+                .tag(INDEX_TYPE_TAG_NAME, "search")
+                .gauge();
         Assert.assertEquals(Double.NaN, gauge.value(), 0.1d);
 
         indexingMetricsUpdater.getReplicationOpTimeInfo().update(20L, 40L);
@@ -218,6 +228,43 @@ public class IndexMetricsUpdaterTest {
       }
 
       @Test
+      public void replicationLagMetricWithIndexTypeTag() {
+        record IndexTypeCase(IndexDefinition.Type type, IndexTypeData.IndexTypeTag tag) {}
+
+        var cases =
+            List.of(
+                new IndexTypeCase(
+                    IndexDefinition.Type.SEARCH, IndexTypeData.IndexTypeTag.TAG_SEARCH),
+                new IndexTypeCase(
+                    IndexDefinition.Type.VECTOR_SEARCH,
+                    IndexTypeData.IndexTypeTag.TAG_VECTOR_SEARCH),
+                new IndexTypeCase(
+                    IndexDefinition.Type.VECTOR_SEARCH, TAG_VECTOR_SEARCH_AUTO_EMBEDDING));
+
+        for (var indexTypeCase : cases) {
+          var factory = mockMetricsFactory(IndexingMetricsUpdater.NAMESPACE);
+          var featureVersion =
+              indexTypeCase.type() == IndexDefinition.Type.SEARCH
+                  ? SearchIndexCapabilities.CURRENT_FEATURE_VERSION
+                  : VectorIndexCapabilities.CURRENT_FEATURE_VERSION;
+          var indexingMetricsUpdater =
+              new IndexingMetricsUpdater(
+                  factory, indexTypeCase.type(), indexTypeCase.tag(), featureVersion, true);
+
+          indexingMetricsUpdater
+              .getReplicationOpTimeInfo()
+              .update(new BsonTimestamp(1, 0).getValue(), new BsonTimestamp(2, 0).getValue());
+
+          Gauge gauge =
+              factory
+                  .get(IndexingMetricsUpdater.REPLICATION_LAG_MILLISECONDS_NAME)
+                  .tag(INDEX_TYPE_TAG_NAME, indexTypeCase.tag().tagValue)
+                  .gauge();
+          assertThat(gauge.value()).isEqualTo(1000);
+        }
+      }
+
+      @Test
       public void testReplicationOpTimeInfoGauges() {
         var factory = mockMetricsFactory(IndexingMetricsUpdater.NAMESPACE);
         var indexingMetricsUpdater =
@@ -240,7 +287,9 @@ public class IndexMetricsUpdaterTest {
             factory.get("maxPossibleReplicationOpTime").gauge().value(),
             0.0);
         Assert.assertEquals(
-            opTimeInfo.replicationLagMs(), factory.get("replicationLagMs").gauge().value(), 0.0);
+            opTimeInfo.replicationLagMs(),
+            factory.get("replicationLagMs").tag(INDEX_TYPE_TAG_NAME, "search").gauge().value(),
+            0.0);
       }
 
       @Test

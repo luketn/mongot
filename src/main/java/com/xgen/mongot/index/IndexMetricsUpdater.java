@@ -94,6 +94,7 @@ public class IndexMetricsUpdater implements Closeable {
         new IndexingMetricsUpdater(
             metricsFactory.childMetricsFactory(IndexingMetricsUpdater.NAMESPACE),
             indexDefinition.getType(),
+            getIndexTypeTag(indexDefinition),
             indexDefinition.getParsedIndexFeatureVersion(),
             true),
         new QueryingMetricsUpdater(
@@ -216,6 +217,9 @@ public class IndexMetricsUpdater implements Closeable {
           metricsFactory,
           indexType,
           indexType == IndexDefinition.Type.SEARCH
+              ? IndexTypeData.IndexTypeTag.TAG_SEARCH
+              : IndexTypeData.IndexTypeTag.TAG_VECTOR_SEARCH,
+          indexType == IndexDefinition.Type.SEARCH
               ? SearchIndexCapabilities.CURRENT_FEATURE_VERSION
               : VectorIndexCapabilities.CURRENT_FEATURE_VERSION,
           true);
@@ -225,6 +229,7 @@ public class IndexMetricsUpdater implements Closeable {
     public IndexingMetricsUpdater(
         PerIndexMetricsFactory metricsFactory,
         IndexDefinition.Type indexType,
+        IndexTypeData.IndexTypeTag indexTypeTag,
         int indexFeatureVersion,
         boolean isIndexFeatureVersionFourEnabled) {
       Tags indexFeatureVersionTag =
@@ -282,7 +287,8 @@ public class IndexMetricsUpdater implements Closeable {
                   .snapshot()
                   .map(ReplicationOpTimeInfo.Snapshot::replicationLagMs)
                   .map(Long::doubleValue)
-                  .orElse(Double.NaN));
+                  .orElse(Double.NaN),
+          Tags.of(INDEX_TYPE_TAG_NAME, indexTypeTag.tagValue));
 
       this.batchIndexingTimer =
           this.metricsFactory.timer(
@@ -1342,6 +1348,7 @@ public class IndexMetricsUpdater implements Closeable {
           new IndexingMetricsUpdater(
               metricsFactory.childMetricsFactory(IndexingMetricsUpdater.NAMESPACE),
               indexDefinition.getType(),
+              getIndexTypeTag(indexDefinition),
               indexDefinition.getParsedIndexFeatureVersion(),
               isIndexFeatureVersionFourEnabled);
       this.queryingMetricsUpdater =
