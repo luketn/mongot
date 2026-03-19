@@ -66,6 +66,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -94,6 +95,8 @@ public class InitialSyncQueueTest {
           new BsonTimestamp(), new BsonDocument(), Optional.empty());
 
   private static final DocumentIndexer DOCUMENT_INDEXER = mockDocumentIndexer();
+
+  private static final String DEFAULT_MONGO_HOST_NAME = "defaultHost";
 
   @Test
   public void testSuccessfulBufferlessInitialSync() throws Exception {
@@ -379,26 +382,18 @@ public class InitialSyncQueueTest {
     GenerationId index0 = definitions.get(0).getGenerationId();
     GenerationId index1 = definitions.get(1).getGenerationId();
 
-    String syncSourceHost0 = "host0";
+    String syncSourceHost0 = DEFAULT_MONGO_HOST_NAME;
     InitialSyncMongoClient mongoClient0 = mock(InitialSyncMongoClient.class);
     when(mongoClient0.resolveAndUpdateCollectionName(any()))
         .thenReturn(MOCK_INDEX_LAST_OBSERVED_COLLECTION_NAME);
 
-    String syncSourceHost1 = "host1";
+    String syncSourceHost1 = "anotherTestHost";
     InitialSyncMongoClient mongoClient1 = mock(InitialSyncMongoClient.class);
     when(mongoClient1.resolveAndUpdateCollectionName(any()))
         .thenReturn(MOCK_INDEX_LAST_OBSERVED_COLLECTION_NAME);
 
-    // Include "test" so the default host used by other Mocks.create overloads is present;
-    // this test uses syncSourceHost0 so the queue is created with syncSourceHost0.
     Map<String, InitialSyncMongoClient> mongoClients =
-        Map.of(
-            "test",
-            mongoClient0,
-            syncSourceHost0,
-            mongoClient0,
-            syncSourceHost1,
-            mongoClient1);
+        Map.of(syncSourceHost0, mongoClient0, syncSourceHost1, mongoClient1);
 
     Mocks mocks =
         Mocks.create(
@@ -440,6 +435,10 @@ public class InitialSyncQueueTest {
     startedLatch1.await(5, TimeUnit.SECONDS);
     verify(mocks.mockInitialSyncManagerFactory.getManager(index1), timeout(1000)).sync();
 
+    // verify index0 and index1 are using different clients
+    assertEquals(mongoClient0, mocks.mockInitialSyncManagerFactory.getClient(index0));
+    assertEquals(mongoClient1, mocks.mockInitialSyncManagerFactory.getClient(index1));
+
     // Complete the first initial sync.
     mocks.mockInitialSyncManagerFactory.completeSync(index0);
     FutureUtils.swallowedFuture(future0).get(5, TimeUnit.SECONDS);
@@ -447,10 +446,6 @@ public class InitialSyncQueueTest {
     // Complete the remaining initial syncs.
     mocks.mockInitialSyncManagerFactory.completeSync(index1);
     FutureUtils.swallowedFuture(future1).get(5, TimeUnit.SECONDS);
-
-    // verify index0 and index1 are using different clients
-    assertEquals(mongoClient0, mocks.mockInitialSyncManagerFactory.getClient(index0));
-    assertEquals(mongoClient1, mocks.mockInitialSyncManagerFactory.getClient(index1));
   }
 
   @Test
@@ -1404,8 +1399,8 @@ public class InitialSyncQueueTest {
       when(mongoClient.resolveAndUpdateCollectionName(any()))
           .thenReturn(MOCK_INDEX_LAST_OBSERVED_COLLECTION_NAME);
       return create(
-          Map.of("test", mongoClient),
-          "test",
+          Map.of(DEFAULT_MONGO_HOST_NAME, mongoClient),
+          DEFAULT_MONGO_HOST_NAME,
           resultSuppliers,
           blockingQueue,
           meterRegistry,
@@ -1548,9 +1543,8 @@ public class InitialSyncQueueTest {
           resultSuppliers;
       private final Map<GenerationId, CountDownLatch> latches;
       private final Map<GenerationId, InitialSyncManager> managers;
-      private InitialSyncContext context;
-
       private final Map<GenerationId, InitialSyncMongoClient> mongoClients;
+      private InitialSyncContext context;
 
       MockInitialSyncManagerFactory(
           Map<GenerationId, CheckedSupplier<ChangeStreamResumeInfo, InitialSyncException>>
@@ -1588,7 +1582,7 @@ public class InitialSyncQueueTest {
                           }
                           return manager;
                         }));
-        this.mongoClients = new HashMap<>();
+        this.mongoClients = new ConcurrentHashMap<>();
       }
 
       private InitialSyncManager createInitialSyncManager() {
