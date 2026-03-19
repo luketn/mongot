@@ -8,6 +8,7 @@ class Docker:
     DOCKER = "docker"
 
     class Command(Enum):
+        EXEC = "exec"
         INSPECT = "inspect"
         KILL = "kill"
         TAG = "tag"
@@ -44,6 +45,17 @@ class Docker:
     @staticmethod
     def tag(old_tag: str, new_tag: str):
         Docker._execute(Docker.Command.TAG, old_tag, new_tag)
+
+    @staticmethod
+    def metrics(container: str, port: int = 9946) -> str:
+        """Fetch the Prometheus metrics page from inside the container."""
+        result = Docker._execute(
+            Docker.Command.EXEC, container,
+            "curl", "--silent", "--fail", f"http://localhost:{port}/metrics",
+        )
+        if not result.stdout:
+            raise Exception("failed to scrape prometheus metrics")
+        return result.stdout
 
     @staticmethod
     def _execute(command: 'Docker.Command', *args: str) -> 'subprocess.CompletedProcess':
