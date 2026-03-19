@@ -121,6 +121,17 @@ public class MongotKnnQueryMetricsTest {
         "Visited nodes metric should be recorded for unfiltered approximate query",
         unfilteredApproxCount > 0);
 
+    // Verify per-segment histogram was recorded for approximate search
+    double unfilteredApproxHistogramCount =
+        this.metricsFactory
+            .get("vectorSearchVisitedNodesPerSegment",
+                Tags.of("filter", "false", "mode", "approximate"))
+            .summary()
+            .count();
+    Assert.assertTrue(
+        "Per-segment visited nodes histogram should be recorded for unfiltered approximate query",
+        unfilteredApproxHistogramCount > 0);
+
     // Verify filtered counters were not incremented
     double filteredApproxCount =
         this.metricsFactory
@@ -161,6 +172,17 @@ public class MongotKnnQueryMetricsTest {
     Assert.assertTrue(
         "Visited nodes metric should be recorded for filtered query, got: " + filteredApproxCount,
         filteredApproxCount > 0);
+
+    // Verify per-segment histogram was recorded for approximate search
+    double filteredApproxHistogramCount =
+        this.metricsFactory
+            .get("vectorSearchVisitedNodesPerSegment",
+                Tags.of("filter", "true", "mode", "approximate"))
+            .summary()
+            .count();
+    Assert.assertTrue(
+        "Per-segment visited nodes histogram should be recorded for filtered approximate query",
+        filteredApproxHistogramCount > 0);
 
     // Verify unfiltered counters were not incremented
     double unfilteredApproxCount =
@@ -267,5 +289,26 @@ public class MongotKnnQueryMetricsTest {
         "Byte vector exact search visited nodes metric should be recorded for filter, got: "
             + filteredExactCount,
         filteredExactCount > 0);
+  }
+
+  @Test
+  public void testPerSegmentHistogramRecordsMultipleSegments() throws IOException {
+    float[] target = new float[] {0.5f, 1.0f, 1.5f};
+    Query query = new MongotKnnFloatQuery(this.metrics, FLOAT_VECTOR_FIELD, target, K);
+
+    // Rewrite triggers the KNN search across all segments
+    query.rewrite(this.searcher);
+
+    // Verify per-segment histogram count equals number of segments for approximate search
+    double histogramCount =
+        this.metricsFactory
+            .get("vectorSearchVisitedNodesPerSegment",
+                Tags.of("filter", "false", "mode", "approximate"))
+            .summary()
+            .count();
+    Assert.assertEquals(
+        "Per-segment histogram should record one entry per segment for approximate search",
+        NUM_SEGMENTS,
+        (int) histogramCount);
   }
 }

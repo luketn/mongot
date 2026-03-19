@@ -145,6 +145,9 @@ public class MongotKnnFloatQuery extends KnnFloatVectorQuery {
     // Record visited nodes - totalHits.value equals visited nodes right after approximate search
     this.metrics.recordVectorSearchVisitedNodes(
         result.totalHits.value, this.hasFilter, IndexMetricsUpdater.KnnSearchMode.APPROXIMATE);
+    // Record visited nodes per segment (for both approximate and fallback-to-exact)
+    this.metrics.recordVectorSearchVisitedNodesPerSegment(
+        result.totalHits.value, this.hasFilter, searchMode);
 
     return result;
   }

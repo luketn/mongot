@@ -42,6 +42,8 @@ public class IndexMetricsUpdater implements Closeable {
   public static final String NAMESPACE = "index.stats";
   private static final double[] NUM_CANDIDATES_BUCKETS = {100, 500, 1000, 2000, 5000, 10_000};
   private static final double[] LIMIT_BUCKETS = {10, 50, 100, 200, 500, 1000};
+  private static final double[] VISITED_NODES_BUCKETS =
+      {100, 500, 1000, 2000, 5000, 10_000, 50_000};
 
   private final IndexDefinition indexDefinition;
   private final PerIndexMetricsFactory metricsFactory;
@@ -500,6 +502,12 @@ public class IndexMetricsUpdater implements Closeable {
     private final Counter vectorSearchVisitedNodesFilteredApproximateCounter;
     private final Counter vectorSearchVisitedNodesFilteredExactCounter;
 
+    /** Histograms for visited nodes per segment in KNN queries, indexed by filter and mode. */
+    private final DistributionSummary vectorSearchVisitedNodesPerSegmentUnfilteredApproximate;
+    private final DistributionSummary vectorSearchVisitedNodesPerSegmentFilteredApproximate;
+    private final DistributionSummary vectorSearchVisitedNodesPerSegmentUnfilteredExact;
+    private final DistributionSummary vectorSearchVisitedNodesPerSegmentFilteredExact;
+
     @VisibleForTesting
     public QueryingMetricsUpdater(PerIndexMetricsFactory metricsFactory) {
       this(
@@ -618,6 +626,26 @@ public class IndexMetricsUpdater implements Closeable {
       this.vectorSearchVisitedNodesFilteredExactCounter =
           metricsFactory.counter(
               "vectorSearchVisitedNodes", Tags.of("filter", "true", "mode", "exact"));
+      this.vectorSearchVisitedNodesPerSegmentUnfilteredApproximate =
+          metricsFactory.histogram(
+              "vectorSearchVisitedNodesPerSegment",
+              Tags.of("filter", "false", "mode", "approximate"),
+              VISITED_NODES_BUCKETS);
+      this.vectorSearchVisitedNodesPerSegmentFilteredApproximate =
+          metricsFactory.histogram(
+              "vectorSearchVisitedNodesPerSegment",
+              Tags.of("filter", "true", "mode", "approximate"),
+              VISITED_NODES_BUCKETS);
+      this.vectorSearchVisitedNodesPerSegmentUnfilteredExact =
+          metricsFactory.histogram(
+              "vectorSearchVisitedNodesPerSegment",
+              Tags.of("filter", "false", "mode", "exact"),
+              VISITED_NODES_BUCKETS);
+      this.vectorSearchVisitedNodesPerSegmentFilteredExact =
+          metricsFactory.histogram(
+              "vectorSearchVisitedNodesPerSegment",
+              Tags.of("filter", "true", "mode", "exact"),
+              VISITED_NODES_BUCKETS);
       this.fallBackHeuristicSuccessCounter =
           metricsFactory.counter("fallBackHeuristicSuccessCounter");
       this.fallBackHeuristicFailureCounter =
@@ -665,6 +693,30 @@ public class IndexMetricsUpdater implements Closeable {
                 : this.vectorSearchVisitedNodesUnfilteredExactCounter;
           };
       counter.increment(visitedNodes);
+    }
+
+    /**
+     * Records the number of visited nodes per segment for vector search queries.
+     *
+     * @param visitedNodes the number of nodes visited during the search
+     * @param hasFilter whether the query has a filter
+     * @param mode the search mode (APPROXIMATE or FALLBACK_TO_EXACT)
+     */
+    public void recordVectorSearchVisitedNodesPerSegment(
+        long visitedNodes, boolean hasFilter, KnnSearchMode mode) {
+      DistributionSummary histogram;
+      if (mode == KnnSearchMode.APPROXIMATE) {
+        histogram =
+            hasFilter
+                ? this.vectorSearchVisitedNodesPerSegmentFilteredApproximate
+                : this.vectorSearchVisitedNodesPerSegmentUnfilteredApproximate;
+      } else {
+        histogram =
+            hasFilter
+                ? this.vectorSearchVisitedNodesPerSegmentFilteredExact
+                : this.vectorSearchVisitedNodesPerSegmentUnfilteredExact;
+      }
+      histogram.record(visitedNodes);
     }
 
     @VisibleForTesting
