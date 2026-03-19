@@ -170,18 +170,8 @@ public class VectorSearchCommand implements Command {
     Optional<MongoDbVersion> mongoDbVersionOptional =
         metadata.mongoDbServerInfoProvider().getCachedMongoDbServerInfo().mongoDbVersion();
 
-    if (mongoDbVersionOptional.isEmpty()) {
-      if (!metadata.featureFlags().isEnabled(Feature.ENABLE_VALIDATION_OF_RETURN_STORED_SOURCE)) {
-        return; // Vector Stored Source requested by mistake on a legacy query (ignored).
-      }
-      throw new InvalidQueryException(
-          "The returnStoredSource setting requires MongoDB server version "
-              + VECTOR_STORED_SOURCE_MIN_VERSION_MONGODB.toVersionString()
-              + " or higher for vector indexes.");
-      // Vector Stored Source assumed to be unsupported by unknown version of MongoDB.
-    }
-
-    if (!isVectorStoredSourceVersionOk(mongoDbVersionOptional.get())) {
+    if (mongoDbVersionOptional.isPresent()
+        && !isVectorStoredSourceVersionOk(mongoDbVersionOptional.get())) {
       if (!metadata.featureFlags().isEnabled(Feature.ENABLE_VALIDATION_OF_RETURN_STORED_SOURCE)) {
         return; // Vector Stored Source requested by mistake on a legacy query (ignored).
       }
