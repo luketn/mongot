@@ -192,7 +192,7 @@ def mongot_java_e2e_test_suite(
         package_suffix_strip = "/e2e",
         deps = deps,
         resources = resources,
-        data = data,
+        data = data + ["//docker:default-mms-config.json"],
         exclude_files = exclude_files,
         sizes = sizes,
         timeouts = timeouts,
