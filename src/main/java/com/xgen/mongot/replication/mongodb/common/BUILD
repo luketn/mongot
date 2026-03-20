@@ -24,6 +24,7 @@ java_library(
         "CollectionScanMongoClient.java",
         "CollectionStatsMongoClient.java",
         "CommonReplicationConfig.java",
+        "CustomVectorEngineIndexingWorkScheduler.java",
         "DecodingSchedulerBatch.java",
         "DecodingWorkScheduler.java",
         "DefaultChangeStreamMongoClient.java",

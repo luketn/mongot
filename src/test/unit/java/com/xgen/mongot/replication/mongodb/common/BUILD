@@ -12,6 +12,7 @@ java_test_suite(
         "ChangeStreamMongoCursorClientTest.java",
         "ChangeStreamResumeInfoTest.java",
         "ChangeStreamsTest.java",
+        "CustomVectorEngineIndexingWorkSchedulerTest.java",
         "DecodingWorkSchedulerTest.java",
         "DefaultChangeStreamMongoClientTest.java",
         "DefaultDocumentIndexerTest.java",

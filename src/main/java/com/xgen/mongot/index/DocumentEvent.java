@@ -35,7 +35,7 @@ public class DocumentEvent {
   private final Optional<BsonDocument> filterFieldUpdates;
   // Custom vector engine id assigned during write to the native index. Carried through to
   // the Lucene indexing policy so the id-to-_id mapping document can be written.
-  private Optional<Long> customVectorEngineId;
+  private final Optional<Long> customVectorEngineId;
 
   private DocumentEvent(
       DocumentEvent rawDocumentEventWithoutVector,
@@ -69,6 +69,21 @@ public class DocumentEvent {
     this.autoEmbeddings = ImmutableMap.of();
     this.filterFieldUpdates = Optional.of(filterFieldUpdates);
     this.customVectorEngineId = Optional.empty();
+  }
+
+  private DocumentEvent(
+      EventType eventType,
+      BsonValue documentId,
+      Optional<RawBsonDocument> document,
+      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> autoEmbeddings,
+      Optional<BsonDocument> filterFieldUpdates,
+      Optional<Long> customVectorEngineId) {
+    this.eventType = eventType;
+    this.documentId = documentId;
+    this.document = document;
+    this.autoEmbeddings = autoEmbeddings;
+    this.filterFieldUpdates = filterFieldUpdates;
+    this.customVectorEngineId = customVectorEngineId;
   }
 
 
@@ -116,10 +131,15 @@ public class DocumentEvent {
     return new DocumentEvent(rawDocumentEventWithoutVector, autoEmbeddings);
   }
 
-  /** Sets custom vector engine id and returns the same event object. */
+  /** Returns a new DocumentEvent with the given custom vector engine id. */
   public DocumentEvent withCustomVectorEngineId(long customVectorEngineId) {
-    this.customVectorEngineId = Optional.of(customVectorEngineId);
-    return this;
+    return new DocumentEvent(
+        this.eventType,
+        this.documentId,
+        this.document,
+        this.autoEmbeddings,
+        this.filterFieldUpdates,
+        Optional.of(customVectorEngineId));
   }
 
   public Optional<Long> getCustomVectorEngineId() {

@@ -9,6 +9,7 @@ import com.xgen.mongot.logging.DefaultKeyValueLogger;
 import com.xgen.mongot.util.Crash;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -48,6 +49,21 @@ public class DefaultDocumentIndexer implements DocumentIndexer {
                   this.indexDefinition.getIndexId().toHexString()))
           .withThrowable(e)
           .now();
+    }
+  }
+
+  @Override
+  public List<DocumentEvent> prepareBatch(List<DocumentEvent> events) {
+    try {
+      return this.index.getWriter().prepareBatch(events);
+    } catch (IOException e) {
+      Crash.because(
+              String.format(
+                  "index %s failed to prepare batch",
+                  this.indexDefinition.getIndexId().toHexString()))
+          .withThrowable(e)
+          .now();
+      return events;
     }
   }
 

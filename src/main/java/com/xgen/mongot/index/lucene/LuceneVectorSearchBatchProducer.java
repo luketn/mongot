@@ -12,6 +12,7 @@ import com.xgen.mongot.util.Bytes;
 import com.xgen.mongot.util.bson.BsonArrayBuilder;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import org.bson.BsonArray;
 import org.bson.RawBsonDocument;
 
@@ -24,6 +25,7 @@ public class LuceneVectorSearchBatchProducer implements BatchProducer {
 
   private final List<VectorSearchResult> allResults;
   private final IndexMetricsUpdater.QueryingMetricsUpdater metricsUpdater;
+  private final Optional<LuceneIndexSearcherReference> searcherReference;
 
   private final BatchSizeStrategy batchSizeStrategy;
 
@@ -34,9 +36,21 @@ public class LuceneVectorSearchBatchProducer implements BatchProducer {
   LuceneVectorSearchBatchProducer(
       List<VectorSearchResult> allResults,
       IndexMetricsUpdater.QueryingMetricsUpdater metricsUpdater,
+      LuceneIndexSearcherReference searcherReference,
       BatchSizeStrategy batchSizeStrategy) {
     this.allResults = allResults;
     this.metricsUpdater = metricsUpdater;
+    this.searcherReference = Optional.of(searcherReference);
+    this.batchSizeStrategy = batchSizeStrategy;
+  }
+
+  LuceneVectorSearchBatchProducer(
+      List<VectorSearchResult> allResults,
+      IndexMetricsUpdater.QueryingMetricsUpdater metricsUpdater,
+      BatchSizeStrategy batchSizeStrategy) {
+    this.allResults = allResults;
+    this.metricsUpdater = metricsUpdater;
+    this.searcherReference = Optional.empty();
     this.batchSizeStrategy = batchSizeStrategy;
   }
 
@@ -91,6 +105,9 @@ public class LuceneVectorSearchBatchProducer implements BatchProducer {
       return;
     }
 
+    if (this.searcherReference.isPresent()) {
+      this.searcherReference.get().close();
+    }
     this.closed = true;
   }
 }

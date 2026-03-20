@@ -2,6 +2,7 @@ package com.xgen.mongot.index;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -15,6 +16,22 @@ public interface IndexWriter extends Closeable {
 
   /** Updates the index to reflect the changed document. */
   void updateIndex(DocumentEvent event) throws IOException, FieldExceededLimitsException;
+
+  /**
+   * Pre-processes a batch of document events before individual indexing. Writers that maintain
+   * auxiliary mappings (e.g. custom vector engine IDs) can override this to resolve those mappings
+   * in batch (single query) rather than per-document, setting the resolved data directly on each
+   * {@link DocumentEvent} via its mutable fields.
+   *
+   * <p>The default implementation returns the events unchanged.
+   *
+   * @param events the batch of document events to prepare
+   * @return the (possibly mutated) events, ready for individual {@link #updateIndex} calls
+   * @throws IOException if there's an error reading the index during preparation
+   */
+  default List<DocumentEvent> prepareBatch(List<DocumentEvent> events) throws IOException {
+    return events;
+  }
 
   /**
    * Commits the index, along with the supplied user data that can later be retrieved via

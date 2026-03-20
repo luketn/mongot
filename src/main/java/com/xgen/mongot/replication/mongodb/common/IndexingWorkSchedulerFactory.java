@@ -44,11 +44,13 @@ public class IndexingWorkSchedulerFactory {
       Supplier<EmbeddingServiceManager> embeddingServiceManagerSupplier,
       MeterRegistry registry) {
     log.info(
-        "Creating IndexingWorkSchedulerFactory with DEFAULT, EMBEDDING and "
+        "Creating IndexingWorkSchedulerFactory with DEFAULT, CUSTOM_VECTOR_ENGINE, EMBEDDING and "
             + "EMBEDDING_MATERIALIZED_VIEW strategies");
     var executor = Executors.fixedSizeThreadPool("indexing-work", numIndexingThreads, registry);
     DefaultIndexingWorkScheduler defaultIndexingWorkScheduler =
         DefaultIndexingWorkScheduler.create(executor);
+    CustomVectorEngineIndexingWorkScheduler customVectorEngineIndexingWorkScheduler =
+        CustomVectorEngineIndexingWorkScheduler.create(executor);
     EmbeddingIndexingWorkScheduler embeddingIndexingWorkScheduler =
         EmbeddingIndexingWorkScheduler.create(executor, embeddingServiceManagerSupplier);
     EmbeddingIndexingWorkScheduler embeddingMaterializedViewWorkScheduler =
@@ -59,6 +61,7 @@ public class IndexingWorkSchedulerFactory {
     return new IndexingWorkSchedulerFactory(
         Map.of(
             IndexingStrategy.DEFAULT, defaultIndexingWorkScheduler,
+            IndexingStrategy.CUSTOM_VECTOR_ENGINE, customVectorEngineIndexingWorkScheduler,
             IndexingStrategy.EMBEDDING, embeddingIndexingWorkScheduler,
             IndexingStrategy.EMBEDDING_MATERIALIZED_VIEW, embeddingMaterializedViewWorkScheduler));
   }
@@ -73,8 +76,12 @@ public class IndexingWorkSchedulerFactory {
     var executor = Executors.fixedSizeThreadPool("indexing", numIndexingThreads, registry);
     DefaultIndexingWorkScheduler defaultIndexingWorkScheduler =
         DefaultIndexingWorkScheduler.create(executor);
+    CustomVectorEngineIndexingWorkScheduler customVectorEngineIndexingWorkScheduler =
+        CustomVectorEngineIndexingWorkScheduler.create(executor);
     return new IndexingWorkSchedulerFactory(
-        Map.of(IndexingStrategy.DEFAULT, defaultIndexingWorkScheduler));
+        Map.of(
+            IndexingStrategy.DEFAULT, defaultIndexingWorkScheduler,
+            IndexingStrategy.CUSTOM_VECTOR_ENGINE, customVectorEngineIndexingWorkScheduler));
   }
 
   /**
@@ -98,6 +105,8 @@ public class IndexingWorkSchedulerFactory {
             embeddingIndexingWorkScheduler,
             IndexingStrategy.EMBEDDING,
             embeddingIndexingWorkScheduler,
+            IndexingStrategy.CUSTOM_VECTOR_ENGINE,
+            embeddingIndexingWorkScheduler,
             IndexingStrategy.DEFAULT,
             embeddingIndexingWorkScheduler));
   }
@@ -120,6 +129,10 @@ public class IndexingWorkSchedulerFactory {
       }
       return this.getIndexingWorkSchedulers().get(IndexingStrategy.EMBEDDING);
     }
+    if (indexDefinition.getType() == IndexDefinition.Type.VECTOR_SEARCH
+        && indexDefinition.asVectorDefinition().isCustomVectorEngineIndex()) {
+      return this.getIndexingWorkSchedulers().get(IndexingStrategy.CUSTOM_VECTOR_ENGINE);
+    }
     return this.getIndexingWorkSchedulers().get(IndexingStrategy.DEFAULT);
   }
 
@@ -130,12 +143,16 @@ public class IndexingWorkSchedulerFactory {
    *
    * <ul>
    *   <li>DEFAULT: Uses the {@link DefaultIndexingWorkScheduler} to exclusively index a batch.
+   *   <li>CUSTOM_VECTOR_ENGINE: Uses the {@link CustomVectorEngineIndexingWorkScheduler} to perform
+   *       batch preparation (e.g. vectorlite ID resolution) before indexing a batch. Used for
+   *       vector indexes with a custom vector engine.
    *   <li>EMBEDDING, EMBEDDING_MATERIALIZED_VIEW: Uses the {@link EmbeddingIndexingWorkScheduler}
    *       to generate embeddings for vector text fields before indexing a batch.
    * </ul>
    */
   public enum IndexingStrategy {
     DEFAULT("DefaultIndexingWorkSchedulerThread"),
+    CUSTOM_VECTOR_ENGINE("CustomVectorEngineIndexingWorkSchedulerThread"),
     // TODO(CLOUDP-344117): Remove IndexingStrategy.EMBEDDING once we deprecate type:text index.
     EMBEDDING("EmbeddingIndexingWorkSchedulerThread"),
     EMBEDDING_MATERIALIZED_VIEW("EmbeddingMaterializedViewIndexingWorkSchedulerThread");
