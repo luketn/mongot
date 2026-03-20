@@ -22,6 +22,7 @@ import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.monitor.Gate;
 import com.xgen.mongot.replication.ReplicationManager;
 import com.xgen.mongot.replication.mongodb.common.ClientSessionRecord;
+import com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig;
 import com.xgen.mongot.replication.mongodb.common.DecodingWorkScheduler;
 import com.xgen.mongot.replication.mongodb.common.DefaultDocumentIndexer;
 import com.xgen.mongot.replication.mongodb.common.DefaultSessionRefresher;
@@ -306,7 +307,7 @@ public class MongoDbReplicationManager implements ReplicationManager {
         getClientSessionRecords(
             syncSourceConfig.get(),
             getSyncMaxConnections(syncSourceConfig.get(), replicationConfig),
-            DEFAULT.metricsNamespacePrefix,
+            DEFAULT,
             meterRegistry,
             sessionRefreshExecutor,
             syncSourceHost);
@@ -330,9 +331,8 @@ public class MongoDbReplicationManager implements ReplicationManager {
         synonymsMongoClient.map(
             client ->
                 DefaultSessionRefresher.create(
-                    new MetricsFactory(
-                        DEFAULT.metricsNamespacePrefix + "replication.synonyms.sessionRefresher",
-                        meterRegistry),
+                    new MetricsFactory("replication.synonyms.sessionRefresher", meterRegistry),
+                    DEFAULT,
                     sessionRefreshExecutor,
                     client));
 
@@ -516,21 +516,21 @@ public class MongoDbReplicationManager implements ReplicationManager {
   public static Map<String, ClientSessionRecord> getClientSessionRecords(
       SyncSourceConfig syncSourceConfig,
       int maxConnections,
-      String metricsNamespacePrefix,
+      CommonReplicationConfig.Type type,
       MeterRegistry meterRegistry,
       NamedScheduledExecutorService sessionRefreshExecutor,
       String syncSourceHost) {
     LOG.atInfo().addKeyValue("defaultHost", syncSourceHost).log("start constructing mongoClients");
 
     var sessionRefresherMetricsFactory =
-        new MetricsFactory(metricsNamespacePrefix + "replication.sessionRefresher", meterRegistry);
+        new MetricsFactory("replication.sessionRefresher", meterRegistry);
     // make sure syncClient and session refresher connecting mongodUri is included
     var syncMongoClient =
         getSyncMongoClient(
-            syncSourceConfig.mongodUri, metricsNamespacePrefix, meterRegistry, maxConnections);
+            syncSourceConfig.mongodUri, type.metricsNamespacePrefix, meterRegistry, maxConnections);
     var sessionRefresher =
         DefaultSessionRefresher.create(
-            sessionRefresherMetricsFactory, sessionRefreshExecutor, syncMongoClient);
+            sessionRefresherMetricsFactory, type, sessionRefreshExecutor, syncMongoClient);
     Map<String, ClientSessionRecord> clientSessionHostMap = new HashMap<>();
     clientSessionHostMap.put(
         syncSourceHost, new ClientSessionRecord(syncMongoClient, sessionRefresher));
@@ -543,10 +543,10 @@ public class MongoDbReplicationManager implements ReplicationManager {
                   if (!clientSessionHostMap.containsKey(host)) {
                     var client =
                         getSyncMongoClient(
-                            syncSource, metricsNamespacePrefix, meterRegistry, maxConnections);
+                            syncSource, type.metricsNamespacePrefix, meterRegistry, maxConnections);
                     var refresher =
                         DefaultSessionRefresher.create(
-                            sessionRefresherMetricsFactory, sessionRefreshExecutor, client);
+                            sessionRefresherMetricsFactory, type, sessionRefreshExecutor, client);
                     clientSessionHostMap.put(host, new ClientSessionRecord(client, refresher));
                   }
                 }));

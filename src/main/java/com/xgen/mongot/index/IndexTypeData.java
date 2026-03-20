@@ -2,6 +2,7 @@ package com.xgen.mongot.index;
 
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.metrics.MetricsFactory;
+import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -21,6 +22,8 @@ public final class IndexTypeData {
     TAG_SEARCH("search"),
     // Regular vector search workload
     TAG_VECTOR_SEARCH("vector_search"),
+    // TODO(CLOUDP-390796): Clean up this Tag, should just use replicationType tag once type:text is
+    // deprecated.
     // Auto-embedding vector search workload
     TAG_VECTOR_SEARCH_AUTO_EMBEDDING("vector_search_auto_embedding");
 
@@ -43,7 +46,8 @@ public final class IndexTypeData {
   }
 
   public static AtomicLong getNumGauge(
-      MetricsFactory metricsFactory, String gaugeName, IndexTypeTag indexTypeTag) {
-    return metricsFactory.numGauge(gaugeName, Tags.of(INDEX_TYPE_TAG_NAME, indexTypeTag.tagValue));
+      MetricsFactory metricsFactory, String gaugeName, IndexTypeTag indexTypeTag, Tag extraTag) {
+    return metricsFactory.numGauge(
+        gaugeName, Tags.of(INDEX_TYPE_TAG_NAME, indexTypeTag.tagValue).and(extraTag));
   }
 }

@@ -41,6 +41,7 @@ import com.xgen.mongot.util.concurrent.OneShotSingleThreadExecutor;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.LongTaskTimer;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.io.IOException;
@@ -159,20 +160,29 @@ public class InitialSyncQueue {
 
     this.initialSyncConfig = initialSyncConfig;
 
-    MetricsFactory metricsFactory =
-        new MetricsFactory(
-            replicationConfig.getReplicationType().metricsNamespacePrefix + "initialsync.queue",
-            meterRegistry);
+    MetricsFactory metricsFactory = new MetricsFactory("initialsync.queue", meterRegistry);
     this.requeuedEmbeddingInitialSyncs = metricsFactory.counter("requeuedEmbeddingInitialSyncs");
     String queuedSyncsName = "queuedSyncs";
     this.queuedSyncs =
         Map.of(
             TAG_SEARCH,
-            getNumGauge(metricsFactory, queuedSyncsName, TAG_SEARCH),
+            getNumGauge(
+                metricsFactory,
+                queuedSyncsName,
+                TAG_SEARCH,
+                Tag.of("replicationType", replicationConfig.getReplicationType().name())),
             TAG_VECTOR_SEARCH,
-            getNumGauge(metricsFactory, queuedSyncsName, TAG_VECTOR_SEARCH),
+            getNumGauge(
+                metricsFactory,
+                queuedSyncsName,
+                TAG_VECTOR_SEARCH,
+                Tag.of("replicationType", replicationConfig.getReplicationType().name())),
             TAG_VECTOR_SEARCH_AUTO_EMBEDDING,
-            getNumGauge(metricsFactory, queuedSyncsName, TAG_VECTOR_SEARCH_AUTO_EMBEDDING));
+            getNumGauge(
+                metricsFactory,
+                queuedSyncsName,
+                TAG_VECTOR_SEARCH_AUTO_EMBEDDING,
+                Tag.of("replicationType", replicationConfig.getReplicationType().name())));
 
     // TODO(CLOUDP-360914): Deprecate this condition check after shutting down type:text indexes
     this.maxConcurrentEmbeddingInitialSyncs =
@@ -213,10 +223,7 @@ public class InitialSyncQueue {
                     clientSessionRecord.sessionRefresher(),
                     meterRegistry,
                     syncSourceHost)));
-    MetricsFactory metricsFactory =
-        new MetricsFactory(
-            replicationConfig.getReplicationType().metricsNamespacePrefix + "initialSyncManager",
-            meterRegistry);
+    MetricsFactory metricsFactory = new MetricsFactory("initialSyncManager", meterRegistry);
     InitialSyncManagerFactory factory =
         getFactory(
             initialSyncConfig,
@@ -616,21 +623,28 @@ public class InitialSyncQueue {
       // TODO(CLOUDP-360914): refactor this after shutting down type:text indexes
       this.embeddingGetMoreBatchSize = getEmbeddingGetMoreBatchSize(replicationConfig);
 
-      this.metricsFactory =
-          new MetricsFactory(
-              replicationConfig.getReplicationType().metricsNamespacePrefix
-                  + "initialsync.dispatcher",
-              meterRegistry);
+      this.metricsFactory = new MetricsFactory("initialsync.dispatcher", meterRegistry);
       String inProgressSyncsName = "inProgressSyncs";
       this.inProgressSyncs =
           Map.of(
               TAG_SEARCH,
-              getNumGauge(this.metricsFactory, inProgressSyncsName, TAG_SEARCH),
+              getNumGauge(
+                  this.metricsFactory,
+                  inProgressSyncsName,
+                  TAG_SEARCH,
+                  Tag.of("replicationType", replicationConfig.getReplicationType().name())),
               TAG_VECTOR_SEARCH,
-              getNumGauge(this.metricsFactory, inProgressSyncsName, TAG_VECTOR_SEARCH),
+              getNumGauge(
+                  this.metricsFactory,
+                  inProgressSyncsName,
+                  TAG_VECTOR_SEARCH,
+                  Tag.of("replicationType", replicationConfig.getReplicationType().name())),
               TAG_VECTOR_SEARCH_AUTO_EMBEDDING,
               getNumGauge(
-                  this.metricsFactory, inProgressSyncsName, TAG_VECTOR_SEARCH_AUTO_EMBEDDING));
+                  this.metricsFactory,
+                  inProgressSyncsName,
+                  TAG_VECTOR_SEARCH_AUTO_EMBEDDING,
+                  Tag.of("replicationType", replicationConfig.getReplicationType().name())));
 
       Tags naturalOrderScanTag = Tags.of("scan_type", "natural_order");
       Tags idOrderScanTag = Tags.of("scan_type", "id_order");
@@ -639,10 +653,19 @@ public class InitialSyncQueue {
       this.collectionScansFeatureFlagMapping =
           Map.of(
               true,
-              this.metricsFactory.numGauge(collectionScanName, naturalOrderScanTag),
+              this.metricsFactory.numGauge(
+                  collectionScanName,
+                  naturalOrderScanTag.and(
+                      Tag.of("replicationType", replicationConfig.getReplicationType().name()))),
               false,
-              this.metricsFactory.numGauge(collectionScanName, idOrderScanTag));
-      this.inProgressResumedSyncs = this.metricsFactory.numGauge("inProgressResumedSyncs");
+              this.metricsFactory.numGauge(
+                  collectionScanName,
+                  idOrderScanTag.and(
+                      Tag.of("replicationType", replicationConfig.getReplicationType().name()))));
+      this.inProgressResumedSyncs =
+          this.metricsFactory.numGauge(
+              "inProgressResumedSyncs",
+              Tags.of("replicationType", replicationConfig.getReplicationType().name()));
       String initialSyncLongTimerName = "syncDuration";
       this.initialSyncLongTimerFeatureFlagMapping =
           Map.of(
@@ -658,28 +681,34 @@ public class InitialSyncQueue {
               false,
               this.metricsFactory.timer(initialSyncTimerName, idOrderScanTag));
       // TODO(CLOUDP-335647): remove queuedSyncs after switching to the new one in InitialSyncQueue.
-      this.metricsFactory.collectionSizeGauge("queuedSyncs", InitialSyncQueue.this.requestQueue);
+      this.metricsFactory.collectionSizeGauge(
+          "queuedSyncs",
+          InitialSyncQueue.this.requestQueue,
+          Tags.of("replicationType", replicationConfig.getReplicationType().name()));
       this.metricsFactory.timeGauge(
           "inProgressInitialSyncDurationMax",
           this.initialSyncStartTimeMap,
           map -> {
             var now = Clock.systemUTC().millis();
             return map.values().stream().mapToLong(ts -> now - ts).max().orElse(0L);
-          });
+          },
+          Tags.of("replicationType", replicationConfig.getReplicationType().name()));
       this.metricsFactory.timeGauge(
           "inProgressInitialSyncDurationMin",
           this.initialSyncStartTimeMap,
           map -> {
             var now = Clock.systemUTC().millis();
             return map.values().stream().mapToLong(ts -> now - ts).min().orElse(0L);
-          });
+          },
+          Tags.of("replicationType", replicationConfig.getReplicationType().name()));
       this.metricsFactory.timeGauge(
           "inProgressInitialSyncDurationSum",
           this.initialSyncStartTimeMap,
           map -> {
             var now = Clock.systemUTC().millis();
             return map.values().stream().mapToLong(ts -> now - ts).sum();
-          });
+          },
+          Tags.of("replicationType", replicationConfig.getReplicationType().name()));
       try {
         this.indexDirectoryHelper =
             Optional.of(IndexDirectoryHelper.create(dataPath, this.metricsFactory));

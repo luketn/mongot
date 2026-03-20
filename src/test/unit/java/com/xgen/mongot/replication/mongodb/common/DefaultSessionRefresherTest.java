@@ -43,6 +43,7 @@ public class DefaultSessionRefresherTest {
     var refresher =
         DefaultSessionRefresher.create(
             new MetricsFactory("replication.sessionRefresher", new SimpleMeterRegistry()),
+            CommonReplicationConfig.Type.DEFAULT,
             Executors.singleThreadScheduledExecutor("session-refresh", new SimpleMeterRegistry()),
             client,
             Duration.ofMillis(10));
@@ -80,6 +81,7 @@ public class DefaultSessionRefresherTest {
     var refresher =
         DefaultSessionRefresher.create(
             new MetricsFactory("replication.sessionRefresher", new SimpleMeterRegistry()),
+            CommonReplicationConfig.Type.DEFAULT,
             Executors.singleThreadScheduledExecutor("session-refresh", new SimpleMeterRegistry()),
             client,
             Duration.ofMillis(10));

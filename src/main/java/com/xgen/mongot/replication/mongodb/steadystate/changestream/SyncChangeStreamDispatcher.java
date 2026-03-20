@@ -17,11 +17,13 @@ import com.xgen.mongot.metrics.ServerStatusDataExtractor.Scope;
 import com.xgen.mongot.replication.mongodb.common.ChangeStreamBatch;
 import com.xgen.mongot.replication.mongodb.common.ChangeStreamMongoClient;
 import com.xgen.mongot.replication.mongodb.common.ChangeStreamResumeInfo;
+import com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig;
 import com.xgen.mongot.replication.mongodb.common.SteadyStateException;
 import com.xgen.mongot.util.concurrent.Executors;
 import com.xgen.mongot.util.concurrent.NamedScheduledExecutorService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
@@ -78,36 +80,60 @@ final class SyncChangeStreamDispatcher implements ChangeStreamDispatcher {
       ChangeStreamMongoClientFactory syncMongoClientFactory,
       NamedScheduledExecutorService executorService,
       Optional<Integer> maxInFlightEmbeddingGetMores,
-      String metricsNamespacePrefix) {
+      CommonReplicationConfig.Type type) {
     this.syncMongoClientFactory = syncMongoClientFactory;
     this.executorService = executorService;
     this.shutdown = false;
 
     MetricsFactory metricsFactory =
-        new MetricsFactory(
-            metricsNamespacePrefix + "indexing.steadyStateChangeStream", meterRegistry);
-    this.getMoresInFlight = metricsFactory.numGauge("getMoresInFlight");
+        new MetricsFactory("indexing.steadyStateChangeStream", meterRegistry);
+    this.getMoresInFlight =
+        metricsFactory.numGauge("getMoresInFlight", Tags.of("replicationType", type.name()));
     // TODO(CLOUDP-289914): Remove this getMoresInFlightTimer after switching to new one.
     this.getMoresInFlightTimer = metricsFactory.timer("getMoreDurations");
     String getMoresScheduledName = "getMoresScheduled";
     this.getMoresScheduled =
         Map.of(
-            TAG_SEARCH, getNumGauge(metricsFactory, getMoresScheduledName, TAG_SEARCH),
+            TAG_SEARCH,
+                getNumGauge(
+                    metricsFactory,
+                    getMoresScheduledName,
+                    TAG_SEARCH,
+                    Tag.of("replicationType", type.name())),
             TAG_VECTOR_SEARCH,
-                getNumGauge(metricsFactory, getMoresScheduledName, TAG_VECTOR_SEARCH),
+                getNumGauge(
+                    metricsFactory,
+                    getMoresScheduledName,
+                    TAG_VECTOR_SEARCH,
+                    Tag.of("replicationType", type.name())),
             TAG_VECTOR_SEARCH_AUTO_EMBEDDING,
                 getNumGauge(
-                    metricsFactory, getMoresScheduledName, TAG_VECTOR_SEARCH_AUTO_EMBEDDING));
+                    metricsFactory,
+                    getMoresScheduledName,
+                    TAG_VECTOR_SEARCH_AUTO_EMBEDDING,
+                    Tag.of("replicationType", type.name())));
     this.getMoresSchedulingTimer = metricsFactory.timer("getMoresSchedulingDurations");
     String batchesInProgressTotalName = "batchesInProgressTotal";
     this.batchesInProgressTotal =
         Map.of(
-            TAG_SEARCH, getNumGauge(metricsFactory, batchesInProgressTotalName, TAG_SEARCH),
+            TAG_SEARCH,
+                getNumGauge(
+                    metricsFactory,
+                    batchesInProgressTotalName,
+                    TAG_SEARCH,
+                    Tag.of("replicationType", type.name())),
             TAG_VECTOR_SEARCH,
-                getNumGauge(metricsFactory, batchesInProgressTotalName, TAG_VECTOR_SEARCH),
+                getNumGauge(
+                    metricsFactory,
+                    batchesInProgressTotalName,
+                    TAG_VECTOR_SEARCH,
+                    Tag.of("replicationType", type.name())),
             TAG_VECTOR_SEARCH_AUTO_EMBEDDING,
                 getNumGauge(
-                    metricsFactory, batchesInProgressTotalName, TAG_VECTOR_SEARCH_AUTO_EMBEDDING));
+                    metricsFactory,
+                    batchesInProgressTotalName,
+                    TAG_VECTOR_SEARCH_AUTO_EMBEDDING,
+                    Tag.of("replicationType", type.name())));
     this.batchesInProgressTotalTimer = metricsFactory.timer("batchesInProgressTotalDurations");
     this.unexpectedBatchFailures = metricsFactory.counter("unexpectedBatchFailures");
     this.preprocessingBatchTimer = metricsFactory.timer("preprocessingBatchDurations");
@@ -121,7 +147,9 @@ final class SyncChangeStreamDispatcher implements ChangeStreamDispatcher {
     this.skippedDocumentsWithoutMetadataNamespaceCounter =
         metricsFactory.counter("skippedChangeStreamDocumentsWithoutMetadataNamespace");
     this.syncClientUp =
-        metricsFactory.numGauge("dispatcher", replicationTag.and("client", "synchronous-batch"));
+        metricsFactory.numGauge(
+            "dispatcher",
+            replicationTag.and("client", "synchronous-batch").and("replicationType", type.name()));
     this.syncClientUp.incrementAndGet();
 
     this.maxInFlightEmbeddingGetMores = maxInFlightEmbeddingGetMores;

@@ -47,8 +47,7 @@ public class MongoClientBuilder {
       String metricsNamespacePrefix,
       MeterRegistry meterRegistry) {
     this.connectionString = connectionString;
-    MetricsFactory metricsFactory =
-        new MetricsFactory(metricsNamespacePrefix + "mongoClientBuilder", meterRegistry);
+    MetricsFactory metricsFactory = new MetricsFactory("mongoClientBuilder", meterRegistry);
     this.successfulDynamicLinkingCounter =
         metricsFactory.counter(MongodbClientMeterData.SUCCESSFUL_DYNAMIC_LINKING, METRIC_TAGS);
     this.failedDynamicLinkingCounter =

@@ -91,17 +91,17 @@ public class ChangeStreamManager {
             .map(enable -> enable ? ChangeStreamMode.INDEXED_FIELDS : ChangeStreamMode.ALL_FIELDS);
 
     var meterRegistry = meterAndFtdcRegistry.meterRegistry();
-    var metricsNamespacePrefix = replicationConfig.getReplicationType().metricsNamespacePrefix;
 
     ChangeStreamModeSelector modeSelector =
         new HeuristicChangeStreamModeSelector(
             new CollectionStatsMongoClient(syncMongoClient),
             new CollectionSamplingMongoClient(syncMongoClient),
             Executors.singleThreadScheduledExecutor(
-                metricsNamespacePrefix + "change-stream-mode-selector", meterRegistry),
+                replicationConfig.getReplicationType().metricsNamespacePrefix
+                    + "change-stream-mode-selector",
+                meterRegistry),
             modeSelectorOverride,
-            new MetricsFactory(
-                metricsNamespacePrefix + "indexing.changeStreamModeSelector", meterRegistry));
+            new MetricsFactory("indexing.changeStreamModeSelector", meterRegistry));
 
     return getSyncChangeStreamManager(
         meterAndFtdcRegistry,
@@ -153,11 +153,11 @@ public class ChangeStreamManager {
         replicationConfig.getMaxInFlightEmbeddingGetMores(), "maxInFlightEmbeddingGetMores");
 
     LOG.info("Creating with sync-batch client.");
-    var metricsNamespacePrefix = replicationConfig.getReplicationType().metricsNamespacePrefix;
 
     NamedScheduledExecutorService executorService =
         Executors.fixedSizeThreadScheduledExecutor(
-            metricsNamespacePrefix + "change-stream-sync-dispatcher",
+            replicationConfig.getReplicationType().metricsNamespacePrefix
+                + "change-stream-sync-dispatcher",
             replicationConfig.getNumConcurrentChangeStreams(),
             meterAndFtdcRegistry.meterRegistry());
 
@@ -176,7 +176,7 @@ public class ChangeStreamManager {
             shouldLimitMaxInFlightEmbeddingGetMores
                 ? Optional.of(replicationConfig.getMaxInFlightEmbeddingGetMores())
                 : Optional.empty(),
-            metricsNamespacePrefix);
+            replicationConfig.getReplicationType());
 
     return new ChangeStreamManager(
         indexingWorkSchedulerFactory, indexManagerFactory, syncDispatcher, modeSelector);

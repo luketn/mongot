@@ -9,6 +9,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.xgen.mongot.metrics.MetricsFactory;
+import com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig;
+import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import org.junit.Test;
 
@@ -37,8 +39,13 @@ public class IndexTypeDataTest {
   public void testGetNumGauge_withSearchTag() {
     MetricsFactory metricsFactory = mock(MetricsFactory.class);
     String gaugeName = "withSearchTag";
-    Tags expectedTags = Tags.of(IndexTypeData.INDEX_TYPE_TAG_NAME, "search");
-    IndexTypeData.getNumGauge(metricsFactory, gaugeName, IndexTypeData.IndexTypeTag.TAG_SEARCH);
+    Tags expectedTags =
+        Tags.of(IndexTypeData.INDEX_TYPE_TAG_NAME, "search", "replicationType", "DEFAULT");
+    IndexTypeData.getNumGauge(
+        metricsFactory,
+        gaugeName,
+        IndexTypeData.IndexTypeTag.TAG_SEARCH,
+        Tag.of("replicationType", CommonReplicationConfig.Type.DEFAULT.name()));
     verify(metricsFactory).numGauge(eq(gaugeName), eq(expectedTags));
   }
 
@@ -46,9 +53,13 @@ public class IndexTypeDataTest {
   public void testGetNumGauge_withVectorSearchTag() {
     MetricsFactory metricsFactory = mock(MetricsFactory.class);
     String gaugeName = "withVectorSearchTag";
-    Tags expectedTags = Tags.of(IndexTypeData.INDEX_TYPE_TAG_NAME, "vector_search");
+    Tags expectedTags =
+        Tags.of(IndexTypeData.INDEX_TYPE_TAG_NAME, "vector_search", "replicationType", "DEFAULT");
     IndexTypeData.getNumGauge(
-        metricsFactory, gaugeName, IndexTypeData.IndexTypeTag.TAG_VECTOR_SEARCH);
+        metricsFactory,
+        gaugeName,
+        IndexTypeData.IndexTypeTag.TAG_VECTOR_SEARCH,
+        Tag.of("replicationType", CommonReplicationConfig.Type.DEFAULT.name()));
     verify(metricsFactory).numGauge(eq(gaugeName), eq(expectedTags));
   }
 
@@ -56,9 +67,17 @@ public class IndexTypeDataTest {
   public void testGetNumGauge_withVectorSearchAutoEmbeddingTag() {
     MetricsFactory metricsFactory = mock(MetricsFactory.class);
     String gaugeName = "withVectorSearchAutoEmbeddingTag";
-    Tags expectedTags = Tags.of(IndexTypeData.INDEX_TYPE_TAG_NAME, "vector_search_auto_embedding");
+    Tags expectedTags =
+        Tags.of(
+            IndexTypeData.INDEX_TYPE_TAG_NAME,
+            "vector_search_auto_embedding",
+            "replicationType",
+            "DEFAULT");
     IndexTypeData.getNumGauge(
-        metricsFactory, gaugeName, IndexTypeData.IndexTypeTag.TAG_VECTOR_SEARCH_AUTO_EMBEDDING);
+        metricsFactory,
+        gaugeName,
+        IndexTypeData.IndexTypeTag.TAG_VECTOR_SEARCH_AUTO_EMBEDDING,
+        Tag.of("replicationType", CommonReplicationConfig.Type.DEFAULT.name()));
     verify(metricsFactory).numGauge(eq(gaugeName), eq(expectedTags));
   }
 }

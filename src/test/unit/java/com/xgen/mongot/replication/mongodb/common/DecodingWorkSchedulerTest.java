@@ -516,6 +516,7 @@ public class DecodingWorkSchedulerTest {
     DecodingWorkScheduler scheduler =
         new DecodingWorkScheduler(
             2,
+            CommonReplicationConfig.Type.DEFAULT,
             Executors.fixedSizeThreadPool("decoding", 2, meterRegistry),
             new MetricsFactory("decodingWorkScheduler", meterRegistry));
 

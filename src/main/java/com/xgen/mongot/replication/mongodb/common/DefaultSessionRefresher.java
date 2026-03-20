@@ -46,6 +46,7 @@ public class DefaultSessionRefresher implements SessionRefresher, VerboseRunnabl
 
   private DefaultSessionRefresher(
       MetricsFactory metricsFactory,
+      CommonReplicationConfig.Type replicationType,
       NamedScheduledExecutorService refreshExecutor,
       MongoClient mongoClient) {
     this.refreshExecutor = refreshExecutor;
@@ -53,7 +54,8 @@ public class DefaultSessionRefresher implements SessionRefresher, VerboseRunnabl
     this.sessionIds = new HashSet<>();
     Tags replicationTags = Tags.of(ServerStatusDataExtractor.Scope.REPLICATION.getTag());
 
-    this.sessionsGauge = metricsFactory.numGauge("sessions");
+    this.sessionsGauge =
+        metricsFactory.numGauge("sessions", Tags.of("replicationType", replicationType.name()));
     this.refreshCounter = metricsFactory.counter("refreshes");
     this.failedRefreshCounter =
         metricsFactory.counter(MongodbClientMeterData.FAILED_SESSION_REFRESHES, replicationTags);
@@ -63,18 +65,21 @@ public class DefaultSessionRefresher implements SessionRefresher, VerboseRunnabl
 
   public static DefaultSessionRefresher create(
       MetricsFactory metricsFactory,
+      CommonReplicationConfig.Type replicationType,
       NamedScheduledExecutorService refreshExecutor,
       MongoClient mongoClient) {
-    return create(metricsFactory, refreshExecutor, mongoClient, DEFAULT_REFRESH_PERIOD);
+    return create(
+        metricsFactory, replicationType, refreshExecutor, mongoClient, DEFAULT_REFRESH_PERIOD);
   }
 
   static DefaultSessionRefresher create(
       MetricsFactory metricsFactory,
+      CommonReplicationConfig.Type replicationType,
       NamedScheduledExecutorService refreshExecutor,
       MongoClient mongoClient,
       Duration refreshPeriod) {
     DefaultSessionRefresher refresher =
-        new DefaultSessionRefresher(metricsFactory, refreshExecutor, mongoClient);
+        new DefaultSessionRefresher(metricsFactory, replicationType, refreshExecutor, mongoClient);
     refreshExecutor.scheduleWithFixedDelay(
         refresher, refreshPeriod.toMillis(), refreshPeriod.toMillis(), TimeUnit.MILLISECONDS);
     return refresher;

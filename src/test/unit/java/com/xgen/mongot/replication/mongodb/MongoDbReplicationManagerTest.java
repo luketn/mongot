@@ -31,6 +31,7 @@ import com.xgen.mongot.index.InitializedSearchIndex;
 import com.xgen.mongot.index.definition.SearchIndexDefinition;
 import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.mongot.replication.mongodb.common.ClientSessionRecord;
+import com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig;
 import com.xgen.mongot.replication.mongodb.common.DecodingWorkScheduler;
 import com.xgen.mongot.replication.mongodb.common.IndexingWorkSchedulerFactory;
 import com.xgen.mongot.replication.mongodb.common.MongoDbReplicationConfig;
@@ -536,7 +537,7 @@ public class MongoDbReplicationManagerTest {
             syncSourceConfig1,
             MongoDbReplicationManager.getSyncMaxConnections(
                 syncSourceConfig1, MongoDbReplicationConfig.getDefault()),
-            "",
+            CommonReplicationConfig.Type.DEFAULT,
             new SimpleMeterRegistry(),
             spy(Executors.fixedSizeThreadScheduledExecutor("test", 1, new SimpleMeterRegistry())),
             "localhost1");
@@ -561,7 +562,7 @@ public class MongoDbReplicationManagerTest {
             syncSourceConfig2,
             MongoDbReplicationManager.getSyncMaxConnections(
                 syncSourceConfig2, MongoDbReplicationConfig.getDefault()),
-            "",
+            CommonReplicationConfig.Type.DEFAULT,
             new SimpleMeterRegistry(),
             spy(Executors.fixedSizeThreadScheduledExecutor("test", 1, new SimpleMeterRegistry())),
             MongoDbReplicationManager.getSyncSourceHost(syncSourceConfig2));

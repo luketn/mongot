@@ -266,9 +266,7 @@ public class MaterializedViewManager implements ReplicationManager {
     this.heartbeatExecutor = heartbeatExecutor;
     this.syncSourceConfig = syncSourceConfig;
     this.shutdown = false;
-    this.metricsFactory =
-        new MetricsFactory(
-            AUTO_EMBEDDING.metricsNamespacePrefix + "replication.mongodb", this.meterRegistry);
+    this.metricsFactory = new MetricsFactory("replication.mongodb", this.meterRegistry);
     this.statusRefreshExecutor = statusRefreshExecutor;
     this.optimeUpdaterExecutor = optimeUpdaterExecutor;
     this.leaseManager = leaseManager;
@@ -373,9 +371,7 @@ public class MaterializedViewManager implements ReplicationManager {
 
     var decodingWorkScheduler =
         DecodingWorkScheduler.create(
-            materializedViewConfig.numChangeStreamDecodingThreads,
-            AUTO_EMBEDDING.metricsNamespacePrefix,
-            meterRegistry);
+            materializedViewConfig.numChangeStreamDecodingThreads, AUTO_EMBEDDING, meterRegistry);
 
     var sessionRefreshExecutor =
         Executors.singleThreadScheduledExecutor("auto-embedding-session-refresh", meterRegistry);
@@ -386,7 +382,7 @@ public class MaterializedViewManager implements ReplicationManager {
         getClientSessionRecords(
             syncSourceConfig,
             getSyncMaxConnections(materializedViewConfig),
-            AUTO_EMBEDDING.metricsNamespacePrefix,
+            AUTO_EMBEDDING,
             meterRegistry,
             sessionRefreshExecutor,
             syncSourceHost);

@@ -62,7 +62,10 @@ public class DecodingWorkScheduler extends Thread {
   private boolean shutdown;
 
   DecodingWorkScheduler(
-      int numConcurrentDecoding, NamedExecutorService executor, MetricsFactory metricsFactory) {
+      int numConcurrentDecoding,
+      CommonReplicationConfig.Type type,
+      NamedExecutorService executor,
+      MetricsFactory metricsFactory) {
     super("DecodingWorkScheduler");
     this.executor = executor;
     this.concurrentDecodingBatches = new Semaphore(numConcurrentDecoding);
@@ -72,7 +75,7 @@ public class DecodingWorkScheduler extends Thread {
     
     Tag replicationTag = ServerStatusDataExtractor.Scope.REPLICATION.getTag();
 
-    this.schedulerQueue = new SchedulerQueue<>(metricsFactory);
+    this.schedulerQueue = new SchedulerQueue<>(type, metricsFactory);
 
     this.enqueueCounter = metricsFactory.counter("enqueueCalls");
     this.dequeueCounter = metricsFactory.counter("dequeueCalls");
@@ -93,7 +96,7 @@ public class DecodingWorkScheduler extends Thread {
    * @return an DecodingWorkScheduler.
    */
   public static DecodingWorkScheduler create(int numDecodingThreads, MeterRegistry registry) {
-    return create(numDecodingThreads, DEFAULT.metricsNamespacePrefix, registry);
+    return create(numDecodingThreads, DEFAULT, registry);
   }
 
   /**
@@ -103,15 +106,16 @@ public class DecodingWorkScheduler extends Thread {
    *     metrics.
    */
   public static DecodingWorkScheduler create(
-      int numDecodingThreads, String metricsNamespacePrefix, MeterRegistry registry) {
+      int numDecodingThreads, CommonReplicationConfig.Type type, MeterRegistry registry) {
     var executor =
         Executors.fixedSizeThreadPool(
-            metricsNamespacePrefix + "decoding", numDecodingThreads, registry);
+            type.metricsNamespacePrefix + "decoding", numDecodingThreads, registry);
     var scheduler =
         new DecodingWorkScheduler(
             numDecodingThreads,
+            type,
             executor,
-            new MetricsFactory(metricsNamespacePrefix + "decodingWorkScheduler", registry));
+            new MetricsFactory("decodingWorkScheduler", registry));
     scheduler.start();
     return scheduler;
   }

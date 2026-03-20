@@ -56,9 +56,7 @@ class ChangeStreamMongoClientFactory {
         replicationConfig.getMatchCollectionUuidForUpdateLookup();
     this.ftdcRegistry = meterAndFtdcRegistry.ftdcRegistry();
     this.meterMetricsFactory =
-        new MetricsFactory(
-            replicationConfig.getReplicationType().metricsNamespacePrefix + "changestream",
-            meterAndFtdcRegistry.meterRegistry());
+        new MetricsFactory("changestream", meterAndFtdcRegistry.meterRegistry());
     this.enableSplitLargeChangeStreamEvents =
         replicationConfig.getEnableSplitLargeChangeStreamEvents();
   }
