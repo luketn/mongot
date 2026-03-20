@@ -21,14 +21,14 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      OverriddenBaseAnalyzerDefinitionTest.TestDeserialization.class,
-      OverriddenBaseAnalyzerDefinitionTest.TestSerialization.class,
-      OverriddenBaseAnalyzerDefinitionTest.TestDefinition.class,
+      OverriddenBaseAnalyzerDefinitionTest.DeserializationTest.class,
+      OverriddenBaseAnalyzerDefinitionTest.SerializationTest.class,
+      OverriddenBaseAnalyzerDefinitionTest.DefinitionTest.class,
     })
 public class OverriddenBaseAnalyzerDefinitionTest {
 
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
 
     private static final String SUITE_NAME = "analyzer-deserialization";
     private static final BsonDeserializationTestSuite<OverriddenBaseAnalyzerDefinition> TEST_SUITE =
@@ -40,7 +40,7 @@ public class OverriddenBaseAnalyzerDefinitionTest {
     private final BsonDeserializationTestSuite.TestSpecWrapper<OverriddenBaseAnalyzerDefinition>
         testSpec;
 
-    public TestDeserialization(
+    public DeserializationTest(
         BsonDeserializationTestSuite.TestSpecWrapper<OverriddenBaseAnalyzerDefinition> testSpec) {
       this.testSpec = testSpec;
     }
@@ -123,7 +123,7 @@ public class OverriddenBaseAnalyzerDefinitionTest {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
 
     private static final String SUITE_NAME = "analyzer-serialization";
     private static final BsonSerializationTestSuite<OverriddenBaseAnalyzerDefinition> TEST_SUITE =
@@ -131,7 +131,7 @@ public class OverriddenBaseAnalyzerDefinitionTest {
 
     private final BsonSerializationTestSuite.TestSpec<OverriddenBaseAnalyzerDefinition> testSpec;
 
-    public TestSerialization(
+    public SerializationTest(
         BsonSerializationTestSuite.TestSpec<OverriddenBaseAnalyzerDefinition> testSpec) {
       this.testSpec = testSpec;
     }
@@ -197,7 +197,7 @@ public class OverriddenBaseAnalyzerDefinitionTest {
     }
   }
 
-  public static class TestDefinition {
+  public static class DefinitionTest {
 
     @Test
     public void testGetName() {

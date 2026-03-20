@@ -14,7 +14,7 @@ import org.junit.runners.Parameterized;
 public class CharFilterDefinitionTest {
 
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
     private static final String SUITE_NAME = "char-filter-deserialization";
     private static final BsonDeserializationTestSuite<CharFilterDefinition> TEST_SUITE =
         BsonDeserializationTestSuite.fromDocument(
@@ -81,7 +81,7 @@ public class CharFilterDefinitionTest {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
     private static final String SUITE_NAME = "char-filter-serialization";
     private static final BsonSerializationTestSuite<CharFilterDefinition> TEST_SUITE =
         BsonSerializationTestSuite.fromEncodable(
@@ -124,7 +124,7 @@ public class CharFilterDefinitionTest {
     }
   }
 
-  public static class TestDefinition {
+  public static class DefinitionTest {
     @Test
     public void testEquals() {
       TestUtils.assertEqualityGroups(
