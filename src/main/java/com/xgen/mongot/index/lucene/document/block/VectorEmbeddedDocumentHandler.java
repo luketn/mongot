@@ -23,7 +23,9 @@ import javax.annotation.Nullable;
  */
 class VectorEmbeddedDocumentHandler implements DocumentHandler {
   final DocumentHandler wrappedFieldHandler;
-  final VectorEmbeddedDocumentsFieldDefinition fieldDefinition;
+  // Null when this handler is for an intermediate ancestor path of the nestedRoot (i.e., we are
+  // still descending toward the nestedRoot and have not yet reached it).
+  @Nullable final VectorEmbeddedDocumentsFieldDefinition fieldDefinition;
   final VectorIndexFieldMapping mapping;
   final DocumentBlock documentBlock;
   final FieldPath fieldPath;
@@ -34,7 +36,7 @@ class VectorEmbeddedDocumentHandler implements DocumentHandler {
 
   private VectorEmbeddedDocumentHandler(
       DocumentHandler wrappedFieldHandler,
-      VectorEmbeddedDocumentsFieldDefinition fieldDefinition,
+      @Nullable VectorEmbeddedDocumentsFieldDefinition fieldDefinition,
       VectorIndexFieldMapping mapping,
       IndexingMetricsUpdater indexingMetricsUpdater,
       IndexCapabilities indexCapabilities,
@@ -55,7 +57,7 @@ class VectorEmbeddedDocumentHandler implements DocumentHandler {
 
   static DocumentHandler create(
       DocumentHandler wrappedFieldHandler,
-      VectorEmbeddedDocumentsFieldDefinition fieldDefinition,
+      @Nullable VectorEmbeddedDocumentsFieldDefinition fieldDefinition,
       VectorIndexFieldMapping mapping,
       IndexingMetricsUpdater indexingMetricsUpdater,
       IndexCapabilities indexCapabilities,
@@ -140,6 +142,22 @@ class VectorEmbeddedDocumentHandler implements DocumentHandler {
               id,
               autoEmbeddings))
           .or(() -> documentHandler.valueHandler(leafPath));
+    }
+
+    // Check if this path is an intermediate ancestor of the nested root (e.g. "sections" when
+    // nestedRoot is "sections.paragraphs"). We must keep descending with embedded-root awareness
+    // so that the nestedRoot check above fires at the correct depth.
+    if (mapping.isAncestorOfNestedRoot(fieldValueHandlerAbsolutePath)) {
+      return Optional.of(
+          VectorEmbeddedFieldValueHandler.createAncestor(
+              documentHandler.valueHandler(leafPath),
+              documentBlock,
+              mapping,
+              indexingMetricsUpdater,
+              indexCapabilities,
+              fieldValueHandlerAbsolutePath,
+              id,
+              autoEmbeddings));
     }
 
     // If fieldDefinition is null (at root level), check the mapping directly

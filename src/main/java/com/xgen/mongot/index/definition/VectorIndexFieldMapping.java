@@ -50,6 +50,17 @@ public record VectorIndexFieldMapping(
     return this.nestedRoot.isPresent() && this.nestedRoot.get().equals(path);
   }
 
+  /**
+   * Returns true if {@code path} is a strict ancestor of the configured {@code nestedRoot}.
+   *
+   * <p>For example, if {@code nestedRoot} is {@code "sections.paragraphs"}, then {@code "sections"}
+   * is an ancestor of the nested root. This is used during indexing to detect intermediate path
+   * segments that must be traversed before reaching the actual nested root.
+   */
+  public boolean isAncestorOfNestedRoot(FieldPath path) {
+    return this.nestedRoot.isPresent() && this.nestedRoot.get().isChildOf(path);
+  }
+
   public boolean hasNestedRoot() {
     return this.nestedRoot.isPresent();
   }

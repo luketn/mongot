@@ -191,11 +191,11 @@ public class DefaultIndexingPolicyTest {
   }
 
   @Test
-  public void create_vectorIndexWithDeepNestedRoot_processesDocumentWithoutException()
+  public void create_vectorIndexWithDeepNestedRoot_producesBlockWithRootAndEmbeddedDocs()
       throws IOException {
-    // Nested root at multi-segment path: chapters.sections. Documents that the policy accepts
-    // this definition and processes a doc with nested structure; block structure for deep paths
-    // may differ from single-segment nested root.
+    // Nested root at multi-segment path: chapters.sections.
+    // The intermediate ancestor "chapters" must be traversed with embedded-root awareness so that
+    // the nestedRoot check fires at "chapters.sections" and child documents are created correctly.
     var indexDefinition =
         VectorIndexDefinitionBuilder.builder()
             .nestedRoot("chapters.sections")
@@ -239,9 +239,10 @@ public class DefaultIndexingPolicyTest {
     BsonDocumentProcessor.process(BsonUtils.documentToRaw(doc), builder);
 
     List<Document> block = builder.buildBlock();
-    // Deep nested root (multi-segment path) currently produces only the root document; when
-    // block structure for deep paths is supported, expect 3 (1 root + 2 embedded) and update this.
-    assertEquals(1, block.size());
+    assertEquals(
+        "Expected 1 root document + 2 embedded child documents for 2 sections elements",
+        3,
+        block.size());
   }
 
   @Test
