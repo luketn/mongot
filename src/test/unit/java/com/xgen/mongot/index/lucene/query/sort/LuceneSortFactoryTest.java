@@ -803,6 +803,227 @@ public class LuceneSortFactoryTest {
     Truth.assertThat(sort.getSort()[2]).isInstanceOf(MqlSortedSetSortField.class);
   }
 
+  @Test
+  public void createLuceneSort_doubleWithNullTypeAndUnrelatedIndexSort_fallsBackToMixedSort()
+      throws InvalidQueryException {
+    SortSpec sortSpec =
+        SortSpecBuilder.builder()
+            .sortField(
+                SortFieldBuilder.builder()
+                    .path("revenue")
+                    .sortOption(UserFieldSortOptions.DEFAULT_ASC)
+                    .build())
+            .buildSort();
+
+    // Index sort does not align with the query sort field, so NULL filtering for DOUBLE must
+    // not be enabled.
+    Sort indexSort =
+        new Sort(
+            new SortedNumericSortField(
+                "$type:doubleV2/otherField",
+                SortField.Type.LONG,
+                false,
+                SortedNumericSelector.Type.MIN));
+
+    Sort sort =
+        new LuceneSortFactory(newQueryFactoryContext())
+            .createLuceneSort(
+                sortSpec,
+                Optional.empty(),
+                new FieldToSortableTypesMapping(
+                    ImmutableSetMultimap.of(
+                        FieldPath.newRoot("revenue"),
+                        FieldName.TypeField.NULL,
+                        FieldPath.newRoot("revenue"),
+                        FieldName.TypeField.NUMBER_DOUBLE_V2),
+                    ImmutableMap.of()),
+                Optional.empty(),
+                Optional.of(indexSort));
+
+    Truth.assertThat(sort.getSort().length).isEqualTo(1);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(MqlMixedSort.class);
+  }
+
+  @Test
+  public void createLuceneSort_doubleWithNullTypeNoIndexSort_fallsBackToMixedSort()
+      throws InvalidQueryException {
+    SortSpec sortSpec =
+        SortSpecBuilder.builder()
+            .sortField(
+                SortFieldBuilder.builder()
+                    .path("a")
+                    .sortOption(UserFieldSortOptions.DEFAULT_ASC)
+                    .build())
+            .buildSort();
+
+    Sort sort =
+        new LuceneSortFactory(newQueryFactoryContext())
+            .createLuceneSort(
+                sortSpec,
+                Optional.empty(),
+                new FieldToSortableTypesMapping(
+                    ImmutableSetMultimap.of(
+                        FieldPath.newRoot("a"),
+                        FieldName.TypeField.NULL,
+                        FieldPath.newRoot("a"),
+                        FieldName.TypeField.NUMBER_DOUBLE_V2),
+                    ImmutableMap.of()),
+                Optional.empty(),
+                Optional.empty());
+
+    Truth.assertThat(sort.getSort().length).isEqualTo(1);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(MqlMixedSort.class);
+  }
+
+  @Test
+  public void createLuceneSort_int64WithNullTypeNoNullnessField_fallsBackToMixedSort()
+      throws InvalidQueryException {
+    SortSpec sortSpec =
+        SortSpecBuilder.builder()
+            .sortField(
+                SortFieldBuilder.builder()
+                    .path("count")
+                    .sortOption(UserFieldSortOptions.DEFAULT_ASC)
+                    .build())
+            .buildSort();
+
+    Sort sort =
+        new LuceneSortFactory(newQueryFactoryContext())
+            .createLuceneSort(
+                sortSpec,
+                Optional.empty(),
+                new FieldToSortableTypesMapping(
+                    ImmutableSetMultimap.of(
+                        FieldPath.newRoot("count"),
+                        FieldName.TypeField.NULL,
+                        FieldPath.newRoot("count"),
+                        FieldName.TypeField.NUMBER_INT64_V2),
+                    ImmutableMap.of()),
+                Optional.empty(),
+                Optional.empty());
+
+    Truth.assertThat(sort.getSort().length).isEqualTo(1);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(MqlMixedSort.class);
+  }
+
+  @Test
+  public void createLuceneSort_doubleOnlyNoNull_usesOptimizedSort()
+      throws InvalidQueryException {
+    SortSpec sortSpec =
+        SortSpecBuilder.builder()
+            .sortField(
+                SortFieldBuilder.builder()
+                    .path("price")
+                    .sortOption(UserFieldSortOptions.DEFAULT_DESC)
+                    .build())
+            .buildSort();
+
+    Sort sort =
+        new LuceneSortFactory(newQueryFactoryContext())
+            .createLuceneSort(
+                sortSpec,
+                Optional.empty(),
+                new FieldToSortableTypesMapping(
+                    ImmutableSetMultimap.of(
+                        FieldPath.newRoot("price"),
+                        FieldName.TypeField.NUMBER_DOUBLE_V2),
+                    ImmutableMap.of()),
+                Optional.empty(),
+                Optional.empty());
+
+    Truth.assertThat(sort.getSort().length).isEqualTo(1);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(MqlDoubleSort.class);
+  }
+
+  @Test
+  public void createLuceneSort_int64WithNullTypeAndNullnessField_fallsBackToMixedSort()
+      throws InvalidQueryException {
+    SortSpec sortSpec =
+        SortSpecBuilder.builder()
+            .sortField(
+                SortFieldBuilder.builder()
+                    .path("foo")
+                    .sortOption(UserFieldSortOptions.DEFAULT_ASC)
+                    .build())
+            .buildSort();
+
+    Sort indexSort =
+        new Sort(
+            new SortedNumericSortField(
+                "$meta/nullness/foo",
+                SortField.Type.LONG,
+                false,
+                SortedNumericSelector.Type.MIN),
+            new SortedNumericSortField(
+                "$type:int64V2/foo",
+                SortField.Type.LONG,
+                false,
+                SortedNumericSelector.Type.MIN));
+
+    Sort sort =
+        new LuceneSortFactory(newQueryFactoryContext())
+            .createLuceneSort(
+                sortSpec,
+                Optional.empty(),
+                new FieldToSortableTypesMapping(
+                    ImmutableSetMultimap.of(
+                        FieldPath.newRoot("foo"),
+                        FieldName.TypeField.NULL,
+                        FieldPath.newRoot("foo"),
+                        FieldName.TypeField.NUMBER_INT64_V2),
+                    ImmutableMap.of()),
+                Optional.empty(),
+                Optional.of(indexSort));
+
+    Truth.assertThat(sort.getSort().length).isEqualTo(2);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(SortedNumericSortField.class);
+    Truth.assertThat(sort.getSort()[0].getField()).isEqualTo("$meta/nullness/foo");
+    Truth.assertThat(sort.getSort()[1]).isInstanceOf(MqlMixedSort.class);
+  }
+
+  @Test
+  public void createLuceneSort_dateWithIndexSort_usesOptimizedSort()
+      throws InvalidQueryException {
+    SortSpec sortSpec =
+        SortSpecBuilder.builder()
+            .sortField(
+                SortFieldBuilder.builder()
+                    .path("ts")
+                    .sortOption(UserFieldSortOptions.DEFAULT_DESC)
+                    .build())
+            .buildSort();
+
+    Sort indexSort =
+        new Sort(
+            new SortedNumericSortField(
+                "$meta/nullness/ts",
+                SortField.Type.LONG,
+                true,
+                SortedNumericSelector.Type.MAX),
+            new SortedNumericSortField(
+                "$type:dateV2/ts",
+                SortField.Type.LONG,
+                true,
+                SortedNumericSelector.Type.MAX));
+
+    Sort sort =
+        new LuceneSortFactory(newQueryFactoryContext())
+            .createLuceneSort(
+                sortSpec,
+                Optional.empty(),
+                new FieldToSortableTypesMapping(
+                    ImmutableSetMultimap.of(
+                        FieldPath.newRoot("ts"), FieldName.TypeField.DATE_V2),
+                    ImmutableMap.of()),
+                Optional.empty(),
+                Optional.of(indexSort));
+
+    Truth.assertThat(sort.getSort().length).isEqualTo(2);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(SortedNumericSortField.class);
+    Truth.assertThat(sort.getSort()[0].getField()).isEqualTo("$meta/nullness/ts");
+    Truth.assertThat(sort.getSort()[1]).isInstanceOf(MqlDateSort.class);
+  }
+
   private SearchQueryFactoryContext newQueryFactoryContext() {
     var fieldDefinitionResolver =
         SearchIndex.MOCK_INDEX_DEFINITION.createFieldDefinitionResolver(

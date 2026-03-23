@@ -126,9 +126,7 @@ public class LuceneSortFactory {
   }
 
   private record ExpandedSortFields(
-      List<MongotSortField> fields,
-      ImmutableSet<Long> nullnessFieldIndexes,
-      ImmutableSet<Long> nullnessExpandedValueFieldIndexes) {}
+      List<MongotSortField> fields, ImmutableSet<Long> nullnessFieldIndexes) {}
 
   @SuppressWarnings("checkstyle:MissingJavadocMethod")
   public org.apache.lucene.search.Sort createLuceneSort(
@@ -181,10 +179,7 @@ public class LuceneSortFactory {
                                 .get(field.field())),
                         after.map(fieldDoc -> fieldDoc.fields[(int) idx]),
                         embeddedRoot,
-                        expandedSortFields.nullnessFieldIndexes().contains(idx),
-                        expandedSortFields
-                            .nullnessExpandedValueFieldIndexes()
-                            .contains(idx)))
+                        expandedSortFields.nullnessFieldIndexes().contains(idx)))
             .map(
                 sortField ->
                     Explain.isEnabled()
@@ -214,26 +209,23 @@ public class LuceneSortFactory {
       Optional<org.apache.lucene.search.Sort> indexSort) {
     var mongotFields = sortSpec.getSortFields();
     if (indexSort.isEmpty()) {
-      return new ExpandedSortFields(mongotFields, ImmutableSet.of(), ImmutableSet.of());
+      return new ExpandedSortFields(mongotFields, ImmutableSet.of());
     }
 
     List<MongotSortField> expanded = new ArrayList<>();
     ImmutableSet.Builder<Long> nullnessFieldIndexes = ImmutableSet.builder();
-    ImmutableSet.Builder<Long> nullnessExpandedValueFieldIndexes = ImmutableSet.builder();
 
     for (MongotSortField field : mongotFields) {
       if (needsNullnessField(indexSort, field)) {
         FieldPath nullnessPath = FieldPath.newRoot(FieldName.getNullnessFieldName(field.field()));
         nullnessFieldIndexes.add((long) expanded.size());
         expanded.add(new MongotSortField(nullnessPath, field.options()));
-        nullnessExpandedValueFieldIndexes.add((long) expanded.size());
       }
 
       expanded.add(field);
     }
 
-    return new ExpandedSortFields(
-        expanded, nullnessFieldIndexes.build(), nullnessExpandedValueFieldIndexes.build());
+    return new ExpandedSortFields(expanded, nullnessFieldIndexes.build());
   }
 
   /**
@@ -263,31 +255,18 @@ public class LuceneSortFactory {
       Optional<ImmutableSet<FieldName.TypeField>> typeFields,
       Optional<Object> afterFieldValue,
       Optional<FieldPath> embeddedRoot,
-      boolean isInjectedNullnessField,
-      boolean isNullnessExpandedField) {
+      boolean isInjectedNullnessField) {
     if (isInjectedNullnessField) {
       return createNullnessSortField(mongotSortField);
     }
     ImmutableSet<FieldName.TypeField> rawTypeFields =
         typeFields.orElseGet(ImmutableSet::of);
-    // For fields with a prepended $nullness sort field, filter out NULL type so
-    // {NULL, INT64_V2} reduces to {INT64_V2} and enables optimized sort.
-    ImmutableSet<FieldName.TypeField> effectiveTypeFields =
-        isNullnessExpandedField
-            ? rawTypeFields.stream()
-                .filter(t -> t != FieldName.TypeField.NULL)
-                .collect(ImmutableSet.toImmutableSet())
-            : rawTypeFields;
-    // For nullness-expanded fields, skip afterFieldValue type check since the
-    // token may contain BsonMinKey/BsonMaxKey sentinel values.
-    Optional<Object> effectiveAfterFieldValue =
-        isNullnessExpandedField ? Optional.empty() : afterFieldValue;
     return mongotSortField.options() instanceof MetaSortOptions metaOptions
         ? metaOptions.getMetaSort()
         : createOptimizedSortField(
                 mongotSortField,
-                effectiveTypeFields,
-                effectiveAfterFieldValue,
+                rawTypeFields,
+                afterFieldValue,
                 embeddedRoot,
                 this.context.getIndexCapabilities())
             .orElseGet(() -> new MqlMixedSort(mongotSortField, embeddedRoot));
