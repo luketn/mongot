@@ -48,6 +48,7 @@ import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.MaterializedVectorSearchQuery;
 import com.xgen.mongot.index.query.operators.VectorSearchCriteria;
 import com.xgen.mongot.index.query.operators.VectorSearchFilter;
+import com.xgen.mongot.index.query.operators.VectorSearchQueryInput;
 import com.xgen.mongot.index.query.operators.mql.Clause;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.metrics.MetricsFactory;
@@ -273,6 +274,97 @@ public class VectorSearchCommandTest {
                 new BsonString(
                     "\"" + PATH + "\" " + "limit should be less than or equal to numCandidates")),
         result);
+  }
+
+  @Test
+  public void maybeLoadShed_regularVectorQuery_returnsTrue() throws Exception {
+    var mocks = new Mocks();
+    var command =
+        new VectorSearchCommand(
+            VectorSearchCommandDefinitionBuilder.builder()
+                .db(DATABASE_NAME)
+                .collectionName(COLLECTION_NAME)
+                .collectionUuid(COLLECTION_UUID)
+                .vectorSearchQuery(
+                    VectorQueryBuilder.builder()
+                        .index(INDEX_NAME)
+                        .criteria(
+                            ApproximateVectorQueryCriteriaBuilder.builder()
+                                .limit(LIMIT)
+                                .numCandidates(NUM_CANDIDATES)
+                                .queryVector(QUERY_VECTOR)
+                                .path(PATH)
+                                .build())
+                        .build())
+                .build(),
+            mocks.catalog,
+            mocks.initializedIndexCatalog,
+            bootstrapperMetadata(),
+            MOCK_EMBEDDING_SERVICE,
+            new VectorSearchCommand.Metrics(mockMetricsFactory()),
+            mocks.cursorManager,
+            CursorConfig.DEFAULT_BSON_SIZE_SOFT_LIMIT);
+
+    Assert.assertTrue(command.maybeLoadShed());
+  }
+
+  @Test
+  public void maybeLoadShed_autoEmbeddingQuery_returnsFalse()
+      throws Exception {
+    var mocks = new Mocks();
+    var command =
+        new VectorSearchCommand(
+            VectorSearchCommandDefinitionBuilder.builder()
+                .db(DATABASE_NAME)
+                .collectionName(COLLECTION_NAME)
+                .collectionUuid(COLLECTION_UUID)
+                .vectorSearchQuery(
+                    VectorQueryBuilder.builder()
+                        .index(INDEX_NAME)
+                        .criteria(
+                            ApproximateVectorQueryCriteriaBuilder.builder()
+                                .limit(LIMIT)
+                                .numCandidates(NUM_CANDIDATES)
+                                .query(
+                                    new VectorSearchQueryInput.Text(
+                                        "test query"))
+                                .path(PATH)
+                                .build())
+                        .build())
+                .build(),
+            mocks.catalog,
+            mocks.initializedIndexCatalog,
+            bootstrapperMetadata(),
+            MOCK_EMBEDDING_SERVICE,
+            new VectorSearchCommand.Metrics(mockMetricsFactory()),
+            mocks.cursorManager,
+            CursorConfig.DEFAULT_BSON_SIZE_SOFT_LIMIT);
+
+    Assert.assertFalse(command.maybeLoadShed());
+  }
+
+  @Test
+  public void maybeLoadShed_invalidQuery_returnsTrue() throws Exception {
+    var mocks = new Mocks();
+    var command =
+        new VectorSearchCommand(
+            VectorSearchCommandDefinitionBuilder.builder()
+                .db(DATABASE_NAME)
+                .collectionName(COLLECTION_NAME)
+                .collectionUuid(COLLECTION_UUID)
+                .vectorSearchQuery(
+                    new BsonParseException(
+                        "invalid query", Optional.of(PATH)))
+                .build(),
+            new DefaultIndexCatalog(),
+            new InitializedIndexCatalog(),
+            bootstrapperMetadata(),
+            MOCK_EMBEDDING_SERVICE,
+            new VectorSearchCommand.Metrics(mockMetricsFactory()),
+            mocks.cursorManager,
+            CursorConfig.DEFAULT_BSON_SIZE_SOFT_LIMIT);
+
+    Assert.assertTrue(command.maybeLoadShed());
   }
 
   @Test

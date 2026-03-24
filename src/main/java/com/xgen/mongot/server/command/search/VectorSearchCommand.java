@@ -146,6 +146,20 @@ public class VectorSearchCommand implements Command {
     this.searchEnvoyMetadata = Optional.of(searchEnvoyMetadata);
   }
 
+  @Override
+  public boolean maybeLoadShed() {
+    // Auto-embedding queries call an external embedding service; delaying them in the
+    // load-shedded queue doesn't reduce load on the search node, so skip load shedding.
+    // The instanceof check is required because InvalidVectorQuery.vectorSearchQuery() throws.
+    if (this.definition.vectorSearchQueryOrUserError()
+        instanceof VectorSearchCommandDefinition.VectorSearchQueryOrUserError.ValidVectorQuery
+            validQuery) {
+      return validQuery.vectorSearchQuery().criteria().getVectorSearchType()
+          != VectorSearchCriteria.Type.AUTO_EMBEDDING;
+    }
+    return true;
+  }
+
   private static final MongoDbVersion VECTOR_STORED_SOURCE_MIN_VERSION_MONGODB =
       new MongoDbVersion(8, 2, 0);
 
