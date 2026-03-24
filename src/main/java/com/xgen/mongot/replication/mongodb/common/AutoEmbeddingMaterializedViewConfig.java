@@ -31,6 +31,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
   private static final int DEFAULT_REQUEST_RATE_LIMIT_BACKOFF_MS = 100;
   private static final int DEFAULT_MAT_VIEW_WRITER_MAX_CONNECTIONS = 4;
   private static final int MAX_MAT_VIEW_WRITER_MAX_CONNECTIONS = 16;
+  private static final long DEFAULT_MATERIALIZED_VIEW_NAME_FORMAT_VERSION = 1;
 
   /**
    * The number of steady state change streams that are allowed to have outstanding getMores issued
@@ -106,6 +107,11 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
    */
   public final int matViewWriterMaxConnections;
 
+  /**
+   * Indicates the default Materialized View Collection name format version, used for collection
+   * resolver as a fallback if indexDefinition has no name format version.
+   */
+  public final long defaultMaterializedViewNameFormatVersion;
 
   private AutoEmbeddingMaterializedViewConfig(
       boolean pauseAllInitialSyncs,
@@ -126,7 +132,8 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Integer> materializedViewSchemaVersion,
       Optional<Integer> mvWriteRateLimitRps,
       Optional<CongestionControlParams> congestionControl,
-      Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads) {
+      Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads,
+      long defaultMaterializedViewNameFormatVersion) {
     super(
         pauseAllInitialSyncs,
         pauseInitialSyncOnIndexIds,
@@ -147,6 +154,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     this.congestionControl = congestionControl;
     this.flexTierWorkloads = flexTierWorkloads;
     this.matViewWriterMaxConnections = matViewWriterMaxConnections;
+    this.defaultMaterializedViewNameFormatVersion = defaultMaterializedViewNameFormatVersion;
   }
 
   /**
@@ -168,7 +176,8 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Integer> materializedViewSchemaVersion,
       Optional<Integer> mvWriteRateLimitRps,
       Optional<CongestionControlParams> congestionControl,
-      Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads) {
+      Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads,
+      Optional<Long> defaultMaterializedViewNameFormatVersion) {
     return create(
         Runtime.INSTANCE,
         globalReplicationConfig,
@@ -185,7 +194,8 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         materializedViewSchemaVersion,
         mvWriteRateLimitRps,
         congestionControl,
-        flexTierWorkloads);
+        flexTierWorkloads,
+        defaultMaterializedViewNameFormatVersion);
   }
 
   /** Used for testing. The above create() method should be called instead. */
@@ -206,7 +216,8 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Integer> materializedViewSchemaVersion,
       Optional<Integer> mvWriteRateLimitRps,
       Optional<CongestionControlParams> congestionControl,
-      Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads) {
+      Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads,
+      Optional<Long> optionalMaterializedViewNameFormatVersion) {
 
     int maxConcurrentEmbeddingInitialSyncs =
         getMaxConcurrentEmbeddingInitialSyncsWithDefault(
@@ -269,6 +280,9 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
           Check.argIsPositive(c.idleTimeoutMillis(), "congestionControl.idleTimeoutMillis");
         });
 
+    long defaultMaterializedViewNameFormatVersion =
+        getMaterializedViewNameFormatVersionWithDefault(optionalMaterializedViewNameFormatVersion);
+
     return new AutoEmbeddingMaterializedViewConfig(
         globalReplicationConfig.pauseAllInitialSyncs(),
         globalReplicationConfig.pauseInitialSyncOnIndexIds(),
@@ -288,7 +302,8 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         materializedViewSchemaVersion,
         mvWriteRateLimitRps,
         congestionControl,
-        flexTierWorkloads);
+        flexTierWorkloads,
+        defaultMaterializedViewNameFormatVersion);
   }
 
   /**
@@ -311,6 +326,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
+        Optional.empty(),
         Optional.empty());
   }
 
@@ -320,6 +336,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     return create(
         runtime,
         defaultGlobalReplicationConfig(),
+        Optional.empty(),
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
@@ -367,6 +384,9 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         .field(
             Fields.FLEX_TIER_WORKLOADS,
             this.flexTierWorkloads.map(AutoEmbeddingMaterializedViewConfig::sortedFlexTierList))
+        .fieldOmitDefaultValue(
+            Fields.MATERIALIZED_VIEW_NAME_FORMAT_VERSION,
+            this.defaultMaterializedViewNameFormatVersion)
         .build();
   }
 
@@ -522,6 +542,17 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         });
   }
 
+  private static long getMaterializedViewNameFormatVersionWithDefault(
+      Optional<Long> optionalMaterializedViewNameFormatVersion) {
+    return optionalMaterializedViewNameFormatVersion.orElseGet(
+        () -> {
+          LOG.info(
+              "materializedViewNameFormatVersion not configured, defaulting to {}.",
+              DEFAULT_MATERIALIZED_VIEW_NAME_FORMAT_VERSION);
+          return DEFAULT_MATERIALIZED_VIEW_NAME_FORMAT_VERSION;
+        });
+  }
+
   private static class Fields {
 
     private static final Field.Required<Integer> NUM_CONCURRENT_CHANGE_STREAMS =
@@ -617,5 +648,12 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
                         .required())
                 .optional()
                 .noDefault();
+
+    private static final Field.WithDefault<Long> MATERIALIZED_VIEW_NAME_FORMAT_VERSION =
+        Field.builder("defaultMaterializedViewNameFormatVersion")
+            .longField()
+            .mustBeNonNegative()
+            .optional()
+            .withDefault(DEFAULT_MATERIALIZED_VIEW_NAME_FORMAT_VERSION);
   }
 }

@@ -241,6 +241,7 @@ public class CommonUtilsTest {
             Optional.empty(),
             Optional.of(100),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty());
 
     MaterializedViewIndexFactory factory =
@@ -309,6 +310,7 @@ public class CommonUtilsTest {
             Optional.empty(),
             Optional.of(100),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty());
 
     MongotConfigs withOverride = MongotConfigs.getDefault(dataPath, customMvConfig);
@@ -350,5 +352,67 @@ public class CommonUtilsTest {
         "Materialized View Manager doesn't support disk utilization based processing";
     // Assert that the message matches the regex pattern
     Assert.assertTrue(Pattern.compile(expectedPattern).matcher(errorMessage).find());
+  }
+
+  @Test
+  public void testDefaultConfig_defaultMaterializedViewNameFormatVersion_isOne() {
+    AutoEmbeddingMaterializedViewConfig defaultConfig =
+        AutoEmbeddingMaterializedViewConfig.getDefault();
+    Assert.assertEquals(
+        "Default config should have defaultMaterializedViewNameFormatVersion=1",
+        1L,
+        defaultConfig.defaultMaterializedViewNameFormatVersion);
+  }
+
+  @Test
+  public void testCreateConfig_defaultMaterializedViewNameFormatVersion_explicitZero() {
+    AutoEmbeddingMaterializedViewConfig config =
+        AutoEmbeddingMaterializedViewConfig.create(
+            CommonReplicationConfig.defaultGlobalReplicationConfig(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(0L));
+    Assert.assertEquals(
+        "Config should have defaultMaterializedViewNameFormatVersion=0 when explicitly set",
+        0L,
+        config.defaultMaterializedViewNameFormatVersion);
+  }
+
+  @Test
+  public void testCreateConfig_defaultMaterializedViewNameFormatVersion_defaultsToOneWhenEmpty() {
+    AutoEmbeddingMaterializedViewConfig config =
+        AutoEmbeddingMaterializedViewConfig.create(
+            CommonReplicationConfig.defaultGlobalReplicationConfig(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+    Assert.assertEquals(
+        "Config should default to defaultMaterializedViewNameFormatVersion=1 when not set",
+        1L,
+        config.defaultMaterializedViewNameFormatVersion);
   }
 }

@@ -431,6 +431,7 @@ public class MaterializedViewCollectionResolverTest {
             Optional.of(0),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty());
 
     MaterializedViewCollectionResolver resolver =
@@ -480,6 +481,7 @@ public class MaterializedViewCollectionResolverTest {
             Optional.of(1),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty());
 
     MaterializedViewCollectionResolver resolver =
@@ -504,5 +506,144 @@ public class MaterializedViewCollectionResolverTest {
     // Filter fields should NOT be in the mapping
     assertThat(metadata.schemaMetadata().autoEmbeddingFieldsMapping())
         .doesNotContainKey(FieldPath.parse("filterField"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void
+      getOrCreateMaterializedViewForIndex_defaultNameFormatVersion0_usesIndexIdOnly() {
+    ObjectId indexId = new ObjectId();
+    VectorIndexDefinition definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .withAutoEmbedField("embeddingField")
+            .build();
+    var indexDefGen = createIndexDefinitionGeneration(definition);
+
+    AutoEmbeddingMaterializedViewConfig configV0 =
+        AutoEmbeddingMaterializedViewConfig.create(
+            CommonReplicationConfig.defaultGlobalReplicationConfig(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(0L));
+
+    MaterializedViewCollectionResolver resolver =
+        new MaterializedViewCollectionResolver(
+            MV_DATABASE_NAME,
+            this.autoEmbeddingMongoClient,
+            this.metadataCatalog,
+            configV0,
+            this.leaseManager);
+
+    MaterializedViewCollectionMetadata metadata =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
+
+    // When defaultMaterializedViewNameFormatVersion is 0, collection name should be just the
+    // indexId hex string without any hash suffix.
+    assertThat(metadata.collectionName()).isEqualTo(indexId.toHexString());
+    assertThat(metadata.collectionName()).doesNotContain("-");
+    assertThat(metadata.collectionUuid()).isNotNull();
+
+    ArgumentCaptor<String> createCollectionCaptor = ArgumentCaptor.forClass(String.class);
+    verify(this.mongoDatabase).createCollection(createCollectionCaptor.capture());
+    assertThat(createCollectionCaptor.getValue()).isEqualTo(indexId.toHexString());
+
+    assertThat(this.metadataCatalog.getMetadata(indexDefGen.getGenerationId())).isEqualTo(metadata);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void
+      getOrCreateMaterializedViewForIndex_defaultNameFormatVersion1_usesHashFormat() {
+    ObjectId indexId = new ObjectId();
+    VectorIndexDefinition definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .withAutoEmbedField("embeddingField")
+            .build();
+    var indexDefGen = createIndexDefinitionGeneration(definition);
+
+    // Explicitly set defaultMaterializedViewNameFormatVersion to 1
+    AutoEmbeddingMaterializedViewConfig configV1 =
+        AutoEmbeddingMaterializedViewConfig.create(
+            CommonReplicationConfig.defaultGlobalReplicationConfig(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(1L));
+
+    MaterializedViewCollectionResolver resolver =
+        new MaterializedViewCollectionResolver(
+            MV_DATABASE_NAME,
+            this.autoEmbeddingMongoClient,
+            this.metadataCatalog,
+            configV1,
+            this.leaseManager);
+
+    MaterializedViewCollectionMetadata metadata =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
+
+    // When defaultMaterializedViewNameFormatVersion is 1, collection name should include
+    // indexId-hash-version format.
+    assertThat(metadata.collectionName()).startsWith(indexId.toHexString());
+    assertThat(metadata.collectionName()).contains("-");
+    assertThat(metadata.collectionName()).endsWith("-1");
+    assertThat(metadata.collectionUuid()).isNotNull();
+
+    assertThat(this.metadataCatalog.getMetadata(indexDefGen.getGenerationId())).isEqualTo(metadata);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void
+      getOrCreateMaterializedViewForIndex_defaultConfig_usesHashFormat() {
+    // Default config (getDefault()) should use version 1 (hash format)
+    ObjectId indexId = new ObjectId();
+    VectorIndexDefinition definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .withAutoEmbedField("embeddingField")
+            .build();
+    var indexDefGen = createIndexDefinitionGeneration(definition);
+
+    // Use default config which should have defaultMaterializedViewNameFormatVersion = 1
+    MaterializedViewCollectionResolver resolver =
+        new MaterializedViewCollectionResolver(
+            MV_DATABASE_NAME,
+            this.autoEmbeddingMongoClient,
+            this.metadataCatalog,
+            this.materializedViewConfig,
+            this.leaseManager);
+
+    MaterializedViewCollectionMetadata metadata =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
+
+    // Default config should produce hash-format collection names (version 1)
+    assertThat(metadata.collectionName()).startsWith(indexId.toHexString());
+    assertThat(metadata.collectionName()).contains("-");
+    assertThat(metadata.collectionUuid()).isNotNull();
   }
 }

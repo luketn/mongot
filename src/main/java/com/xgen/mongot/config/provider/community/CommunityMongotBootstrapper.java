@@ -847,24 +847,24 @@ public class CommunityMongotBootstrapper {
 
     var mvWriteRateLimitRps = embeddingConfig.flatMap(EmbeddingConfig::mvWriteRateLimitRps);
     var autoEmbeddingMaterializedViewConfig =
-        mvWriteRateLimitRps.isPresent()
-            ? AutoEmbeddingMaterializedViewConfig.create(
-                CommonReplicationConfig.defaultGlobalReplicationConfig(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                mvWriteRateLimitRps,
-                Optional.empty(),
-                Optional.empty())
-            : AutoEmbeddingMaterializedViewConfig.getDefault();
+        AutoEmbeddingMaterializedViewConfig.create(
+            CommonReplicationConfig.defaultGlobalReplicationConfig(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            mvWriteRateLimitRps,
+            Optional.empty(),
+            Optional.empty(),
+            // Set 0 for now, as we are still working on the mat view collection naming.
+            Optional.of(0L));
     return new MongotConfigs(
         luceneConfig,
         replicationConfig,

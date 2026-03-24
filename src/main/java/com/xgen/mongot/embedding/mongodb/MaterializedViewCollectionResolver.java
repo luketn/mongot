@@ -4,6 +4,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.CURRENT_MAT_VIEW_SCHEMA_VERSION;
 import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO;
 import static com.xgen.mongot.util.mongodb.MongoDbDatabase.getCollectionInfo;
+import static com.xgen.mongot.util.mongodb.MongoDbDatabase.getCollectionInfos;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
@@ -22,6 +23,7 @@ import com.xgen.mongot.index.definition.VectorIndexFieldDefinition;
 import com.xgen.mongot.replication.mongodb.common.AutoEmbeddingMaterializedViewConfig;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.FieldPath;
+import com.xgen.mongot.util.mongodb.CheckedMongoException;
 import com.xgen.mongot.util.mongodb.serialization.MongoDbCollectionInfo;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -39,7 +41,6 @@ import org.bson.BsonDocument;
  */
 public class MaterializedViewCollectionResolver {
 
-  private static final long CURRENT_HASH_VERSION = 1L;
   private static final String DELIM = "-";
   // Using a character not allowed in field attributes to avoid collisions.
   private static final String HASH_STRING_DELIM = ";";
@@ -111,47 +112,8 @@ public class MaterializedViewCollectionResolver {
           MaterializedViewTransientException.Reason.MONGO_CLIENT_NOT_AVAILABLE);
     }
     var mongoClient = mongoClientOpt.get();
-    var indexId = indexDefinitionGeneration.getIndexId().toHexString();
     try {
-      List<String> collectionNames =
-          mongoClient
-              .getDatabase(this.matViewDatabaseName)
-              .listCollections(BsonDocument.class)
-              .filter(Filters.regex("name", "^" + Pattern.quote(indexId)))
-              .into(new ArrayList<>())
-              .stream()
-              .map(doc -> doc.getString("name").getValue())
-              .toList();
-      String collectionName;
-      if (collectionNames.isEmpty()) {
-        var hash = computeHash(indexDefinitionGeneration.asMaterializedView().getIndexDefinition());
-        collectionName = indexId + DELIM + hash + DELIM + CURRENT_HASH_VERSION;
-        createCollection(mongoClient, collectionName);
-      } else {
-        // Backwards compatibility check for community. In community, we have a single collection
-        // per
-        // index. Continue to use that until we start allowing auto-embedding field updates in
-        // community.
-        if (collectionNames.size() == 1 && collectionNames.get(0).equals(indexId)) {
-          collectionName = indexId;
-        } else {
-          // Check if any of the existing collections can be re-used.
-          var hash =
-              computeHash(indexDefinitionGeneration.asMaterializedView().getIndexDefinition());
-          var reusableCollection =
-              collectionNames.stream()
-                  .filter(name -> name.startsWith(indexId + DELIM + hash))
-                  .findFirst();
-          if (reusableCollection.isPresent()) {
-            collectionName = reusableCollection.get();
-          } else {
-            // Existing collections cannot be re-used. Create a new one.
-            collectionName = indexId + DELIM + hash + DELIM + CURRENT_HASH_VERSION;
-            createCollection(mongoClient, collectionName);
-          }
-        }
-      }
-
+      var collectionName = getOrCreateCollectionName(indexDefinitionGeneration, mongoClient);
       MongoDbCollectionInfo collectionInfo =
           getCollectionInfo(mongoClient, this.matViewDatabaseName, collectionName);
 
@@ -172,6 +134,70 @@ public class MaterializedViewCollectionResolver {
     } catch (Exception e) {
       throw new MaterializedViewTransientException(e);
     }
+  }
+
+  private String getOrCreateCollectionName(
+      IndexDefinitionGeneration indexDefinitionGeneration, MongoClient mongoClient)
+      throws CheckedMongoException {
+    var indexId = indexDefinitionGeneration.getIndexId().toHexString();
+    // TODO(CLOUDP-384821): Remove this once we finalize the naming logic.
+    // Returns indexId as mat view collection name for community users for now.
+    if (this.materializedViewConfig.defaultMaterializedViewNameFormatVersion == 0L) {
+      if (getCollectionInfos(mongoClient, this.matViewDatabaseName)
+          .getCollectionInfo(this.matViewDatabaseName, indexId)
+          .isEmpty()) {
+        createCollection(mongoClient, indexId);
+      }
+      return indexId;
+    }
+    List<String> collectionNames =
+        mongoClient
+            .getDatabase(this.matViewDatabaseName)
+            .listCollections(BsonDocument.class)
+            .filter(Filters.regex("name", "^" + Pattern.quote(indexId)))
+            .into(new ArrayList<>())
+            .stream()
+            .map(doc -> doc.getString("name").getValue())
+            .toList();
+    String collectionName;
+    if (collectionNames.isEmpty()) {
+      var hash = computeHash(indexDefinitionGeneration.asMaterializedView().getIndexDefinition());
+      collectionName =
+          indexId
+              + DELIM
+              + hash
+              + DELIM
+              + this.materializedViewConfig.defaultMaterializedViewNameFormatVersion;
+      createCollection(mongoClient, collectionName);
+    } else {
+      // Backwards compatibility check for community. In community, we have a single collection
+      // per
+      // index. Continue to use that until we start allowing auto-embedding field updates in
+      // community.
+      if (collectionNames.size() == 1 && collectionNames.get(0).equals(indexId)) {
+        collectionName = indexId;
+      } else {
+        // Check if any of the existing collections can be re-used.
+        var hash = computeHash(indexDefinitionGeneration.asMaterializedView().getIndexDefinition());
+        var reusableCollection =
+            collectionNames.stream()
+                .filter(name -> name.startsWith(indexId + DELIM + hash))
+                .findFirst();
+        if (reusableCollection.isPresent()) {
+          collectionName = reusableCollection.get();
+        } else {
+          // Existing collections cannot be re-used. Create a new one.
+          collectionName =
+              indexId
+                  + DELIM
+                  + hash
+                  + DELIM
+                  + this.materializedViewConfig.defaultMaterializedViewNameFormatVersion;
+          createCollection(mongoClient, collectionName);
+        }
+      }
+    }
+    return collectionName;
   }
 
   private MaterializedViewCollectionMetadata createProposedMetadata(
