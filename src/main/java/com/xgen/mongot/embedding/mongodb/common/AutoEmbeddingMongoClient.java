@@ -1,6 +1,5 @@
 package com.xgen.mongot.embedding.mongodb.common;
 
-
 import com.google.common.annotations.VisibleForTesting;
 import com.mongodb.ConnectionString;
 import com.mongodb.client.MongoClient;
@@ -56,13 +55,14 @@ public class AutoEmbeddingMongoClient {
     var resolverClient = Optional.ofNullable(this.materializedViewResolverMongoClient.get());
     var leaseManagerClient = Optional.ofNullable(this.leaseManagerMongoClient.get());
     var writerClient = Optional.ofNullable(this.materializedViewWriterMongoClient.get());
-    // Use mongosUri if available (for sharded clusters), otherwise use mongodClusterReadWriteUri
-    // (for replica sets). We use mongodClusterReadWriteUri instead of mongodUri because mongodUri
-    // is a direct connection to a specific node (often a secondary), while
-    // mongodClusterReadWriteUri contains all replica set members and allows the driver to route to
-    // the primary. This is required for LINEARIZABLE read concern and write operations.
-    var connectionInfo =
-        syncSourceConfig.mongosUri.orElse(syncSourceConfig.mongodClusterReadWriteUri);
+    // We connect to the mongod endpoint directly instead of using mongos, even for sharded
+    // clusters. This is to ensure all MV/lease operations happen at a shard-local level rather than
+    // a global cluster level.
+    // We use mongodClusterReadWriteUri instead of mongodUri because mongodUri is a direct
+    // connection to a specific node (often a secondary), while mongodClusterReadWriteUri contains
+    // all replica set members and allows the driver to route to the primary. This is required for
+    // LINEARIZABLE read concern and write operations.
+    var connectionInfo = syncSourceConfig.mongodClusterReadWriteUri;
     // Update sync source first
     this.materializedViewResolverMongoClient.set(
         createMaterializedViewResolverMongoClient(
