@@ -229,8 +229,8 @@ public class LeaseTest {
     }
 
     @Test
-    public void testWithNewIndexDefinitionVersionPreservesHighWaterMarkFromSteadyState() {
-      // Set up a lease with steady state commitInfo
+    public void testWithNewIndexDefinitionVersionPreservesCommitInfoWhenReuseTrue() {
+      // Set up a lease with steady state commitInfo (change stream resume)
       var opTime = new BsonTimestamp(9876543210L);
       var resumeToken = ChangeStreamUtils.resumeToken(opTime);
       var indexCommitUserData =
@@ -240,10 +240,30 @@ public class LeaseTest {
 
       var lease = createLeaseWithCommitInfo(indexCommitUserData.toEncodedData().asString());
 
-      // Create V2 lease
-      var v2Lease = lease.withNewIndexDefinitionVersion("2", IndexStatus.initialSync());
+      // Create V2 lease with skipInitialSync=true - should preserve original commitInfo
+      var v2Lease = lease.withNewIndexDefinitionVersion("2", IndexStatus.initialSync(), true);
 
-      // Parse V2's commitInfo and verify it contains the preserved highWaterMark
+      // Verify commitInfo is preserved unchanged
+      assertEquals(lease.commitInfo(), v2Lease.commitInfo());
+    }
+
+    @Test
+    public void testWithNewIndexDefinitionVersionResetsToInitialSyncWhenReuseFalse() {
+      // Set up a lease with steady state commitInfo (change stream resume)
+      var opTime = new BsonTimestamp(9876543210L);
+      var resumeToken = ChangeStreamUtils.resumeToken(opTime);
+      var indexCommitUserData =
+          IndexCommitUserData.createChangeStreamResume(
+              ChangeStreamResumeInfo.create(new MongoNamespace("test", "collection"), resumeToken),
+              IndexFormatVersion.CURRENT);
+
+      var lease = createLeaseWithCommitInfo(indexCommitUserData.toEncodedData().asString());
+
+      // Create V2 lease with skipInitialSync=false - should reset to initial-sync from high water
+      // mark
+      var v2Lease = lease.withNewIndexDefinitionVersion("2", IndexStatus.initialSync(), false);
+
+      // Parse V2's commitInfo and verify it contains initial-sync resume from high water mark
       var encodedUserData = EncodedUserData.fromString(v2Lease.commitInfo());
       var userData = IndexCommitUserData.fromEncodedData(encodedUserData, Optional.empty());
 
@@ -259,7 +279,7 @@ public class LeaseTest {
       var lease = createLeaseWithCommitInfo(EncodedUserData.EMPTY.asString());
 
       // Create V2 lease
-      var v2Lease = lease.withNewIndexDefinitionVersion("2", IndexStatus.initialSync());
+      var v2Lease = lease.withNewIndexDefinitionVersion("2", IndexStatus.initialSync(), true);
 
       // V2's commitInfo should also be empty since there's no highWaterMark to preserve
       assertEquals(EncodedUserData.EMPTY.asString(), v2Lease.commitInfo());
@@ -335,12 +355,24 @@ public class LeaseTest {
           afterCheckpoint.getSteadyAsOfOplogPosition().isPresent());
       assertEquals(steadyPosition, afterCheckpoint.getSteadyAsOfOplogPosition().get());
 
-      // withNewIndexDefinitionVersion resets steadyAsOfOplogPosition to null
-      var afterNewVersion =
-          leaseWithSteadyPosition.withNewIndexDefinitionVersion("2", IndexStatus.initialSync());
+      // withNewIndexDefinitionVersion(skipInitialSync=true) preserves steadyAsOfOplogPosition
+      var afterNewVersionReuse =
+          leaseWithSteadyPosition.withNewIndexDefinitionVersion(
+              "2", IndexStatus.initialSync(), true);
+      assertTrue(
+          "withNewIndexDefinitionVersion(skipInitialSync=true) should preserve "
+              + "steadyAsOfOplogPosition",
+          afterNewVersionReuse.getSteadyAsOfOplogPosition().isPresent());
+      assertEquals(steadyPosition, afterNewVersionReuse.getSteadyAsOfOplogPosition().get());
+
+      // withNewIndexDefinitionVersion(skipInitialSync=false) resets steadyAsOfOplogPosition to null
+      var afterNewVersionResync =
+          leaseWithSteadyPosition.withNewIndexDefinitionVersion(
+              "3", IndexStatus.initialSync(), false);
       assertFalse(
-          "withNewIndexDefinitionVersion should reset steadyAsOfOplogPosition",
-          afterNewVersion.getSteadyAsOfOplogPosition().isPresent());
+          "withNewIndexDefinitionVersion(skipInitialSync=false) should reset "
+              + "steadyAsOfOplogPosition",
+          afterNewVersionResync.getSteadyAsOfOplogPosition().isPresent());
     }
 
     @Test
@@ -367,8 +399,12 @@ public class LeaseTest {
       assertEquals(COLLECTION_NAME, lease.collectionName());
       // Verify materialized view metadata is preserved
       assertEquals(mvMetadata, lease.materializedViewCollectionMetadata());
-      assertEquals(1L, lease.materializedViewCollectionMetadata().schemaMetadata()
-          .materializedViewSchemaVersion());
+      assertEquals(
+          1L,
+          lease
+              .materializedViewCollectionMetadata()
+              .schemaMetadata()
+              .materializedViewSchemaVersion());
       // steadyAsOfOplogPosition should be null
       assertFalse(lease.getSteadyAsOfOplogPosition().isPresent());
       // Index definition version status map should contain the version with UNKNOWN status
@@ -402,8 +438,7 @@ public class LeaseTest {
               "some-commit-info",
               "2",
               Map.of(
-                  "2",
-                  new Lease.IndexDefinitionVersionStatus(true, IndexStatus.StatusCode.STEADY)),
+                  "2", new Lease.IndexDefinitionVersionStatus(true, IndexStatus.StatusCode.STEADY)),
               originalMvMetadata,
               new BsonTimestamp(1234567890L));
 
@@ -415,13 +450,17 @@ public class LeaseTest {
       // Schema metadata and collection name should be preserved
       assertEquals(
           1L,
-          updatedLease.materializedViewCollectionMetadata().schemaMetadata()
+          updatedLease
+              .materializedViewCollectionMetadata()
+              .schemaMetadata()
               .materializedViewSchemaVersion());
       assertEquals(
           "mv-collection", updatedLease.materializedViewCollectionMetadata().collectionName());
       assertEquals(
           Map.of(FieldPath.parse("title"), FieldPath.parse("_autoEmbed.title")),
-          updatedLease.materializedViewCollectionMetadata().schemaMetadata()
+          updatedLease
+              .materializedViewCollectionMetadata()
+              .schemaMetadata()
               .autoEmbeddingFieldsMapping());
       // All other lease fields should remain unchanged
       assertEquals(LEASE_ID, updatedLease.id());
@@ -432,8 +471,7 @@ public class LeaseTest {
       assertEquals(COLLECTION_UUID, updatedLease.collectionUuid());
       assertEquals(COLLECTION_NAME, updatedLease.collectionName());
       assertTrue(updatedLease.getSteadyAsOfOplogPosition().isPresent());
-      assertEquals(
-          new BsonTimestamp(1234567890L), updatedLease.getSteadyAsOfOplogPosition().get());
+      assertEquals(new BsonTimestamp(1234567890L), updatedLease.getSteadyAsOfOplogPosition().get());
     }
 
     private static Lease createLeaseWithCommitInfo(String commitInfo) {

@@ -69,8 +69,6 @@ public class StaticLeaderLeaseManager implements LeaseManager {
 
   @VisibleForTesting static final String LEASE_COLLECTION_NAME = "auto_embedding_leases";
 
-  public static final long DEFAULT_INDEX_DEFINITION_VERSION = 0;
-
   private final MongoClientOperationExecutor operationExecutor;
   private final String hostname;
   // Mapping of leases to index Ids.
@@ -190,7 +188,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
-  public void add(IndexGeneration indexGeneration) {
+  public void add(IndexGeneration indexGeneration, boolean skipInitialSync) {
     // Create the lease if it doesn't exist. The lease can already exist in the case of process
     // restarts.
     // If the lease already exists, then just add the index generation to the lease.
@@ -213,7 +211,8 @@ public class StaticLeaderLeaseManager implements LeaseManager {
             getLeaseKey(generationId),
             lease.withNewIndexDefinitionVersion(
                 getIndexDefinitionVersion(indexGeneration),
-                indexGeneration.getIndex().getStatus()));
+                indexGeneration.getIndex().getStatus(),
+                skipInitialSync));
       }
     } else {
       Lease lease =

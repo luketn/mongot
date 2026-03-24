@@ -5,11 +5,13 @@ import static com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils.HASH_FI
 
 import com.xgen.mongot.index.definition.VectorAutoEmbedFieldDefinition;
 import com.xgen.mongot.index.definition.VectorDataFieldDefinition;
+import com.xgen.mongot.index.definition.VectorFieldSpecification;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFieldDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFieldMapping;
 import com.xgen.mongot.index.definition.VectorIndexFilterFieldDefinition;
 import com.xgen.mongot.index.definition.VectorIndexVectorFieldDefinition;
+import com.xgen.mongot.index.definition.VectorIndexingAlgorithm;
 import com.xgen.mongot.util.FieldPath;
 import java.util.ArrayList;
 import java.util.List;
@@ -106,6 +108,12 @@ public class AutoEmbeddingIndexDefinitionUtils {
             field -> {
               if (field.getType() == VectorIndexFieldDefinition.Type.AUTO_EMBED) {
                 var specification = field.asVectorAutoEmbedField().specification();
+                // TODO(CLOUDP-388224): proper handling of flat index for indexingMethod
+                Optional<VectorFieldSpecification.HnswOptions> hnswOptions =
+                    specification.indexingAlgorithm()
+                            instanceof VectorIndexingAlgorithm.HnswIndexingAlgorithm h
+                        ? Optional.of(h.options())
+                        : Optional.empty();
                 updatedFieldDefinitions.add(
                     new VectorAutoEmbedFieldDefinition(
                         specification.modelName(),
@@ -113,7 +121,8 @@ public class AutoEmbeddingIndexDefinitionUtils {
                         getMatViewFieldPath(
                             field.getPath(), schemaMetadata.autoEmbeddingFieldsMapping()),
                         specification.similarity(),
-                        specification.quantization()));
+                        specification.quantization(),
+                        hnswOptions));
                 // Use Filter field definition for internal Hash Field. Derived Definition should
                 // exclude hash fields, this is only for auto-embedding resync process.
                 updatedFieldDefinitions.add(

@@ -15,21 +15,25 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.bson.BsonTimestamp;
+import org.jetbrains.annotations.TestOnly;
 
 // TODO(CLOUDP-371278): Refactor interface to have stricter type that only allows MatView related
 // IndexGeneration and GenerationId
 /** Interface for managing leases for the materialized view leader. */
 public interface LeaseManager {
 
+  long DEFAULT_INDEX_DEFINITION_VERSION = 0;
+
   /**
    * Result of polling follower statuses from the lease manager.
    *
    * <p>Contains both the current status of each follower generation and the set of generation IDs
    * that are eligible for leadership acquisition. This includes:
+   *
    * <ul>
-   *   <li>Leases that have expired (previous leader failed or timed out)</li>
-   *   <li>Leases owned by this instance (re-acquiring after restart)</li>
-   *   <li>New indexes that don't have a lease yet (lease will be created during acquisition)</li>
+   *   <li>Leases that have expired (previous leader failed or timed out)
+   *   <li>Leases owned by this instance (re-acquiring after restart)
+   *   <li>New indexes that don't have a lease yet (lease will be created during acquisition)
    * </ul>
    *
    * @param statuses Map of generation IDs to their current replication status
@@ -43,11 +47,26 @@ public interface LeaseManager {
   }
 
   /**
-   * Adds a lease for the given index generation.
+   * Adds a lease for the given index generation. Used for first-time generator setup, where we
+   * create a new lease and flag skipInitialSync isn’t used. The value does not make a difference,
+   * but we used false here as it aligns with the behavior (initial sync).
    *
    * @param indexGeneration the index generation to add the lease for.
    */
-  void add(IndexGeneration indexGeneration);
+  @TestOnly
+  default void add(IndexGeneration indexGeneration) {
+    add(indexGeneration, false);
+  }
+
+  /**
+   * Adds a lease for the given index generation.
+   *
+   * @param indexGeneration the index generation to add the lease for.
+   * @param skipInitialSync when true, preserve existing commitInfo so the new generator can resume
+   *     replication from the last checkpoint; when false, the new version gets initial-sync-style
+   *     commitInfo from high watermark to trigger initial sync.
+   */
+  void add(IndexGeneration indexGeneration, boolean skipInitialSync);
 
   /**
    * Drops the given index generation from the lease. Deletes the lease entirely if this is the last
@@ -117,8 +136,8 @@ public interface LeaseManager {
    * acquisition (expired leases, leases we own, or new indexes without leases).
    *
    * @return a {@link FollowerPollResult} containing the status map and the set of acquirable
-   *     leases. Returns {@link FollowerPollResult#EMPTY} if this instance is the leader or if
-   *     there are no follower generation IDs.
+   *     leases. Returns {@link FollowerPollResult#EMPTY} if this instance is the leader or if there
+   *     are no follower generation IDs.
    */
   FollowerPollResult pollFollowerStatuses();
 

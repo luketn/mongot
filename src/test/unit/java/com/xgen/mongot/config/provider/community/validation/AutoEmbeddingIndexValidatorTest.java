@@ -23,6 +23,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.bson.BsonArray;
+import org.bson.BsonDocument;
+import org.bson.BsonInt32;
+import org.bson.BsonString;
 import org.bson.types.ObjectId;
 import org.junit.Before;
 import org.junit.Test;
@@ -60,9 +64,7 @@ public class AutoEmbeddingIndexValidatorTest {
   }
 
   @Test
-  public void validateIndexWithRegisteredModel_success()
-      throws
-      InvalidIndexDefinitionException {
+  public void validateIndexWithRegisteredModel_success() throws InvalidIndexDefinitionException {
     VectorIndexDefinition indexWithRegisteredModel = createVectorIndexWithModel(REGISTERED_MODEL);
 
     AutoEmbeddingIndexValidator.validate(indexWithRegisteredModel);
@@ -99,8 +101,7 @@ public class AutoEmbeddingIndexValidatorTest {
 
   @Test
   public void validateIndexWithSingleEmbeddingModel_succeeds()
-      throws
-      InvalidIndexDefinitionException {
+      throws InvalidIndexDefinitionException {
     // Create index with two fields using the same model
     VectorTextFieldDefinition field1 =
         new VectorTextFieldDefinition(REGISTERED_MODEL, FieldPath.parse("field1"));
@@ -374,6 +375,54 @@ public class AutoEmbeddingIndexValidatorTest {
     AutoEmbeddingIndexValidator.validateNoAutoEmbeddingTypeConversion(oldIndex, newIndex);
   }
 
+  @Test
+  public void validateNoHnswOptionsInAutoEmbedFields_definitionWithoutFields_doesNotThrow()
+      throws InvalidIndexDefinitionException {
+    BsonDocument definition = new BsonDocument();
+    AutoEmbeddingIndexValidator.validateNoHnswOptionsInAutoEmbedFields(definition);
+  }
+
+  @Test
+  public void validateNoHnswOptionsInAutoEmbedFields_autoEmbedFieldWithoutHnswOptions_doesNotThrow()
+      throws InvalidIndexDefinitionException {
+    BsonDocument autoEmbedField =
+        new BsonDocument()
+            .append("type", new BsonString("autoEmbed"))
+            .append("path", new BsonString("desc"))
+            .append("model", new BsonString("voyage-4-lite"))
+            .append("modality", new BsonString("text"));
+    BsonArray fields = new BsonArray();
+    fields.add(autoEmbedField);
+    BsonDocument definition = new BsonDocument("fields", fields);
+    AutoEmbeddingIndexValidator.validateNoHnswOptionsInAutoEmbedFields(definition);
+  }
+
+  @Test
+  public void
+      validateNoHnswOptionsInAutoEmbedFields_autoEmbedFieldWithHnswOptions_throwsException() {
+    BsonDocument hnswOptions =
+        new BsonDocument()
+            .append("maxEdges", new BsonInt32(32))
+            .append("numEdgeCandidates", new BsonInt32(200));
+    BsonDocument autoEmbedField =
+        new BsonDocument()
+            .append("type", new BsonString("autoEmbed"))
+            .append("path", new BsonString("desc"))
+            .append("model", new BsonString("voyage-4-lite"))
+            .append("modality", new BsonString("text"))
+            .append("hnswOptions", hnswOptions);
+    BsonArray fields = new BsonArray();
+    fields.add(autoEmbedField);
+    BsonDocument definition = new BsonDocument("fields", fields);
+
+    InvalidIndexDefinitionException exception =
+        assertThrows(
+            InvalidIndexDefinitionException.class,
+            () -> AutoEmbeddingIndexValidator.validateNoHnswOptionsInAutoEmbedFields(definition));
+
+    assertThat(exception.getMessage()).contains("hnswOptions is not supported");
+  }
+
   private VectorIndexDefinition createVectorIndexWithModel(String modelName) {
     VectorAutoEmbedFieldDefinition field =
         new VectorAutoEmbedFieldDefinition(modelName, FieldPath.parse("autoEmbedField"));
@@ -381,8 +430,7 @@ public class AutoEmbeddingIndexValidatorTest {
   }
 
   private VectorIndexDefinition createVectorIndexWithFields(
-      List<VectorIndexFieldDefinition> fields
-  ) {
+      List<VectorIndexFieldDefinition> fields) {
     return new VectorIndexDefinition(
         new ObjectId(),
         "testIndex",

@@ -74,8 +74,6 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
   @VisibleForTesting static final String LEASE_COLLECTION_NAME = "auto_embedding_leases";
 
-  public static final long DEFAULT_INDEX_DEFINITION_VERSION = 0;
-
   private static final long GIVE_UP_BLACKOUT_SECONDS = 60;
 
   private final MongoClientOperationExecutor operationExecutor;
@@ -301,7 +299,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * will be persisted to the database when {@link #tryAcquireLeadership(GenerationId)} is called.
    */
   @Override
-  public void add(IndexGeneration indexGeneration) {
+  public void add(IndexGeneration indexGeneration, boolean skipInitialSync) {
     GenerationId generationId = indexGeneration.getGenerationId();
     String versionKey = getIndexDefinitionVersion(indexGeneration.getDefinition());
     this.generationIdToDefinitionVersion.put(generationId, versionKey);
@@ -337,7 +335,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
         this.leases.put(
             getLeaseKey(generationId),
             lease.withNewIndexDefinitionVersion(
-                versionKey, indexGeneration.getIndex().getStatus()));
+                versionKey, indexGeneration.getIndex().getStatus(), skipInitialSync));
       }
     } else {
       // No lease in memory - create an in-memory lease with an empty owner.

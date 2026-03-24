@@ -22,6 +22,7 @@ import com.xgen.mongot.index.IndexGeneration;
 import com.xgen.mongot.index.autoembedding.AutoEmbeddingIndexGeneration;
 import com.xgen.mongot.index.autoembedding.InitializedMaterializedViewIndex;
 import com.xgen.mongot.index.autoembedding.MaterializedViewIndexGeneration;
+import com.xgen.mongot.index.autoembedding.MaterializedViewIndexGenerationUtil;
 import com.xgen.mongot.index.mongodb.MaterializedViewWriter;
 import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.mongot.metrics.MeterAndFtdcRegistry;
@@ -558,14 +559,23 @@ public class MaterializedViewManager implements ReplicationManager {
       MaterializedViewIndexGeneration matViewIndexGeneration,
       GenerationId generationId) {
     if (existingGenerator == null) {
+      LOG.atInfo()
+          .addKeyValue("generationId", generationId)
+          .log("Creating new generator for generation");
       return createNewGenerator(matViewIndexGeneration, generationId);
     }
 
     boolean needsNewGenerator =
         existingGenerator.getIndexGeneration().needsNewMatViewGenerator(matViewIndexGeneration);
     if (needsNewGenerator) {
+      LOG.atInfo()
+          .addKeyValue("generationId", generationId)
+          .log("Replacing existing generator for generation");
       return replaceGenerator(existingGenerator, matViewIndexGeneration, generationId);
     } else {
+      LOG.atInfo()
+          .addKeyValue("generationId", generationId)
+          .log("Reusing existing generator for generation");
       return reuseGenerator(existingGenerator, matViewIndexGeneration);
     }
   }
@@ -573,7 +583,7 @@ public class MaterializedViewManager implements ReplicationManager {
   /** Creates a new generator for a new index. */
   private MaterializedViewGenerator createNewGenerator(
       MaterializedViewIndexGeneration matViewIndexGeneration, GenerationId generationId) {
-    this.leaseManager.add(matViewIndexGeneration);
+    this.leaseManager.add(matViewIndexGeneration, false);
     MaterializedViewGenerator generator =
         this.matViewGeneratorFactory.create(matViewIndexGeneration);
     // For static leader election only - activates leader mode immediately since leadership is
@@ -613,11 +623,25 @@ public class MaterializedViewManager implements ReplicationManager {
    * also become leader immediately since we still own the lease for this index. This ensures that
    * index definition updates (e.g., filter field changes) trigger a new initial sync with the
    * updated field mapping.
+   *
+   * <p>Resolves skipInitialSync from definition diff: Lucene-only change (e.g. hnswOptions) →
+   * preserve existing commit (RESUME_STEADY_STATE); MV schema change (e.g. filter) → do initial
+   * sync from high water mark (RESUME_INITIAL_SYNC).
    */
   private MaterializedViewGenerator replaceGenerator(
       MaterializedViewGenerator existingGenerator,
       MaterializedViewIndexGeneration matViewIndexGeneration,
       GenerationId generationId) {
+    // Lucene-only change: preserve commit → RESUME_STEADY_STATE. MV schema change: do initial sync
+    // from high watermark → RESUME_INITIAL_SYNC.
+    boolean skipInitialSync =
+        MaterializedViewIndexGenerationUtil.skipInitialSync(
+            existingGenerator.getIndexGeneration().getDefinition(),
+            matViewIndexGeneration.getDefinition());
+    LOG.atInfo()
+        .addKeyValue("generationId", generationId)
+        .addKeyValue("skipInitialSync", skipInitialSync)
+        .log("Determined index action when replacing existing generator for generation");
     MaterializedViewGenerator newGenerator =
         this.matViewGeneratorFactory.create(matViewIndexGeneration);
     // Capture whether the old generator was a leader BEFORE shutdown.
@@ -629,7 +653,7 @@ public class MaterializedViewManager implements ReplicationManager {
         .shutdown()
         .thenRun(
             () -> {
-              this.leaseManager.add(matViewIndexGeneration);
+              this.leaseManager.add(matViewIndexGeneration, skipInitialSync);
               if (this.leaseManager instanceof StaticLeaderLeaseManager) {
                 // For static leader election - see the comments in createNewGenerator().
                 activateStaticLeadership(newGenerator, generationId);

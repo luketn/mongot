@@ -309,32 +309,44 @@ public record Lease(
         this.steadyAsOfOplogPosition);
   }
 
-  /** Creates a new lease with a new index definition version, preserving the highWaterMark. */
+  /**
+   * Creates a new lease with a new index definition version.
+   *
+   * <p>{@code skipInitialSync == true} (Lucene-only change, e.g. hnswOptions): Keep current
+   * commitInfo and steadyAsOfOplogPosition. The new generator will RESUME_STEADY_STATE from the
+   * previous checkpoint.
+   *
+   * <p>{@code skipInitialSync == false} (real definition change, e.g. filter): Replace commit info
+   * with initial-sync-style resume from the current high watermark (latest oplog position we had
+   * reached). The new generator will RESUME_INITIAL_SYNC from that point; the original resume token
+   * is not kept.
+   */
   public Lease withNewIndexDefinitionVersion(
-      String indexDefinitionVersion, IndexStatus initialIndexStatus) {
-    // this method creates a new lease with the following changes
-    // 1. it adds the new index definition version to the indexDefinitionVersionStatusMap
-    // 2. it sets the latestIndexDefinitionVersion to the new index definition version
-    // 3. it preserves the highWaterMark from the previous commitInfo but resets scan position.
+      String indexDefinitionVersion, IndexStatus initialIndexStatus, boolean skipInitialSync) {
+    // 1. Add the new index definition version to the map.
+    // 2. Set latestIndexDefinitionVersion to the new version.
+    // 3. Either use high water mark (reset to initial-sync from that point) or preserve commitInfo.
     Map<String, IndexDefinitionVersionStatus> newVersionStatus =
         new HashMap<>(this.indexDefinitionVersionStatusMap);
     newVersionStatus.put(
         indexDefinitionVersion,
         new IndexDefinitionVersionStatus(false, initialIndexStatus.getStatusCode()));
-    String newCommitInfo =
-        extractHighWaterMark()
-            .map(
-                highWaterMark -> {
-                  InitialSyncResumeInfo resumeInfo =
-                      new BufferlessIdOrderInitialSyncResumeInfo(highWaterMark, BsonUtils.MIN_KEY);
-                  // MaterializedViewGeneration always uses CURRENT, so this will match the expected
-                  // version.
-                  return IndexCommitUserData.createInitialSyncResume(
-                          IndexFormatVersion.CURRENT, resumeInfo)
-                      .toEncodedData()
-                      .asString();
-                })
-            .orElse(EncodedUserData.EMPTY.asString());
+    @Var String newCommitInfo = this.commitInfo;
+    if (!skipInitialSync) {
+      newCommitInfo =
+          extractHighWaterMark()
+              .map(
+                  highWaterMark -> {
+                    InitialSyncResumeInfo resumeInfo =
+                        new BufferlessIdOrderInitialSyncResumeInfo(
+                            highWaterMark, BsonUtils.MIN_KEY);
+                    return IndexCommitUserData.createInitialSyncResume(
+                            IndexFormatVersion.CURRENT, resumeInfo)
+                        .toEncodedData()
+                        .asString();
+                  })
+              .orElse(EncodedUserData.EMPTY.asString());
+    }
     return new Lease(
         this.id,
         SCHEMA_VERSION,
@@ -347,9 +359,7 @@ public record Lease(
         indexDefinitionVersion,
         newVersionStatus,
         this.materializedViewCollectionMetadata,
-        // This means that when a new version starts, this is reset until we have a STEADY
-        // transition
-        null);
+        skipInitialSync ? this.steadyAsOfOplogPosition : null);
   }
 
   /**

@@ -112,7 +112,7 @@ public class AicCreateSearchIndexesCommand implements Command {
         if (newIndex.internal instanceof VectorIndexDefinition vectorIndex
             && vectorIndex.isAutoEmbeddingIndex()) {
           try {
-            AutoEmbeddingIndexValidator.validate(vectorIndex);
+            AutoEmbeddingIndexValidator.validate(vectorIndex, Optional.of(newIndex.external));
           } catch (InvalidIndexDefinitionException e) {
             return MessageUtils.createError(Errors.BAD_VALUE, e.getMessage());
           }

@@ -1,6 +1,6 @@
 package com.xgen.mongot.index.autoembedding;
 
-import static com.xgen.mongot.embedding.mongodb.leasing.StaticLeaderLeaseManager.DEFAULT_INDEX_DEFINITION_VERSION;
+import static com.xgen.mongot.embedding.mongodb.leasing.LeaseManager.DEFAULT_INDEX_DEFINITION_VERSION;
 import static com.xgen.mongot.index.definition.IndexDefinitionGeneration.Type.AUTO_EMBEDDING;
 import static com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration.MIN_VERSION_FOR_MATERIALIZED_VIEW_EMBEDDING;
 

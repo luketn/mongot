@@ -1,6 +1,6 @@
 package com.xgen.mongot.index.autoembedding;
 
-import static com.xgen.mongot.embedding.mongodb.leasing.StaticLeaderLeaseManager.DEFAULT_INDEX_DEFINITION_VERSION;
+import static com.xgen.mongot.embedding.mongodb.leasing.LeaseManager.DEFAULT_INDEX_DEFINITION_VERSION;
 
 import com.xgen.mongot.index.IndexGeneration;
 import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
@@ -65,8 +65,6 @@ public class MaterializedViewIndexGeneration extends IndexGeneration {
    * @return whether we need to spin up a new MaterializedViewGenerator.
    */
   public boolean needsNewMatViewGenerator(MaterializedViewIndexGeneration newIndexGeneration) {
-    // TODO(CLOUDP-364736): We need to do a deeper check depending on the type of index definition
-    // udpate. For example, changes to HNSW parameters should not require an update.
     return this.getDefinitionGeneration()
             .definition()
             .getDefinitionVersion()

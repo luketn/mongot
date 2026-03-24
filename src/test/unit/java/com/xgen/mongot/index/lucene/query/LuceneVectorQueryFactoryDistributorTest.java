@@ -34,6 +34,7 @@ import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.lucene.document.SortedSetDocValuesField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
@@ -405,7 +406,8 @@ public class LuceneVectorQueryFactoryDistributorTest {
                     "text",
                     internalPath, // Internal path where vectors are stored
                     VectorSimilarity.EUCLIDEAN,
-                    VectorQuantization.NONE)),
+                    VectorQuantization.NONE,
+                    Optional.empty())),
             FeatureFlags.getDefault(),
             Map.of(userPath, internalPath))
         .assertTranslatedTo(
@@ -477,7 +479,8 @@ public class LuceneVectorQueryFactoryDistributorTest {
                     "text",
                     internalVectorPath, // Internal vector path
                     VectorSimilarity.EUCLIDEAN,
-                    VectorQuantization.NONE),
+                    VectorQuantization.NONE,
+                        Optional.empty()),
                 VectorIndexFilterFieldDefinition.create(userPath)),
             FeatureFlags.getDefault(),
             Map.of(userPath, internalVectorPath)) // Filter field at user path

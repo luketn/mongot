@@ -8,6 +8,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -100,7 +101,7 @@ public class MaterializedViewManagerTest {
     mocks.mockMaterializedViewGenerator(materializedViewindexGeneration);
     mocks.addIndexForReplication(materializedViewindexGeneration);
 
-    verify(mocks.leaseManager).add(materializedViewindexGeneration);
+    verify(mocks.leaseManager).add(materializedViewindexGeneration, false);
   }
 
   @Test
@@ -125,10 +126,10 @@ public class MaterializedViewManagerTest {
     mocks.addIndexForReplication(newIndexGeneration);
 
     // Verify that the old MaterializedViewGenerator was shut down and the new one was added to the
-    // lease manager.
+    // lease manager. New definition version (only) triggers resync (skipInitialSync=false).
     verify(materializedViewGenerator).shutdown();
-    verify(mocks.leaseManager).add(materializedViewindexGeneration);
-    verify(mocks.leaseManager).add(newIndexGeneration);
+    verify(mocks.leaseManager).add(materializedViewindexGeneration, false);
+    verify(mocks.leaseManager).add(newIndexGeneration, false);
   }
 
   @Test
@@ -649,7 +650,7 @@ public class MaterializedViewManagerTest {
     mocks.addIndexForReplication(materializedViewIndexGeneration);
 
     // Verify that leaseManager.add() was called
-    verify(mocks.leaseManager).add(materializedViewIndexGeneration);
+    verify(mocks.leaseManager).add(materializedViewIndexGeneration, false);
     // Verify that becomeLeader() was called on the generator because we own the lease
     verify(materializedViewGenerator).becomeLeader();
   }
@@ -844,7 +845,7 @@ public class MaterializedViewManagerTest {
                 return null;
               })
           .when(mockLeaseManager)
-          .add(any());
+          .add(any(), anyBoolean());
       // Mock getFollowerGenerationIds to return all added generation IDs (since all are followers)
       when(mockLeaseManager.getFollowerGenerationIds())
           .thenAnswer(invocation -> addedGenerationIds);
@@ -958,7 +959,7 @@ public class MaterializedViewManagerTest {
                 return null;
               })
           .when(mockLeaseManager)
-          .add(any());
+          .add(any(), anyBoolean());
 
       // isLeader returns true for generations in leaderGenerationIds (unexpired lease)
       when(mockLeaseManager.isLeader(any()))

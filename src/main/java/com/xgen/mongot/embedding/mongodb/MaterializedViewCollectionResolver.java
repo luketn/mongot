@@ -223,7 +223,7 @@ public class MaterializedViewCollectionResolver {
    * Computes a hash of the index definition. The hash is used to determine if the index definition
    * has changed in a way that requires a new materialized view collection.
    */
-  private String computeHash(VectorIndexDefinition indexDefinition) {
+  public static String computeHash(VectorIndexDefinition indexDefinition) {
     var autoEmbedFields =
         indexDefinition.getFields().stream()
             .filter(field -> field.getType() == VectorIndexFieldDefinition.Type.AUTO_EMBED)
@@ -243,6 +243,7 @@ public class MaterializedViewCollectionResolver {
       // Include path, model name, modality and num dimensions in hash as those fields impact the
       // embeddings generated.
       // TODO(CLOUDP-382790): Ensure any other relevant field params are added to the hash
+      // TODO(CLOUDP-388224): add quantization to the hash
       // function before launch.
       sb.append(field.getPath().toString())
           .append(HASH_STRING_DELIM)

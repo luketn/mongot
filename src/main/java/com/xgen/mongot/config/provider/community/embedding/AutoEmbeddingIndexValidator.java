@@ -12,6 +12,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import org.bson.BsonArray;
+import org.bson.BsonDocument;
+import org.bson.BsonValue;
 
 /**
  * Validator for auto-embedding vector indexes on community.
@@ -34,6 +37,18 @@ public class AutoEmbeddingIndexValidator {
    */
   public static void validate(VectorIndexDefinition vectorIndex)
       throws InvalidIndexDefinitionException {
+    validate(vectorIndex, Optional.empty());
+  }
+
+  /**
+   * Same as {@link #validate(VectorIndexDefinition)} but also validates the raw definition BSON
+   * when present (rejects hnswOptions in autoEmbed fields on community). Pass the raw BSON when
+   * available so that explicit hnswOptions is rejected; pass {@link Optional#empty()} to skip the
+   * BSON check.
+   */
+  public static void validate(
+      VectorIndexDefinition vectorIndex, Optional<BsonDocument> definitionBson)
+      throws InvalidIndexDefinitionException {
     if (!vectorIndex.isAutoEmbeddingIndex()) {
       throw new IllegalArgumentException(
           "Unable to invoke validations on non auto-embedding indexes");
@@ -41,6 +56,43 @@ public class AutoEmbeddingIndexValidator {
 
     validateEmbeddingModelsAreRegistered(vectorIndex);
     validateNoMixedVectorTypes(vectorIndex);
+    if (definitionBson.isPresent()) {
+      validateNoHnswOptionsInAutoEmbedFields(definitionBson.get());
+    }
+  }
+
+  /**
+   * Validates that the raw definition BSON does not contain hnswOptions in any autoEmbed field.
+   * Call this before parsing so that any explicit hnswOptions (including default values) is
+   * rejected on community. We use a BSON walk here instead of parser-level rejection to avoid
+   * touching the shared parser or introducing parse-context flags; once community allows
+   * hnswOptions, this method will be removed.
+   *
+   * @param definitionBson the raw index definition document (e.g. has "fields" array)
+   * @throws InvalidIndexDefinitionException if any autoEmbed field contains hnswOptions
+   */
+  public static void validateNoHnswOptionsInAutoEmbedFields(BsonDocument definitionBson)
+      throws InvalidIndexDefinitionException {
+    BsonValue fieldsValue = definitionBson.get("fields");
+    if (fieldsValue == null || !fieldsValue.isArray()) {
+      return;
+    }
+    BsonArray fields = fieldsValue.asArray();
+    for (BsonValue v : fields) {
+      if (!v.isDocument()) {
+        continue;
+      }
+      BsonDocument field = v.asDocument();
+      if (!field.containsKey("type") || !field.get("type").isString()) {
+        continue;
+      }
+      if ("autoEmbed".equalsIgnoreCase(field.getString("type").getValue())
+          && field.containsKey("hnswOptions")) {
+        throw new InvalidIndexDefinitionException(
+            "hnswOptions is not supported for auto-embedding indexes on community. "
+                + "Omit hnswOptions to use default HNSW settings.");
+      }
+    }
   }
 
   /**
