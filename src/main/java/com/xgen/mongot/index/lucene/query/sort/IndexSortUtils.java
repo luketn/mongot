@@ -1,6 +1,9 @@
 package com.xgen.mongot.index.lucene.query.sort;
 
+import com.xgen.mongot.index.lucene.field.FieldName;
+import com.xgen.mongot.index.query.sort.MongotSortField;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Sort;
@@ -47,5 +50,48 @@ public class IndexSortUtils {
 
     return Arrays.asList(querySortFields).equals(
         Arrays.asList(indexSortFields).subList(0, querySortFields.length));
+  }
+
+  /**
+   * Checks whether expanding the query sort with nullness fields would produce a sort that aligns
+   * with the index sort. Splits the index sort into nullness fields and value fields, then verifies
+   * that each query field's base field path (stripped of the {@code $type:} prefix) matches the
+   * corresponding value field at the same position.
+   *
+   * <p>Comparison uses the base field path rather than the full Lucene field name so that
+   * per-shard type differences (e.g., one shard has INT64 data, another has TOKEN data) do not
+   * produce inconsistent expansion decisions across shards.
+   *
+   * @return {@code true} if the expanded query sort would be a valid prefix of the index sort
+   */
+  public static boolean expandedSortAlignsWithIndexSort(
+      List<MongotSortField> queryFields,
+      Sort indexSort) {
+    SortField[] allIndexFields = indexSort.getSort();
+    String nullnessPrefix = FieldName.MetaField.NULLNESS.getLuceneFieldName();
+
+    List<String> indexValueNames = Arrays.stream(allIndexFields)
+        .map(SortField::getField)
+        .filter(name -> name == null || !name.startsWith(nullnessPrefix))
+        .toList();
+
+    if (queryFields.size() > indexValueNames.size()) {
+      return false;
+    }
+
+    for (int i = 0; i < queryFields.size(); i++) {
+      MongotSortField field = queryFields.get(i);
+      String indexFieldName = indexValueNames.get(i);
+      Optional<FieldName.TypeField> indexType =
+          FieldName.TypeField.getTypeOf(indexFieldName);
+      if (indexType.isEmpty()) {
+        return false;
+      }
+      if (!indexType.get().stripPrefix(indexFieldName)
+          .equals(field.field().toString())) {
+        return false;
+      }
+    }
+    return true;
   }
 }

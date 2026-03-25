@@ -135,8 +135,7 @@ public class LuceneFacetOptimizedDrillSidewaysSearchManagerTest {
             this.testQuery,
             this.facetQueries.get(FACET_1),
             Optional.empty(),
-            Optional.empty(),
-            false);
+            Optional.empty());
 
     // Act
     LuceneFacetOptimizedDrillSidewaysSearchManager.OptimizedDrillSidewaysFacetCollectorQueryInfo
@@ -159,8 +158,7 @@ public class LuceneFacetOptimizedDrillSidewaysSearchManagerTest {
             this.testQuery,
             this.mockLuceneDrillSideways,
             Optional.empty(),
-            Optional.empty(),
-            false);
+            Optional.empty());
 
     // Act
     LuceneFacetOptimizedDrillSidewaysSearchManager.OptimizedDrillSidewaysFacetCollectorQueryInfo
@@ -184,8 +182,7 @@ public class LuceneFacetOptimizedDrillSidewaysSearchManagerTest {
             this.testQuery,
             this.facetQueries.get(FACET_1),
             Optional.empty(),
-            Optional.empty(),
-            false);
+            Optional.empty());
 
     // Act
     LuceneFacetOptimizedDrillSidewaysSearchManager.OptimizedDrillSidewaysFacetCollectorQueryInfo
@@ -209,8 +206,7 @@ public class LuceneFacetOptimizedDrillSidewaysSearchManagerTest {
             this.testQuery,
             this.facetQueries.get(FACET_1),
             Optional.empty(),
-            Optional.empty(),
-            false);
+            Optional.empty());
 
     // Act
     LuceneFacetOptimizedDrillSidewaysSearchManager.OptimizedDrillSidewaysFacetCollectorQueryInfo
@@ -236,8 +232,7 @@ public class LuceneFacetOptimizedDrillSidewaysSearchManagerTest {
             this.testQuery,
             this.facetQueries.get(FACET_1),
             Optional.of(sort),
-            Optional.empty(),
-            false);
+            Optional.empty());
 
     // Act
     LuceneFacetOptimizedDrillSidewaysSearchManager.OptimizedDrillSidewaysFacetCollectorQueryInfo
@@ -285,8 +280,7 @@ public class LuceneFacetOptimizedDrillSidewaysSearchManagerTest {
             this.testQuery,
             this.facetQueries.get(FACET_1),
             Optional.empty(),
-            Optional.empty(),
-            false);
+            Optional.empty());
 
     ScoreDoc lastScoreDoc = new ScoreDoc(0, 1.0f);
 

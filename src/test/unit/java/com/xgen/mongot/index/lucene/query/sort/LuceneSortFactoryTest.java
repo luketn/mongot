@@ -30,6 +30,7 @@ import com.xgen.testing.mongot.index.query.sort.SortOptionsBuilder;
 import com.xgen.testing.mongot.index.query.sort.SortSpecBuilder;
 import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.Sort;
@@ -442,7 +443,7 @@ public class LuceneSortFactoryTest {
                 Optional.of(indexSort));
 
     Truth.assertThat(sort.getSort().length).isEqualTo(2);
-    Truth.assertThat(sort.getSort()[0]).isInstanceOf(SortedNumericSortField.class);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(MqlNullnessSortField.class);
     Truth.assertThat(sort.getSort()[0].getField()).isEqualTo("$meta/nullness/foo");
     Truth.assertThat(sort.getSort()[0].getMissingValue()).isEqualTo(Long.MIN_VALUE);
     Truth.assertThat(sort.getSort()[1]).isInstanceOf(MqlLongSort.class);
@@ -491,7 +492,7 @@ public class LuceneSortFactoryTest {
                 Optional.of(indexSort));
 
     Truth.assertThat(sort.getSort().length).isEqualTo(2);
-    Truth.assertThat(sort.getSort()[0]).isInstanceOf(SortedNumericSortField.class);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(MqlNullnessSortField.class);
     Truth.assertThat(sort.getSort()[0].getField()).isEqualTo("$meta/nullness/foo");
     Truth.assertThat(sort.getSort()[1]).isInstanceOf(MqlLongSort.class);
   }
@@ -557,6 +558,11 @@ public class LuceneSortFactoryTest {
                 "$meta/nullness/ts",
                 SortField.Type.LONG,
                 true,
+                SortedNumericSelector.Type.MIN),
+            new SortedNumericSortField(
+                "$type:dateV2/ts",
+                SortField.Type.LONG,
+                true,
                 SortedNumericSelector.Type.MIN));
 
     Sort sort =
@@ -572,7 +578,7 @@ public class LuceneSortFactoryTest {
                 Optional.of(indexSort));
 
     Truth.assertThat(sort.getSort().length).isEqualTo(2);
-    Truth.assertThat(sort.getSort()[0]).isInstanceOf(SortedNumericSortField.class);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(MqlNullnessSortField.class);
     Truth.assertThat(sort.getSort()[0].getField()).isEqualTo("$meta/nullness/ts");
     Truth.assertThat(sort.getSort()[0].getMissingValue()).isEqualTo(Long.MIN_VALUE);
     Truth.assertThat(sort.getSort()[1]).isInstanceOf(MqlDateSort.class);
@@ -653,6 +659,11 @@ public class LuceneSortFactoryTest {
                 "$meta/nullness/foo",
                 SortField.Type.LONG,
                 false,
+                SortedNumericSelector.Type.MIN),
+            new SortedNumericSortField(
+                "$type:int64V2/foo",
+                SortField.Type.LONG,
+                false,
                 SortedNumericSelector.Type.MIN));
 
     Sort sort =
@@ -668,6 +679,7 @@ public class LuceneSortFactoryTest {
                 Optional.of(indexSort));
 
     Truth.assertThat(sort.getSort().length).isEqualTo(2);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(MqlNullnessSortField.class);
     Truth.assertThat(sort.getSort()[0].getMissingValue()).isEqualTo(Long.MAX_VALUE);
   }
 
@@ -689,12 +701,17 @@ public class LuceneSortFactoryTest {
                 "$meta/nullness/foo",
                 SortField.Type.LONG,
                 false,
+                SortedNumericSelector.Type.MIN),
+            new SortedNumericSortField(
+                "$type:int64V2/foo",
+                SortField.Type.LONG,
+                false,
                 SortedNumericSelector.Type.MIN));
 
     BsonValue id = new BsonString("test");
     SequenceToken token =
         SequenceToken.of(
-            id, new FieldDoc(0, 0.5f, new Object[] {0L, new BsonInt64(42)}));
+            id, new FieldDoc(0, 0.5f, new Object[] {new BsonInt64(0), new BsonInt64(42)}));
 
     Sort sort =
         new LuceneSortFactory(newQueryFactoryContext())
@@ -726,6 +743,11 @@ public class LuceneSortFactoryTest {
         new Sort(
             new SortedNumericSortField(
                 "$meta/nullness/foo",
+                SortField.Type.LONG,
+                false,
+                SortedNumericSelector.Type.MIN),
+            new SortedNumericSortField(
+                "$type:int64V2/foo",
                 SortField.Type.LONG,
                 false,
                 SortedNumericSelector.Type.MIN));
@@ -797,10 +819,66 @@ public class LuceneSortFactoryTest {
 
     // INT64 field "num" gets $nullness + main = 2 fields, TOKEN field "name" gets 1 = total 3
     Truth.assertThat(sort.getSort().length).isEqualTo(3);
-    Truth.assertThat(sort.getSort()[0]).isInstanceOf(SortedNumericSortField.class);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(MqlNullnessSortField.class);
     Truth.assertThat(sort.getSort()[0].getField()).isEqualTo("$meta/nullness/num");
     Truth.assertThat(sort.getSort()[1]).isInstanceOf(MqlLongSort.class);
     Truth.assertThat(sort.getSort()[2]).isInstanceOf(MqlSortedSetSortField.class);
+  }
+
+  @Test
+  public void createLuceneSort_int64WithMisalignedIndexSort_skipsNullnessExpansion()
+      throws InvalidQueryException {
+    // Query sort is [b], index sort starts with [$meta/nullness/a, a_typed, ...].
+    // Even though the index sort also contains $meta/nullness/b further down, the
+    // positional alignment fails so expansion must be skipped to avoid unnecessary
+    // Pruning.NONE overhead.
+    SortSpec sortSpec =
+        SortSpecBuilder.builder()
+            .sortField(
+                SortFieldBuilder.builder()
+                    .path("b")
+                    .sortOption(UserFieldSortOptions.DEFAULT_ASC)
+                    .build())
+            .buildSort();
+
+    Sort indexSort =
+        new Sort(
+            new SortedNumericSortField(
+                "$meta/nullness/a",
+                SortField.Type.LONG,
+                false,
+                SortedNumericSelector.Type.MIN),
+            new SortedNumericSortField(
+                "$type:int64V2/a",
+                SortField.Type.LONG,
+                false,
+                SortedNumericSelector.Type.MIN),
+            new SortedNumericSortField(
+                "$meta/nullness/b",
+                SortField.Type.LONG,
+                false,
+                SortedNumericSelector.Type.MIN),
+            new SortedNumericSortField(
+                "$type:int64V2/b",
+                SortField.Type.LONG,
+                false,
+                SortedNumericSelector.Type.MIN));
+
+    Sort sort =
+        new LuceneSortFactory(newQueryFactoryContext())
+            .createLuceneSort(
+                sortSpec,
+                Optional.empty(),
+                new FieldToSortableTypesMapping(
+                    ImmutableSetMultimap.of(
+                        FieldPath.newRoot("b"), FieldName.TypeField.NUMBER_INT64_V2),
+                    ImmutableMap.of()),
+                Optional.empty(),
+                Optional.of(indexSort));
+
+    // No nullness expansion: query sort [b] does not align with index sort prefix
+    Truth.assertThat(sort.getSort().length).isEqualTo(1);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(MqlLongSort.class);
   }
 
   @Test
@@ -815,8 +893,6 @@ public class LuceneSortFactoryTest {
                     .build())
             .buildSort();
 
-    // Index sort does not align with the query sort field, so NULL filtering for DOUBLE must
-    // not be enabled.
     Sort indexSort =
         new Sort(
             new SortedNumericSortField(
@@ -976,7 +1052,7 @@ public class LuceneSortFactoryTest {
                 Optional.of(indexSort));
 
     Truth.assertThat(sort.getSort().length).isEqualTo(2);
-    Truth.assertThat(sort.getSort()[0]).isInstanceOf(SortedNumericSortField.class);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(MqlNullnessSortField.class);
     Truth.assertThat(sort.getSort()[0].getField()).isEqualTo("$meta/nullness/foo");
     Truth.assertThat(sort.getSort()[1]).isInstanceOf(MqlMixedSort.class);
   }
@@ -1019,9 +1095,69 @@ public class LuceneSortFactoryTest {
                 Optional.of(indexSort));
 
     Truth.assertThat(sort.getSort().length).isEqualTo(2);
-    Truth.assertThat(sort.getSort()[0]).isInstanceOf(SortedNumericSortField.class);
+    Truth.assertThat(sort.getSort()[0]).isInstanceOf(MqlNullnessSortField.class);
     Truth.assertThat(sort.getSort()[0].getField()).isEqualTo("$meta/nullness/ts");
     Truth.assertThat(sort.getSort()[1]).isInstanceOf(MqlDateSort.class);
+  }
+
+  @Test
+  public void createLuceneSort_consistentExpansionAcrossShards_withDifferentTypes()
+      throws InvalidQueryException {
+    SortSpec sortSpec =
+        SortSpecBuilder.builder()
+            .sortField(
+                SortFieldBuilder.builder()
+                    .path("age")
+                    .sortOption(UserFieldSortOptions.DEFAULT_ASC)
+                    .build())
+            .buildSort();
+
+    Sort indexSort =
+        new Sort(
+            new SortedNumericSortField(
+                "$meta/nullness/age",
+                SortField.Type.LONG,
+                false,
+                SortedNumericSelector.Type.MIN),
+            new SortedNumericSortField(
+                "$type:int64V2/age",
+                SortField.Type.LONG,
+                false,
+                SortedNumericSelector.Type.MIN));
+
+    FieldToSortableTypesMapping shardA = new FieldToSortableTypesMapping(
+        ImmutableSetMultimap.of(
+            FieldPath.newRoot("age"),
+            FieldName.TypeField.NUMBER_INT64_V2),
+        ImmutableMap.of());
+
+    FieldToSortableTypesMapping shardB = new FieldToSortableTypesMapping(
+        ImmutableSetMultimap.of(
+            FieldPath.newRoot("age"), FieldName.TypeField.TOKEN),
+        ImmutableMap.of());
+
+    FieldToSortableTypesMapping shardC = new FieldToSortableTypesMapping(
+        ImmutableSetMultimap.of(), ImmutableMap.of());
+
+    FieldToSortableTypesMapping shardD = new FieldToSortableTypesMapping(
+        ImmutableSetMultimap.of(
+            FieldPath.newRoot("age"), FieldName.TypeField.NULL),
+        ImmutableMap.of());
+
+    LuceneSortFactory factory =
+        new LuceneSortFactory(newQueryFactoryContext());
+
+    for (FieldToSortableTypesMapping mapping :
+        List.of(shardA, shardB, shardC, shardD)) {
+      Sort sort = factory.createLuceneSort(
+          sortSpec, Optional.empty(), mapping,
+          Optional.empty(), Optional.of(indexSort));
+      Truth.assertThat(sort.getSort().length).isEqualTo(2);
+      Truth.assertThat(sort.getSort()[0])
+          .isInstanceOf(MqlNullnessSortField.class);
+      Truth.assertThat(sort.getSort()[0].getField())
+          .isEqualTo("$meta/nullness/age");
+    }
   }
 
   private SearchQueryFactoryContext newQueryFactoryContext() {

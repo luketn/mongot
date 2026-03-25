@@ -141,8 +141,7 @@ public class LuceneOperatorSearchManagerTest {
             new MatchAllDocsQuery(),
             CountBuilder.builder().build(),
             Optional.of(sort),
-            searchAfter,
-            false);
+            searchAfter);
 
     // run initial search with batchSize=2
     var firstPageInfo = manager.initialSearch(searcherReference, 2);
@@ -197,8 +196,7 @@ public class LuceneOperatorSearchManagerTest {
             new MatchAllDocsQuery(),
             CountBuilder.builder().build(),
             Optional.of(sort),
-            searchAfter,
-            false);
+            searchAfter);
     var firstPageInfo = firstPageManager.initialSearch(searcherReference, 2);
     var firstPageDocs = firstPageInfo.topDocs.scoreDocs;
     TestUtils.assertHasDocIds(firstPageDocs, 3, 2);
@@ -221,8 +219,7 @@ public class LuceneOperatorSearchManagerTest {
             new MatchAllDocsQuery(),
             CountBuilder.builder().build(),
             Optional.of(nextSort),
-            lastToken,
-            false);
+            lastToken);
     // get 2 more documents
     var nextPageDocs = nextPageManager.initialSearch(searcherReference, 2).topDocs.scoreDocs;
     TestUtils.assertHasDocIds(nextPageDocs, 1, 0);
@@ -251,8 +248,7 @@ public class LuceneOperatorSearchManagerTest {
             new MatchAllDocsQuery(),
             CountBuilder.builder().build(),
             Optional.empty(),
-            Optional.empty(),
-            false);
+            Optional.empty());
     var firstPageInfo = firstPageManager.initialSearch(searcherReference, 2);
     var firstPageDocs = firstPageInfo.topDocs.scoreDocs;
     TestUtils.assertHasDocIds(firstPageDocs, 0, 1);
@@ -266,8 +262,7 @@ public class LuceneOperatorSearchManagerTest {
             new MatchAllDocsQuery(),
             CountBuilder.builder().build(),
             Optional.empty(),
-            Optional.of(lastToken),
-            false);
+            Optional.of(lastToken));
     // get 2 more documents
     var nextPageDocs = nextPageManager.initialSearch(searcherReference, 2).topDocs.scoreDocs;
     TestUtils.assertHasDocIds(nextPageDocs, 2, 3);

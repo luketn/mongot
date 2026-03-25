@@ -31,24 +31,21 @@ class LuceneSearchManagerFactory {
   private final FieldDefinitionResolver fieldDefinitionResolver;
   private final BinaryQuantizedVectorRescorer rescorer;
   private final IndexMetricsUpdater.QueryingMetricsUpdater metricsUpdater;
-  private final boolean hasIndexSort;
 
   LuceneSearchManagerFactory(
       FieldDefinitionResolver fieldDefinitionResolver,
       BinaryQuantizedVectorRescorer rescorer,
-      IndexMetricsUpdater.QueryingMetricsUpdater metricsUpdater,
-      boolean hasIndexSort) {
+      IndexMetricsUpdater.QueryingMetricsUpdater metricsUpdater) {
     this.fieldDefinitionResolver = fieldDefinitionResolver;
     this.rescorer = rescorer;
     this.metricsUpdater = metricsUpdater;
-    this.hasIndexSort = hasIndexSort;
   }
 
   LuceneSearchManager<FacetCollectorQueryInfo> newFacetCollectorManager(
       Query query, Optional<Sort> luceneSort, Optional<SequenceToken> searchAfter) {
     return new MeteredLuceneSearchManager<>(
         this.metricsUpdater,
-        new LuceneFacetCollectorSearchManager(query, luceneSort, searchAfter, this.hasIndexSort));
+        new LuceneFacetCollectorSearchManager(query, luceneSort, searchAfter));
   }
 
   LuceneSearchManager<QueryInfo> newOperatorManager(
@@ -65,7 +62,7 @@ class LuceneSearchManagerFactory {
     return new MeteredLuceneSearchManager<>(
         this.metricsUpdater,
         new LuceneOperatorSearchManager(
-            luceneQuery, count, luceneSort, searchAfter, this.hasIndexSort));
+            luceneQuery, count, luceneSort, searchAfter));
   }
 
   private LuceneSearchManager<QueryInfo> newCachingVectorQueryManager(
@@ -138,8 +135,7 @@ class LuceneSearchManagerFactory {
             facetToDrillSidewaysFacetQueries,
             luceneSort,
             searchAfter,
-            validExecutor,
-            this.hasIndexSort));
+            validExecutor));
   }
 
   LuceneSearchManager<OptimizedDrillSidewaysFacetCollectorQueryInfo>
@@ -151,6 +147,6 @@ class LuceneSearchManagerFactory {
     return new MeteredLuceneSearchManager<>(
         this.metricsUpdater,
         new LuceneFacetOptimizedDrillSidewaysSearchManager(
-            query, drillSideways, luceneSort, searchAfter, this.hasIndexSort));
+            query, drillSideways, luceneSort, searchAfter));
   }
 }

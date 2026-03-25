@@ -39,9 +39,8 @@ class LuceneFacetCollectorSearchManager
   public LuceneFacetCollectorSearchManager(
       Query luceneQuery,
       Optional<Sort> luceneSort,
-      Optional<SequenceToken> searchAfter,
-      boolean hasIndexSort) {
-    super(luceneQuery, luceneSort, searchAfter, hasIndexSort);
+      Optional<SequenceToken> searchAfter) {
+    super(luceneQuery, luceneSort, searchAfter);
   }
 
   @Override

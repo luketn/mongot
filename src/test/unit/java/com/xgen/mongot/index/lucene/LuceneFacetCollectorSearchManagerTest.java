@@ -105,7 +105,7 @@ public class LuceneFacetCollectorSearchManagerTest {
   public void testFacetSearchWithoutSort() throws IOException {
     var manager =
         new LuceneFacetCollectorSearchManager(
-            new MatchAllDocsQuery(), Optional.empty(), Optional.empty(), false);
+            new MatchAllDocsQuery(), Optional.empty(), Optional.empty());
 
     var config = new FacetsConfig();
     var doc1 = createSimpleDoc("a");
@@ -194,7 +194,7 @@ public class LuceneFacetCollectorSearchManagerTest {
                 Optional.empty());
     var firstPageManager =
         new LuceneFacetCollectorSearchManager(
-            new MatchAllDocsQuery(), Optional.of(sort), searchAfter, false);
+            new MatchAllDocsQuery(), Optional.of(sort), searchAfter);
     var firstPageQueryInfo = firstPageManager.initialSearch(searcherReference, 2);
     var initialScoreDocs = firstPageQueryInfo.topDocs.scoreDocs;
     {
@@ -222,7 +222,7 @@ public class LuceneFacetCollectorSearchManagerTest {
                 Optional.empty());
     var secondPageManager =
         new LuceneFacetCollectorSearchManager(
-            new MatchAllDocsQuery(), Optional.of(nextSort), nextPageToken, false);
+            new MatchAllDocsQuery(), Optional.of(nextSort), nextPageToken);
     var secondPageQueryInfo = secondPageManager.initialSearch(searcherReference, 2);
     var secondPageScoreDocs = secondPageQueryInfo.topDocs.scoreDocs;
     var secondPageFacts = searcherReference.getIndexSearcher().getFacetsState().get();
@@ -284,7 +284,7 @@ public class LuceneFacetCollectorSearchManagerTest {
                 Optional.empty());
     var firstPageManager =
         new LuceneFacetCollectorSearchManager(
-            new MatchAllDocsQuery(), Optional.of(sort), searchAfter, false);
+            new MatchAllDocsQuery(), Optional.of(sort), searchAfter);
     var firstPageQueryInfo = firstPageManager.initialSearch(searcherReference, 2);
     var initialScoreDocs = firstPageQueryInfo.topDocs.scoreDocs;
 
@@ -325,7 +325,7 @@ public class LuceneFacetCollectorSearchManagerTest {
 
     var firstPageManager =
         new LuceneFacetCollectorSearchManager(
-            new MatchAllDocsQuery(), Optional.empty(), Optional.empty(), false);
+            new MatchAllDocsQuery(), Optional.empty(), Optional.empty());
     var firstPageQueryInfo = firstPageManager.initialSearch(searcherReference, 2);
     var initialScoreDocs = firstPageQueryInfo.topDocs.scoreDocs;
     {
@@ -342,7 +342,7 @@ public class LuceneFacetCollectorSearchManagerTest {
         SequenceToken.of(new BsonString("test"), initialScoreDocs[initialScoreDocs.length - 1]);
     var secondPageManager =
         new LuceneFacetCollectorSearchManager(
-            new MatchAllDocsQuery(), Optional.empty(), Optional.of(nextPageToken), false);
+            new MatchAllDocsQuery(), Optional.empty(), Optional.of(nextPageToken));
     var secondPageQueryInfo = secondPageManager.initialSearch(searcherReference, 2);
     var secondPageScoreDocs = secondPageQueryInfo.topDocs.scoreDocs;
     var secondPageFacts = searcherReference.getIndexSearcher().getFacetsState().get();
@@ -386,7 +386,7 @@ public class LuceneFacetCollectorSearchManagerTest {
         SequenceToken.of(new BsonString("test"), new ScoreDoc(9001, Float.MAX_VALUE));
     var firstPageManager =
         new LuceneFacetCollectorSearchManager(
-            new MatchAllDocsQuery(), Optional.empty(), Optional.of(searchAfter), false);
+            new MatchAllDocsQuery(), Optional.empty(), Optional.of(searchAfter));
     var firstPageQueryInfo = firstPageManager.initialSearch(searcherReference, 2);
 
     var readerState = searcherReference.getIndexSearcher().getFacetsState().get();
@@ -449,7 +449,7 @@ public class LuceneFacetCollectorSearchManagerTest {
                 Optional.empty());
     var manager =
         new LuceneFacetCollectorSearchManager(
-            new MatchAllDocsQuery(), Optional.of(sort), Optional.empty(), false);
+            new MatchAllDocsQuery(), Optional.of(sort), Optional.empty());
 
     var queryInfo = manager.initialSearch(searcherReference, 2);
 
@@ -517,7 +517,7 @@ public class LuceneFacetCollectorSearchManagerTest {
                 Optional.empty());
     var manager =
         new LuceneFacetCollectorSearchManager(
-            new MatchAllDocsQuery(), Optional.of(sort), Optional.empty(), false);
+            new MatchAllDocsQuery(), Optional.of(sort), Optional.empty());
 
     try (var unused =
         Explain.setup(

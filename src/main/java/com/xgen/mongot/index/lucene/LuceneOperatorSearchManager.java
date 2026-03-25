@@ -24,9 +24,8 @@ class LuceneOperatorSearchManager
       Query luceneQuery,
       Count count,
       Optional<Sort> luceneSort,
-      Optional<SequenceToken> searchAfter,
-      boolean hasIndexSort) {
-    super(luceneQuery, luceneSort, searchAfter, hasIndexSort);
+      Optional<SequenceToken> searchAfter) {
+    super(luceneQuery, luceneSort, searchAfter);
     this.count = count;
   }
 

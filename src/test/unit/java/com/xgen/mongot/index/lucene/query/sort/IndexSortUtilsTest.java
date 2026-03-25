@@ -9,6 +9,7 @@ import com.xgen.mongot.index.query.sort.MongotSortField;
 import com.xgen.mongot.index.query.sort.UserFieldSortOptions;
 import com.xgen.mongot.util.FieldPath;
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.LongPoint;
@@ -18,6 +19,8 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.SortedNumericSelector;
+import org.apache.lucene.search.SortedNumericSortField;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
 import org.junit.Test;
@@ -197,4 +200,130 @@ public class IndexSortUtilsTest {
 
     assertFalse(IndexSortUtils.canBenefitFromIndexSort(querySort, indexSort));
   }
+
+  // --- expandedSortAlignsWithIndexSort tests ---
+
+  @Test
+  public void expandedSortAligns_singleFieldAligned_returnsTrue() {
+    List<MongotSortField> queryFields = List.of(userSortField("a"));
+    Sort indexSort = new Sort(
+        nullnessSortField("a"),
+        valueSortField("$type:int64V2/a"));
+
+    assertThat(IndexSortUtils.expandedSortAlignsWithIndexSort(
+        queryFields, indexSort))
+        .isTrue();
+  }
+
+  @Test
+  public void expandedSortAligns_multipleFieldsAligned_returnsTrue() {
+    List<MongotSortField> queryFields =
+        List.of(userSortField("a"), userSortField("b"));
+    Sort indexSort = new Sort(
+        nullnessSortField("a"),
+        valueSortField("$type:int64V2/a"),
+        nullnessSortField("b"),
+        valueSortField("$type:int64V2/b"));
+
+    assertThat(IndexSortUtils.expandedSortAlignsWithIndexSort(
+        queryFields, indexSort))
+        .isTrue();
+  }
+
+  @Test
+  public void expandedSortAligns_queryPrefixOfIndex_returnsTrue() {
+    List<MongotSortField> queryFields = List.of(userSortField("a"));
+    Sort indexSort = new Sort(
+        nullnessSortField("a"),
+        valueSortField("$type:int64V2/a"),
+        nullnessSortField("b"),
+        valueSortField("$type:int64V2/b"));
+
+    assertThat(IndexSortUtils.expandedSortAlignsWithIndexSort(
+        queryFields, indexSort))
+        .isTrue();
+  }
+
+  @Test
+  public void expandedSortAligns_misalignedValuePosition_returnsFalse() {
+    List<MongotSortField> queryFields = List.of(userSortField("b"));
+    Sort indexSort = new Sort(
+        nullnessSortField("a"),
+        valueSortField("$type:int64V2/a"),
+        nullnessSortField("b"),
+        valueSortField("$type:int64V2/b"));
+
+    assertThat(IndexSortUtils.expandedSortAlignsWithIndexSort(
+        queryFields, indexSort))
+        .isFalse();
+  }
+
+  @Test
+  public void expandedSortAligns_expandedExceedsIndexLength_returnsFalse() {
+    List<MongotSortField> queryFields =
+        List.of(userSortField("a"), userSortField("b"));
+    Sort indexSort = new Sort(
+        nullnessSortField("a"),
+        valueSortField("$type:int64V2/a"));
+
+    assertThat(IndexSortUtils.expandedSortAlignsWithIndexSort(
+        queryFields, indexSort))
+        .isFalse();
+  }
+
+  @Test
+  public void expandedSortAligns_noNullnessInIndex_valueFieldStillAligned() {
+    List<MongotSortField> queryFields = List.of(userSortField("a"));
+    Sort indexSort = new Sort(valueSortField("$type:int64V2/a"));
+
+    assertThat(IndexSortUtils.expandedSortAlignsWithIndexSort(
+        queryFields, indexSort))
+        .isTrue();
+  }
+
+  @Test
+  public void expandedSortAligns_mixedTypesWithTokenField_returnsTrue() {
+    List<MongotSortField> queryFields =
+        List.of(userSortField("num"), userSortField("name"));
+    Sort indexSort = new Sort(
+        nullnessSortField("num"),
+        valueSortField("$type:int64V2/num"),
+        valueSortField("$type:token/name"));
+
+    assertThat(IndexSortUtils.expandedSortAlignsWithIndexSort(
+        queryFields, indexSort))
+        .isTrue();
+  }
+
+  @Test
+  public void expandedSortAligns_indexFieldWithoutTypePrefix_returnsFalse() {
+    List<MongotSortField> queryFields = List.of(userSortField("a"));
+    Sort indexSort = new Sort(valueSortField("plain_field_no_type"));
+
+    assertThat(IndexSortUtils.expandedSortAlignsWithIndexSort(
+        queryFields, indexSort))
+        .isFalse();
+  }
+
+  private static MongotSortField userSortField(String path) {
+    return new MongotSortField(
+        FieldPath.newRoot(path), UserFieldSortOptions.DEFAULT_ASC);
+  }
+
+  private static SortedNumericSortField nullnessSortField(String path) {
+    return new SortedNumericSortField(
+        "$meta/nullness/" + path,
+        SortField.Type.LONG,
+        false,
+        SortedNumericSelector.Type.MIN);
+  }
+
+  private static SortField valueSortField(String luceneFieldName) {
+    return new SortedNumericSortField(
+        luceneFieldName,
+        SortField.Type.LONG,
+        false,
+        SortedNumericSelector.Type.MIN);
+  }
+
 }
