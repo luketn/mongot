@@ -206,7 +206,22 @@ public record EmbeddingModelConfig(
             : baseModelConfig.batchSize,
         overrideModelConfig.batchTokenLimit.isPresent()
             ? overrideModelConfig.batchTokenLimit
-            : baseModelConfig.batchTokenLimit);
+            : baseModelConfig.batchTokenLimit,
+        overrideModelConfig.modality.isPresent()
+            ? overrideModelConfig.modality
+            : baseModelConfig.modality,
+        overrideModelConfig.similarity.isPresent()
+            ? overrideModelConfig.similarity
+            : baseModelConfig.similarity,
+        overrideModelConfig.quantization.isPresent()
+            ? overrideModelConfig.quantization
+            : baseModelConfig.quantization,
+        overrideModelConfig.indexingMethod.isPresent()
+            ? overrideModelConfig.indexingMethod
+            : baseModelConfig.indexingMethod,
+        overrideModelConfig.hnswOptions.isPresent()
+            ? overrideModelConfig.hnswOptions
+            : baseModelConfig.hnswOptions);
   }
 
   @Override

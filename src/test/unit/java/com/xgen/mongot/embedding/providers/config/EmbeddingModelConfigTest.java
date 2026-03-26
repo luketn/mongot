@@ -1,6 +1,7 @@
 package com.xgen.mongot.embedding.providers.config;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 import com.xgen.mongot.embedding.providers.configs.EmbeddingModelConfig;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig;
@@ -8,7 +9,14 @@ import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig.Embedd
 import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig.VoyageEmbeddingCredentials;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig.VoyageModelConfig;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig.WorkloadParams;
+import com.xgen.mongot.embedding.providers.configs.VoyageModelVectorParams;
+import com.xgen.mongot.util.bson.parser.BsonDocumentParser;
+import com.xgen.mongot.util.bson.parser.BsonParseException;
+import java.util.Map;
 import java.util.Optional;
+import org.bson.BsonDocument;
+import org.bson.BsonInt32;
+import org.bson.BsonString;
 import org.junit.Test;
 
 public class EmbeddingModelConfigTest {
@@ -19,6 +27,22 @@ public class EmbeddingModelConfigTest {
           Optional.of(EmbeddingServiceConfig.TruncationOption.NONE),
           Optional.of(1000),
           Optional.of(100_000));
+
+  /**
+   * Similarity map keys are MMS per-quantization buckets ({@code scalar}, {@code float}, …), not
+   * modality.
+   */
+  private static final VoyageModelConfig BASE_ADVANCED_MODEL_CONFIG =
+      new VoyageModelConfig(
+          Optional.of(512),
+          Optional.of(EmbeddingServiceConfig.TruncationOption.NONE),
+          Optional.of(1000),
+          Optional.of(100_000),
+          Optional.of("text"),
+          Optional.of(Map.of("scalar", VoyageModelVectorParams.Similarity.COSINE)),
+          Optional.of(VoyageModelVectorParams.Quantization.SCALAR),
+          Optional.of(VoyageModelVectorParams.IndexingMethod.HNSW),
+          Optional.of(new VoyageModelVectorParams.HnswOptions(16, 100)));
 
   private static final EmbeddingServiceConfig.ErrorHandlingConfig BASE_ERROR_CONFIG =
       new EmbeddingServiceConfig.ErrorHandlingConfig(10, 200L, 50L, 0.1);
@@ -168,6 +192,150 @@ public class EmbeddingModelConfigTest {
   }
 
   @Test
+  public void testConsolidateVoyageModelConfig_advancedParams_mergeFieldByField() {
+    VoyageModelConfig override =
+        new VoyageModelConfig(
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(Map.of("scalar", VoyageModelVectorParams.Similarity.DOT_PRODUCT)),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+
+    WorkloadParams overrideParams =
+        new WorkloadParams(
+            Optional.of(override), Optional.empty(), Optional.empty(), Optional.empty());
+
+    EmbeddingModelConfig consolidatedConfig =
+        EmbeddingModelConfig.create(
+            "voyage-3.5-lite",
+            EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
+            new EmbeddingServiceConfig.EmbeddingConfig(
+                Optional.empty(),
+                BASE_ADVANCED_MODEL_CONFIG,
+                BASE_ERROR_CONFIG,
+                BASE_CREDENTIALS,
+                Optional.empty(),
+                Optional.of(overrideParams),
+                Optional.empty(),
+                Optional.empty(),
+                true,
+                Optional.empty(),
+                false,
+                Optional.empty()));
+
+    VoyageModelConfig result =
+        (VoyageModelConfig) consolidatedConfig.collectionScan().modelConfig();
+
+    assertEquals(
+        Optional.of(Map.of("scalar", VoyageModelVectorParams.Similarity.DOT_PRODUCT)),
+        result.similarity);
+    assertEquals(BASE_ADVANCED_MODEL_CONFIG.modality, result.modality);
+    assertEquals(BASE_ADVANCED_MODEL_CONFIG.quantization, result.quantization);
+    assertEquals(BASE_ADVANCED_MODEL_CONFIG.indexingMethod, result.indexingMethod);
+    assertEquals(BASE_ADVANCED_MODEL_CONFIG.hnswOptions, result.hnswOptions);
+  }
+
+  @Test
+  public void testVoyageModelConfig_parsesConfCallQuantization_allLiterals()
+      throws BsonParseException {
+    assertParsedQuantization("float", VoyageModelVectorParams.Quantization.NONE);
+    assertParsedQuantization("scalar", VoyageModelVectorParams.Quantization.SCALAR);
+    assertParsedQuantization("binary", VoyageModelVectorParams.Quantization.BINARY);
+    assertParsedQuantization(
+        "binaryNoRescore", VoyageModelVectorParams.Quantization.BINARY_NO_RESCORE);
+  }
+
+  @Test
+  public void testVoyageModelConfig_quantization_toBson_encodesConfCallLiterals() {
+    assertQuantizationWire(VoyageModelVectorParams.Quantization.NONE, "float");
+    assertQuantizationWire(VoyageModelVectorParams.Quantization.SCALAR, "scalar");
+    assertQuantizationWire(VoyageModelVectorParams.Quantization.BINARY, "binary");
+    assertQuantizationWire(
+        VoyageModelVectorParams.Quantization.BINARY_NO_RESCORE, "binaryNoRescore");
+  }
+
+  @Test
+  public void testVoyageModelConfig_quantization_roundTrip_allValues() throws BsonParseException {
+    for (VoyageModelVectorParams.Quantization quantization :
+        VoyageModelVectorParams.Quantization.values()) {
+      VoyageModelConfig original =
+          new VoyageModelConfig(
+              Optional.of(512),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.of(quantization),
+              Optional.empty(),
+              Optional.empty());
+      BsonDocument encoded = original.toBson();
+      BsonDocument root = new BsonDocument();
+      encoded.keySet().forEach(k -> root.put(k, encoded.get(k)));
+      root.put("_provider", new BsonString("VOYAGE"));
+      VoyageModelConfig parsed =
+          VoyageModelConfig.fromBson(
+              BsonDocumentParser.fromRoot(root).allowUnknownFields(true).build());
+      assertEquals(Optional.of(quantization), parsed.quantization);
+    }
+  }
+
+  @Test
+  public void testVoyageModelConfig_quantization_rejectsIndexDefinitionNoneAndInvalidStrings() {
+    assertQuantizationParseFails("none");
+    assertQuantizationParseFails("invalid");
+  }
+
+  @Test
+  public void testVoyageModelConfig_quantization_rejectsNonString() {
+    BsonDocument root = new BsonDocument();
+    root.put("_provider", new BsonString("VOYAGE"));
+    root.put("quantization", new BsonInt32(1));
+    assertThrows(
+        BsonParseException.class,
+        () ->
+            VoyageModelConfig.fromBson(
+                BsonDocumentParser.fromRoot(root).allowUnknownFields(true).build()));
+  }
+
+  @Test
+  public void testVoyageModelConfig_bsonRoundTrip_preservesAdvancedParams()
+      throws BsonParseException {
+    VoyageModelConfig original =
+        new VoyageModelConfig(
+            Optional.of(512),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of("text"),
+            Optional.of(
+                Map.of(
+                    "scalar",
+                    VoyageModelVectorParams.Similarity.DOT_PRODUCT,
+                    "float",
+                    VoyageModelVectorParams.Similarity.COSINE,
+                    "binary",
+                    VoyageModelVectorParams.Similarity.EUCLIDEAN,
+                    "binaryNoRescore",
+                    VoyageModelVectorParams.Similarity.EUCLIDEAN)),
+            Optional.of(VoyageModelVectorParams.Quantization.SCALAR),
+            Optional.of(VoyageModelVectorParams.IndexingMethod.HNSW),
+            Optional.of(new VoyageModelVectorParams.HnswOptions(32, 200)));
+    BsonDocument root = new BsonDocument();
+    BsonDocument encoded = original.toBson();
+    encoded.keySet().forEach(k -> root.put(k, encoded.get(k)));
+    root.put("_provider", new BsonString("VOYAGE"));
+    VoyageModelConfig parsed =
+        VoyageModelConfig.fromBson(
+            BsonDocumentParser.fromRoot(root).allowUnknownFields(true).build());
+    assertEquals(original, parsed);
+  }
+
+  @Test
   public void testRpsPerProvider_threadsToAllConsolidatedWorkloadParams() {
     EmbeddingModelConfig result =
         EmbeddingModelConfig.create(
@@ -215,5 +383,43 @@ public class EmbeddingModelConfigTest {
     assertEquals(Optional.empty(), result.query().rpsPerProvider());
     assertEquals(Optional.empty(), result.changeStream().rpsPerProvider());
     assertEquals(Optional.empty(), result.collectionScan().rpsPerProvider());
+  }
+
+  private static void assertParsedQuantization(
+      String wire, VoyageModelVectorParams.Quantization expected) throws BsonParseException {
+    BsonDocument root = new BsonDocument();
+    root.put("_provider", new BsonString("VOYAGE"));
+    root.put("quantization", new BsonString(wire));
+    VoyageModelConfig parsed =
+        VoyageModelConfig.fromBson(
+            BsonDocumentParser.fromRoot(root).allowUnknownFields(true).build());
+    assertEquals(Optional.of(expected), parsed.quantization);
+  }
+
+  private static void assertQuantizationWire(
+      VoyageModelVectorParams.Quantization quantization, String expectedWire) {
+    VoyageModelConfig config =
+        new VoyageModelConfig(
+            Optional.of(512),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(quantization),
+            Optional.empty(),
+            Optional.empty());
+    assertEquals(expectedWire, config.toBson().getString("quantization").getValue());
+  }
+
+  private static void assertQuantizationParseFails(String wire) {
+    BsonDocument root = new BsonDocument();
+    root.put("_provider", new BsonString("VOYAGE"));
+    root.put("quantization", new BsonString(wire));
+    assertThrows(
+        BsonParseException.class,
+        () ->
+            VoyageModelConfig.fromBson(
+                BsonDocumentParser.fromRoot(root).allowUnknownFields(true).build()));
   }
 }
