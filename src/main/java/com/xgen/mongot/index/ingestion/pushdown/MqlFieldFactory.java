@@ -40,12 +40,6 @@ final class MqlFieldFactory {
 
   private static final BytesRef SINGLETON_VALUE = new BytesRef("1");
 
-  private static final long POSITIVE_ZERO_ENCODING =
-      LuceneDoubleConversionUtils.toMqlSortableLong(0.0);
-
-  private static final long NEGATIVE_ZERO_ENCODING =
-      LuceneDoubleConversionUtils.toMqlSortableLong(-0.0);
-
   private MqlFieldFactory() {
     // Util Class
   }
@@ -63,13 +57,7 @@ final class MqlFieldFactory {
   private static boolean addDouble(FieldPath path, double value, Document d) {
     String name = MqlField.DOUBLE.getFieldName(path);
     long encoded = LuceneDoubleConversionUtils.toMqlSortableLong(value);
-    if (encoded == NEGATIVE_ZERO_ENCODING) {
-      // Coalesce +/- 0.0 for the index, but preserve the sign for $project
-      d.add(new LongPoint(name, POSITIVE_ZERO_ENCODING));
-      d.add(new SortedNumericDocValuesField(name, NEGATIVE_ZERO_ENCODING));
-    } else {
-      d.add(new LongField(name, encoded, Store.NO));
-    }
+    d.add(new LongField(name, encoded, Store.NO));
     return true;
   }
 
@@ -191,12 +179,12 @@ final class MqlFieldFactory {
     d.add(new NumericDocValuesField(name, type.id));
   }
 
-  /** Add field(s) to index the given {@link BsonValue}.
+  /**
+   * Add field(s) to index the given {@link BsonValue}.
    *
    * @param path - the path to value v in the indexed BsonDocument
    * @param v - the value to index
    * @param d - the Lucene {@link Document} to add {@link IndexableField}(s) to.
-   *
    * @return the input parameter `d` for chaining fluent calls.
    */
   @CanIgnoreReturnValue

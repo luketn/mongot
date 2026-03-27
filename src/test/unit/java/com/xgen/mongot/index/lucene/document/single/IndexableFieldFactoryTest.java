@@ -598,7 +598,6 @@ public class IndexableFieldFactoryTest {
             Long.MIN_VALUE,
             -1L,
             -Double.MIN_VALUE,
-            -0.0,
             0.0,
             Double.MIN_VALUE,
             Double.MIN_NORMAL,

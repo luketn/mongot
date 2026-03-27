@@ -5,6 +5,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.xgen.testing.TestUtils;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.experimental.theories.DataPoints;
 import org.junit.experimental.theories.Theories;
@@ -14,17 +15,25 @@ import org.junit.runner.RunWith;
 @RunWith(Theories.class)
 public class LuceneDoubleConversionUtilsTest {
 
-  @DataPoints
-  public static double[] weirdDoubles = TestUtils.createWeirdDoubles();
+  @DataPoints public static double[] weirdDoubles = TestUtils.createWeirdDoubles();
 
   @Theory
   public void toMqlSortableLong_isBijective(double d) {
+    // -0.0 is coalesced to +0.0 during indexing
+    Assume.assumeFalse(Double.doubleToLongBits(d) == Double.doubleToLongBits(-0.0));
+
     long sortableLong = LuceneDoubleConversionUtils.toMqlSortableLong(d);
     double recovered = LuceneDoubleConversionUtils.fromMqlSortableLong(sortableLong);
 
     // Compare doubles with bitwise semantics, coalescing NaNs to same pattern
     assertEquals(Double.doubleToLongBits(d), Double.doubleToLongBits(recovered));
     assertThat(sortableLong).isNoneOf(Long.MIN_VALUE, Long.MAX_VALUE);
+  }
+
+  @Test
+  public void toMqlSortableLong_coalesceNegativeZero() {
+    assertThat(LuceneDoubleConversionUtils.toMqlSortableLong(-0.0))
+        .isEqualTo(LuceneDoubleConversionUtils.toMqlSortableLong(0.0));
   }
 
   @Test

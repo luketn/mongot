@@ -129,7 +129,7 @@ public class MqlDoubleSortTest {
               new BsonDouble(Double.NEGATIVE_INFINITY),
               new BsonDouble(-Double.MAX_VALUE),
               new BsonDouble(-Double.MIN_VALUE),
-              new BsonDouble(-0.0),
+              new BsonDouble(0.0),
               new BsonDouble(0.0),
               new BsonDouble(Double.MIN_VALUE),
               new BsonDouble(Double.MIN_NORMAL),
@@ -149,7 +149,7 @@ public class MqlDoubleSortTest {
               new BsonDouble(Double.NEGATIVE_INFINITY),
               new BsonDouble(-Double.MAX_VALUE),
               new BsonDouble(-Double.MIN_VALUE),
-              new BsonDouble(-0.0),
+              new BsonDouble(0.0),
               new BsonDouble(0.0),
               new BsonDouble(Double.MIN_VALUE),
               new BsonDouble(Double.MIN_NORMAL),
@@ -171,7 +171,7 @@ public class MqlDoubleSortTest {
               new BsonDouble(Double.MIN_NORMAL),
               new BsonDouble(Double.MIN_VALUE),
               new BsonDouble(0.0),
-              new BsonDouble(-0.0),
+              new BsonDouble(0.0),
               new BsonDouble(-Double.MIN_VALUE),
               new BsonDouble(-Double.MAX_VALUE),
               new BsonDouble(Double.NEGATIVE_INFINITY),
@@ -193,7 +193,7 @@ public class MqlDoubleSortTest {
               new BsonDouble(Double.MIN_NORMAL),
               new BsonDouble(Double.MIN_VALUE),
               new BsonDouble(0.0),
-              new BsonDouble(-0.0),
+              new BsonDouble(0.0),
               new BsonDouble(-Double.MIN_VALUE),
               new BsonDouble(-Double.MAX_VALUE),
               new BsonDouble(Double.NEGATIVE_INFINITY),
@@ -240,7 +240,7 @@ public class MqlDoubleSortTest {
           .containsExactly(
               new BsonDouble(-Double.MAX_VALUE),
               new BsonDouble(-Double.MIN_VALUE),
-              new BsonDouble(-0.0),
+              new BsonDouble(0.0),
               new BsonDouble(0.0),
               new BsonDouble(Double.MIN_VALUE),
               new BsonDouble(Double.MIN_NORMAL),
@@ -288,7 +288,7 @@ public class MqlDoubleSortTest {
           .asList()
           .containsExactly(
               new BsonDouble(-Double.MIN_VALUE),
-              new BsonDouble(-0.0),
+              new BsonDouble(0.0),
               new BsonDouble(0.0),
               new BsonDouble(Double.MIN_VALUE),
               new BsonDouble(Double.MIN_NORMAL),
@@ -323,7 +323,7 @@ public class MqlDoubleSortTest {
           .asList()
           .containsExactly(
               new BsonDouble(-Double.MIN_VALUE),
-              new BsonDouble(-0.0),
+              new BsonDouble(0.0),
               new BsonDouble(0.0),
               new BsonDouble(Double.MIN_VALUE),
               new BsonDouble(Double.MIN_NORMAL),
