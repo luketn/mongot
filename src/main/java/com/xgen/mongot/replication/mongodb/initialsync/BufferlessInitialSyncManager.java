@@ -20,6 +20,7 @@ import com.xgen.mongot.replication.mongodb.common.InitialSyncException;
 import com.xgen.mongot.replication.mongodb.common.InitialSyncResumeInfo;
 import com.xgen.mongot.util.BsonUtils;
 import com.xgen.mongot.util.Check;
+import com.xgen.mongot.util.Crash;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
@@ -287,20 +288,7 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
     IndexCommitUserData commitUserData =
         IndexCommitUserData.createChangeStreamResume(
             changeStreamResumeInfo.get(), this.context.getIndexFormatVersion());
-    this.context.indexer.updateCommitUserData(commitUserData);
-    try {
-      this.context.indexer.commit();
-    } catch (Exception e) {
-      this.logger
-          .atWarn()
-          .addKeyValue("indexId", this.context.getIndexId())
-          .addKeyValue("generationId", this.context.getGenerationId())
-          .log("First commit failed (likely due to interruption).");
-      // If replication is shutdown, this exception will be ignored by the ReplicationIndexManager.
-      // Otherwise, it's likely to be caused by some disk issues. We will retry with backoff.
-      throw InitialSyncException.createResumableTransient(e);
-    }
-
+    doFirstCommit(commitUserData);
     this.logger
         .atInfo()
         .addKeyValue("indexId", this.context.getIndexId())
@@ -380,5 +368,23 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
         "waiting for change stream events to be applied",
         changeStreamShutdown,
         this.logger);
+  }
+
+  private void doFirstCommit(IndexCommitUserData commitUserData) throws InitialSyncException {
+    this.context.indexer.updateCommitUserData(commitUserData);
+    CompletableFuture<Void> commitFuture =
+        InitialSyncManager.runAsync(
+            () ->
+                // This needs to be run in a separate thread to avoid being interrupted.
+                // Interrupting the commit operation will cause the index writer closed.
+                Crash.because("failed to do first commit after initial sync")
+                    .ifThrowsExceptionOrError(this.context.indexer::commit),
+            String.format("%s %s", this.context.uniqueString(), "FirstCommit"));
+    Duration shutdownTimeout = getShutdownTimeout();
+
+    // When shutdown is triggered, crash JVM if the commit operation doesn't complete in time.
+    Runnable firstCommitShutdown = () -> awaitShutdown(shutdownTimeout, commitFuture);
+
+    getResultOrThrow(commitFuture, "waiting for first commit", firstCommitShutdown, this.logger);
   }
 }
