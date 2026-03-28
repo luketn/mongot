@@ -173,6 +173,8 @@ PINNED_TRANSITIVE_ARTIFACTS = [
     "io.grpc:grpc-netty-shaded:1.75.0",
     # Force gson version to 2.13.2 to address CVE-2025-53864
     "com.google.code.gson:gson:2.13.2",
+    # Force plexus-utils version to 4.0.3 to address CVE-2025-67030
+    "org.codehaus.plexus:plexus-utils:4.0.3",
 ]
 
 def java_deps():
