@@ -173,6 +173,7 @@ public class MaterializedViewCollectionResolverTest {
         VectorIndexDefinitionBuilder.builder()
             .indexId(indexId)
             .withAutoEmbedField("embeddingField")
+            .materializedViewNameFormatVersion(0L)
             .build();
     var indexDefGen = createIndexDefinitionGeneration(definition);
 
@@ -368,29 +369,21 @@ public class MaterializedViewCollectionResolverTest {
             .build();
     var indexDefGen = createIndexDefinitionGeneration(definition);
 
-    // Legacy path: first listCollections() (with filter) must return one doc so resolver takes
-    // legacy path; second listCollections() (no filter, from getCollectionInfo) must return empty
-    // so getCollectionInfo throws.
-    String legacyCollectionName = indexId.toHexString();
-    BsonDocument legacyDoc = toCollectionBson(legacyCollectionName, UUID.randomUUID());
-    ListCollectionsIterable<BsonDocument> oneDocIterable = mock(ListCollectionsIterable.class);
-    MongoCursor<BsonDocument> oneDocCursor = mock(MongoCursor.class);
-    when(oneDocCursor.hasNext()).thenReturn(true).thenReturn(false);
-    when(oneDocCursor.next()).thenReturn(legacyDoc);
-    when(oneDocIterable.iterator()).thenReturn(oneDocCursor);
-    when(oneDocIterable.filter(any())).thenReturn(oneDocIterable);
-    when(oneDocIterable.into(anyCollection()))
-        .thenAnswer(
-            inv -> {
-              Collection<BsonDocument> target = inv.getArgument(0);
-              target.clear();
-              target.add(legacyDoc);
-              return target;
-            });
+    // First listCollections() call is from getCollectionInfos in getOrCreateCollectionName:
+    // returns empty so the collection is not found and createCollection is called.
+    // Second listCollections() call is from getCollectionInfo after the name is resolved:
+    // returns an empty iterable so orElseThrow() throws NoSuchElementException,
+    // which gets wrapped in MaterializedViewTransientException.
+    ListCollectionsIterable<BsonDocument> emptyIterable = mock(ListCollectionsIterable.class);
+    MongoCursor<BsonDocument> emptyCursor = mock(MongoCursor.class);
+    when(emptyCursor.hasNext()).thenReturn(false);
+    when(emptyIterable.iterator()).thenReturn(emptyCursor);
+    when(emptyIterable.filter(any())).thenReturn(emptyIterable);
+
     this.collectionInfoDocuments.clear();
     when(this.mongoDatabase.listCollections(BsonDocument.class))
-        .thenReturn(oneDocIterable)
-        .thenReturn(this.listCollectionsIterable);
+        .thenReturn(this.listCollectionsIterable) // getOrCreateCollectionName: empty → creates
+        .thenReturn(emptyIterable); // getCollectionInfo: empty → throws
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
@@ -612,10 +605,11 @@ public class MaterializedViewCollectionResolverTest {
         resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
 
     // When defaultMaterializedViewNameFormatVersion is 1, collection name should include
-    // indexId-hash-version format.
+    // indexId-hash-matViewNameFormatVersion-autoEmbeddingDefinitionVersion format.
     assertThat(metadata.collectionName()).startsWith(indexId.toHexString());
     assertThat(metadata.collectionName()).contains("-");
-    assertThat(metadata.collectionName()).endsWith("-1");
+    // autoEmbeddingDefinitionVersion defaults to 0 when not set on index definition.
+    assertThat(metadata.collectionName()).endsWith("-1-0");
     assertThat(metadata.collectionUuid()).isNotNull();
 
     assertThat(this.metadataCatalog.getMetadata(indexDefGen.getGenerationId())).isEqualTo(metadata);
@@ -650,5 +644,300 @@ public class MaterializedViewCollectionResolverTest {
     assertThat(metadata.collectionName()).startsWith(indexId.toHexString());
     assertThat(metadata.collectionName()).contains("-");
     assertThat(metadata.collectionUuid()).isNotNull();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void
+      getOrCreateMaterializedViewForIndex_perIndexNameFormatVersionOverridesConfigDefault() {
+    // Per-index materializedViewNameFormatVersion=0 should override config default of 1,
+    // producing a collection name that is just the indexId (no hash suffix).
+    ObjectId indexId = new ObjectId();
+    VectorIndexDefinition definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .withAutoEmbedField("embeddingField")
+            .materializedViewNameFormatVersion(0L)
+            .build();
+    var indexDefGen = createIndexDefinitionGeneration(definition);
+
+    // Config default is 1 (hash format), but per-index override is 0.
+    AutoEmbeddingMaterializedViewConfig configV1 =
+        AutoEmbeddingMaterializedViewConfig.create(
+            CommonReplicationConfig.defaultGlobalReplicationConfig(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(1L));
+
+    MaterializedViewCollectionResolver resolver =
+        new MaterializedViewCollectionResolver(
+            MV_DATABASE_NAME,
+            this.autoEmbeddingMongoClient,
+            this.metadataCatalog,
+            configV1,
+            this.leaseManager);
+
+    MaterializedViewCollectionMetadata metadata =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
+
+    // Per-index v0 means collection name is just the indexId hex string.
+    assertThat(metadata.collectionName()).isEqualTo(indexId.toHexString());
+    assertThat(metadata.collectionName()).doesNotContain("-");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void
+      getOrCreateMaterializedViewForIndex_perIndexNameFormatVersion1_overridesConfigDefault0() {
+    // Per-index materializedViewNameFormatVersion=1 should override config default of 0,
+    // producing a hash-format collection name.
+    ObjectId indexId = new ObjectId();
+    VectorIndexDefinition definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .withAutoEmbedField("embeddingField")
+            .materializedViewNameFormatVersion(1L)
+            .build();
+    var indexDefGen = createIndexDefinitionGeneration(definition);
+
+    // Config default is 0 (legacy), but per-index override is 1.
+    AutoEmbeddingMaterializedViewConfig configV0 =
+        AutoEmbeddingMaterializedViewConfig.create(
+            CommonReplicationConfig.defaultGlobalReplicationConfig(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(0L));
+
+    MaterializedViewCollectionResolver resolver =
+        new MaterializedViewCollectionResolver(
+            MV_DATABASE_NAME,
+            this.autoEmbeddingMongoClient,
+            this.metadataCatalog,
+            configV0,
+            this.leaseManager);
+
+    MaterializedViewCollectionMetadata metadata =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
+
+    // Per-index v1 means hash-format collection name.
+    assertThat(metadata.collectionName()).startsWith(indexId.toHexString());
+    assertThat(metadata.collectionName()).contains("-");
+    assertThat(metadata.collectionName()).endsWith("-1-0");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void
+      getOrCreateMaterializedViewForIndex_autoEmbeddingDefinitionVersionAppearsInCollectionName() {
+    ObjectId indexId = new ObjectId();
+    VectorIndexDefinition definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .withAutoEmbedField("embeddingField")
+            .autoEmbeddingDefinitionVersion(3L)
+            .build();
+    var indexDefGen = createIndexDefinitionGeneration(definition);
+
+    MaterializedViewCollectionResolver resolver =
+        new MaterializedViewCollectionResolver(
+            MV_DATABASE_NAME,
+            this.autoEmbeddingMongoClient,
+            this.metadataCatalog,
+            this.materializedViewConfig,
+            this.leaseManager);
+
+    MaterializedViewCollectionMetadata metadata =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
+
+    // Collection name format: indexId-hash-matViewNameFormatVersion-autoEmbeddingDefinitionVersion
+    assertThat(metadata.collectionName()).startsWith(indexId.toHexString());
+    assertThat(metadata.collectionName()).endsWith("-1-3");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void getOrCreateMaterializedViewForIndex_differentAutoEmbeddingDefinitionVersion() {
+    ObjectId indexId = new ObjectId();
+    VectorIndexDefinition definitionV1 =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .withAutoEmbedField("embeddingField")
+            .autoEmbeddingDefinitionVersion(1L)
+            .build();
+    VectorIndexDefinition definitionV2 =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .withAutoEmbedField("embeddingField")
+            .autoEmbeddingDefinitionVersion(2L)
+            .build();
+    var indexDefGenV1 = createIndexDefinitionGeneration(definitionV1);
+    var indexDefGenV2 = createIndexDefinitionGeneration(definitionV2);
+
+    MaterializedViewCollectionResolver resolver =
+        new MaterializedViewCollectionResolver(
+            MV_DATABASE_NAME,
+            this.autoEmbeddingMongoClient,
+            this.metadataCatalog,
+            this.materializedViewConfig,
+            this.leaseManager);
+
+    MaterializedViewCollectionMetadata metadataV1 =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGenV1);
+    MaterializedViewCollectionMetadata metadataV2 =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGenV2);
+
+    // Same index, same fields, but different autoEmbeddingDefinitionVersion -> different names.
+    assertThat(metadataV1.collectionName()).isNotEqualTo(metadataV2.collectionName());
+    assertThat(metadataV1.collectionName()).endsWith("-1-1");
+    assertThat(metadataV2.collectionName()).endsWith("-1-2");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void
+      getOrCreateMaterializedViewForIndex_noAutoEmbeddingDefinitionVersion_defaultsToZero() {
+    // When autoEmbeddingDefinitionVersion is not set, it defaults to 0.
+    ObjectId indexId = new ObjectId();
+    VectorIndexDefinition definitionNoVersion =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .withAutoEmbedField("embeddingField")
+            .build();
+    VectorIndexDefinition definitionExplicitZero =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .withAutoEmbedField("embeddingField")
+            .autoEmbeddingDefinitionVersion(0L)
+            .build();
+    var indexDefGenNoVersion = createIndexDefinitionGeneration(definitionNoVersion);
+    var indexDefGenExplicitZero = createIndexDefinitionGeneration(definitionExplicitZero);
+
+    MaterializedViewCollectionResolver resolver =
+        new MaterializedViewCollectionResolver(
+            MV_DATABASE_NAME,
+            this.autoEmbeddingMongoClient,
+            this.metadataCatalog,
+            this.materializedViewConfig,
+            this.leaseManager);
+
+    MaterializedViewCollectionMetadata metadataNoVersion =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGenNoVersion);
+    MaterializedViewCollectionMetadata metadataExplicitZero =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGenExplicitZero);
+
+    // Both should produce the same collection name since default is 0.
+    assertThat(metadataNoVersion.collectionName())
+        .isEqualTo(metadataExplicitZero.collectionName());
+    assertThat(metadataNoVersion.collectionName()).endsWith("-1-0");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void
+      getOrCreateMaterializedViewForIndex_indexIdAtCreationTimeOverridesIndexId_v0() {
+    // When indexIDAtCreationTime is set, it should be used as the collection name prefix
+    // instead of the current indexId, for both v0 and v1 name formats.
+    ObjectId indexId = new ObjectId();
+    ObjectId indexIdAtCreation = new ObjectId();
+    VectorIndexDefinition definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .indexIdAtCreationTime(indexIdAtCreation)
+            .withAutoEmbedField("embeddingField")
+            .build();
+    var indexDefGen = createIndexDefinitionGeneration(definition);
+
+    // v0: collection name should be just the indexIdAtCreationTime hex string.
+    AutoEmbeddingMaterializedViewConfig configV0 =
+        AutoEmbeddingMaterializedViewConfig.create(
+            CommonReplicationConfig.defaultGlobalReplicationConfig(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(0L));
+
+    MaterializedViewCollectionResolver resolver =
+        new MaterializedViewCollectionResolver(
+            MV_DATABASE_NAME,
+            this.autoEmbeddingMongoClient,
+            this.metadataCatalog,
+            configV0,
+            this.leaseManager);
+
+    MaterializedViewCollectionMetadata metadata =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
+
+    // v0: collection name is the indexIdAtCreationTime, not the current indexId.
+    assertThat(metadata.collectionName()).isEqualTo(indexIdAtCreation.toHexString());
+    assertThat(metadata.collectionName()).doesNotContain(indexId.toHexString());
+    assertThat(metadata.collectionName()).doesNotContain("-");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void
+      getOrCreateMaterializedViewForIndex_indexIdAtCreationTimeOverridesIndexId_v1() {
+    ObjectId indexId = new ObjectId();
+    ObjectId indexIdAtCreation = new ObjectId();
+    VectorIndexDefinition definition =
+        VectorIndexDefinitionBuilder.builder()
+            .indexId(indexId)
+            .indexIdAtCreationTime(indexIdAtCreation)
+            .withAutoEmbedField("embeddingField")
+            .build();
+    var indexDefGen = createIndexDefinitionGeneration(definition);
+
+    // v1 (default config): collection name should start with indexIdAtCreationTime.
+    MaterializedViewCollectionResolver resolver =
+        new MaterializedViewCollectionResolver(
+            MV_DATABASE_NAME,
+            this.autoEmbeddingMongoClient,
+            this.metadataCatalog,
+            this.materializedViewConfig,
+            this.leaseManager);
+
+    MaterializedViewCollectionMetadata metadata =
+        resolver.getOrCreateMaterializedViewForIndex(indexDefGen);
+
+    // v1: collection name starts with indexIdAtCreationTime, not the current indexId.
+    assertThat(metadata.collectionName()).startsWith(indexIdAtCreation.toHexString());
+    assertThat(metadata.collectionName().startsWith(indexId.toHexString())).isFalse();
+    assertThat(metadata.collectionName()).contains("-");
+    assertThat(metadata.collectionName()).endsWith("-1-0");
   }
 }

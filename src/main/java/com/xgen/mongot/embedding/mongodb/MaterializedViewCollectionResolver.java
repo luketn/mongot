@@ -11,7 +11,6 @@ import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.mongodb.MongoCommandException;
 import com.mongodb.client.MongoClient;
-import com.mongodb.client.model.Filters;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
@@ -26,14 +25,10 @@ import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.mongodb.CheckedMongoException;
 import com.xgen.mongot.util.mongodb.serialization.MongoDbCollectionInfo;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.regex.Pattern;
-import org.bson.BsonDocument;
 
 /**
  * Implements the logic to determine which materialized view collection to use for a given index
@@ -142,28 +137,33 @@ public class MaterializedViewCollectionResolver {
   private String getOrCreateCollectionName(
       IndexDefinitionGeneration indexDefinitionGeneration, MongoClient mongoClient)
       throws CheckedMongoException {
-    var indexId = indexDefinitionGeneration.getIndexId().toHexString();
-    // TODO(CLOUDP-384821): Remove this once we finalize the naming logic.
-    // Returns indexId as mat view collection name for community users for now.
-    if (this.materializedViewConfig.defaultMaterializedViewNameFormatVersion == 0L) {
-      if (getCollectionInfos(mongoClient, this.matViewDatabaseName)
-          .getCollectionInfo(this.matViewDatabaseName, indexId)
-          .isEmpty()) {
-        createCollection(mongoClient, indexId);
-      }
-      return indexId;
-    }
-    List<String> collectionNames =
-        mongoClient
-            .getDatabase(this.matViewDatabaseName)
-            .listCollections(BsonDocument.class)
-            .filter(Filters.regex("name", "^" + Pattern.quote(indexId)))
-            .into(new ArrayList<>())
-            .stream()
-            .map(doc -> doc.getString("name").getValue())
-            .toList();
+    // TODO(CLOUDP-384821): Update index catalog service for community to set
+    // MaterializedViewNameFormatVersion for new indexes.
+    // MMS should set fallback defaultMaterializedViewNameFormatVersion >= 1, community currectly
+    // sets it to 0 for backward compatibility, new indexes should use per-index name format
+    // version.
+    long matViewNameFormatVersion =
+        indexDefinitionGeneration
+            .getIndexDefinition()
+            .getMaterializedViewNameFormatVersion()
+            .orElse(this.materializedViewConfig.defaultMaterializedViewNameFormatVersion);
+    String uniqueIndexId =
+        indexDefinitionGeneration
+            .getIndexDefinition()
+            .getIndexIdAtCreationTime()
+            .orElse(indexDefinitionGeneration.getIndexId())
+            .toHexString();
+    long autoEmbeddingDefinitionVersion =
+        indexDefinitionGeneration
+            .getIndexDefinition()
+            .getAutoEmbeddingDefinitionVersion()
+            .orElse(0L);
+
     String collectionName;
-    if (collectionNames.isEmpty()) {
+    // v0 uses indexId as collection name
+    if (matViewNameFormatVersion == 0L) {
+      collectionName = uniqueIndexId;
+    } else {
       var hash =
           computeHash(
               indexDefinitionGeneration
@@ -171,44 +171,19 @@ public class MaterializedViewCollectionResolver {
                   .getIndexDefinition()
                   .asVectorDefinition());
       collectionName =
-          indexId
+          uniqueIndexId
               + DELIM
               + hash
               + DELIM
-              + this.materializedViewConfig.defaultMaterializedViewNameFormatVersion;
+              + matViewNameFormatVersion
+              + DELIM
+              + autoEmbeddingDefinitionVersion;
+    }
+    if (getCollectionInfos(mongoClient, this.matViewDatabaseName)
+        .getCollectionInfo(this.matViewDatabaseName, collectionName)
+        .isEmpty()) {
+      // Create new mat view collection when it's not found.
       createCollection(mongoClient, collectionName);
-    } else {
-      // Backwards compatibility check for community. In community, we have a single collection
-      // per
-      // index. Continue to use that until we start allowing auto-embedding field updates in
-      // community.
-      if (collectionNames.size() == 1 && collectionNames.get(0).equals(indexId)) {
-        collectionName = indexId;
-      } else {
-        // Check if any of the existing collections can be re-used.
-        var hash =
-            computeHash(
-                indexDefinitionGeneration
-                    .asMaterializedView()
-                    .getIndexDefinition()
-                    .asVectorDefinition());
-        var reusableCollection =
-            collectionNames.stream()
-                .filter(name -> name.startsWith(indexId + DELIM + hash))
-                .findFirst();
-        if (reusableCollection.isPresent()) {
-          collectionName = reusableCollection.get();
-        } else {
-          // Existing collections cannot be re-used. Create a new one.
-          collectionName =
-              indexId
-                  + DELIM
-                  + hash
-                  + DELIM
-                  + this.materializedViewConfig.defaultMaterializedViewNameFormatVersion;
-          createCollection(mongoClient, collectionName);
-        }
-      }
     }
     return collectionName;
   }
