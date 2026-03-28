@@ -15,12 +15,15 @@ import java.util.Arrays;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.SortedNumericDocValuesField;
 import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
+import org.apache.lucene.search.SortedNumericSortField;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
@@ -175,6 +178,72 @@ public class MqlNullnessSortFieldTest {
       Object field = ((FieldDoc) scoreDoc).fields[0];
       assertThat(field).isNotInstanceOf(Long.class);
       assertThat(field).isInstanceOf(org.bson.BsonValue.class);
+    }
+  }
+
+  @Test
+  public void equalsAcrossSerializationBoundary() throws IOException {
+    SortField original = createNullnessSortField(UserFieldSortOptions.DEFAULT_ASC);
+    assertThat(original).isInstanceOf(MqlNullnessSortField.class);
+
+    try (Directory dir = new ByteBuffersDirectory()) {
+      IndexWriterConfig config = new IndexWriterConfig();
+      config.setIndexSort(new Sort(original));
+      try (IndexWriter writer = new IndexWriter(dir, config)) {
+        Document doc = new Document();
+        doc.add(new SortedNumericDocValuesField(NULLNESS_FIELD, NULLNESS_FIELD_PRESENT));
+        writer.addDocument(doc);
+      }
+
+      try (DirectoryReader reader = DirectoryReader.open(dir)) {
+        Sort reloaded = reader.leaves().get(0).reader().getMetaData().getSort();
+        SortField deserialized = reloaded.getSort()[0];
+
+        assertThat(deserialized).isNotInstanceOf(MqlNullnessSortField.class);
+        assertThat(deserialized).isInstanceOf(SortedNumericSortField.class);
+
+        assertThat(original.equals(deserialized)).isTrue();
+      }
+    }
+  }
+
+  @Test
+  public void equalsAcrossSerializationBoundary_sortedSetSortField() throws IOException {
+    MongotSortField mongotSortField =
+        new MongotSortField(FieldPath.newRoot("name"), UserFieldSortOptions.DEFAULT_ASC);
+    SortField original =
+        MqlSortedSetSortField.stringSort(
+            com.xgen.mongot.index.lucene.field.FieldName.TypeField.TOKEN,
+            mongotSortField,
+            true,
+            java.util.Optional.empty(),
+            true);
+    assertThat(original).isInstanceOf(MqlSortedSetSortField.class);
+
+    String luceneFieldName =
+        com.xgen.mongot.index.lucene.field.FieldName.TypeField.TOKEN.getLuceneFieldName(
+            FieldPath.newRoot("name"), java.util.Optional.empty());
+
+    try (Directory dir = new ByteBuffersDirectory()) {
+      IndexWriterConfig config = new IndexWriterConfig();
+      config.setIndexSort(new Sort(original));
+      try (IndexWriter writer = new IndexWriter(dir, config)) {
+        Document doc = new Document();
+        doc.add(
+            new org.apache.lucene.document.SortedSetDocValuesField(
+                luceneFieldName, new org.apache.lucene.util.BytesRef("hello")));
+        writer.addDocument(doc);
+      }
+
+      try (DirectoryReader reader = DirectoryReader.open(dir)) {
+        Sort reloaded = reader.leaves().get(0).reader().getMetaData().getSort();
+        SortField deserialized = reloaded.getSort()[0];
+
+        assertThat(deserialized).isNotInstanceOf(MqlSortedSetSortField.class);
+        assertThat(deserialized).isInstanceOf(org.apache.lucene.search.SortedSetSortField.class);
+
+        assertThat(original.equals(deserialized)).isTrue();
+      }
     }
   }
 

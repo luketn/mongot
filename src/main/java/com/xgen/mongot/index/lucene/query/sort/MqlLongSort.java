@@ -11,11 +11,10 @@ import com.xgen.mongot.util.FieldPath;
 import java.util.Optional;
 import org.apache.lucene.search.FieldComparator;
 import org.apache.lucene.search.Pruning;
-import org.apache.lucene.search.SortedNumericSortField;
 import org.bson.BsonInt64;
 import org.bson.BsonValue;
 
-public class MqlLongSort extends SortedNumericSortField {
+public class MqlLongSort extends MqlSortedNumericSortField {
   private static final BsonConverter<Long> LONG_CONVERTER =
       new BsonConverter<>(null) {
         @Override
@@ -36,12 +35,14 @@ public class MqlLongSort extends SortedNumericSortField {
       FieldName.TypeField fieldType,
       MongotSortField sortField,
       boolean enablePruning,
-      Optional<FieldPath> embeddedRoot) {
+      Optional<FieldPath> embeddedRoot,
+      boolean indexSorted) {
     super(
         fieldType.getLuceneFieldName(sortField.field(), embeddedRoot),
         Type.LONG,
         sortField.options().isReverse(),
-        sortField.options().selector().numericSelector);
+        sortField.options().selector().numericSelector,
+        indexSorted);
     this.enablePruning = enablePruning;
     this.nullEmptySortPosition =
         ((UserFieldSortOptions) sortField.options()).nullEmptySortPosition();

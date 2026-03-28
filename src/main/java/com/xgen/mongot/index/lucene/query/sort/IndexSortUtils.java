@@ -4,6 +4,7 @@ import com.xgen.mongot.index.lucene.field.FieldName;
 import com.xgen.mongot.index.query.sort.MongotSortField;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Sort;
@@ -50,6 +51,29 @@ public class IndexSortUtils {
 
     return Arrays.asList(querySortFields).equals(
         Arrays.asList(indexSortFields).subList(0, querySortFields.length));
+  }
+
+  /**
+   * Compares two {@link SortField} instances by their semantic properties (field name, type,
+   * reverse, comparator source, missing value) without checking {@code getClass()}.
+   *
+   * <p>Shared by {@link MqlSortedNumericSortField} and {@link MqlSortedSetSortField} to avoid
+   * duplicating the SortField-level equality logic.
+   */
+  static boolean sortFieldBaseEquals(SortField self, SortField other) {
+    if (!Objects.equals(self.getField(), other.getField())) {
+      return false;
+    }
+    if (self.getType() != other.getType()) {
+      return false;
+    }
+    if (self.getReverse() != other.getReverse()) {
+      return false;
+    }
+    if (!Objects.equals(self.getComparatorSource(), other.getComparatorSource())) {
+      return false;
+    }
+    return Objects.equals(self.getMissingValue(), other.getMissingValue());
   }
 
   /**

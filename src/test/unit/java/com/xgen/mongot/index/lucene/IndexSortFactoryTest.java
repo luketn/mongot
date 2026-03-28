@@ -244,7 +244,8 @@ public class IndexSortFactoryTest {
                               ImmutableSet.of(this.testSpec.typeField),
                               Optional.empty(),
                               Optional.empty(),
-                              this.mockResolver.getIndexCapabilities())
+                              this.mockResolver.getIndexCapabilities(),
+                              true)
                           .get())
               .toList();
       // For INT64_V2 and DATE_V2, createIndexSort prepends a nullness sort field.

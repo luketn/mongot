@@ -9,6 +9,7 @@ java_library(
         "MqlDoubleSort.java",
         "MqlLongSort.java",
         "MqlNullnessSortField.java",
+        "MqlSortedNumericSortField.java",
         "MqlSortedSetSortField.java",
     ],
     visibility = ["//visibility:public"],

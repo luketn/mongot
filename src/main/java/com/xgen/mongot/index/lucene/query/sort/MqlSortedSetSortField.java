@@ -26,6 +26,11 @@ import org.bson.BsonString;
 import org.bson.BsonValue;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * MQL sort field backed by {@link SortedSetSortField} for string, UUID, objectId, and boolean
+ * sorts. Like {@link MqlSortedNumericSortField}, provides a relaxed {@code equals()} override when
+ * created in a sorted-index context to survive Lucene's serialization boundary.
+ */
 public class MqlSortedSetSortField extends SortedSetSortField {
   private static final BytesRef TRUE_BYTES = new BytesRef(FieldValue.BOOLEAN_TRUE_FIELD_VALUE);
 
@@ -33,11 +38,15 @@ public class MqlSortedSetSortField extends SortedSetSortField {
   private final boolean enablePruning;
   private final BsonValue missingValueSortValue;
 
+  /** Set when index sort is defined in the index definition. */
+  private final boolean indexSorted;
+
   private MqlSortedSetSortField(
       String fieldName,
       SortOptions options,
       BsonConverter<BytesRef> converter,
-      boolean enablePruning) {
+      boolean enablePruning,
+      boolean indexSorted) {
     super(fieldName, options.isReverse(), options.selector().sortedSetSelector);
 
     setMissingValue(
@@ -50,6 +59,36 @@ public class MqlSortedSetSortField extends SortedSetSortField {
 
     this.converter = converter;
     this.enablePruning = enablePruning;
+    this.indexSorted = indexSorted;
+  }
+
+  /**
+   * Reproduces the full {@code SortField.equals()} and {@code SortedSetSortField.equals()} logic
+   * but replaces the strict {@code getClass()} check with {@code instanceof}. Java does not allow
+   * {@code super.super.equals()}, so both levels are inlined here.
+   */
+  @Override
+  public boolean equals(Object obj) {
+    if (!this.indexSorted) {
+      return super.equals(obj);
+    }
+    if (this == obj) {
+      return true;
+    }
+    if (!(obj instanceof SortedSetSortField other)) {
+      return false;
+    }
+
+    // SortField-level checks (mirrors SortField.equals)
+    if (!IndexSortUtils.sortFieldBaseEquals(this, other)) {
+      return false;
+    }
+
+    // SortedSetSortField-level checks (original minus getClass())
+    if (getSelector() != other.getSelector()) {
+      return false;
+    }
+    return true;
   }
 
   @Override
@@ -79,7 +118,7 @@ public class MqlSortedSetSortField extends SortedSetSortField {
   }
 
   public static MqlSortedSetSortField booleanSort(
-      MongotSortField sortField, Optional<FieldPath> embeddedRoot) {
+      MongotSortField sortField, Optional<FieldPath> embeddedRoot, boolean indexSorted) {
     var converter =
         new BsonConverter<BytesRef>(null) {
           @Override
@@ -94,11 +133,12 @@ public class MqlSortedSetSortField extends SortedSetSortField {
         };
 
     var fieldName = resolveFieldName(FieldName.TypeField.BOOLEAN, sortField.field(), embeddedRoot);
-    return new MqlSortedSetSortField(fieldName, sortField.options(), converter, true);
+    return new MqlSortedSetSortField(
+        fieldName, sortField.options(), converter, true, indexSorted);
   }
 
   public static MqlSortedSetSortField uuidSort(
-      MongotSortField sortField, Optional<FieldPath> embeddedRoot) {
+      MongotSortField sortField, Optional<FieldPath> embeddedRoot, boolean indexSorted) {
     var converter =
         new BsonConverter<BytesRef>(null) {
           @Override
@@ -113,11 +153,12 @@ public class MqlSortedSetSortField extends SortedSetSortField {
         };
 
     var fieldName = resolveFieldName(FieldName.TypeField.UUID, sortField.field(), embeddedRoot);
-    return new MqlSortedSetSortField(fieldName, sortField.options(), converter, true);
+    return new MqlSortedSetSortField(
+        fieldName, sortField.options(), converter, true, indexSorted);
   }
 
   public static MqlSortedSetSortField objectIdSort(
-      MongotSortField sortField, Optional<FieldPath> embeddedRoot) {
+      MongotSortField sortField, Optional<FieldPath> embeddedRoot, boolean indexSorted) {
     var converter =
         new BsonConverter<BytesRef>(null) {
           @Override
@@ -133,14 +174,16 @@ public class MqlSortedSetSortField extends SortedSetSortField {
 
     var fieldName =
         resolveFieldName(FieldName.TypeField.OBJECT_ID, sortField.field(), embeddedRoot);
-    return new MqlSortedSetSortField(fieldName, sortField.options(), converter, true);
+    return new MqlSortedSetSortField(
+        fieldName, sortField.options(), converter, true, indexSorted);
   }
 
   public static MqlSortedSetSortField stringSort(
       FieldName.TypeField fieldType,
       MongotSortField sortField,
       boolean enablePruning,
-      Optional<FieldPath> embeddedRoot) {
+      Optional<FieldPath> embeddedRoot,
+      boolean indexSorted) {
     var converter =
         new BsonConverter<BytesRef>(null) {
           @Override
@@ -155,7 +198,8 @@ public class MqlSortedSetSortField extends SortedSetSortField {
         };
 
     var fieldName = resolveFieldName(fieldType, sortField.field(), embeddedRoot);
-    return new MqlSortedSetSortField(fieldName, sortField.options(), converter, enablePruning);
+    return new MqlSortedSetSortField(
+        fieldName, sortField.options(), converter, enablePruning, indexSorted);
   }
 
   private static @NotNull String resolveFieldName(

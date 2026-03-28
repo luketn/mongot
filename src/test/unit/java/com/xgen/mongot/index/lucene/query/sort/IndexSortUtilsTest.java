@@ -4,16 +4,20 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+import com.google.common.collect.ImmutableSet;
+import com.xgen.mongot.index.definition.SearchIndexCapabilities;
 import com.xgen.mongot.index.lucene.field.FieldName;
 import com.xgen.mongot.index.query.sort.MongotSortField;
 import com.xgen.mongot.index.query.sort.UserFieldSortOptions;
 import com.xgen.mongot.util.FieldPath;
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.NumericDocValuesField;
+import org.apache.lucene.document.SortedNumericDocValuesField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -21,6 +25,8 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.SortedNumericSelector;
 import org.apache.lucene.search.SortedNumericSortField;
+import org.apache.lucene.search.SortedSetSelector;
+import org.apache.lucene.search.SortedSetSortField;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
 import org.junit.Test;
@@ -112,12 +118,14 @@ public class IndexSortUtilsTest {
         FieldName.TypeField.NUMBER_INT64_V2,
         new MongotSortField(FieldPath.newRoot("score"), UserFieldSortOptions.DEFAULT_ASC),
         true,
-        Optional.empty());
+        Optional.empty(),
+        true);
     MqlLongSort indexField = new MqlLongSort(
         FieldName.TypeField.NUMBER_INT64_V2,
         new MongotSortField(FieldPath.newRoot("score"), UserFieldSortOptions.DEFAULT_ASC),
         true,
-        Optional.empty());
+        Optional.empty(),
+        true);
 
     Sort querySort = new Sort(queryField);
     Sort indexSort = new Sort(indexField);
@@ -131,12 +139,14 @@ public class IndexSortUtilsTest {
         FieldName.TypeField.NUMBER_INT64_V2,
         new MongotSortField(FieldPath.newRoot("score"), UserFieldSortOptions.DEFAULT_DESC),
         true,
-        Optional.empty());
+        Optional.empty(),
+        true);
     MqlLongSort indexField = new MqlLongSort(
         FieldName.TypeField.NUMBER_INT64_V2,
         new MongotSortField(FieldPath.newRoot("score"), UserFieldSortOptions.DEFAULT_ASC),
         true,
-        Optional.empty());
+        Optional.empty(),
+        true);
 
     Sort querySort = new Sort(queryField);
     Sort indexSort = new Sort(indexField);
@@ -150,12 +160,14 @@ public class IndexSortUtilsTest {
         FieldName.TypeField.DATE_V2,
         new MongotSortField(FieldPath.newRoot("date"), UserFieldSortOptions.DEFAULT_ASC),
         true,
-        Optional.empty());
+        Optional.empty(),
+        true);
     MqlDateSort indexField = new MqlDateSort(
         FieldName.TypeField.DATE_V2,
         new MongotSortField(FieldPath.newRoot("date"), UserFieldSortOptions.DEFAULT_ASC),
         true,
-        Optional.empty());
+        Optional.empty(),
+        true);
 
     Sort querySort = new Sort(queryField);
     Sort indexSort = new Sort(indexField);
@@ -169,12 +181,14 @@ public class IndexSortUtilsTest {
         FieldName.TypeField.DATE_V2,
         new MongotSortField(FieldPath.newRoot("date"), UserFieldSortOptions.DEFAULT_ASC),
         true,
-        Optional.empty());
+        Optional.empty(),
+        true);
     MqlDateSort indexField = new MqlDateSort(
         FieldName.TypeField.DATE_V2,
         new MongotSortField(FieldPath.newRoot("date"), UserFieldSortOptions.DEFAULT_DESC),
         true,
-        Optional.empty());
+        Optional.empty(),
+        true);
 
     Sort querySort = new Sort(queryField);
     Sort indexSort = new Sort(indexField);
@@ -188,12 +202,14 @@ public class IndexSortUtilsTest {
         FieldName.TypeField.NUMBER_INT64_V2,
         new MongotSortField(FieldPath.newRoot("field"), UserFieldSortOptions.DEFAULT_ASC),
         true,
-        Optional.empty());
+        Optional.empty(),
+        true);
     MqlDateSort indexField = new MqlDateSort(
         FieldName.TypeField.DATE_V2,
         new MongotSortField(FieldPath.newRoot("field"), UserFieldSortOptions.DEFAULT_ASC),
         true,
-        Optional.empty());
+        Optional.empty(),
+        true);
 
     Sort querySort = new Sort(queryField);
     Sort indexSort = new Sort(indexField);
@@ -326,4 +342,217 @@ public class IndexSortUtilsTest {
         SortedNumericSelector.Type.MIN);
   }
 
+  // --- CLOUDP-390552 serialization boundary regression tests ---
+  //
+  // Custom SortField subclasses (MqlLongSort, MqlSortedSetSortField, etc.) lose their concrete
+  // type after a Lucene disk round-trip because Lucene deserializes them as the base
+  // SortedNumericSortField / SortedSetSortField. Our Mql* sort field classes override equals()
+  // to use instanceof instead of getClass(), so Lucene's canEarlyTerminateOnPrefix,
+  // IndexWriter.validateIndexSort, and our canBenefitFromIndexSort all work correctly across
+  // the serialization boundary.
+
+  @Test
+  public void canBenefitFromIndexSort_survivesSerializationBoundary_int64()
+      throws IOException {
+    MongotSortField scoreSortField =
+        new MongotSortField(FieldPath.newRoot("score"), UserFieldSortOptions.DEFAULT_ASC);
+
+    SortField valueField = LuceneSortFactory.createOptimizedSortField(
+            scoreSortField,
+            ImmutableSet.of(FieldName.TypeField.NUMBER_INT64_V2),
+            Optional.empty(),
+            Optional.empty(),
+            SearchIndexCapabilities.CURRENT,
+            true)
+        .orElseThrow();
+
+    Sort indexSort = new Sort(valueField);
+    assertThat(valueField).isInstanceOf(MqlLongSort.class);
+
+    try (Directory dir = new ByteBuffersDirectory()) {
+      IndexWriterConfig config = new IndexWriterConfig();
+      config.setIndexSort(indexSort);
+      String valueLuceneName =
+          FieldName.TypeField.NUMBER_INT64_V2.getLuceneFieldName(
+              FieldPath.newRoot("score"), Optional.empty());
+
+      try (IndexWriter writer = new IndexWriter(dir, config)) {
+        Document doc = new Document();
+        doc.add(new SortedNumericDocValuesField(valueLuceneName, 42L));
+        writer.addDocument(doc);
+      }
+
+      try (DirectoryReader reader = DirectoryReader.open(dir)) {
+        Optional<Sort> deserializedSort = IndexSortUtils.extractFirstIndexSort(reader);
+        assertThat(deserializedSort).isPresent();
+
+        SortField[] deserialized = deserializedSort.get().getSort();
+        assertThat(deserialized[0]).isNotInstanceOf(MqlLongSort.class);
+
+        Sort freshQuerySort = new Sort(
+            LuceneSortFactory.createOptimizedSortField(
+                    scoreSortField,
+                    ImmutableSet.of(FieldName.TypeField.NUMBER_INT64_V2),
+                    Optional.empty(),
+                    Optional.empty(),
+                    SearchIndexCapabilities.CURRENT,
+                    true)
+                .orElseThrow());
+
+        assertThat(IndexSortUtils.canBenefitFromIndexSort(freshQuerySort, deserializedSort.get()))
+            .isTrue();
+      }
+    }
+  }
+
+  @Test
+  public void canBenefitFromIndexSort_survivesSerializationBoundary_token()
+      throws IOException {
+    MongotSortField nameSortField =
+        new MongotSortField(FieldPath.newRoot("name"), UserFieldSortOptions.DEFAULT_ASC);
+
+    SortField valueField = LuceneSortFactory.createOptimizedSortField(
+            nameSortField,
+            ImmutableSet.of(FieldName.TypeField.TOKEN),
+            Optional.empty(),
+            Optional.empty(),
+            SearchIndexCapabilities.CURRENT,
+            true)
+        .orElseThrow();
+
+    Sort indexSort = new Sort(valueField);
+    assertThat(valueField).isInstanceOf(MqlSortedSetSortField.class);
+
+    try (Directory dir = new ByteBuffersDirectory()) {
+      IndexWriterConfig config = new IndexWriterConfig();
+      config.setIndexSort(indexSort);
+      String valueLuceneName =
+          FieldName.TypeField.TOKEN.getLuceneFieldName(
+              FieldPath.newRoot("name"), Optional.empty());
+
+      try (IndexWriter writer = new IndexWriter(dir, config)) {
+        Document doc = new Document();
+        doc.add(new org.apache.lucene.document.SortedSetDocValuesField(
+            valueLuceneName, new org.apache.lucene.util.BytesRef("hello")));
+        writer.addDocument(doc);
+      }
+
+      try (DirectoryReader reader = DirectoryReader.open(dir)) {
+        Optional<Sort> deserializedSort = IndexSortUtils.extractFirstIndexSort(reader);
+        assertThat(deserializedSort).isPresent();
+
+        SortField[] deserialized = deserializedSort.get().getSort();
+        assertThat(deserialized[0]).isNotInstanceOf(MqlSortedSetSortField.class);
+
+        Sort freshQuerySort = new Sort(
+            LuceneSortFactory.createOptimizedSortField(
+                    nameSortField,
+                    ImmutableSet.of(FieldName.TypeField.TOKEN),
+                    Optional.empty(),
+                    Optional.empty(),
+                    SearchIndexCapabilities.CURRENT,
+                    true)
+                .orElseThrow());
+
+        assertThat(IndexSortUtils.canBenefitFromIndexSort(freshQuerySort, deserializedSort.get()))
+            .isTrue();
+      }
+    }
+  }
+
+  // --- Equality validation: ensure relaxed equals stays consistent with Lucene semantics ---
+
+  @Test
+  public void relaxedEquals_matchesLuceneSemantics_sortedNumeric() {
+    SortedNumericSortField luceneA = new SortedNumericSortField(
+        "field", SortField.Type.LONG, false, SortedNumericSelector.Type.MIN);
+    SortedNumericSortField luceneB = new SortedNumericSortField(
+        "field", SortField.Type.LONG, false, SortedNumericSelector.Type.MIN);
+
+    MqlLongSort mql = new MqlLongSort(
+        FieldName.TypeField.NUMBER_INT64_V2,
+        new MongotSortField(
+            FieldPath.newRoot("field"), UserFieldSortOptions.DEFAULT_ASC),
+        true, Optional.empty(), true);
+
+    assertThat(luceneA.equals(luceneB)).isTrue();
+
+    SortedNumericSortField luceneMirror = new SortedNumericSortField(
+        mql.getField(), mql.getNumericType(), mql.getReverse(), mql.getSelector());
+    luceneMirror.setMissingValue(mql.getMissingValue());
+
+    assertThat(mql.equals(luceneMirror)).isTrue();
+
+    SortedNumericSortField wrongField = new SortedNumericSortField(
+        "other", mql.getNumericType(), mql.getReverse(), mql.getSelector());
+    wrongField.setMissingValue(mql.getMissingValue());
+    assertThat(mql.equals(wrongField)).isFalse();
+    assertThat(luceneMirror.equals(wrongField)).isFalse();
+
+    SortedNumericSortField wrongType = new SortedNumericSortField(
+        mql.getField(), SortField.Type.INT, mql.getReverse(), mql.getSelector());
+    wrongType.setMissingValue(mql.getMissingValue());
+    assertThat(mql.equals(wrongType)).isFalse();
+    assertThat(luceneMirror.equals(wrongType)).isFalse();
+
+    SortedNumericSortField wrongReverse = new SortedNumericSortField(
+        mql.getField(), mql.getNumericType(), !mql.getReverse(), mql.getSelector());
+    wrongReverse.setMissingValue(mql.getMissingValue());
+    assertThat(mql.equals(wrongReverse)).isFalse();
+    assertThat(luceneMirror.equals(wrongReverse)).isFalse();
+
+    SortedNumericSortField wrongSelector = new SortedNumericSortField(
+        mql.getField(), mql.getNumericType(), mql.getReverse(),
+        SortedNumericSelector.Type.MAX);
+    wrongSelector.setMissingValue(mql.getMissingValue());
+    assertThat(mql.equals(wrongSelector)).isFalse();
+    assertThat(luceneMirror.equals(wrongSelector)).isFalse();
+
+    SortedNumericSortField wrongMissing = new SortedNumericSortField(
+        mql.getField(), mql.getNumericType(), mql.getReverse(), mql.getSelector());
+    wrongMissing.setMissingValue(Long.MAX_VALUE);
+    assertThat(mql.equals(wrongMissing)).isFalse();
+    assertThat(luceneMirror.equals(wrongMissing)).isFalse();
+  }
+
+  @Test
+  public void relaxedEquals_matchesLuceneSemantics_sortedSet() {
+    MongotSortField mongotSortField =
+        new MongotSortField(
+            FieldPath.newRoot("name"), UserFieldSortOptions.DEFAULT_ASC);
+    MqlSortedSetSortField mql = MqlSortedSetSortField.stringSort(
+        FieldName.TypeField.TOKEN, mongotSortField, true, Optional.empty(), true);
+
+    SortedSetSortField luceneMirror = new SortedSetSortField(
+        mql.getField(), mql.getReverse(), mql.getSelector());
+    luceneMirror.setMissingValue(mql.getMissingValue());
+
+    assertThat(mql.equals(luceneMirror)).isTrue();
+
+    SortedSetSortField wrongField = new SortedSetSortField(
+        "other", mql.getReverse(), mql.getSelector());
+    wrongField.setMissingValue(mql.getMissingValue());
+    assertThat(mql.equals(wrongField)).isFalse();
+    assertThat(luceneMirror.equals(wrongField)).isFalse();
+
+    SortedSetSortField wrongReverse = new SortedSetSortField(
+        mql.getField(), !mql.getReverse(), mql.getSelector());
+    wrongReverse.setMissingValue(mql.getMissingValue());
+    assertThat(mql.equals(wrongReverse)).isFalse();
+    assertThat(luceneMirror.equals(wrongReverse)).isFalse();
+
+    SortedSetSortField wrongSelector = new SortedSetSortField(
+        mql.getField(), mql.getReverse(), SortedSetSelector.Type.MAX);
+    wrongSelector.setMissingValue(mql.getMissingValue());
+    assertThat(mql.equals(wrongSelector)).isFalse();
+    assertThat(luceneMirror.equals(wrongSelector)).isFalse();
+
+    SortedSetSortField wrongMissing = new SortedSetSortField(
+        mql.getField(), mql.getReverse(), mql.getSelector());
+    wrongMissing.setMissingValue(SortField.STRING_LAST);
+    if (!Objects.equals(mql.getMissingValue(), SortField.STRING_LAST)) {
+      assertThat(mql.equals(wrongMissing)).isFalse();
+      assertThat(luceneMirror.equals(wrongMissing)).isFalse();
+    }
+  }
 }

@@ -8,20 +8,22 @@ import com.xgen.mongot.index.query.sort.NullEmptySortPosition;
 import com.xgen.mongot.index.query.sort.UserFieldSortOptions;
 import org.apache.lucene.search.FieldComparator;
 import org.apache.lucene.search.Pruning;
-import org.apache.lucene.search.SortedNumericSortField;
 import org.bson.BsonInt64;
 import org.bson.BsonValue;
 
 /**
- * A {@link SortedNumericSortField} for {@code $meta/nullness} fields that wraps its comparator in
- * {@link FieldComparatorBsonWrapper}, so {@code FieldDoc.fields[]} produces {@link BsonInt64} (or
- * {@code BsonMinKey}/{@code BsonMaxKey} for missing values) instead of raw {@code Long}.
+ * A {@link MqlSortedNumericSortField} for {@code $meta/nullness} fields that wraps its comparator
+ * in {@link FieldComparatorBsonWrapper}, so {@code FieldDoc.fields[]} produces {@link BsonInt64}
+ * (or {@code BsonMinKey}/{@code BsonMaxKey} for missing values) instead of raw {@code Long}.
  *
  * <p>This keeps nullness sort fields consistent with other MQL sort types (e.g. {@link
  * MqlLongSort}, {@link MqlDateSort}), eliminating the need for post-hoc Long-to-BsonValue coercion
  * in {@code SequenceToken} and {@code AbstractLuceneSearchManager}.
+ *
+ * <p>Nullness fields are only created in a sorted-index context, so the relaxed {@code equals()}
+ * from {@link MqlSortedNumericSortField} is always active ({@code indexSorted = true}).
  */
-public class MqlNullnessSortField extends SortedNumericSortField {
+public class MqlNullnessSortField extends MqlSortedNumericSortField {
 
   private static final BsonConverter<Long> LONG_CONVERTER =
       new BsonConverter<>(null) {
@@ -50,7 +52,8 @@ public class MqlNullnessSortField extends SortedNumericSortField {
         mongotSortField.field().toString(),
         Type.LONG,
         mongotSortField.options().isReverse(),
-        options.selector().numericSelector);
+        options.selector().numericSelector,
+        true);
     this.nullEmptySortPosition = options.nullEmptySortPosition();
     // The $nullness field has value 0 for documents that have the sort field value. Documents
     // missing the sort field also miss the $nullness field, so Lucene uses this configured

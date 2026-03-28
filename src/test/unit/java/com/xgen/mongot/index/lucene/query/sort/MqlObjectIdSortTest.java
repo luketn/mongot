@@ -117,7 +117,7 @@ public class MqlObjectIdSortTest {
           MqlSortedSetSortField.objectIdSort(
               new MongotSortField(
                   FieldPath.newRoot("objectIdField"), UserFieldSortOptions.DEFAULT_ASC),
-              Optional.empty());
+              Optional.empty(), false);
       Query query = new MatchAllDocsQuery();
       Sort sort = new Sort(sortFields);
 
@@ -145,7 +145,7 @@ public class MqlObjectIdSortTest {
               new MongotSortField(
                   FieldPath.newRoot("objectIdField"),
                   SortPruningTestUtils.DEFAULT_ASC_NULLS_HIGHEST),
-              Optional.empty());
+              Optional.empty(), false);
       Query query = new MatchAllDocsQuery();
       Sort sort = new Sort(sortFields);
 
@@ -172,7 +172,7 @@ public class MqlObjectIdSortTest {
           MqlSortedSetSortField.objectIdSort(
               new MongotSortField(
                   FieldPath.newRoot("objectIdField"), UserFieldSortOptions.DEFAULT_ASC),
-              Optional.empty());
+              Optional.empty(), false);
       Query query = new MatchAllDocsQuery();
       Sort sort = new Sort(sortFields);
 
@@ -215,7 +215,7 @@ public class MqlObjectIdSortTest {
               new MongotSortField(
                   FieldPath.newRoot("objectIdField"),
                   SortPruningTestUtils.DEFAULT_ASC_NULLS_HIGHEST),
-              Optional.empty());
+              Optional.empty(), false);
       Query query = new MatchAllDocsQuery();
       Sort sort = new Sort(sortFields);
 
@@ -313,7 +313,8 @@ public class MqlObjectIdSortTest {
         IndexSearcher searcher = SortPruningTestUtils.indexDocs(docs, this.writer, 2000);
 
         // simple ascending sort
-        SortField sortField = MqlSortedSetSortField.objectIdSort(mongotSortField, Optional.empty());
+        SortField sortField =
+            MqlSortedSetSortField.objectIdSort(mongotSortField, Optional.empty(), false);
         sortField.setMissingValue(SortPruningTestUtils.MISSING_VALUE_ORDER);
         Sort sort = new Sort(new ExplainSortField(sortField, explainer));
         CollectorManager<TopFieldCollector, TopFieldDocs> manager =
@@ -349,7 +350,7 @@ public class MqlObjectIdSortTest {
               new MongotSortField(
                   SortPruningTestUtils.FIELD_NAME,
                   new UserFieldSortOptions(SortOrder.ASC, nullEmptySortPosition)),
-              Optional.empty());
+              Optional.empty(), false);
       if (nullEmptySortPosition == NullEmptySortPosition.HIGHEST) {
         sortField.setMissingValue(SortField.STRING_LAST);
       } else {
@@ -382,7 +383,7 @@ public class MqlObjectIdSortTest {
           MqlSortedSetSortField.objectIdSort(
               new MongotSortField(
                   SortPruningTestUtils.FIELD_NAME, SortPruningTestUtils.DEFAULT_ASC_NULLS_HIGHEST),
-              Optional.empty());
+              Optional.empty(), false);
       sortField.setMissingValue(SortField.STRING_LAST);
       Sort sort = new Sort(sortField);
       CollectorManager<TopFieldCollector, TopFieldDocs> manager =
@@ -413,7 +414,7 @@ public class MqlObjectIdSortTest {
               new MongotSortField(
                   SortPruningTestUtils.FIELD_NAME,
                   new UserFieldSortOptions(SortOrder.DESC, nullEmptySortPosition)),
-              Optional.empty());
+              Optional.empty(), false);
       if (nullEmptySortPosition == NullEmptySortPosition.HIGHEST) {
         sortField.setMissingValue(SortField.STRING_LAST);
       } else {
@@ -460,7 +461,7 @@ public class MqlObjectIdSortTest {
           MqlSortedSetSortField.objectIdSort(
               new MongotSortField(
                   FIELD_NAME, new UserFieldSortOptions(SortOrder.ASC, nullEmptySortPosition)),
-              Optional.empty());
+              Optional.empty(), false);
 
       if (nullEmptySortPosition == NullEmptySortPosition.HIGHEST) {
         sortField.setMissingValue(SortField.STRING_LAST);
@@ -495,7 +496,7 @@ public class MqlObjectIdSortTest {
           MqlSortedSetSortField.objectIdSort(
               new MongotSortField(
                   SortPruningTestUtils.FIELD_NAME, UserFieldSortOptions.DEFAULT_ASC),
-              Optional.empty());
+              Optional.empty(), false);
       sortField.setMissingValue(SortPruningTestUtils.MISSING_VALUE_ORDER);
       Sort sort = new Sort(SortField.FIELD_SCORE, sortField);
 
@@ -524,7 +525,7 @@ public class MqlObjectIdSortTest {
           MqlSortedSetSortField.objectIdSort(
               new MongotSortField(
                   SortPruningTestUtils.FIELD_NAME, UserFieldSortOptions.DEFAULT_ASC),
-              Optional.empty());
+              Optional.empty(), false);
       sortField.setMissingValue(SortPruningTestUtils.MISSING_VALUE_ORDER);
       Sort sort = new Sort(sortField, SortField.FIELD_SCORE);
 
@@ -571,7 +572,7 @@ public class MqlObjectIdSortTest {
           MqlSortedSetSortField.objectIdSort(
               new MongotSortField(
                   SortPruningTestUtils.FIELD_NAME, UserFieldSortOptions.DEFAULT_ASC),
-              Optional.empty());
+              Optional.empty(), false);
       sortField.setMissingValue(SortPruningTestUtils.MISSING_VALUE_ORDER);
       Sort sort = new Sort(sortField);
 

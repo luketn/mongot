@@ -56,7 +56,8 @@ public class LuceneIndexSortFactory {
             ImmutableSet.of(typeField),
             Optional.empty(),
             Optional.empty(),
-            this.fieldDefinitionResolver.getIndexCapabilities());
+            this.fieldDefinitionResolver.getIndexCapabilities(),
+            true);
 
     if (sortField.isEmpty()) {
       throw new IllegalStateException("Failed to create sort field " + mongotSortField.field());
