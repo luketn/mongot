@@ -4,6 +4,8 @@ import static org.mockito.Mockito.mock;
 
 import com.xgen.mongot.featureflag.FeatureFlags;
 import com.xgen.mongot.index.IndexMetricsUpdater;
+import com.xgen.mongot.index.analyzer.AnalyzerRegistry;
+import com.xgen.mongot.index.analyzer.definition.CustomAnalyzerDefinition;
 import com.xgen.mongot.index.analyzer.wrapper.LuceneAnalyzer;
 import com.xgen.mongot.index.analyzer.wrapper.QueryAnalyzerWrapper;
 import com.xgen.mongot.index.definition.AutocompleteFieldDefinition;
@@ -13,6 +15,9 @@ import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.operators.AutocompleteOperator;
 import com.xgen.mongot.index.version.IndexFormatVersion;
 import com.xgen.testing.mongot.index.analyzer.AnalyzerRegistryBuilder;
+import com.xgen.testing.mongot.index.analyzer.custom.TokenFilterDefinitionBuilder;
+import com.xgen.testing.mongot.index.analyzer.custom.TokenizerDefinitionBuilder;
+import com.xgen.testing.mongot.index.analyzer.definition.CustomAnalyzerDefinitionBuilder;
 import com.xgen.testing.mongot.index.definition.AutocompleteFieldDefinitionBuilder;
 import com.xgen.testing.mongot.index.definition.DocumentFieldDefinitionBuilder;
 import com.xgen.testing.mongot.index.definition.FieldDefinitionBuilder;
@@ -22,6 +27,7 @@ import com.xgen.testing.mongot.index.query.operators.AutocompleteOperatorBuilder
 import com.xgen.testing.mongot.index.query.operators.FuzzyOptionBuilder;
 import com.xgen.testing.mongot.index.query.operators.OperatorBuilder;
 import com.xgen.testing.mongot.mock.index.SearchIndex;
+import java.util.List;
 import java.util.function.Function;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
@@ -342,6 +348,57 @@ public class AutocompleteQueryFactoryTest {
     Assert.assertEquals("Autocomplete lucene query: ", expected, actual);
   }
 
+  @Test
+  public void testThrowsWhenAllTokensAreStopwords() throws Exception {
+    var factory = queryFactoryWithStopwordAnalyzer(4, 10, true, List.of("el", "la", "los", "las"));
+    var operator = OperatorBuilder.autocomplete().path("title").query("El").build();
+
+    var exception =
+        Assert.assertThrows(
+            InvalidQueryException.class,
+            () ->
+                factory.fromCompletion(
+                    operator, SingleQueryContext.createQueryRoot(mock(IndexReader.class))));
+
+    Assert.assertTrue(
+        "exception message should mention stop word filters",
+        exception.getMessage().contains("stop word filters"));
+  }
+
+  @Test
+  public void testThrowsWhenAllTokensAreStopwordsSequential() throws Exception {
+    var factory = queryFactoryWithStopwordAnalyzer(4, 10, true, List.of("el", "la", "los", "las"));
+    var operator =
+        OperatorBuilder.autocomplete()
+            .path("title")
+            .query("El")
+            .tokenOrder(AutocompleteOperator.TokenOrder.SEQUENTIAL)
+            .build();
+
+    var exception =
+        Assert.assertThrows(
+            InvalidQueryException.class,
+            () ->
+                factory.fromCompletion(
+                    operator, SingleQueryContext.createQueryRoot(mock(IndexReader.class))));
+
+    Assert.assertTrue(
+        "exception message should mention stop word filters",
+        exception.getMessage().contains("stop word filters"));
+  }
+
+  @Test
+  public void testPartialStopwordRemovalStillProducesQuery() throws Exception {
+    var factory = queryFactoryWithStopwordAnalyzer(4, 10, true, List.of("el", "la", "los", "las"));
+    var operator = OperatorBuilder.autocomplete().path("title").query("El Pollo").build();
+
+    var actual =
+        factory.fromCompletion(
+            operator, SingleQueryContext.createQueryRoot(mock(IndexReader.class)));
+
+    Assert.assertNotNull("query should be produced when some tokens survive analysis", actual);
+  }
+
   private static AutocompleteQueryFactory queryFactory(
       int minGrams, int maxGrams, boolean foldDiacritics) throws InvalidQueryException {
     var indexDefinition =
@@ -368,6 +425,58 @@ public class AutocompleteQueryFactoryTest {
         new SearchQueryFactoryContext(
             AnalyzerRegistryBuilder.empty(),
             LuceneAnalyzer.queryAnalyzer(indexDefinition, AnalyzerRegistryBuilder.empty()),
+            indexDefinition.createFieldDefinitionResolver(IndexFormatVersion.CURRENT),
+            SynonymRegistryBuilder.empty(),
+            new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory()),
+            FeatureFlags.getDefault()));
+  }
+
+  private static AutocompleteQueryFactory queryFactoryWithStopwordAnalyzer(
+      int minGrams, int maxGrams, boolean foldDiacritics, List<String> stopwords) throws Exception {
+    String analyzerName = "custom_stopwords";
+    CustomAnalyzerDefinition customAnalyzerDef =
+        CustomAnalyzerDefinitionBuilder.builder(
+                analyzerName,
+                TokenizerDefinitionBuilder.StandardTokenizer.builder().build())
+            .tokenFilter(TokenFilterDefinitionBuilder.LowercaseTokenFilter.builder().build())
+            .tokenFilter(
+                TokenFilterDefinitionBuilder.AsciiFoldingTokenFilter.builder().build())
+            .tokenFilter(
+                TokenFilterDefinitionBuilder.StopwordTokenFilter.builder()
+                    .tokens(stopwords)
+                    .build())
+            .build();
+
+    AnalyzerRegistry registry =
+        AnalyzerRegistry.factory().create(List.of(customAnalyzerDef), true);
+
+    var indexDefinition =
+        SearchIndexDefinitionBuilder.builder()
+            .defaultMetadata()
+            .mappings(
+                DocumentFieldDefinitionBuilder.builder()
+                    .field(
+                        "title",
+                        FieldDefinitionBuilder.builder()
+                            .autocomplete(
+                                AutocompleteFieldDefinitionBuilder.builder()
+                                    .minGrams(minGrams)
+                                    .maxGrams(maxGrams)
+                                    .foldDiacritics(foldDiacritics)
+                                    .tokenizationStrategy(
+                                        AutocompleteFieldDefinition.TokenizationStrategy.N_GRAM)
+                                    .analyzer(analyzerName)
+                                    .build())
+                            .build())
+                    .build())
+            .analyzers(List.of(customAnalyzerDef))
+            .analyzerName(analyzerName)
+            .build();
+
+    return new AutocompleteQueryFactory(
+        new SearchQueryFactoryContext(
+            registry,
+            LuceneAnalyzer.queryAnalyzer(indexDefinition, registry),
             indexDefinition.createFieldDefinitionResolver(IndexFormatVersion.CURRENT),
             SynonymRegistryBuilder.empty(),
             new IndexMetricsUpdater.QueryingMetricsUpdater(SearchIndex.mockMetricsFactory()),

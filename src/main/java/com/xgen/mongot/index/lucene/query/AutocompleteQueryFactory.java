@@ -110,6 +110,10 @@ class AutocompleteQueryFactory {
    * Gets a list of analyzed tokens from this query. First tokenizes using the base analyzer for
    * this autocomplete field, then normalizes with the analyzer used at index-time to apply
    * transformations like diacritic folding.
+   *
+   * <p>Normalization may produce zero tokens for a given input if the analyzer removes it (e.g. via
+   * stopword filtering). Such tokens are excluded from the result. If all tokens are removed, an
+   * {@link InvalidQueryException} is thrown.
    */
   private static List<BytesRef> queryTokensOf(
       AutocompleteOperator operator,
@@ -124,31 +128,56 @@ class AutocompleteQueryFactory {
     // "Normalizing" a query string performs diacritic and case folding if they are configured in
     // the analyzer, and may also truncate the query string. Text is analyzed by the user-specified
     // "baseAnalyzer" first, then are normalized by the internal autocomplete "indexAnalyzer" using
-    // this function.
-    Function<String, BytesRef> normalize = token -> indexAnalyzer.normalize(luceneFieldPath, token);
+    // this function. Normalization may yield zero tokens if the analyzer removes the input (e.g.
+    // stopword filter), which is signaled by Lucene's Analyzer.normalize throwing
+    // IllegalStateException with "got 0" in the message. The >1 token case ("got 2+") indicates a
+    // genuine analyzer misconfiguration and is re-thrown.
+    Function<String, Optional<BytesRef>> normalize =
+        token -> {
+          try {
+            return Optional.of(indexAnalyzer.normalize(luceneFieldPath, token));
+          } catch (IllegalStateException e) {
+            if (e.getMessage() != null && e.getMessage().contains("got 0")) {
+              return Optional.empty();
+            }
+            throw e;
+          }
+        };
 
-    return switch (operator.tokenOrder()) {
-      case ANY -> {
-        try {
-          yield ListUtils.union(
-                  AnalyzedText.applyAnalyzer(
-                      baseAnalyzer,
-                      new StringFieldPath(operator.path()),
-                      operator.query(),
-                      singleQueryContext.getEmbeddedRoot()),
-                  operator.query())
-              .stream()
-              .map(normalize)
-              .distinct()
-              .collect(Collectors.toList());
-        } catch (IOException e) {
-          throw new InvalidQueryException("error expanding query to order-agnostic form");
-        }
-      }
+    List<BytesRef> tokens =
+        switch (operator.tokenOrder()) {
+          case ANY -> {
+            try {
+              yield ListUtils.union(
+                      AnalyzedText.applyAnalyzer(
+                          baseAnalyzer,
+                          new StringFieldPath(operator.path()),
+                          operator.query(),
+                          singleQueryContext.getEmbeddedRoot()),
+                      operator.query())
+                  .stream()
+                  .flatMap(token -> normalize.apply(token).stream())
+                  .distinct()
+                  .collect(Collectors.toList());
+            } catch (IOException e) {
+              throw new InvalidQueryException("error expanding query to order-agnostic form");
+            }
+          }
 
-      case SEQUENTIAL ->
-          operator.query().stream().map(normalize).distinct().collect(Collectors.toList());
-    };
+          case SEQUENTIAL ->
+              operator.query().stream()
+                  .flatMap(token -> normalize.apply(token).stream())
+                  .distinct()
+                  .collect(Collectors.toList());
+        };
+
+    if (tokens.isEmpty()) {
+      throw new InvalidQueryException(
+          "no search tokens produced for autocomplete query after analysis; "
+              + "query tokens may have been removed by token filters such as stop word filters");
+    }
+
+    return tokens;
   }
 
   /**
