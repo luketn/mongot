@@ -60,6 +60,7 @@ public class TokenFilterDefinitionTest {
           edgeGram(),
           edgeGramMinMaxEqual(),
           edgeGramInclude(),
+          englishMinimalStemming(),
           englishPossessive(),
           flattenGraph(),
           shingle(),
@@ -299,6 +300,13 @@ public class TokenFilterDefinitionTest {
               .maxGram(3)
               .termNotInBounds(EdgeGramTokenFilterDefinition.TermNotInBounds.INCLUDE)
               .build());
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<TokenFilterDefinition>
+        englishMinimalStemming() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "englishMinimalStemming",
+          TokenFilterDefinitionBuilder.EnglishMinimalStemmingTokenFilter.builder().build());
     }
 
     private static BsonDeserializationTestSuite.ValidSpec<TokenFilterDefinition>
@@ -668,6 +676,7 @@ public class TokenFilterDefinitionTest {
           porterStemming(),
           edgeGram(),
           edgeGramInclude(),
+          englishMinimalStemming(),
           englishPossessive(),
           flattenGraph(),
           shingle(),
@@ -839,6 +848,13 @@ public class TokenFilterDefinitionTest {
               .maxGram(3)
               .termNotInBounds(EdgeGramTokenFilterDefinition.TermNotInBounds.INCLUDE)
               .build());
+    }
+
+    private static BsonSerializationTestSuite.TestSpec<TokenFilterDefinition>
+        englishMinimalStemming() {
+      return BsonSerializationTestSuite.TestSpec.create(
+          "englishMinimalStemming",
+          TokenFilterDefinitionBuilder.EnglishMinimalStemmingTokenFilter.builder().build());
     }
 
     private static BsonSerializationTestSuite.TestSpec<TokenFilterDefinition> englishPossessive() {

@@ -32,6 +32,7 @@ import org.apache.lucene.analysis.core.LowerCaseFilter;
 import org.apache.lucene.analysis.core.StopFilter;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
 import org.apache.lucene.analysis.email.UAX29URLEmailTokenizer;
+import org.apache.lucene.analysis.en.EnglishMinimalStemFilter;
 import org.apache.lucene.analysis.en.EnglishPossessiveFilter;
 import org.apache.lucene.analysis.en.KStemFilter;
 import org.apache.lucene.analysis.en.PorterStemFilter;
@@ -185,6 +186,8 @@ public class LuceneAnalyzerFactory {
                   edgeGramFilter.termNotInBounds
                       == EdgeGramTokenFilterDefinition.TermNotInBounds.INCLUDE);
         }
+
+        case ENGLISH_MINIMAL_STEMMING -> input -> new EnglishMinimalStemFilter(input);
 
         case ENGLISH_POSSESSIVE -> input -> new EnglishPossessiveFilter(input);
 
