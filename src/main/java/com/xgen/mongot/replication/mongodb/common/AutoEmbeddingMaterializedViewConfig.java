@@ -101,6 +101,13 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
   public final Optional<Integer> mvWriteRateLimitRps;
 
   /**
+   * Node-level rate limit (RPS) for embedding provider API calls.
+   * Merged with per-model values using min so every value acts as
+   * an upper bound.
+   */
+  public final Optional<Integer> embeddingProviderRpsLimit;
+
+  /**
    * AIMD congestion control parameters for flex-tier / embedding provider rate limiting (collection
    * scan workloads). When empty, {@link AimdCongestionControl} defaults apply at runtime.
    */
@@ -179,6 +186,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Integer> embeddingGetMoreBatchSize,
       Optional<Integer> materializedViewSchemaVersion,
       Optional<Integer> mvWriteRateLimitRps,
+      Optional<Integer> embeddingProviderRpsLimit,
       Optional<CongestionControlParams> congestionControl,
       Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads,
       Optional<Duration> resyncBackoff,
@@ -203,6 +211,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     this.requestRateLimitBackoffMs = requestRateLimitBackoffMs;
     this.materializedViewSchemaVersion = materializedViewSchemaVersion;
     this.mvWriteRateLimitRps = mvWriteRateLimitRps;
+    this.embeddingProviderRpsLimit = embeddingProviderRpsLimit;
     this.congestionControl = congestionControl;
     this.flexTierWorkloads = flexTierWorkloads;
     this.matViewWriterMaxConnections = matViewWriterMaxConnections;
@@ -233,6 +242,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Integer> embeddingGetMoreBatchSize,
       Optional<Integer> materializedViewSchemaVersion,
       Optional<Integer> mvWriteRateLimitRps,
+      Optional<Integer> embeddingProviderRpsLimit,
       Optional<CongestionControlParams> congestionControl,
       Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads,
       Optional<Long> optionalResyncBackoffMs,
@@ -256,6 +266,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         embeddingGetMoreBatchSize,
         materializedViewSchemaVersion,
         mvWriteRateLimitRps,
+        embeddingProviderRpsLimit,
         congestionControl,
         flexTierWorkloads,
         optionalResyncBackoffMs,
@@ -283,6 +294,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Integer> embeddingGetMoreBatchSize,
       Optional<Integer> materializedViewSchemaVersion,
       Optional<Integer> mvWriteRateLimitRps,
+      Optional<Integer> embeddingProviderRpsLimit,
       Optional<CongestionControlParams> congestionControl,
       Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads,
       Optional<Long> optionalResyncBackoffMs,
@@ -341,6 +353,15 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     Check.argIsPositive(requestRateLimitBackoffMs, "requestRateLimitBackoffMs");
 
     mvWriteRateLimitRps.ifPresent(value -> Check.argIsPositive(value, "mvWriteRateLimitRps"));
+    embeddingProviderRpsLimit.ifPresent(
+        value -> {
+          Check.argIsPositive(value, "embeddingProviderRpsLimit");
+          Check.checkArg(
+              value <= EmbeddingServiceConfig.MAX_RPS_PER_PROVIDER,
+              "embeddingProviderRpsLimit must be at most %s, got %s",
+              EmbeddingServiceConfig.MAX_RPS_PER_PROVIDER,
+              value);
+        });
 
     congestionControl.ifPresent(
         c -> {
@@ -400,6 +421,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         embeddingGetMoreBatchSize,
         materializedViewSchemaVersion,
         mvWriteRateLimitRps,
+        embeddingProviderRpsLimit,
         congestionControl,
         flexTierWorkloads,
         resyncBackoff,
@@ -435,6 +457,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
+        Optional.empty(),
         Optional.empty());
   }
 
@@ -444,6 +467,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     return create(
         runtime,
         defaultGlobalReplicationConfig(),
+        Optional.empty(),
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
@@ -494,6 +518,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         .field(Fields.EMBEDDING_GET_MORE_BATCH_SIZE, this.embeddingGetMoreBatchSize)
         .field(Fields.MATERIALIZED_VIEW_SCHEMA_VERSION, this.materializedViewSchemaVersion)
         .field(Fields.MV_WRITE_RATE_LIMIT_RPS, this.mvWriteRateLimitRps)
+        .field(Fields.EMBEDDING_PROVIDER_RPS_LIMIT, this.embeddingProviderRpsLimit)
         .field(Fields.CONGESTION_CONTROL, this.congestionControl)
         .field(
             Fields.FLEX_TIER_WORKLOADS,
@@ -562,6 +587,10 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
 
   public Optional<Integer> getMvWriteRateLimitRps() {
     return this.mvWriteRateLimitRps;
+  }
+
+  public Optional<Integer> getEmbeddingProviderRpsLimit() {
+    return this.embeddingProviderRpsLimit;
   }
 
   private static int getMaxConcurrentEmbeddingInitialSyncsWithDefault(
@@ -805,6 +834,13 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
 
     private static final Field.Optional<Integer> MV_WRITE_RATE_LIMIT_RPS =
         Field.builder("mvWriteRateLimitRps").intField().mustBePositive().optional().noDefault();
+
+    private static final Field.Optional<Integer> EMBEDDING_PROVIDER_RPS_LIMIT =
+        Field.builder("embeddingProviderRpsLimit")
+            .intField()
+            .mustBePositive()
+            .optional()
+            .noDefault();
 
     private static final Field.Optional<CongestionControlParams> CONGESTION_CONTROL =
         Field.builder("congestionControl")

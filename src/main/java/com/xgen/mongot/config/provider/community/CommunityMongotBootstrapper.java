@@ -847,6 +847,8 @@ public class CommunityMongotBootstrapper {
     var regularBlockingRequestSettings = RegularBlockingRequestSettings.defaults();
 
     var mvWriteRateLimitRps = embeddingConfig.flatMap(EmbeddingConfig::mvWriteRateLimitRps);
+    var embeddingProviderRpsLimit =
+        embeddingConfig.flatMap(EmbeddingConfig::embeddingProviderRpsLimit);
     var autoEmbeddingMaterializedViewConfig =
         AutoEmbeddingMaterializedViewConfig.create(
             CommonReplicationConfig.defaultGlobalReplicationConfig(),
@@ -863,6 +865,7 @@ public class CommunityMongotBootstrapper {
             Optional.empty(),
             Optional.empty(),
             mvWriteRateLimitRps,
+            embeddingProviderRpsLimit,
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),

@@ -334,6 +334,84 @@ public class EmbeddingModelConfigTest {
   }
 
   @Test
+  public void testRpsPerProvider_usesMinOfOuterAndInner() {
+    EmbeddingModelConfig result =
+        EmbeddingModelConfig.create(
+            "voyage-3.5-lite",
+            EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
+            new EmbeddingServiceConfig.EmbeddingConfig(
+                Optional.empty(),
+                BASE_MODEL_CONFIG,
+                BASE_ERROR_CONFIG,
+                BASE_CREDENTIALS,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                true,
+                Optional.empty(),
+                false,
+                Optional.of(50)),
+            Optional.of(75));
+
+    assertEquals(Optional.of(50), result.query().rpsPerProvider());
+    assertEquals(Optional.of(50), result.changeStream().rpsPerProvider());
+    assertEquals(Optional.of(50), result.collectionScan().rpsPerProvider());
+  }
+
+  @Test
+  public void testRpsPerProvider_outerLowerThanInner() {
+    EmbeddingModelConfig result =
+        EmbeddingModelConfig.create(
+            "voyage-3.5-lite",
+            EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
+            new EmbeddingServiceConfig.EmbeddingConfig(
+                Optional.empty(),
+                BASE_MODEL_CONFIG,
+                BASE_ERROR_CONFIG,
+                BASE_CREDENTIALS,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                true,
+                Optional.empty(),
+                false,
+                Optional.of(50)),
+            Optional.of(30));
+
+    assertEquals(Optional.of(30), result.query().rpsPerProvider());
+    assertEquals(Optional.of(30), result.changeStream().rpsPerProvider());
+    assertEquals(Optional.of(30), result.collectionScan().rpsPerProvider());
+  }
+
+  @Test
+  public void testRpsPerProvider_outerAbsentFallsToInner() {
+    EmbeddingModelConfig result =
+        EmbeddingModelConfig.create(
+            "voyage-3.5-lite",
+            EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
+            new EmbeddingServiceConfig.EmbeddingConfig(
+                Optional.empty(),
+                BASE_MODEL_CONFIG,
+                BASE_ERROR_CONFIG,
+                BASE_CREDENTIALS,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                true,
+                Optional.empty(),
+                false,
+                Optional.of(50)),
+            Optional.empty());
+
+    assertEquals(Optional.of(50), result.query().rpsPerProvider());
+    assertEquals(Optional.of(50), result.changeStream().rpsPerProvider());
+    assertEquals(Optional.of(50), result.collectionScan().rpsPerProvider());
+  }
+
+  @Test
   public void testRpsPerProvider_emptyWhenAbsent() {
     EmbeddingModelConfig result =
         EmbeddingModelConfig.create(

@@ -20,6 +20,7 @@ public record EmbeddingConfig(
     Optional<Path> queryKeyFile,
     Optional<Path> indexingKeyFile,
     Optional<Integer> mvWriteRateLimitRps,
+    Optional<Integer> embeddingProviderRpsLimit,
     boolean isAutoEmbeddingViewWriter)
     implements DocumentEncodable {
 
@@ -42,6 +43,13 @@ public record EmbeddingConfig(
     public static final Field.Optional<Integer> MV_WRITE_RATE_LIMIT_RPS =
         Field.builder("mvWriteRateLimitRps").intField().mustBePositive().optional().noDefault();
 
+    public static final Field.Optional<Integer> EMBEDDING_PROVIDER_RPS_LIMIT =
+        Field.builder("embeddingProviderRpsLimit")
+            .intField()
+            .mustBePositive()
+            .optional()
+            .noDefault();
+
     public static final Field.WithDefault<Boolean> IS_AUTO_EMBEDDING_VIEW_WRITER =
         Field.builder("isAutoEmbeddingViewWriter").booleanField().optional().withDefault(false);
   }
@@ -52,6 +60,7 @@ public record EmbeddingConfig(
         parser.getField(Fields.QUERY_KEY_FILE).unwrap(),
         parser.getField(Fields.INDEXING_KEY_FILE).unwrap(),
         parser.getField(Fields.MV_WRITE_RATE_LIMIT_RPS).unwrap(),
+        parser.getField(Fields.EMBEDDING_PROVIDER_RPS_LIMIT).unwrap(),
         parser.getField(Fields.IS_AUTO_EMBEDDING_VIEW_WRITER).unwrap());
   }
 
@@ -62,6 +71,7 @@ public record EmbeddingConfig(
         .field(Fields.QUERY_KEY_FILE, this.queryKeyFile)
         .field(Fields.INDEXING_KEY_FILE, this.indexingKeyFile)
         .field(Fields.MV_WRITE_RATE_LIMIT_RPS, this.mvWriteRateLimitRps)
+        .field(Fields.EMBEDDING_PROVIDER_RPS_LIMIT, this.embeddingProviderRpsLimit)
         .field(Fields.IS_AUTO_EMBEDDING_VIEW_WRITER, this.isAutoEmbeddingViewWriter)
         .build();
   }

@@ -5,7 +5,6 @@
       "json": {
         "embeddingProvider": "VOYAGE",
         "modelName": "voyage-3-large",
-        "rpsPerProvider": 30,
         "config": {
           "region": "us-east-1",
           "modelConfig": {
@@ -110,7 +109,7 @@
       "bson": {
         "embeddingProvider": "VOYAGE",
         "modelName": "voyage-3-large",
-        "rpsPerProvider": 30,
+
         "config": {
           "region": "us-east-1",
           "modelConfig": {
@@ -274,7 +273,7 @@
       "json": {
         "embeddingProvider": "VOYAGE",
         "modelName": "voyage-3.5-lite",
-        "rpsPerProvider": 30,
+
         "config": {
           "modelConfig": {
             "batchSize": 100,
@@ -352,7 +351,7 @@
       "bson": {
         "embeddingProvider": "VOYAGE",
         "modelName": "voyage-3.5-lite",
-        "rpsPerProvider": 30,
+
         "config": {
           "modelConfig": {
             "batchSize": {
@@ -489,7 +488,7 @@
       "json": {
         "embeddingProvider": "VOYAGE",
         "modelName": "voyage-3.5",
-        "rpsPerProvider": 30,
+
         "config": {
           "modelConfig": {
             "batchSize": 100,
@@ -513,7 +512,7 @@
       "bson": {
         "embeddingProvider": "VOYAGE",
         "modelName": "voyage-3.5",
-        "rpsPerProvider": 30,
+
         "config": {
           "modelConfig": {
             "batchSize": {
@@ -554,7 +553,7 @@
       "json": {
         "embeddingProvider": "VOYAGE",
         "modelName": "voyage-3.5",
-        "rpsPerProvider": 30,
+
         "config": {
           "modelConfig": {
             "batchSize": 100,
@@ -578,7 +577,7 @@
       "bson": {
         "embeddingProvider": "VOYAGE",
         "modelName": "voyage-3.5",
-        "rpsPerProvider": 30,
+
         "config": {
           "modelConfig": {
             "batchSize": {
@@ -619,7 +618,7 @@
       "json": {
         "embeddingProvider": "VOYAGE",
         "modelName": "voyage-3.5",
-        "rpsPerProvider": 30,
+
         "config": {
           "modelConfig": {
             "batchSize": 100,
@@ -644,7 +643,7 @@
       "bson": {
         "embeddingProvider": "VOYAGE",
         "modelName": "voyage-3.5",
-        "rpsPerProvider": 30,
+
         "config": {
           "modelConfig": {
             "batchSize": {

@@ -95,7 +95,10 @@ public class EmbeddingModelCatalog {
               String modelKey = serviceConfig.modelName.toLowerCase();
               EmbeddingModelConfig newConfig =
                   EmbeddingModelConfig.create(
-                      modelKey, serviceConfig.embeddingProvider, serviceConfig.embeddingConfig);
+                      modelKey,
+                      serviceConfig.embeddingProvider,
+                      serviceConfig.embeddingConfig,
+                      serviceConfig.rpsPerProvider);
               EmbeddingModelCatalog.registerModelConfig(modelKey, newConfig);
               // Register compatible models from the config (model itself is auto-included)
               EmbeddingModelCatalog.registerCompatibleModels(

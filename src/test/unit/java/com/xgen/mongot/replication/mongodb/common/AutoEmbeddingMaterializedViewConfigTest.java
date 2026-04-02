@@ -78,6 +78,7 @@ public class AutoEmbeddingMaterializedViewConfigTest {
               Optional.of(42),
               Optional.empty(),
               Optional.empty(),
+              Optional.empty(),
               Optional.of(30_000L),
               Optional.of(45_000L),
               Optional.of(1L),
@@ -181,6 +182,7 @@ public class AutoEmbeddingMaterializedViewConfigTest {
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),
+              Optional.empty(),
               Optional.empty());
       assertEquals(Optional.of(50), customConfig.getMvWriteRateLimitRps());
 
@@ -208,6 +210,7 @@ public class AutoEmbeddingMaterializedViewConfigTest {
                   Optional.empty(),
                   Optional.empty(),
                   Optional.empty(),
+                  Optional.empty(),
                   Optional.empty()));
     }
 
@@ -229,6 +232,7 @@ public class AutoEmbeddingMaterializedViewConfigTest {
               Optional.empty(),
               Optional.empty(),
               Optional.of(75),
+              Optional.empty(),
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),
@@ -278,6 +282,7 @@ public class AutoEmbeddingMaterializedViewConfigTest {
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),
+              Optional.empty(),
               Optional.empty());
       assertEquals(8, config.matViewWriterMaxConnections);
     }
@@ -291,6 +296,7 @@ public class AutoEmbeddingMaterializedViewConfigTest {
               runtime,
               new CommonReplicationConfig.GlobalReplicationConfig(
                   false, List.of(), false, List.of(), false),
+              Optional.empty(),
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),

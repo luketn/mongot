@@ -249,6 +249,7 @@ public class CommonUtilsTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty());
 
     MaterializedViewIndexFactory factory =
@@ -323,6 +324,7 @@ public class CommonUtilsTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty());
 
     MongotConfigs withOverride = MongotConfigs.getDefault(dataPath, customMvConfig);
@@ -389,6 +391,7 @@ public class CommonUtilsTest {
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
             Optional.of(0L),
             Optional.empty(),
             Optional.empty());
@@ -403,6 +406,7 @@ public class CommonUtilsTest {
     AutoEmbeddingMaterializedViewConfig config =
         AutoEmbeddingMaterializedViewConfig.create(
             CommonReplicationConfig.defaultGlobalReplicationConfig(),
+            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),

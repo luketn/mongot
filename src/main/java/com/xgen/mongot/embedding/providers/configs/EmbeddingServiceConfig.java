@@ -20,7 +20,6 @@ import java.util.UUID;
 import org.bson.BsonDocument;
 
 public class EmbeddingServiceConfig implements DocumentEncodable {
-  public static final int DEFAULT_RPS_PER_PROVIDER = 30;
   public static final int MAX_RPS_PER_PROVIDER = 100;
   public static final ErrorHandlingConfig DEFAULT_ERROR_HANDLING_CONFIG =
       new ErrorHandlingConfig(50, 200L, 10000L, 0.1 /* 10% jitter */);
@@ -43,12 +42,8 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
     static final Field.WithDefault<List<String>> COMPATIBLE_MODELS =
         Field.builder("compatibleModels").stringField().asList().optional().withDefault(List.of());
 
-    static final Field.WithDefault<Integer> RPS_PER_PROVIDER =
-        Field.builder("rpsPerProvider")
-            .intField()
-            .mustBePositive()
-            .optional()
-            .withDefault(DEFAULT_RPS_PER_PROVIDER);
+    static final Field.Optional<Integer> RPS_PER_PROVIDER =
+        Field.builder("rpsPerProvider").intField().mustBePositive().optional().noDefault();
   }
 
   public static EmbeddingServiceConfig fromBson(DocumentParser parser) throws BsonParseException {
@@ -71,7 +66,7 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
    */
   public final Set<String> compatibleModels;
 
-  public final Integer rpsPerProvider;
+  public final Optional<Integer> rpsPerProvider;
 
   @Override
   public BsonDocument toBson() {
@@ -90,7 +85,7 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
   public EmbeddingServiceConfig(
       EmbeddingProvider embeddingProvider,
       String modelName,
-      Integer rpsPerProvider,
+      Optional<Integer> rpsPerProvider,
       EmbeddingConfig embeddingConfig) {
     this(embeddingProvider, modelName, rpsPerProvider, embeddingConfig, Set.of());
   }
@@ -98,14 +93,16 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
   public EmbeddingServiceConfig(
       EmbeddingProvider embeddingProvider,
       String modelName,
-      Integer rpsPerProvider,
+      Optional<Integer> rpsPerProvider,
       EmbeddingConfig embeddingConfig,
       Set<String> compatibleModels) {
-    Check.checkArg(
-        rpsPerProvider <= MAX_RPS_PER_PROVIDER,
-        "rpsPerProvider must be at most %s, got %s",
-        MAX_RPS_PER_PROVIDER,
-        rpsPerProvider);
+    rpsPerProvider.ifPresent(
+        rps ->
+            Check.checkArg(
+                rps <= MAX_RPS_PER_PROVIDER,
+                "rpsPerProvider must be at most %s, got %s",
+                MAX_RPS_PER_PROVIDER,
+                rps));
     this.embeddingProvider = embeddingProvider;
     this.modelName = modelName;
     this.embeddingConfig = embeddingConfig;

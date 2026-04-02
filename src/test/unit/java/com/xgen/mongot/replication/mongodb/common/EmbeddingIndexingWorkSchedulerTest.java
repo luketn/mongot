@@ -100,13 +100,13 @@ public class EmbeddingIndexingWorkSchedulerTest {
       new EmbeddingServiceConfig(
           EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
           "voyage-3-large",
-          EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+          Optional.empty(),
           VOYAGE_3_CONFIG);
   private static final EmbeddingServiceConfig TEST_EMBEDDING_CONFIG_V3_LITE =
       new EmbeddingServiceConfig(
           EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
           "voyage-3-lite",
-          EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+          Optional.empty(),
           VOYAGE_3_CONFIG);
 
   @Test

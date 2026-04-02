@@ -109,6 +109,7 @@ public class CommunityMongotBootstrapperTest {
             Optional.of(this.queryKeyFile),
             Optional.of(this.indexingKeyFile),
             Optional.empty(),
+            Optional.empty(),
             false);
     CommunityConfig config = this.createMinimalConfigWithEmbedding(Optional.of(embeddingConfig));
 
@@ -158,6 +159,7 @@ public class CommunityMongotBootstrapperTest {
             Optional.of(CUSTOM_ENDPOINT),
             Optional.of(this.queryKeyFile),
             Optional.of(this.indexingKeyFile),
+            Optional.empty(),
             Optional.empty(),
             false);
     CommunityConfig config = this.createMinimalConfigWithEmbedding(Optional.of(embeddingConfig));

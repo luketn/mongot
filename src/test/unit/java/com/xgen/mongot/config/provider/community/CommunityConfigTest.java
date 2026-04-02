@@ -305,6 +305,7 @@ public class CommunityConfigTest {
                       Optional.empty(),
                       Optional.empty(),
                       Optional.empty(),
+                      Optional.empty(),
                       false))));
     }
 
@@ -337,6 +338,7 @@ public class CommunityConfigTest {
                       Optional.empty(),
                       Optional.empty(),
                       Optional.of(50),
+                      Optional.empty(),
                       true))));
     }
 
