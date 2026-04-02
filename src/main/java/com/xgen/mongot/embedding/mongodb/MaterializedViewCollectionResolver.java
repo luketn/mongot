@@ -17,6 +17,7 @@ import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
 import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
+import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFieldDefinition;
 import com.xgen.mongot.replication.mongodb.common.AutoEmbeddingMaterializedViewConfig;
@@ -98,7 +99,7 @@ public class MaterializedViewCollectionResolver {
    *     update or lease manager error. Caller will retry on this exception.
    */
   public MaterializedViewCollectionMetadata getOrCreateMaterializedViewForIndex(
-      IndexDefinitionGeneration indexDefinitionGeneration)
+      MaterializedViewIndexDefinitionGeneration indexDefinitionGeneration)
       throws MaterializedViewTransientException {
     var mongoClientOpt = this.autoEmbeddingMongoClient.getMaterializedViewResolverMongoClient();
     if (mongoClientOpt.isEmpty()) {
@@ -120,10 +121,7 @@ public class MaterializedViewCollectionResolver {
                   Check.instanceOf(collectionInfo, MongoDbCollectionInfo.Collection.class)
                       .info()
                       .uuid(),
-                  indexDefinitionGeneration
-                      .asMaterializedView()
-                      .getIndexDefinition()
-                      .asVectorDefinition(),
+                  indexDefinitionGeneration.getIndexDefinition().asVectorDefinition(),
                   this.materializedViewConfig.materializedViewSchemaVersion.orElse(
                       CURRENT_MAT_VIEW_SCHEMA_VERSION)));
       this.metadataCatalog.addMetadata(

@@ -1,5 +1,6 @@
 package com.xgen.mongot.replication.mongodb.autoembedding;
 
+import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog.canonicalKey;
 import static com.xgen.mongot.replication.mongodb.MongoDbReplicationManager.getClientSessionRecords;
 import static com.xgen.mongot.replication.mongodb.MongoDbReplicationManager.getSyncBatchMongoClient;
 import static com.xgen.mongot.replication.mongodb.MongoDbReplicationManager.getSyncSourceHost;
@@ -12,7 +13,6 @@ import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.xgen.mongot.cursor.MongotCursorManager;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
-import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
 import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
 import com.xgen.mongot.embedding.mongodb.leasing.DynamicLeaderLeaseManager;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
@@ -24,8 +24,8 @@ import com.xgen.mongot.index.autoembedding.AutoEmbeddingIndexGeneration;
 import com.xgen.mongot.index.autoembedding.InitializedMaterializedViewIndex;
 import com.xgen.mongot.index.autoembedding.MaterializedViewIndexGeneration;
 import com.xgen.mongot.index.autoembedding.MaterializedViewIndexGenerationUtil;
-import com.xgen.mongot.index.mongodb.MaterializedViewWriter;
 import com.xgen.mongot.index.version.GenerationId;
+import com.xgen.mongot.index.version.MaterializedViewGenerationId;
 import com.xgen.mongot.metrics.MeterAndFtdcRegistry;
 import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.monitor.ToggleGate;
@@ -119,9 +119,7 @@ public class MaterializedViewManager implements ReplicationManager {
 
   /** A mapping of materialized view collections to active GenerationIds. */
   @GuardedBy("this")
-  private final Map<UUID, Set<GenerationId>> activeGenerationIdByMatViewCollection;
-
-  private final Map<UUID, MaterializedViewIndexGeneration> latestMatViewIndexGenerationByCollection;
+  private final ActiveGenerationIdCatalog activeGenerationIdCatalog;
 
   private final NamedScheduledExecutorService commitExecutor;
 
@@ -233,7 +231,7 @@ public class MaterializedViewManager implements ReplicationManager {
     this.matViewGeneratorFactory = matViewGeneratorFactory;
     this.meterRegistry = meterRegistry;
     this.managedMaterializedViewGenerators = new ConcurrentHashMap<>();
-    this.activeGenerationIdByMatViewCollection = new ConcurrentHashMap<>();
+    this.activeGenerationIdCatalog = new ActiveGenerationIdCatalog(matViewMetadataCatalog);
     this.commitExecutor = commitExecutor;
     this.heartbeatExecutor = heartbeatExecutor;
     this.autoEmbeddingMongoClient = autoEmbeddingMongoClient;
@@ -245,7 +243,6 @@ public class MaterializedViewManager implements ReplicationManager {
     this.matViewMetadataCatalog = matViewMetadataCatalog;
     this.optimeUpdaterErrorCounter = this.meterRegistry.counter(OPTIME_UPDATER_ERROR_COUNTER_NAME);
     this.isReplicationEnabled = false;
-    this.latestMatViewIndexGenerationByCollection = new ConcurrentHashMap<>();
 
     // Always start heartbeat - it emits heartbeat only for indexes where this instance is leader
     LOG.atInfo()
@@ -452,49 +449,9 @@ public class MaterializedViewManager implements ReplicationManager {
         .log("Adding index generation to materialized view manager");
     AutoEmbeddingIndexGeneration autoEmbeddingIndexGeneration =
         Check.instanceOf(indexGeneration, AutoEmbeddingIndexGeneration.class);
-    UUID uuid =
-        getCollectionUuid(
-            autoEmbeddingIndexGeneration.getMaterializedViewIndexGeneration().getGenerationId());
-    GenerationId generationId = autoEmbeddingIndexGeneration.getGenerationId();
-
-    // Reference counting by all indexGenerations with all attempts
-    this.activeGenerationIdByMatViewCollection
-        .computeIfAbsent(uuid, unused -> ConcurrentHashMap.newKeySet())
-        .add(generationId);
-
     MaterializedViewIndexGeneration matViewIndexGeneration =
         autoEmbeddingIndexGeneration.getMaterializedViewIndexGeneration();
-
-    // Front loads swapIndex logic across matViewIndexGenerations when replication is disabled
-    // during sync source changes
-    this.latestMatViewIndexGenerationByCollection.compute(
-        uuid,
-        (unused, existing) -> {
-          if (existing == null) {
-            return matViewIndexGeneration;
-          }
-          long newVersion =
-              matViewIndexGeneration.getDefinition().getDefinitionVersion().orElse(0L);
-          long existingVersion = existing.getDefinition().getDefinitionVersion().orElse(0L);
-          if (newVersion > existingVersion) {
-            return matViewIndexGeneration;
-          } else if (newVersion == existingVersion) {
-            LOG.atInfo().log(
-                "Swapping index to allow index status in sync between generations of same"
-                    + " definition version");
-            // Same definition version: reuse existing generator.
-            // TODO(CLOUDP-366953): Temporary approach to ensure the new index generation points
-            // to the same underlying index when re-using the generator.
-            matViewIndexGeneration.swapIndex(existing.getIndex());
-            return existing;
-          } else {
-            LOG.atWarn()
-                .log(
-                    "Received index generation with lower definition version than existing,"
-                        + " likely a bug");
-            return existing;
-          }
-        });
+    this.activeGenerationIdCatalog.add(autoEmbeddingIndexGeneration);
     if (!this.isReplicationEnabled) {
       LOG.atInfo().log(
           "Skipping creating materialized view generator because replication is disabled.");
@@ -505,7 +462,7 @@ public class MaterializedViewManager implements ReplicationManager {
     // Leader mode: generator runs replication loop and writes to materialized view.
     // Follower mode: generator is passive, status is polled from LeaseManager.
     this.managedMaterializedViewGenerators.compute(
-        uuid,
+        getCollectionUuid(matViewIndexGeneration.getGenerationId()),
         (ignored, existingGenerator) ->
             computeGenerator(existingGenerator, matViewIndexGeneration));
   }
@@ -639,12 +596,16 @@ public class MaterializedViewManager implements ReplicationManager {
     // Capture whether the old generator was a leader BEFORE shutdown.
     // For dynamic leader election, if we were the leader for the old generation,
     // we should also be the leader for the new generation (same index, same lease).
-    GenerationId oldGenerationId = existingGenerator.getIndexGeneration().getGenerationId();
+    MaterializedViewGenerationId oldGenerationId =
+        existingGenerator.getIndexGeneration().getGenerationId();
+
     boolean wasLeader = this.leaseManager.isLeader(oldGenerationId);
     existingGenerator
         .shutdown()
         .thenRun(
             () -> {
+              // Untracks oldGenerationId proactively since new one is ready.
+              this.leaseManager.drop(oldGenerationId);
               this.leaseManager.add(matViewIndexGeneration, skipInitialSync);
               if (this.leaseManager instanceof StaticLeaderLeaseManager) {
                 // For static leader election - see the comments in createNewGenerator().
@@ -713,7 +674,7 @@ public class MaterializedViewManager implements ReplicationManager {
    */
   @Deprecated
   private void activateStaticLeadership(
-      MaterializedViewGenerator generator, GenerationId generationId) {
+      MaterializedViewGenerator generator, MaterializedViewGenerationId generationId) {
     boolean isLeader = this.leaseManager.isLeader(generationId);
     LOG.atInfo()
         .addKeyValue("generationId", generationId)
@@ -729,65 +690,122 @@ public class MaterializedViewManager implements ReplicationManager {
   @Override
   public synchronized CompletableFuture<Void> dropIndex(GenerationId generationId) {
     checkState(!this.shutdown, "cannot call dropIndex() after shutdown()");
+    return cleanUpMatViewResources(generationId)
+        .thenRun(() -> cleanUpGenerationIdStates(generationId));
+  }
+
+  /**
+   * Cleans up internal GenerationId'S internal states including states in leaseManager and
+   * collection metadata for the given generation id with format "indexID1-f6-u1-a0" with indexID1
+   * as indexId.
+   *
+   * <p>For example: we may have indexID1-f6-u1-a0 and indexID1-f6-u1-a1 for
+   * canonicalKey=matview-indexID1-u1, so we keep removing generationIDs in
+   * this.activeGenerationIdCatalog.genIdByMatViewGenId until indexID1-f6-u1-a0 and
+   * indexID1-f6-u1-a1 are all dropped, then triggers this.matViewMetadataCatalog.removeMetadata for
+   * matview-indexID1-u1
+   */
+  private synchronized void cleanUpGenerationIdStates(GenerationId generationId) {
+    // generationId format: indexID-f6-u1-a0, indexID-f6-u1-a1, ....
+    // matViewGeneratorId format: matview-indexID1-u1
+    String matViewGeneratorId = canonicalKey(generationId);
+    // Reference counting GenerationId by matViewGeneratorId, calls leaseManager.drop at the last
+    // GenerationId by matViewGeneratorId, and the de-register metadata for matViewGeneratorId in
+    // matViewMetadataCatalog
+    Set<GenerationId> genIdsByMatViewGeneratorId =
+        this.activeGenerationIdCatalog.genIdByMatViewGenId.get(matViewGeneratorId);
+    if (genIdsByMatViewGeneratorId == null) {
+      return;
+    }
+    genIdsByMatViewGeneratorId.remove(generationId);
+    // No need to clean up lease and metadata for ReuseGenerator cases (Generation::nextAttempt)
+    if (!genIdsByMatViewGeneratorId.isEmpty()) {
+      return;
+    }
+    // There is no active generationIds (indexID-f6-u1-a0, indexID-f6-u1-a1) attached to this
+    // MaterializedViewGenerator (assuming 1:1 mapping between MaterializedViewGenerationId and
+    // MaterializedViewGenerator), ready to clean up MaterializedViewGenerationId in LeaseManager
+    // and Catalog.
+    var matViewGenerationId = MaterializedViewGenerationId.from(generationId);
+    // Don't call leaseManager.dropLease() here, as lease may manage multiple
+    // MaterializedViewGenerationIds.
+    this.leaseManager.drop(matViewGenerationId);
+    this.activeGenerationIdCatalog.genIdByMatViewGenId.remove(matViewGeneratorId);
+    this.matViewMetadataCatalog.removeMetadata(matViewGenerationId);
+  }
+
+  /**
+   * Handles the drop of a materialized view collection by reference counting UUID. Handles both
+   * drop MaterializedView collection and corresponding Lease document
+   *
+   * <p>Leader mode: Shuts down the generator, drops the materialized view collection and cleans up
+   * lease entry.
+   *
+   * <p>Follower mode: Shuts down the generator and clean up lease entry in memory.
+   */
+  private synchronized CompletableFuture<Void> cleanUpMatViewResources(GenerationId generationId) {
     var metadata = this.matViewMetadataCatalog.getMetadataIfPresent(generationId);
     if (metadata.isEmpty()) {
       // Not a materialized-view index (e.g. search or plain vector); nothing to drop here.
       return COMPLETED_FUTURE;
     }
     UUID uuid = metadata.get().collectionUuid();
-    // Don't call this.matViewMetadataCatalog.removeMetadata(generationId) until the corresponding
-    // ReplicationIndexManager shuts down and LeaseManager.drop() is called.
-
-    // Common logic: reference counting
-    if (this.activeGenerationIdByMatViewCollection.containsKey(uuid)) {
-      this.activeGenerationIdByMatViewCollection.get(uuid).remove(generationId);
-      if (this.activeGenerationIdByMatViewCollection.get(uuid).isEmpty()) {
-        this.activeGenerationIdByMatViewCollection.remove(uuid);
-        this.latestMatViewIndexGenerationByCollection.remove(uuid);
-        // removeMetadata(generationId) should happen after LeaseManager cleanup
-        return onDrop(uuid, generationId)
-            .thenRun(() -> this.matViewMetadataCatalog.removeMetadata(generationId));
-      }
+    Set<GenerationId> genIdsByUuid =
+        this.activeGenerationIdCatalog.genIdByMatViewCollection.get(uuid);
+    if (genIdsByUuid == null) {
+      // generationId is dropped twice.
+      return COMPLETED_FUTURE;
     }
-    // Normal case: removeMetadata(generationId) always happens after the corresponding
-    // ReplicationIndexManager shuts down.
-    return COMPLETED_FUTURE.thenRun(() -> this.matViewMetadataCatalog.removeMetadata(generationId));
-  }
-
-  /**
-   * Handles the drop of a materialized view collection.
-   *
-   * <p>Leader mode: Shuts down the generator, drops the materialized view collection, and removes
-   * from lease manager.
-   *
-   * <p>Follower mode: Shuts down the generator and removes from lease manager.
-   */
-  private synchronized CompletableFuture<Void> onDrop(UUID uuid, GenerationId generationId) {
+    genIdsByUuid.remove(generationId);
+    if (!genIdsByUuid.isEmpty()) {
+      // Other generationIds are still using this matview UUID, no need to drop the collection.
+      return COMPLETED_FUTURE;
+    }
+    // No other generationIds are using this matview UUID, good to drop the collection.
+    this.activeGenerationIdCatalog.genIdByMatViewCollection.remove(uuid);
     var generator = this.managedMaterializedViewGenerators.remove(uuid);
-    if (generator == null) {
-      return this.leaseManager.drop(generationId);
+    var lastMaterializedViewIndexGeneration =
+        this.activeGenerationIdCatalog.latestMatViewIndexGenerationByCollection.remove(uuid);
+    if (generator == null && lastMaterializedViewIndexGeneration == null) {
+      // same UUID should already be dropped.
+      return COMPLETED_FUTURE;
     }
-
-    // Use generator.isLeader() to check the generator's current role state.
-    // This is more accurate than leaseManager.isLeader() for dynamic leader election
-    // since the generator tracks its own leadership state.
-    if (generator.isLeader()) {
-      // Leader mode: shutdown generator, drop the materialized view collection, remove from lease
-      var matViewWriter =
-          Check.instanceOf(
-              generator.getIndexGeneration().getIndex().getWriter(), MaterializedViewWriter.class);
-      return generator
-          .shutdown()
-          .thenComposeAsync(ignored -> matViewWriter.dropMaterializedViewCollection())
-          .thenComposeAsync(ignored -> this.leaseManager.drop(generationId))
-          .exceptionally(
-              throwable -> {
-                throw new MaterializedViewNonTransientException(throwable);
-              });
-    } else {
-      // Follower mode: shutdown generator and remove from lease
-      return generator.shutdown().thenComposeAsync(ignored -> this.leaseManager.drop(generationId));
-    }
+    var materializedViewIndexGeneration =
+        generator != null ? generator.getIndexGeneration() : lastMaterializedViewIndexGeneration;
+    // Checks both generator and leaseManager, since we may dropIndex when sync source changes.
+    boolean wasLeader =
+        this.leaseManager.isLeader(materializedViewIndexGeneration.getGenerationId());
+    CompletableFuture<Void> generatorShutdownFuture =
+        generator != null ? generator.shutdown() : COMPLETED_FUTURE;
+    return generatorShutdownFuture
+        .exceptionally(
+            throwable -> {
+              LOG.error(
+                  "Failed to shutdown generator for {}, ignore it for now.",
+                  generationId,
+                  throwable);
+              return null;
+            })
+        .thenComposeAsync(
+            ignored -> {
+              if (wasLeader) {
+                return materializedViewIndexGeneration
+                    .getIndex()
+                    .getWriter()
+                    .dropMaterializedViewCollection()
+                    .exceptionally(
+                        throwable -> {
+                          LOG.error(
+                              "Failed to drop materialized view collection for {}, "
+                                  + "ignore it for now.",
+                              generationId,
+                              throwable);
+                          return null;
+                        });
+              }
+              return COMPLETED_FUTURE;
+            })
+        .thenComposeAsync(ignored -> this.leaseManager.dropLease(metadata.get().collectionName()));
   }
 
   @Override
@@ -869,7 +887,7 @@ public class MaterializedViewManager implements ReplicationManager {
 
     // Dynamic leader election only: attempt to acquire leadership for acquirable leases.
     if (this.leaseManager instanceof DynamicLeaderLeaseManager) {
-      for (GenerationId generationId : pollResult.acquirableLeases()) {
+      for (MaterializedViewGenerationId generationId : pollResult.acquirableLeases()) {
         if (this.leaseManager.tryAcquireLeadership(generationId)) {
           // Successfully acquired leadership - transition generator to leader mode.
           UUID uuid = getCollectionUuid(generationId);
@@ -1001,17 +1019,22 @@ public class MaterializedViewManager implements ReplicationManager {
     }
   }
 
-  public UUID getCollectionUuid(GenerationId generationId) {
+  public UUID getCollectionUuid(MaterializedViewGenerationId generationId) {
     return this.matViewMetadataCatalog.getMetadata(generationId).collectionUuid();
   }
 
   public synchronized void restartReplication() {
     this.isReplicationEnabled = true;
-    this.latestMatViewIndexGenerationByCollection.forEach(
+    this.activeGenerationIdCatalog.latestMatViewIndexGenerationByCollection.forEach(
         (uuid, matViewIndexGeneration) -> {
           this.managedMaterializedViewGenerators.put(
               uuid, createNewGenerator(matViewIndexGeneration));
         });
+  }
+
+  @VisibleForTesting
+  synchronized ActiveGenerationIdCatalog getActiveGenerationIdCatalog() {
+    return this.activeGenerationIdCatalog;
   }
 
   /**
@@ -1184,6 +1207,91 @@ public class MaterializedViewManager implements ReplicationManager {
                           }))
           .whenCompleteAsync(
               (result, throwable) -> this.syncBatchMongoClient.ifPresent(BatchMongoClient::close));
+    }
+  }
+
+  /**
+   * GenerationId Catalog categorizes all GenerationIDs by two GroupBy keys, MaterializedView
+   * Collection UUID and MaterializedViewGenerationId.
+   *
+   * <p>For example: Given the indexId = 123abc, we have GenerationIds =
+   * ['123abc-f6-u0-a0','123abc-f6-u0-a1','123abc-f6-u1-a0','123abc-f6-u1-a1', '123abc-f6-u2-a0']
+   * <br>
+   * '123abc-f6-u0-a0': initial definition<br>
+   * '123abc-f6-u0-a1': retried generation<br>
+   * '123abc-f6-u1-a0': definition update with new filter but uses same UUID<br>
+   * '123abc-f6-u1-a1': retried generation<br>
+   * '123abc-f6-u2-a0': definition update with new UUID<br>
+   *
+   * <p>genIdByMatViewCollection = {uuid1:
+   * ['123abc-f6-u0-a0','123abc-f6-u0-a1','123abc-f6-u1-a0','123abc-f6-u1-a1'], uuid2:
+   * ['123abc-f6-u2-a0']}<br>
+   * genIdByMatViewGenId = {'matview-123abc-u0': ['123abc-f6-u0-a0','123abc-f6-u0-a1'],
+   * 'matview-123abc-u1': ['123abc-f6-u1-a0','123abc-f6-u1-a1'], 'matview-123abc-u2':
+   * ['123abc-f6-u2-a0']} <br>
+   * latestMatViewIndexGenerationByCollection is just a simpler map for genIdByMatViewCollection,
+   * used as MatViewIndexGeneration buffer for RestartReplication.
+   */
+  static class ActiveGenerationIdCatalog {
+    private final MaterializedViewCollectionMetadataCatalog matViewMetadataCatalog;
+    final Map<UUID, Set<GenerationId>> genIdByMatViewCollection;
+    // String MaterializedViewGenerationId key is also unique ID for MaterializedViewGenerator.
+    final Map<String, Set<GenerationId>> genIdByMatViewGenId;
+    // Used as buffer for RestartReplication, we can't use this.managedMaterializedViewGenerators to
+    // buffer MatViewIndexGeneration since GeneratorFactory is being updated.
+    final Map<UUID, MaterializedViewIndexGeneration> latestMatViewIndexGenerationByCollection;
+
+    private ActiveGenerationIdCatalog(
+        MaterializedViewCollectionMetadataCatalog matViewMetadataCatalog) {
+      this.matViewMetadataCatalog = matViewMetadataCatalog;
+      this.genIdByMatViewCollection = new ConcurrentHashMap<>();
+      this.genIdByMatViewGenId = new ConcurrentHashMap<>();
+      this.latestMatViewIndexGenerationByCollection = new ConcurrentHashMap<>();
+    }
+
+    void add(AutoEmbeddingIndexGeneration autoEmbeddingIndexGeneration) {
+      MaterializedViewIndexGeneration matViewIndexGeneration =
+          autoEmbeddingIndexGeneration.getMaterializedViewIndexGeneration();
+      GenerationId generationId = autoEmbeddingIndexGeneration.getGenerationId();
+      UUID uuid = this.matViewMetadataCatalog.getMetadata(generationId).collectionUuid();
+      // Reference counting by all indexGenerations with all attempts
+      String matViewGeneratorId = canonicalKey(generationId);
+      this.genIdByMatViewCollection
+          .computeIfAbsent(uuid, unused -> ConcurrentHashMap.newKeySet())
+          .add(generationId);
+      this.genIdByMatViewGenId
+          .computeIfAbsent(matViewGeneratorId, unused -> ConcurrentHashMap.newKeySet())
+          .add(generationId);
+      // Front loads swapIndex logic across matViewIndexGenerations when replication is disabled
+      // during sync source changes
+      this.latestMatViewIndexGenerationByCollection.compute(
+          uuid,
+          (unused, existing) -> {
+            if (existing == null) {
+              return matViewIndexGeneration;
+            }
+            long newVersion =
+                matViewIndexGeneration.getDefinition().getDefinitionVersion().orElse(0L);
+            long existingVersion = existing.getDefinition().getDefinitionVersion().orElse(0L);
+            if (newVersion > existingVersion) {
+              return matViewIndexGeneration;
+            } else if (newVersion == existingVersion) {
+              LOG.atInfo().log(
+                  "Swapping index to allow index status in sync between generations of same"
+                      + " definition version");
+              // Same definition version: reuse existing generator.
+              // TODO(CLOUDP-366953): Temporary approach to ensure the new index generation points
+              // to the same underlying index when re-using the generator.
+              matViewIndexGeneration.swapIndex(existing.getIndex());
+              return existing;
+            } else {
+              LOG.atWarn()
+                  .log(
+                      "Received index generation with lower definition version than existing,"
+                          + " likely a bug");
+              return existing;
+            }
+          });
     }
   }
 

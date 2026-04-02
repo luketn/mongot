@@ -51,14 +51,13 @@ public class MaterializedViewCollectionMetadataCatalogTest {
   }
 
   /**
-   * Same in reverse: add with GenerationId, get with MaterializedViewGenerationId. Both types
-   * produce the same canonical key.
+   * Verifies that getMetadata works with MaterializedViewGenerationId after adding with it. Both
+   * MaterializedViewGenerationId and GenerationId produce the same canonical key for lookup.
    */
   @Test
-  public void addWithGenerationId_getWithMaterializedViewGenerationId_returnsSameMetadata() {
+  public void getWithMaterializedViewGenerationId_returnsSameMetadata() {
     ObjectId indexId = new ObjectId();
     Generation generation = Generation.CURRENT;
-    GenerationId rawId = new GenerationId(indexId, generation);
     MaterializedViewGenerationId matViewId =
         new MaterializedViewGenerationId(indexId, new MaterializedViewGeneration(generation));
 
@@ -68,7 +67,7 @@ public class MaterializedViewCollectionMetadataCatalogTest {
             UUID.randomUUID(),
             "testColl");
 
-    this.catalog.addMetadata(rawId, metadata);
+    this.catalog.addMetadata(matViewId, metadata);
 
     MaterializedViewCollectionMetadata found = this.catalog.getMetadata(matViewId);
     assertThat(found).isNotNull();
@@ -97,7 +96,7 @@ public class MaterializedViewCollectionMetadataCatalogTest {
     this.catalog.addMetadata(matViewId, metadata);
     assertThat(this.catalog.getMetadata(rawId)).isNotNull();
 
-    this.catalog.removeMetadata(rawId);
+    this.catalog.removeMetadata(matViewId);
     assertThrows(IllegalStateException.class, () -> this.catalog.getMetadata(matViewId));
     assertThat(this.catalog.getMetadataIfPresent(rawId)).isEmpty();
   }

@@ -39,6 +39,8 @@ import com.xgen.mongot.index.definition.VectorIndexFieldMapping;
 import com.xgen.mongot.index.version.Generation;
 import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.mongot.index.version.IndexFormatVersion;
+import com.xgen.mongot.index.version.MaterializedViewGeneration;
+import com.xgen.mongot.index.version.MaterializedViewGenerationId;
 import com.xgen.mongot.util.BsonUtils;
 import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.bson.Vector;
@@ -299,7 +301,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
       IOException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     ObjectId indexId = new ObjectId();
-    var generationId = new GenerationId(indexId, Generation.CURRENT);
+    var generationId =
+        new MaterializedViewGenerationId(
+            indexId, new MaterializedViewGeneration(Generation.CURRENT));
 
     EmbeddingIndexingWorkScheduler scheduler =
         schedulerForMaterializedViewIndex(
@@ -347,7 +351,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
   public void testAutoEmbeddingMaterializedViewTransientException() throws IOException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     ObjectId indexId = new ObjectId();
-    var generationId = new GenerationId(indexId, Generation.CURRENT);
+    var generationId =
+        new MaterializedViewGenerationId(
+            indexId, new MaterializedViewGeneration(Generation.CURRENT));
     EmbeddingIndexingWorkScheduler scheduler =
         schedulerForMaterializedViewIndex(
             Suppliers.ofInstance(
@@ -449,7 +455,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
       IOException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     ObjectId indexId = new ObjectId();
-    var generationId = new GenerationId(indexId, Generation.CURRENT);
+    var generationId =
+        new MaterializedViewGenerationId(
+            indexId, new MaterializedViewGeneration(Generation.CURRENT));
     var embeddingServiceManager =
         spy(
             new EmbeddingServiceManager(
@@ -513,7 +521,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
           IOException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     ObjectId indexId = new ObjectId();
-    var generationId = new GenerationId(indexId, Generation.CURRENT);
+    var generationId =
+        new MaterializedViewGenerationId(
+            indexId, new MaterializedViewGeneration(Generation.CURRENT));
     var embeddingServiceManager =
         spy(
             new EmbeddingServiceManager(
@@ -581,7 +591,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     ObjectId indexId = new ObjectId();
-    var generationId = new GenerationId(indexId, Generation.CURRENT);
+    var generationId =
+        new MaterializedViewGenerationId(
+            indexId, new MaterializedViewGeneration(Generation.CURRENT));
     var embeddingServiceManager =
         spy(
             new EmbeddingServiceManager(
@@ -714,7 +726,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
   public void testGlobalBudgetExceededFastFails() {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     ObjectId indexId = new ObjectId();
-    var generationId = new GenerationId(indexId, Generation.CURRENT);
+    var generationId =
+        new MaterializedViewGenerationId(
+            indexId, new MaterializedViewGeneration(Generation.CURRENT));
     // 1-byte budget: any batch with an auto-embed field will exceed it
     // (bytesPerDoc = 1024 dims * 4 bytes = 4096 for voyage-3-large)
     AutoEmbeddingMemoryBudget tinyBudget = new AutoEmbeddingMemoryBudget(1, false);
@@ -763,7 +777,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
       throws ExecutionException, InterruptedException, TimeoutException {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     ObjectId indexId = new ObjectId();
-    var generationId = new GenerationId(indexId, Generation.CURRENT);
+    var generationId =
+        new MaterializedViewGenerationId(
+            indexId, new MaterializedViewGeneration(Generation.CURRENT));
     // bytesPerDoc = 1024 dims * 4 bytes = 4096; budget fits exactly one doc's batch
     AutoEmbeddingMemoryBudget budget = new AutoEmbeddingMemoryBudget(4096, false);
 
@@ -807,7 +823,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
   public void testGlobalBudgetReleasedAfterFailedBatch() {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     ObjectId indexId = new ObjectId();
-    var generationId = new GenerationId(indexId, Generation.CURRENT);
+    var generationId =
+        new MaterializedViewGenerationId(
+            indexId, new MaterializedViewGeneration(Generation.CURRENT));
     AutoEmbeddingMemoryBudget budget = new AutoEmbeddingMemoryBudget(4096, false);
 
     // FakeEmbeddingClientFactory with "aString" as a transient failure trigger
@@ -855,7 +873,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
   public void testPerBatchBudgetCommitsAfterEachSubBatch() throws Exception {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
     ObjectId indexId = new ObjectId();
-    var generationId = new GenerationId(indexId, Generation.CURRENT);
+    var generationId =
+        new MaterializedViewGenerationId(
+            indexId, new MaterializedViewGeneration(Generation.CURRENT));
     // bytesPerDoc = 1024 dims * 4 bytes = 4096; per-batch budget of 4096 → subBatchSize = 1
     long perBatchBudget = 4096;
 
@@ -911,7 +931,9 @@ public class EmbeddingIndexingWorkSchedulerTest {
   public void testGlobalBudgetReleasedWhenBatchFutureConstructionThrowsSynchronously()
       throws ExecutionException, InterruptedException {
     ObjectId indexId = new ObjectId();
-    var generationId = new GenerationId(indexId, Generation.CURRENT);
+    var generationId =
+        new MaterializedViewGenerationId(
+            indexId, new MaterializedViewGeneration(Generation.CURRENT));
     // Use a bounded budget so getCurrentUsageBytes() is tracked.
     AutoEmbeddingMemoryBudget budget = new AutoEmbeddingMemoryBudget(Long.MAX_VALUE / 2, false);
 
@@ -963,7 +985,7 @@ public class EmbeddingIndexingWorkSchedulerTest {
   }
 
   private EmbeddingIndexingWorkScheduler schedulerForMaterializedViewIndex(
-      Supplier<EmbeddingServiceManager> supplier, GenerationId generationId) {
+      Supplier<EmbeddingServiceManager> supplier, MaterializedViewGenerationId generationId) {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
     NamedExecutorService executor = Executors.fixedSizeThreadPool("indexing", 2, meterRegistry);
     var matViewCollectionMetadataCatalog = new MaterializedViewCollectionMetadataCatalog();
@@ -977,7 +999,7 @@ public class EmbeddingIndexingWorkSchedulerTest {
 
   private EmbeddingIndexingWorkScheduler schedulerForMaterializedViewIndexWithBudget(
       Supplier<EmbeddingServiceManager> supplier,
-      GenerationId generationId,
+      MaterializedViewGenerationId generationId,
       AutoEmbeddingMemoryBudget globalBudget,
       long perBatchBudgetBytes) {
     SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();

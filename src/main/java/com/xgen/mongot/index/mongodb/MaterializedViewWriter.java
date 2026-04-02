@@ -119,8 +119,10 @@ public class MaterializedViewWriter implements IndexWriter {
    */
   private boolean closed;
 
-  MaterializedViewWriter(
+  /** Builds Materialized View Writer for an auto embedding index. */
+  public MaterializedViewWriter(
       AutoEmbeddingMongoClient autoEmbeddingMongoClient,
+      String databaseName,
       String matViewName,
       MaterializedViewGenerationId generationId,
       LeaseManager leaseManager,
@@ -128,7 +130,7 @@ public class MaterializedViewWriter implements IndexWriter {
       UUID collectionUuid,
       Optional<RateLimiter> rateLimiter) {
     this.autoEmbeddingMongoClient = autoEmbeddingMongoClient;
-    this.namespace = new MongoNamespace(MV_DATABASE_NAME, matViewName);
+    this.namespace = new MongoNamespace(databaseName, matViewName);
     this.generationId = generationId;
     this.leaseManager = leaseManager;
     this.bulkOperationsRef = new AtomicReference<>(new ConcurrentLinkedQueue<>());
@@ -344,6 +346,7 @@ public class MaterializedViewWriter implements IndexWriter {
         UUID collectionUuid) {
       return new MaterializedViewWriter(
           this.autoEmbeddingMongoClient,
+          MV_DATABASE_NAME,
           matViewColName,
           generationId,
           leaseManager,

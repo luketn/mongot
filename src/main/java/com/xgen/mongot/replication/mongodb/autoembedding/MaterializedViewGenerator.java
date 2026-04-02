@@ -1,9 +1,9 @@
 package com.xgen.mongot.replication.mongodb.autoembedding;
 
+
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.xgen.mongot.cursor.MongotCursorManager;
 import com.xgen.mongot.featureflag.FeatureFlags;
-import com.xgen.mongot.index.IndexGeneration;
 import com.xgen.mongot.index.autoembedding.InitializedMaterializedViewIndex;
 import com.xgen.mongot.index.autoembedding.MaterializedViewIndexGeneration;
 import com.xgen.mongot.index.status.IndexStatus;
@@ -77,7 +77,7 @@ public class MaterializedViewGenerator extends ReplicationIndexManager {
       MongotCursorManager cursorManager,
       InitialSyncQueue initialSyncQueue,
       SteadyStateManager steadyStateManager,
-      IndexGeneration indexGeneration,
+      MaterializedViewIndexGeneration indexGeneration,
       InitializedMaterializedViewIndex matViewIndex,
       DocumentIndexer documentIndexer,
       PeriodicIndexCommitter periodicCommitter,
@@ -174,7 +174,7 @@ public class MaterializedViewGenerator extends ReplicationIndexManager {
       MongotCursorManager cursorManager,
       InitialSyncQueue initialSyncQueue,
       SteadyStateManager steadyStateManager,
-      IndexGeneration indexGeneration,
+      MaterializedViewIndexGeneration indexGeneration,
       InitializedMaterializedViewIndex matViewIndex,
       DocumentIndexer documentIndexer,
       PeriodicIndexCommitter periodicCommitter,

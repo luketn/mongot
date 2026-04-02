@@ -2,18 +2,24 @@ package com.xgen.mongot.embedding.mongodb.leasing;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO;
+import static com.xgen.testing.mongot.mock.index.MaterializedViewIndex.mockMatViewIndexGeneration;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.result.DeleteResult;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
+import com.xgen.mongot.index.autoembedding.MaterializedViewIndexGeneration;
 import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
 import com.xgen.mongot.index.status.IndexStatus;
+import com.xgen.mongot.index.version.MaterializedViewGenerationId;
 import com.xgen.testing.mongot.metrics.SimpleMetricsFactory;
 import com.xgen.testing.mongot.mock.index.MaterializedViewIndex;
 import java.time.Instant;
@@ -153,6 +159,89 @@ public class StaticLeaderLeaseManagerTest {
     assertThat(result).isEqualTo(proposedMetadata);
   }
 
+  // ==================== drop Tests ====================
+
+  @Test
+  public void drop_asLeader_onlyUntracksGenerationId() {
+    // Arrange
+    StaticLeaderLeaseManager leaseManager = createLeaseManager(true);
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
+    leaseManager.add(indexGeneration, false);
+
+    // Verify generationId is tracked
+    assertThat(leaseManager.getLeaderGenerationIds()).contains(generationId);
+
+    // Act
+    leaseManager.drop(generationId);
+
+    // Assert - generationId is untracked from managedGenerationIds
+    assertThat(leaseManager.getLeaderGenerationIds()).doesNotContain(generationId);
+    // Assert - lease is still in local cache (drop() does not remove from leases map)
+    assertThat(leaseManager.getLeases().get(getLeaseKeyFromCatalog(generationId))).isNotNull();
+    // Assert - deleteOne was NOT called (drop does not touch DB)
+    verify(this.mockCollection, never()).deleteOne(any(Bson.class));
+  }
+
+  @Test
+  public void drop_asFollower_onlyUntracksGenerationId() {
+    // Arrange
+    StaticLeaderLeaseManager leaseManager = createLeaseManager(false);
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
+    leaseManager.add(indexGeneration, false);
+
+    // Act
+    leaseManager.drop(generationId);
+
+    // Assert - generationId is untracked
+    assertThat(leaseManager.getLeaderGenerationIds()).doesNotContain(generationId);
+    // Assert - deleteOne was NOT called
+    verify(this.mockCollection, never()).deleteOne(any(Bson.class));
+  }
+
+  // ==================== dropLease Tests ====================
+
+  @Test
+  public void dropLease_asLeader_deletesFromDatabase() {
+    // Arrange
+    StaticLeaderLeaseManager leaseManager = createLeaseManager(true);
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
+    leaseManager.add(indexGeneration, false);
+
+    // Setup delete mock
+    DeleteResult deleteResult = mock(DeleteResult.class);
+    when(this.mockCollection.deleteOne(any(Document.class))).thenReturn(deleteResult);
+
+    // Act - dropLease deletes from memory and database
+    String leaseKey = getLeaseKeyFromCatalog(generationId);
+    leaseManager.dropLease(leaseKey).join();
+
+    // Assert - verify deleteOne was called
+    verify(this.mockCollection).deleteOne(any(Document.class));
+    // Assert - lease is removed from local cache
+    assertThat(leaseManager.getLeases()).doesNotContainKey(leaseKey);
+  }
+
+  @Test
+  public void dropLease_asFollower_removesFromMemoryOnly() {
+    // Arrange
+    StaticLeaderLeaseManager leaseManager = createLeaseManager(false);
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
+    leaseManager.add(indexGeneration, false);
+
+    // Act - dropLease removes from memory but does not delete from DB
+    String leaseKey = getLeaseKeyFromCatalog(generationId);
+    leaseManager.dropLease(leaseKey).join();
+
+    // Assert - verify deleteOne was NOT called (follower doesn't own the lease in DB)
+    verify(this.mockCollection, never()).deleteOne(any(Document.class));
+    // Assert - lease is removed from local cache
+    assertThat(leaseManager.getLeases()).doesNotContainKey(leaseKey);
+  }
+
   // ==================== Helper Methods ====================
 
   private StaticLeaderLeaseManager createLeaseManager(boolean isLeader) {
@@ -163,6 +252,33 @@ public class StaticLeaderLeaseManagerTest {
         DATABASE_NAME,
         isLeader,
         this.mvMetadataCatalog);
+  }
+
+  /**
+   * Creates a MaterializedViewIndexGeneration and registers its generationId in the catalog so that
+   * StaticLeaderLeaseManager.getLeaseKey (which uses catalog) works.
+   */
+  private MaterializedViewIndexGeneration createTestIndexGeneration() {
+    MaterializedViewIndexDefinitionGeneration defGen =
+        MaterializedViewIndex.mockMatViewDefinitionGeneration(new ObjectId());
+    MaterializedViewIndexGeneration gen = mockMatViewIndexGeneration(defGen);
+    addCatalogMetadataForGeneration(gen.getGenerationId());
+    return gen;
+  }
+
+  private void addCatalogMetadataForGeneration(MaterializedViewGenerationId generationId) {
+    String collectionName = generationId.indexId.toHexString();
+    MaterializedViewCollectionMetadata metadata =
+        new MaterializedViewCollectionMetadata(
+            new MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata(0, Map.of()),
+            UUID.randomUUID(),
+            collectionName);
+    this.mvMetadataCatalog.addMetadata(generationId, metadata);
+  }
+
+  /** Returns the lease key (collection name) for the given generation from the catalog. */
+  private String getLeaseKeyFromCatalog(MaterializedViewGenerationId generationId) {
+    return this.mvMetadataCatalog.getMetadata(generationId).collectionName();
   }
 
   private Lease createLeaseWithMetadata(

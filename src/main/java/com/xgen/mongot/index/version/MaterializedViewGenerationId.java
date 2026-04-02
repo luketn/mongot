@@ -13,6 +13,11 @@ public class MaterializedViewGenerationId extends GenerationId {
     this.generation = generation;
   }
 
+  public static MaterializedViewGenerationId from(GenerationId generationId) {
+    return new MaterializedViewGenerationId(
+        generationId.indexId, new MaterializedViewGeneration(generationId.generation));
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {

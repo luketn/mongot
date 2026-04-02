@@ -5,9 +5,9 @@ import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientExceptio
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexGeneration;
-import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
+import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
 import com.xgen.mongot.index.status.IndexStatus;
-import com.xgen.mongot.index.version.GenerationId;
+import com.xgen.mongot.index.version.MaterializedViewGenerationId;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
@@ -40,7 +40,8 @@ public interface LeaseManager {
    * @param acquirableLeases Set of generation IDs eligible for leadership acquisition
    */
   record FollowerPollResult(
-      Map<GenerationId, IndexStatus> statuses, Set<GenerationId> acquirableLeases) {
+      Map<MaterializedViewGenerationId, IndexStatus> statuses,
+      Set<MaterializedViewGenerationId> acquirableLeases) {
     /** An empty result with no statuses and no acquirable leases. */
     public static final FollowerPollResult EMPTY =
         new FollowerPollResult(Collections.emptyMap(), Collections.emptySet());
@@ -69,13 +70,21 @@ public interface LeaseManager {
   void add(IndexGeneration indexGeneration, boolean skipInitialSync);
 
   /**
-   * Drops the given index generation from the lease. Deletes the lease entirely if this is the last
-   * index generation in the lease.
+   * Drops the given index generation from the tracking list in LeaseManager.
    *
    * @param generationId the generation id to remove the lease for
+   */
+  void drop(MaterializedViewGenerationId generationId);
+
+  /**
+   * Deletes the lease entirely in both database and memory, only call this when corresponding
+   * materialized view collection is GC'd or user deletes the whole index.
+   *
+   * @param leaseKey the string lease key for lease to be removed, should be same as collection
+   *     name.
    * @return a future that completes when the lease has been dropped
    */
-  CompletableFuture<Void> drop(GenerationId generationId);
+  CompletableFuture<Void> dropLease(String leaseKey);
 
   /**
    * Returns true if the current mongot is the leader for the given generation id.
@@ -83,7 +92,7 @@ public interface LeaseManager {
    * @param generationId the generation id to check
    * @return true if the caller is the leader
    */
-  boolean isLeader(GenerationId generationId);
+  boolean isLeader(MaterializedViewGenerationId generationId);
 
   /**
    * Updates the commit info (replication checkpoint state) for the given generation id.
@@ -91,7 +100,7 @@ public interface LeaseManager {
    * @param generationId the generation id to update
    * @param encodedUserData the commit info to update
    */
-  void updateCommitInfo(GenerationId generationId, EncodedUserData encodedUserData)
+  void updateCommitInfo(MaterializedViewGenerationId generationId, EncodedUserData encodedUserData)
       throws MaterializedViewTransientException, MaterializedViewNonTransientException;
 
   /**
@@ -101,7 +110,7 @@ public interface LeaseManager {
    * @return the commit info
    * @throws IOException if there are any issues talking to the lease store
    */
-  EncodedUserData getCommitInfo(GenerationId generationId) throws IOException;
+  EncodedUserData getCommitInfo(MaterializedViewGenerationId generationId) throws IOException;
 
   /**
    * Updates the status of the materialized view replication.
@@ -111,7 +120,9 @@ public interface LeaseManager {
    * @param indexStatus the status to update to
    */
   void updateReplicationStatus(
-      GenerationId generationId, long indexDefinitionVersion, IndexStatus indexStatus)
+      MaterializedViewGenerationId generationId,
+      long indexDefinitionVersion,
+      IndexStatus indexStatus)
       throws MaterializedViewTransientException, MaterializedViewNonTransientException;
 
   /**
@@ -119,14 +130,14 @@ public interface LeaseManager {
    *
    * @return a set of generation IDs where this instance is the leader
    */
-  Set<GenerationId> getLeaderGenerationIds();
+  Set<MaterializedViewGenerationId> getLeaderGenerationIds();
 
   /**
    * Returns all generation IDs where this instance is a follower.
    *
    * @return a set of generation IDs where this instance is a follower
    */
-  Set<GenerationId> getFollowerGenerationIds();
+  Set<MaterializedViewGenerationId> getFollowerGenerationIds();
 
   /**
    * Polls the status of all follower materialized views from the database. This method reads the
@@ -148,16 +159,16 @@ public interface LeaseManager {
    * @param generationId the generation id
    * @return the steady-as-of position, or empty if MV hasn't reached STEADY yet
    */
-  Optional<BsonTimestamp> getSteadyAsOfOplogPosition(GenerationId generationId);
+  Optional<BsonTimestamp> getSteadyAsOfOplogPosition(MaterializedViewGenerationId generationId);
 
   /**
-   * Returns the current lease version for the given generation ID.
-   * Used as a fencing token for MV writes.
+   * Returns the current lease version for the given generation ID. Used as a fencing token for MV
+   * writes.
    *
    * @param generationId the generation ID
    * @return the current lease version, or Long.MAX_VALUE for static leaders
    */
-  default long getLeaseVersion(GenerationId generationId) {
+  default long getLeaseVersion(MaterializedViewGenerationId generationId) {
     return Long.MAX_VALUE;
   }
 
@@ -183,7 +194,7 @@ public interface LeaseManager {
    * @param generationId the generation ID to acquire leadership for
    * @return true if leadership was successfully acquired, false otherwise
    */
-  default boolean tryAcquireLeadership(GenerationId generationId) {
+  default boolean tryAcquireLeadership(MaterializedViewGenerationId generationId) {
     // Default implementation: no-op for static leader
     return false;
   }
@@ -198,7 +209,7 @@ public interface LeaseManager {
    * @return the synchronized MaterializedViewCollectionMetadata
    */
   MaterializedViewCollectionMetadata initializeLease(
-      IndexDefinitionGeneration indexDefinitionGeneration,
+      MaterializedViewIndexDefinitionGeneration indexDefinitionGeneration,
       MaterializedViewCollectionMetadata proposedMetadata)
       throws Exception;
 

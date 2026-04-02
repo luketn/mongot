@@ -20,7 +20,6 @@ import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalo
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
-import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
 import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.index.version.Generation;
@@ -113,7 +112,8 @@ public class MaterializedViewCollectionResolverTest {
     when(this.mongoDatabase.listCollections(BsonDocument.class))
         .thenReturn(this.listCollectionsIterable);
     when(this.leaseManager.initializeLease(
-            any(IndexDefinitionGeneration.class), any(MaterializedViewCollectionMetadata.class)))
+            any(MaterializedViewIndexDefinitionGeneration.class),
+            any(MaterializedViewCollectionMetadata.class)))
         .thenAnswer(inv -> inv.getArgument(1));
   }
 

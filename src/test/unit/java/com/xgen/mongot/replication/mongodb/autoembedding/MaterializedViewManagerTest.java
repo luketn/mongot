@@ -1,17 +1,21 @@
 package com.xgen.mongot.replication.mongodb.autoembedding;
 
+import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog.canonicalKey;
 import static com.xgen.mongot.util.FutureUtils.COMPLETED_FUTURE;
 import static com.xgen.testing.mongot.mock.index.MaterializedViewIndex.mockMatViewDefinitionGeneration;
 import static com.xgen.testing.mongot.mock.index.MaterializedViewIndex.mockMatViewIndexGeneration;
 import static com.xgen.testing.mongot.mock.replication.mongodb.common.SessionRefresher.mockSessionRefresher;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -41,7 +45,9 @@ import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.version.Generation;
 import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.mongot.index.version.IndexFormatVersion;
+import com.xgen.mongot.index.version.MaterializedViewGeneration;
 import com.xgen.mongot.index.version.MaterializedViewGenerationId;
+import com.xgen.mongot.index.version.UserIndexVersion;
 import com.xgen.mongot.replication.mongodb.common.ClientSessionRecord;
 import com.xgen.mongot.replication.mongodb.common.DecodingWorkScheduler;
 import com.xgen.mongot.replication.mongodb.common.DocumentIndexer;
@@ -193,13 +199,14 @@ public class MaterializedViewManagerTest {
     // Drop the index - this triggers onDrop -> leaseManager.drop -> then removeMetadata
     mocks.manager.dropIndex(MOCK_GENERATION_ID).get(5, TimeUnit.SECONDS);
 
-    // Verify ordering: leaseManager.drop() must complete BEFORE removeMetadata() is called.
-    // This is critical because leaseManager.drop() internally calls getLeaseKey(generationId),
-    // which resolves the collection name via mvMetadataCatalog.getMetadata(generationId).
-    // If removeMetadata ran first, getLeaseKey would fail.
+    // Verify ordering: leaseManager.drop() (which untracks the generationId) must complete
+    // BEFORE removeMetadata() is called. This ensures the generationId is fully untracked
+    // before the metadata is cleaned up.
     InOrder inOrder = Mockito.inOrder(mocks.leaseManager, mocks.metadataCatalog);
-    inOrder.verify(mocks.leaseManager).drop(MOCK_GENERATION_ID);
-    inOrder.verify(mocks.metadataCatalog).removeMetadata(MOCK_GENERATION_ID);
+    inOrder.verify(mocks.leaseManager).drop(MOCK_MAT_VIEW_GENERATION_ID);
+    inOrder
+        .verify(mocks.metadataCatalog)
+        .removeMetadata(materializedViewindexGeneration.getGenerationId());
   }
 
   @Test
@@ -644,6 +651,75 @@ public class MaterializedViewManagerTest {
   }
 
   @Test
+  public void testDropIndex_whenReplicationDisabled_leaderDropsLeaseAndCollection()
+      throws Exception {
+    // Exercises the generator==null path in maybeDropCollectionAndLease:
+    // When replication is disabled, add() records UUID refcounts and
+    // latestMatViewIndexGenerationByCollection but does NOT create a generator.
+    // On dropIndex, the new code path uses lastMaterializedViewIndexGeneration to drop
+    // the lease and the MV collection.
+    Mocks mocks = Mocks.create();
+    mocks.manager.setIsReplicationEnabled(false);
+
+    MaterializedViewIndexGeneration matViewIndexGeneration =
+        mockMatViewIndexGeneration(MOCK_INDEX_DEFINITION_GENERATION);
+    mocks.mockMaterializedViewGenerator(matViewIndexGeneration);
+    mocks.addIndexForReplication(matViewIndexGeneration);
+
+    // Verify no generator was created
+    verify(mocks.materializedViewGeneratorFactory, never()).create(any());
+
+    // Verify refcounts are recorded
+    UUID uuid = UUID.nameUUIDFromBytes(INDEX_ID.toHexString().getBytes(StandardCharsets.UTF_8));
+    assertNotNull(mocks.manager.getActiveGenerationIdCatalog().genIdByMatViewCollection.get(uuid));
+
+    // Construct the GenerationId that DefaultLifecycleManager would pass
+    GenerationId dropGenId =
+        new GenerationId(
+            INDEX_ID,
+            new Generation(Generation.CURRENT.userIndexVersion, IndexFormatVersion.CURRENT, 0));
+
+    // Act — drop the index while replication is disabled
+    mocks.manager.dropIndex(dropGenId).get(5, TimeUnit.SECONDS);
+
+    // Assert — lease is dropped (generator==null path uses lastMaterializedViewIndexGeneration)
+    verify(mocks.leaseManager).dropLease(any(String.class));
+    // Assert — leader drops the MV collection via lastMaterializedViewIndexGeneration's writer
+    verify(matViewIndexGeneration.getIndex().getWriter()).dropMaterializedViewCollection();
+    // Assert — refcounts are cleaned
+    assertNull(mocks.manager.getActiveGenerationIdCatalog().genIdByMatViewCollection.get(uuid));
+  }
+
+  @Test
+  public void testDropIndex_whenReplicationDisabled_followerDropsLeaseOnly() throws Exception {
+    // Follower path of the generator==null code path in maybeDropCollectionAndLease:
+    // Follower drops the lease from memory but does NOT drop the MV collection.
+    Mocks mocks = Mocks.createFollower();
+    mocks.manager.setIsReplicationEnabled(false);
+
+    MaterializedViewIndexGeneration matViewIndexGeneration =
+        mockMatViewIndexGeneration(MOCK_INDEX_DEFINITION_GENERATION);
+    mocks.addIndexForReplication(matViewIndexGeneration);
+
+    // Verify no generator was created
+    verify(mocks.materializedViewGeneratorFactory, never()).create(any());
+
+    // Construct the GenerationId
+    GenerationId dropGenId =
+        new GenerationId(
+            INDEX_ID,
+            new Generation(Generation.CURRENT.userIndexVersion, IndexFormatVersion.CURRENT, 0));
+
+    // Act
+    mocks.manager.dropIndex(dropGenId).get(5, TimeUnit.SECONDS);
+
+    // Assert — lease is dropped from memory
+    verify(mocks.leaseManager).dropLease(any(String.class));
+    // Assert — follower does NOT drop the MV collection (not leader)
+    verify(matViewIndexGeneration.getIndex().getWriter(), never()).dropMaterializedViewCollection();
+  }
+
+  @Test
   public void testRestartReplication_createsGeneratorsFromBuffer() {
     Mocks mocks = Mocks.create();
     mocks.manager.setIsReplicationEnabled(false);
@@ -818,6 +894,177 @@ public class MaterializedViewManagerTest {
   }
 
   @Test
+  public void testDropDuringDisabledReplication_removesFromBuffer_restartCreatesNothing()
+      throws Exception {
+    // add() while disabled populates latestMatViewIndexGenerationByCollection.
+    // dropIndex() while disabled removes from it.
+    // restartReplication() should create zero generators.
+    Mocks mocks = Mocks.create();
+    mocks.manager.setIsReplicationEnabled(false);
+
+    MaterializedViewIndexGeneration matViewIndexGen =
+        mockMatViewIndexGeneration(MOCK_INDEX_DEFINITION_GENERATION);
+    mocks.mockMaterializedViewGenerator(matViewIndexGen);
+    mocks.addIndexForReplication(matViewIndexGen);
+
+    // Verify buffer is populated
+    UUID uuid = UUID.nameUUIDFromBytes(INDEX_ID.toHexString().getBytes(StandardCharsets.UTF_8));
+    assertNotNull(
+        mocks
+            .manager
+            .getActiveGenerationIdCatalog()
+            .latestMatViewIndexGenerationByCollection
+            .get(uuid));
+
+    // Drop the index while disabled
+    GenerationId dropGenId =
+        new GenerationId(
+            INDEX_ID,
+            new Generation(Generation.CURRENT.userIndexVersion, IndexFormatVersion.CURRENT, 0));
+    mocks.manager.dropIndex(dropGenId).get(5, TimeUnit.SECONDS);
+
+    // Buffer should be empty
+    assertNull(
+        mocks
+            .manager
+            .getActiveGenerationIdCatalog()
+            .latestMatViewIndexGenerationByCollection
+            .get(uuid));
+
+    // Restart replication — no generators should be created since buffer is empty
+    mocks.manager.restartReplication();
+    verify(mocks.materializedViewGeneratorFactory, never()).create(any());
+  }
+
+  @Test
+  public void testDropOneDuringDisabledReplication_restartCreatesOnlyRemaining() throws Exception {
+    // add() two different indexes while disabled, then dropIndex() one.
+    // restartReplication() should create exactly one generator for the remaining index.
+    Mocks mocks = Mocks.create();
+    mocks.manager.setIsReplicationEnabled(false);
+
+    // Add index 1
+    MaterializedViewIndexGeneration matViewIndexGen1 =
+        mockMatViewIndexGeneration(MOCK_INDEX_DEFINITION_GENERATION);
+    mocks.mockMaterializedViewGenerator(matViewIndexGen1);
+    mocks.addIndexForReplication(matViewIndexGen1);
+
+    // Add index 2 (different indexId → different UUID)
+    ObjectId indexId2 = new ObjectId();
+    MaterializedViewIndexDefinitionGeneration defGen2 = mockMatViewDefinitionGeneration(indexId2);
+    MaterializedViewIndexGeneration matViewIndexGen2 = mockMatViewIndexGeneration(defGen2);
+    mocks.mockMaterializedViewGenerator(matViewIndexGen2);
+    mocks.addIndexForReplication(matViewIndexGen2);
+
+    // Both should be buffered
+    UUID uuid1 = UUID.nameUUIDFromBytes(INDEX_ID.toHexString().getBytes(StandardCharsets.UTF_8));
+    UUID uuid2 = UUID.nameUUIDFromBytes(indexId2.toHexString().getBytes(StandardCharsets.UTF_8));
+    assertNotNull(
+        mocks
+            .manager
+            .getActiveGenerationIdCatalog()
+            .latestMatViewIndexGenerationByCollection
+            .get(uuid1));
+    assertNotNull(
+        mocks
+            .manager
+            .getActiveGenerationIdCatalog()
+            .latestMatViewIndexGenerationByCollection
+            .get(uuid2));
+
+    // Drop index 1
+    GenerationId dropGenId =
+        new GenerationId(
+            INDEX_ID,
+            new Generation(Generation.CURRENT.userIndexVersion, IndexFormatVersion.CURRENT, 0));
+    mocks.manager.dropIndex(dropGenId).get(5, TimeUnit.SECONDS);
+
+    // Only index 2 should remain in buffer
+    assertNull(
+        mocks
+            .manager
+            .getActiveGenerationIdCatalog()
+            .latestMatViewIndexGenerationByCollection
+            .get(uuid1));
+    assertNotNull(
+        mocks
+            .manager
+            .getActiveGenerationIdCatalog()
+            .latestMatViewIndexGenerationByCollection
+            .get(uuid2));
+
+    // Restart — only index 2's generator should be created
+    mocks.manager.restartReplication();
+    verify(mocks.materializedViewGeneratorFactory, never()).create(matViewIndexGen1);
+    verify(mocks.materializedViewGeneratorFactory).create(matViewIndexGen2);
+  }
+
+  @Test
+  public void testDropHigherVersionDuringDisabledReplication_bufferCleared() throws Exception {
+    // add() v0 then v1 (higher version replaces in buffer), then dropIndex() v1.
+    // Buffer should be cleared because v1 was the last refcount for that UUID.
+    // restartReplication() should create nothing.
+    Mocks mocks = Mocks.create();
+    mocks.manager.setIsReplicationEnabled(false);
+
+    // Add version 0
+    var gen1 = MOCK_MAT_VIEW_GENERATION_ID;
+    var matViewIndexGen1 = mockMatViewIndexGeneration(mockMatViewDefinitionGeneration(gen1));
+    mocks.mockMaterializedViewGenerator(matViewIndexGen1);
+    mocks.addIndexForReplication(matViewIndexGen1);
+
+    // Add version 1 (higher, replaces v0 in buffer)
+    var gen2 =
+        new MaterializedViewGenerationId(
+            MOCK_MAT_VIEW_GENERATION_ID.indexId,
+            MOCK_MAT_VIEW_GENERATION_ID.generation.incrementUser());
+    var matViewIndexGen2 = mockMatViewIndexGeneration(mockMatViewDefinitionGeneration(gen2, 1));
+    mocks.mockMaterializedViewGenerator(matViewIndexGen2);
+    mocks.addIndexForReplication(matViewIndexGen2);
+
+    UUID uuid = UUID.nameUUIDFromBytes(INDEX_ID.toHexString().getBytes(StandardCharsets.UTF_8));
+    // Buffer should have v1 (the latest)
+    assertEquals(
+        matViewIndexGen2,
+        mocks
+            .manager
+            .getActiveGenerationIdCatalog()
+            .latestMatViewIndexGenerationByCollection
+            .get(uuid));
+
+    // Drop both attempts (v0 first, then v1)
+    GenerationId dropGenId0 =
+        new GenerationId(
+            INDEX_ID,
+            new Generation(Generation.CURRENT.userIndexVersion, IndexFormatVersion.CURRENT, 0));
+    mocks.manager.dropIndex(dropGenId0).get(5, TimeUnit.SECONDS);
+    // Buffer should still have v1 (v0 was one of two refcounts)
+    assertNotNull(
+        mocks
+            .manager
+            .getActiveGenerationIdCatalog()
+            .latestMatViewIndexGenerationByCollection
+            .get(uuid));
+
+    UserIndexVersion u1Version =
+        new UserIndexVersion(Generation.CURRENT.userIndexVersion.versionNumber + 1);
+    GenerationId dropGenId1 =
+        new GenerationId(INDEX_ID, new Generation(u1Version, IndexFormatVersion.CURRENT, 0));
+    mocks.manager.dropIndex(dropGenId1).get(5, TimeUnit.SECONDS);
+    // Buffer should be cleared — all refcounts gone
+    assertNull(
+        mocks
+            .manager
+            .getActiveGenerationIdCatalog()
+            .latestMatViewIndexGenerationByCollection
+            .get(uuid));
+
+    // Restart — nothing to create
+    mocks.manager.restartReplication();
+    verify(mocks.materializedViewGeneratorFactory, never()).create(any());
+  }
+
+  @Test
   public void testIsReplicationSupported_lifecycle() {
     Mocks mocks = Mocks.create();
     assertTrue(mocks.manager.isReplicationSupported());
@@ -840,6 +1087,210 @@ public class MaterializedViewManagerTest {
 
     // LeaseManager should NOT be polled when replication is disabled
     verify(mocks.leaseManager, never()).pollFollowerStatuses();
+  }
+
+  // ==================== Retry / Attempt Ref Counting Tests ====================
+
+  @Test
+  public void testDropIndex_nextAttemptRefCounting_leaseSurvivesUntilLastAttemptDropped()
+      throws Exception {
+    // Exercises the key scenario: DefaultLifecycleManager can pass
+    // GenerationId("indexID-f6-u1-a0") and GenerationId("indexID-f6-u1-a1") for different
+    // attempts. MaterializedViewManager must correctly reference-count them under the same
+    // canonicalKey so that the lease is only cleaned up when the last attempt is dropped.
+    Mocks mocks = Mocks.create();
+
+    // Create a single matview definition generation and index generation (shared across attempts)
+    MaterializedViewIndexDefinitionGeneration defGen = mockMatViewDefinitionGeneration(INDEX_ID);
+    MaterializedViewIndexGeneration matViewIndexGen = mockMatViewIndexGeneration(defGen);
+    MaterializedViewGenerator generator = mocks.mockMaterializedViewGenerator(matViewIndexGen);
+
+    // add(a0): first attempt
+    mocks.addIndexForReplicationWithAttempt(matViewIndexGen, 0);
+
+    // add(a1): second attempt — same canonicalKey, different GenerationId
+    mocks.addIndexForReplicationWithAttempt(matViewIndexGen, 1);
+
+    // Both attempts should share the same canonicalKey in genIdByMatViewGenId
+    var catalog = mocks.manager.getActiveGenerationIdCatalog();
+    String canonicalKey = canonicalKey(new GenerationId(INDEX_ID, Generation.CURRENT));
+    Set<GenerationId> genIds = catalog.genIdByMatViewGenId.get(canonicalKey);
+    assertEquals("Both attempts should be tracked under the same canonicalKey", 2, genIds.size());
+
+    // Construct the GenerationId for attempt 0
+    GenerationId genIdA0 =
+        new GenerationId(
+            INDEX_ID,
+            new Generation(Generation.CURRENT.userIndexVersion, IndexFormatVersion.CURRENT, 0));
+
+    // dropIndex(a0): first attempt dropped — lease should survive
+    mocks.manager.dropIndex(genIdA0).get(5, TimeUnit.SECONDS);
+
+    // Verify lease was NOT cleaned up (leaseManager.drop and dropLease not called yet)
+    verify(mocks.leaseManager, never()).drop(any());
+    verify(mocks.leaseManager, never()).dropLease(any());
+    // Generator should NOT be shut down (other attempt still active, same UUID)
+    verify(generator, never()).shutdown();
+
+    // Construct the GenerationId for attempt 1
+    GenerationId genIdA1 =
+        new GenerationId(
+            INDEX_ID,
+            new Generation(Generation.CURRENT.userIndexVersion, IndexFormatVersion.CURRENT, 1));
+
+    // dropIndex(a1): last attempt dropped — lease should now be cleaned up
+    mocks.manager.dropIndex(genIdA1).get(5, TimeUnit.SECONDS);
+
+    // Now the generator should be shut down, generationId untracked, and lease dropped
+    verify(generator).shutdown();
+    verify(mocks.leaseManager).drop(defGen.getGenerationId());
+    verify(mocks.leaseManager).dropLease(any(String.class));
+    verify(mocks.metadataCatalog).removeMetadata(defGen.getGenerationId());
+  }
+
+  @Test
+  public void testDropIndex_multiVersionMultiAttemptRefCounting() throws Exception {
+    // Comprehensive reference counting test:
+    //   add(indexID-f6-u0-a0) → matview-indexID-u0 (createNewGenerator)
+    //   add(indexID-f6-u0-a1) → matview-indexID-u0 (reuseGenerator)
+    //   add(indexID-f6-u0-a2) → matview-indexID-u0 (reuseGenerator)
+    //   add(indexID-f6-u1-a0) → matview-indexID-u1 (replaceGenerator, higher definitionVersion)
+    //   add(indexID-f6-u1-a1) → matview-indexID-u1 (reuseGenerator)
+    //
+    // Two-dimensional ref counting:
+    //   genIdByMatViewCollection[uuid] → {u0-a0, u0-a1, u0-a2, u1-a0, u1-a1} (keyed by UUID)
+    //   genIdByMatViewGen["matview-indexID-u0"] → {u0-a0, u0-a1, u0-a2}
+    //   genIdByMatViewGen["matview-indexID-u1"] → {u1-a0, u1-a1}
+    //
+    // Drop order: u0-a0, u0-a1, u0-a2, u1-a0, u1-a1
+    Mocks mocks = Mocks.create();
+    ObjectId indexId = INDEX_ID;
+
+    // === Phase 1: Add u0 with 3 attempts ===
+    MaterializedViewGenerationId matViewGenIdU0 =
+        new MaterializedViewGenerationId(
+            indexId, new MaterializedViewGeneration(Generation.CURRENT));
+    MaterializedViewIndexDefinitionGeneration defGenU0 =
+        mockMatViewDefinitionGeneration(matViewGenIdU0, 0);
+    MaterializedViewIndexGeneration matViewIndexGenU0 = mockMatViewIndexGeneration(defGenU0);
+    MaterializedViewGenerator generatorU0 = mocks.mockMaterializedViewGenerator(matViewIndexGenU0);
+
+    mocks.addIndexForReplicationWithAttempt(matViewIndexGenU0, 0);
+    mocks.addIndexForReplicationWithAttempt(matViewIndexGenU0, 1);
+    mocks.addIndexForReplicationWithAttempt(matViewIndexGenU0, 2);
+
+    // === Phase 2: Add u1 with 2 attempts (replaces u0's generator) ===
+    MaterializedViewGenerationId matViewGenIdU1 =
+        new MaterializedViewGenerationId(indexId, matViewGenIdU0.generation.incrementUser());
+    MaterializedViewIndexDefinitionGeneration defGenU1 =
+        mockMatViewDefinitionGeneration(
+            matViewGenIdU1, 1); // higher definitionVersion triggers replace
+    MaterializedViewIndexGeneration matViewIndexGenU1 = mockMatViewIndexGeneration(defGenU1);
+    MaterializedViewGenerator generatorU1 = mocks.mockMaterializedViewGenerator(matViewIndexGenU1);
+
+    mocks.addIndexForReplicationWithAttempt(matViewIndexGenU1, 0);
+    mocks.addIndexForReplicationWithAttempt(matViewIndexGenU1, 1);
+
+    // Verify u0's generator was shut down (replaced by u1's generator)
+    verify(generatorU0).shutdown();
+    Mockito.clearInvocations(generatorU0, generatorU1, mocks.leaseManager, mocks.metadataCatalog);
+
+    // === Verify initial catalog state ===
+    var catalog = mocks.manager.getActiveGenerationIdCatalog();
+    String canonicalKeyU0 = canonicalKey(new GenerationId(indexId, Generation.CURRENT));
+    UserIndexVersion u1Version =
+        new UserIndexVersion(Generation.CURRENT.userIndexVersion.versionNumber + 1);
+    String canonicalKeyU1 =
+        canonicalKey(
+            new GenerationId(indexId, new Generation(u1Version, IndexFormatVersion.CURRENT)));
+
+    assertEquals(
+        "u0 should have 3 attempts tracked",
+        3,
+        catalog.genIdByMatViewGenId.get(canonicalKeyU0).size());
+    assertEquals(
+        "u1 should have 2 attempts tracked",
+        2,
+        catalog.genIdByMatViewGenId.get(canonicalKeyU1).size());
+
+    // All 5 generations share the same UUID
+    UUID uuid = UUID.nameUUIDFromBytes(indexId.toHexString().getBytes(StandardCharsets.UTF_8));
+    assertEquals(
+        "All 5 generations should share same UUID in genIdByMatViewCollection",
+        5,
+        catalog.genIdByMatViewCollection.get(uuid).size());
+
+    // === Drop u0-a0: uuid set=4, generatorId["u0"]=2 → no cleanup ===
+    GenerationId genIdU0A0 =
+        new GenerationId(
+            indexId,
+            new Generation(Generation.CURRENT.userIndexVersion, IndexFormatVersion.CURRENT, 0));
+    mocks.manager.dropIndex(genIdU0A0).get(5, TimeUnit.SECONDS);
+
+    verify(mocks.leaseManager, never()).drop(any());
+    verify(mocks.leaseManager, never()).dropLease(any());
+    verify(generatorU1, never()).shutdown();
+    verify(mocks.metadataCatalog, never()).removeMetadata(any());
+    assertEquals(4, catalog.genIdByMatViewCollection.get(uuid).size());
+    assertEquals(2, catalog.genIdByMatViewGenId.get(canonicalKeyU0).size());
+
+    // === Drop u0-a1: uuid set=3, generatorId["u0"]=1 → no cleanup ===
+    GenerationId genIdU0A1 =
+        new GenerationId(
+            indexId,
+            new Generation(Generation.CURRENT.userIndexVersion, IndexFormatVersion.CURRENT, 1));
+    mocks.manager.dropIndex(genIdU0A1).get(5, TimeUnit.SECONDS);
+
+    verify(mocks.leaseManager, never()).drop(any());
+    verify(mocks.metadataCatalog, never()).removeMetadata(any());
+    assertEquals(3, catalog.genIdByMatViewCollection.get(uuid).size());
+    assertEquals(1, catalog.genIdByMatViewGenId.get(canonicalKeyU0).size());
+
+    // === Drop u0-a2: uuid set=2, generatorId["u0"]=0 → removeMetadata(u0) ===
+    GenerationId genIdU0A2 =
+        new GenerationId(
+            indexId,
+            new Generation(Generation.CURRENT.userIndexVersion, IndexFormatVersion.CURRENT, 2));
+    mocks.manager.dropIndex(genIdU0A2).get(5, TimeUnit.SECONDS);
+
+    verify(mocks.leaseManager).drop(any());
+    verify(mocks.leaseManager, never()).dropLease(any());
+    verify(generatorU1, never()).shutdown();
+    // u0's metadata cleaned up because genIdByMatViewGenId["u0"] is empty
+    verify(mocks.metadataCatalog).removeMetadata(defGenU0.getGenerationId());
+    assertEquals(2, catalog.genIdByMatViewCollection.get(uuid).size());
+    assertNull("u0 generatorId should be cleaned", catalog.genIdByMatViewGenId.get(canonicalKeyU0));
+    // u1 still alive
+    assertEquals(2, catalog.genIdByMatViewGenId.get(canonicalKeyU1).size());
+    Mockito.clearInvocations(mocks.metadataCatalog, mocks.leaseManager);
+
+    // === Drop u1-a0: uuid set=1, generatorId["u1"]=1 → no cleanup ===
+    GenerationId genIdU1A0 =
+        new GenerationId(indexId, new Generation(u1Version, IndexFormatVersion.CURRENT, 0));
+    mocks.manager.dropIndex(genIdU1A0).get(5, TimeUnit.SECONDS);
+
+    verify(mocks.leaseManager, never()).drop(any());
+    verify(mocks.leaseManager, never()).dropLease(any());
+    verify(generatorU1, never()).shutdown();
+    verify(mocks.metadataCatalog, never()).removeMetadata(any());
+    assertEquals(1, catalog.genIdByMatViewCollection.get(uuid).size());
+    assertEquals(1, catalog.genIdByMatViewGenId.get(canonicalKeyU1).size());
+
+    // === Drop u1-a1: uuid set=0 → shutdown + drop + dropLease. generatorId["u1"]=0 →
+    // removeMetadata(u1) ===
+    GenerationId genIdU1A1 =
+        new GenerationId(indexId, new Generation(u1Version, IndexFormatVersion.CURRENT, 1));
+    mocks.manager.dropIndex(genIdU1A1).get(5, TimeUnit.SECONDS);
+
+    // Generator shutdown + lease cleanup (leader path)
+    verify(generatorU1).shutdown();
+    verify(mocks.leaseManager).drop(defGenU1.getGenerationId());
+    verify(mocks.leaseManager).dropLease(any(String.class));
+    // Metadata cleanup
+    verify(mocks.metadataCatalog).removeMetadata(defGenU1.getGenerationId());
+    // Both maps fully cleaned
+    assertNull("uuid should be fully cleaned", catalog.genIdByMatViewCollection.get(uuid));
+    assertNull("u1 generatorId should be cleaned", catalog.genIdByMatViewGenId.get(canonicalKeyU1));
   }
 
   // ==================== Dynamic Leader with Unexpired Lease Tests ====================
@@ -985,8 +1436,7 @@ public class MaterializedViewManagerTest {
           .thenReturn(CompletableFuture.completedFuture(null));
       when(indexingWorkSchedulerFactory.getIndexingWorkSchedulers()).thenReturn(Map.of());
 
-      NamedScheduledExecutorService commitExecutor =
-          mockScheduledExecutor("index-commit");
+      NamedScheduledExecutorService commitExecutor = mockScheduledExecutor("index-commit");
 
       NamedScheduledExecutorService heartbeatExecutor =
           mockScheduledExecutor("mat-view-leader-heartbeat");
@@ -1004,10 +1454,14 @@ public class MaterializedViewManagerTest {
       // Use StaticLeaderLeaseManager mock so that activateStaticLeadership() is called
       // (it's guarded by instanceof StaticLeaderLeaseManager check)
       StaticLeaderLeaseManager leaseManager = mock(StaticLeaderLeaseManager.class);
-      when(leaseManager.drop(any())).thenReturn(COMPLETED_FUTURE);
+      doNothing().when(leaseManager).drop(any());
+      when(leaseManager.dropLease(any(String.class))).thenReturn(COMPLETED_FUTURE);
       when(leaseManager.isLeader(any())).thenReturn(true);
       // Mock getLeaderGenerationIds to return a non-empty set for heartbeat test
-      GenerationId leaderGenId = GenerationIdBuilder.create();
+      MaterializedViewGenerationId leaderGenId =
+          new MaterializedViewGenerationId(
+              GenerationIdBuilder.create().indexId,
+              new MaterializedViewGeneration(Generation.CURRENT));
       when(leaseManager.getLeaderGenerationIds()).thenReturn(Set.of(leaderGenId));
 
       return new Mocks(
@@ -1041,11 +1495,13 @@ public class MaterializedViewManagerTest {
       StaticLeaderLeaseManager mockLeaseManager = mock(StaticLeaderLeaseManager.class);
       // Mock isLeader to return false for follower mode
       when(mockLeaseManager.isLeader(any())).thenReturn(false);
+      doNothing().when(mockLeaseManager).drop(any());
+      when(mockLeaseManager.dropLease(any(String.class))).thenReturn(COMPLETED_FUTURE);
       // Track added generation IDs to return from getFollowerGenerationIds
-      Set<GenerationId> addedGenerationIds = ConcurrentHashMap.newKeySet();
+      Set<MaterializedViewGenerationId> addedGenerationIds = ConcurrentHashMap.newKeySet();
       doAnswer(
               invocation -> {
-                IndexGeneration indexGen = invocation.getArgument(0);
+                MaterializedViewIndexGeneration indexGen = invocation.getArgument(0);
                 addedGenerationIds.add(indexGen.getGenerationId());
                 return null;
               })
@@ -1058,8 +1514,8 @@ public class MaterializedViewManagerTest {
       when(mockLeaseManager.pollFollowerStatuses())
           .thenAnswer(
               invocation -> {
-                Map<GenerationId, IndexStatus> result = new HashMap<>();
-                for (GenerationId genId : addedGenerationIds) {
+                Map<MaterializedViewGenerationId, IndexStatus> result = new HashMap<>();
+                for (MaterializedViewGenerationId genId : addedGenerationIds) {
                   result.put(genId, IndexStatus.steady());
                 }
                 return new LeaseManager.FollowerPollResult(result, Set.of());
@@ -1127,8 +1583,7 @@ public class MaterializedViewManagerTest {
       MaterializedViewManager.MaterializedViewGeneratorFactory materializedViewGeneratorFactory =
           mock(MaterializedViewManager.MaterializedViewGeneratorFactory.class);
 
-      NamedScheduledExecutorService commitExecutor =
-          mockScheduledExecutor("index-commit");
+      NamedScheduledExecutorService commitExecutor = mockScheduledExecutor("index-commit");
 
       NamedScheduledExecutorService heartbeatExecutor =
           mockScheduledExecutor("mat-view-leader-heartbeat");
@@ -1148,7 +1603,8 @@ public class MaterializedViewManagerTest {
       // Use a plain LeaseManager mock (NOT StaticLeaderLeaseManager) so the dynamic
       // leader election path in createNewGenerator() is tested
       LeaseManager mockLeaseManager = mock(LeaseManager.class);
-      when(mockLeaseManager.drop(any())).thenReturn(COMPLETED_FUTURE);
+      doNothing().when(mockLeaseManager).drop(any());
+      when(mockLeaseManager.dropLease(any(String.class))).thenReturn(COMPLETED_FUTURE);
 
       // Track added generation IDs and mark them as leaders (simulating unexpired lease)
       Set<GenerationId> leaderGenerationIds = ConcurrentHashMap.newKeySet();
@@ -1223,9 +1679,16 @@ public class MaterializedViewManagerTest {
                   false));
       // Mock shutdown() to return a completed future so thenRun() callbacks execute immediately
       doReturn(CompletableFuture.completedFuture(null)).when(materializedViewGenerator).shutdown();
-      // Mock becomeLeader() to prevent real async tasks from being submitted to the lifecycle
-      // executor, which would cause shutdownOrFail() to hang waiting for task termination.
-      Mockito.doNothing().when(materializedViewGenerator).becomeLeader();
+      // Mock becomeLeader() to set isLeader=true without starting real async tasks.
+      // Using doAnswer so that isLeader() returns true after becomeLeader() is called,
+      // matching the real behavior while preventing the replication loop from starting.
+      doAnswer(
+              invocation -> {
+                doReturn(true).when(materializedViewGenerator).isLeader();
+                return null;
+              })
+          .when(materializedViewGenerator)
+          .becomeLeader();
       when(this.materializedViewGeneratorFactory.create(eq(materializedViewIndexGeneration)))
           .thenReturn(materializedViewGenerator);
       return materializedViewGenerator;
@@ -1241,6 +1704,16 @@ public class MaterializedViewManagerTest {
 
     private void addIndexForReplication(
         MaterializedViewIndexGeneration materializedViewindexGeneration) {
+      addIndexForReplicationWithAttempt(materializedViewindexGeneration, 0);
+    }
+
+    /**
+     * Adds an index for replication with a specific attempt number. This enables testing the
+     * retry/attempt ref counting scenario where multiple GenerationIds share the same canonicalKey
+     * but differ only in attemptNumber.
+     */
+    private void addIndexForReplicationWithAttempt(
+        MaterializedViewIndexGeneration materializedViewindexGeneration, int attemptNumber) {
       AutoEmbeddingIndexGeneration autoEmbeddingIndexGeneration =
           mock(AutoEmbeddingIndexGeneration.class);
       when(autoEmbeddingIndexGeneration.getMaterializedViewIndexGeneration())
@@ -1251,7 +1724,8 @@ public class MaterializedViewManagerTest {
                   materializedViewindexGeneration.getGenerationId().indexId,
                   new Generation(
                       materializedViewindexGeneration.getGenerationId().generation.userIndexVersion,
-                      IndexFormatVersion.CURRENT)));
+                      IndexFormatVersion.CURRENT,
+                      attemptNumber)));
       this.manager.add(autoEmbeddingIndexGeneration);
     }
   }

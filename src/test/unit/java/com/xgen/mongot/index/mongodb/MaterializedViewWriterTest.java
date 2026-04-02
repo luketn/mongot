@@ -102,6 +102,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -136,6 +137,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -156,6 +158,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -181,6 +184,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -203,6 +207,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -219,6 +224,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -237,6 +243,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -253,6 +260,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -279,6 +287,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -322,6 +331,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -361,6 +371,7 @@ public class MaterializedViewWriterTest {
     var writer =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -379,6 +390,7 @@ public class MaterializedViewWriterTest {
     var writer =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -400,6 +412,7 @@ public class MaterializedViewWriterTest {
     var writer =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -420,6 +433,7 @@ public class MaterializedViewWriterTest {
     var writer =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -437,6 +451,7 @@ public class MaterializedViewWriterTest {
     var writer1 =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             "col1",
             GENERATION_ID,
             this.mockLeaseManager,
@@ -446,6 +461,7 @@ public class MaterializedViewWriterTest {
     var writer2 =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             "col2",
             GENERATION_ID,
             this.mockLeaseManager,
@@ -466,6 +482,7 @@ public class MaterializedViewWriterTest {
     var writer3 =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             "col3",
             GENERATION_ID,
             this.mockLeaseManager,
@@ -486,6 +503,7 @@ public class MaterializedViewWriterTest {
     var writer =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -663,6 +681,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -691,6 +710,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -720,6 +740,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,
@@ -748,6 +769,7 @@ public class MaterializedViewWriterTest {
     var matViewWriter =
         new MaterializedViewWriter(
             this.autoEmbeddingMongoClient,
+            MV_DATABASE_NAME,
             MV_COLLECTION_NAME,
             GENERATION_ID,
             this.mockLeaseManager,

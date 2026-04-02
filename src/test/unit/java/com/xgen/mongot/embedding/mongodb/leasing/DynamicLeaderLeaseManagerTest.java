@@ -2,7 +2,7 @@ package com.xgen.mongot.embedding.mongodb.leasing;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO;
-import static com.xgen.testing.mongot.mock.index.IndexGeneration.mockIndexGeneration;
+import static com.xgen.testing.mongot.mock.index.MaterializedViewIndex.mockMatViewIndexGeneration;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -25,10 +25,10 @@ import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
 import com.xgen.mongot.index.EncodedUserData;
-import com.xgen.mongot.index.IndexGeneration;
+import com.xgen.mongot.index.autoembedding.MaterializedViewIndexGeneration;
 import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
 import com.xgen.mongot.index.status.IndexStatus;
-import com.xgen.mongot.index.version.GenerationId;
+import com.xgen.mongot.index.version.MaterializedViewGenerationId;
 import com.xgen.mongot.util.mongodb.serialization.MongoDbCollectionInfo;
 import com.xgen.testing.mongot.metrics.SimpleMetricsFactory;
 import com.xgen.testing.mongot.mock.index.MaterializedViewIndex;
@@ -200,8 +200,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void add_newGeneration_startsAsFollowerAndIsLeaderReturnsFalse() {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
 
     // Act
     this.leaseManager.add(indexGeneration);
@@ -215,10 +215,10 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void getLeaderAndFollowerGenerationIds_afterAddAndDrop_returnsCorrectSets() {
     // Arrange
-    IndexGeneration indexGeneration1 = createTestIndexGeneration();
-    IndexGeneration indexGeneration2 = createTestIndexGeneration();
-    GenerationId generationId1 = indexGeneration1.getGenerationId();
-    GenerationId generationId2 = indexGeneration2.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration1 = createTestIndexGeneration();
+    MaterializedViewIndexGeneration indexGeneration2 = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId1 = indexGeneration1.getGenerationId();
+    MaterializedViewGenerationId generationId2 = indexGeneration2.getGenerationId();
 
     // Act
     this.leaseManager.add(indexGeneration1);
@@ -240,34 +240,19 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void drop_existingGeneration_removesFromBothSets() {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // Act
     this.leaseManager.drop(generationId);
 
-    // Assert
+    // Assert - generationId is untracked from both sets
     assertThat(this.leaseManager.getFollowerGenerationIds()).doesNotContain(generationId);
     assertThat(this.leaseManager.getLeaderGenerationIds()).doesNotContain(generationId);
-    // Normal drop should not increment the dangling lease counter.
-    assertThat(getDanglingLeaseOnDropCount()).isEqualTo(0.0);
-  }
-
-  @Test
-  public void drop_metadataAlreadyRemoved_incrementsDanglingLeaseCounter() {
-    // Arrange
-    IndexGeneration gen = createTestIndexGeneration();
-    GenerationId generationId = gen.getGenerationId();
-    this.leaseManager.add(gen);
-    this.mvMetadataCatalog.removeMetadata(generationId);
-
-    // Act
-    this.leaseManager.drop(generationId);
-
-    // Assert - dangling lease counter should be incremented
-    assertThat(getDanglingLeaseOnDropCount()).isEqualTo(1.0);
-    verify(this.mockCollection, never()).deleteOne(any(Bson.class));
+    // Assert - lease is still in local cache (drop() does not remove from leases map)
+    String leaseKey = getLeaseKeyFromCatalog(generationId);
+    assertThat(this.leaseManager.getLeases()).containsKey(leaseKey);
   }
 
   // ==================== Leadership Acquisition ====================
@@ -275,8 +260,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void tryAcquireLeadership_expiredLease_acquiresLeadership() {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // Create an expired lease owned by another host
@@ -300,8 +285,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void tryAcquireLeadership_weOwnLease_reacquiresLeadership() {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // Create a lease owned by us (simulating restart scenario)
@@ -324,8 +309,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void tryAcquireLeadership_activeLeaseBelongsToOther_returnsFalse() {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // Create an active lease owned by another host
@@ -348,8 +333,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void heartbeat_asFollower_doesNothing() {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
     // Note: not acquiring leadership, so we're still a follower
 
@@ -365,8 +350,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void tryAcquireLeadership_noLeaseExists_createsLeaseAndBecomesLeader() {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // Setup: no lease exists in database, upsert succeeds, and we verify ownership
@@ -391,8 +376,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void tryAcquireLeadership_raceCondition_returnsFalse() {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // Setup: expired lease exists, but update fails due to race condition
@@ -417,8 +402,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void heartbeat_asLeader_renewsLease() {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // First, acquire leadership via tryAcquireLeadership
@@ -440,8 +425,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void heartbeat_renewalFails_transitionsToFollower() {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // First, acquire leadership via tryAcquireLeadership
@@ -468,12 +453,12 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void heartbeat_metadataRemovedDuringRenewal_removesFromLeadersAndContinues() {
     // Arrange - set up two leader generations
-    IndexGeneration gen1 = createTestIndexGeneration();
-    GenerationId genId1 = gen1.getGenerationId();
+    MaterializedViewIndexGeneration gen1 = createTestIndexGeneration();
+    MaterializedViewGenerationId genId1 = gen1.getGenerationId();
     this.leaseManager.add(gen1);
 
-    IndexGeneration gen2 = createTestIndexGeneration();
-    GenerationId genId2 = gen2.getGenerationId();
+    MaterializedViewIndexGeneration gen2 = createTestIndexGeneration();
+    MaterializedViewGenerationId genId2 = gen2.getGenerationId();
     this.leaseManager.add(gen2);
 
     // Acquire leadership for both
@@ -514,8 +499,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void updateCommitInfo_metadataRemovedDuringUpdate_doesNotCrash() throws Exception {
     // Arrange - become leader for a generation
-    IndexGeneration gen = createTestIndexGeneration();
-    GenerationId generationId = gen.getGenerationId();
+    MaterializedViewIndexGeneration gen = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = gen.getGenerationId();
     this.leaseManager.add(gen);
 
     Lease expiredLease = createLease(generationId, OTHER_HOSTNAME, Instant.now().minusSeconds(60));
@@ -538,8 +523,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void updateReplicationStatus_metadataRemovedDuringUpdate_doesNotCrash() throws Exception {
     // Arrange - become leader for a generation
-    IndexGeneration gen = createTestIndexGeneration();
-    GenerationId generationId = gen.getGenerationId();
+    MaterializedViewIndexGeneration gen = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = gen.getGenerationId();
     this.leaseManager.add(gen);
 
     Lease expiredLease = createLease(generationId, OTHER_HOSTNAME, Instant.now().minusSeconds(60));
@@ -563,8 +548,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void getCommitInfo_metadataRemovedAsLeader_doesNotCrash() throws Exception {
     // Arrange - become leader for a generation
-    IndexGeneration gen = createTestIndexGeneration();
-    GenerationId generationId = gen.getGenerationId();
+    MaterializedViewIndexGeneration gen = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = gen.getGenerationId();
     this.leaseManager.add(gen);
 
     Lease expiredLease = createLease(generationId, OTHER_HOSTNAME, Instant.now().minusSeconds(60));
@@ -587,8 +572,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void getSteadyAsOfOplogPosition_metadataRemoved_returnsEmpty() {
     // Arrange - become leader for a generation
-    IndexGeneration gen = createTestIndexGeneration();
-    GenerationId generationId = gen.getGenerationId();
+    MaterializedViewIndexGeneration gen = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = gen.getGenerationId();
     this.leaseManager.add(gen);
 
     Lease expiredLease = createLease(generationId, OTHER_HOSTNAME, Instant.now().minusSeconds(60));
@@ -611,8 +596,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void updateCommitInfo_asLeader_succeeds() throws Exception {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // Acquire leadership via tryAcquireLeadership
@@ -636,8 +621,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void updateReplicationStatus_notLeader_doesNotUpdateDatabase() throws Exception {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
     // Note: not acquiring leadership, so we're still a follower
 
@@ -657,12 +642,12 @@ public class DynamicLeaderLeaseManagerTest {
   public void pollFollowerStatuses_metadataRemovedDuringPoll_skipsRemovedAndContinues()
       throws Exception {
     // Arrange - set up two follower generations
-    IndexGeneration gen1 = createTestIndexGeneration();
-    GenerationId genId1 = gen1.getGenerationId();
+    MaterializedViewIndexGeneration gen1 = createTestIndexGeneration();
+    MaterializedViewGenerationId genId1 = gen1.getGenerationId();
     this.leaseManager.add(gen1);
 
-    IndexGeneration gen2 = createTestIndexGeneration();
-    GenerationId genId2 = gen2.getGenerationId();
+    MaterializedViewIndexGeneration gen2 = createTestIndexGeneration();
+    MaterializedViewGenerationId genId2 = gen2.getGenerationId();
     this.leaseManager.add(gen2);
 
     assertThat(this.leaseManager.getFollowerGenerationIds()).contains(genId1);
@@ -686,8 +671,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void pollFollowerStatuses_andGetCommitInfo_readsFromDatabase() throws Exception {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // Setup lease in database with commit info (active lease owned by another host)
@@ -713,8 +698,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void pollFollowerStatuses_expiredLease_includesInAcquirableLeases() throws Exception {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // Setup expired lease in database owned by another host
@@ -732,8 +717,8 @@ public class DynamicLeaderLeaseManagerTest {
   @Test
   public void pollFollowerStatuses_weOwnLease_includesInAcquirableLeases() throws Exception {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // Setup active lease owned by us (restart scenario)
@@ -751,10 +736,58 @@ public class DynamicLeaderLeaseManagerTest {
   // ==================== Edge Cases ====================
 
   @Test
-  public void drop_asLeader_deletesFromDatabase() throws Exception {
+  public void drop_asLeader_onlyUntracksGenerationId() throws Exception {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
+    this.leaseManager.add(indexGeneration);
+
+    // Acquire leadership via tryAcquireLeadership
+    Lease expiredLease = createLease(generationId, OTHER_HOSTNAME, Instant.now().minusSeconds(60));
+    setupFindLeaseFromDatabase(expiredLease);
+    setupSuccessfulLeaseUpdate();
+    this.leaseManager.pollFollowerStatuses();
+    this.leaseManager.tryAcquireLeadership(generationId);
+    assertThat(this.leaseManager.isLeader(generationId)).isTrue();
+
+    // Act - drop only untracks generationId, does NOT delete from database
+    this.leaseManager.drop(generationId);
+
+    // Assert - generationId is untracked
+    assertThat(this.leaseManager.getLeaderGenerationIds()).doesNotContain(generationId);
+    assertThat(this.leaseManager.getFollowerGenerationIds()).doesNotContain(generationId);
+    // Assert - lease is still in local cache (drop() does not remove from leases map)
+    String leaseKey = getLeaseKeyFromCatalog(generationId);
+    assertThat(this.leaseManager.getLeases()).containsKey(leaseKey);
+    // Assert - deleteOne was NOT called (drop no longer touches DB)
+    verify(this.mockCollection, never()).deleteOne(any(Bson.class));
+  }
+
+  @Test
+  public void drop_asFollower_onlyUntracksGenerationId() {
+    // Arrange
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
+    this.leaseManager.add(indexGeneration);
+    // Note: not acquiring leadership, so we're still a follower
+
+    // Act
+    this.leaseManager.drop(generationId);
+
+    // Assert - generationId is untracked
+    assertThat(this.leaseManager.getFollowerGenerationIds()).doesNotContain(generationId);
+    // Assert - lease is still in local cache (drop() does not remove from leases map)
+    String leaseKey = getLeaseKeyFromCatalog(generationId);
+    assertThat(this.leaseManager.getLeases()).containsKey(leaseKey);
+    // Assert - verify deleteOne was NOT called
+    verify(this.mockCollection, never()).deleteOne(any(Bson.class));
+  }
+
+  @Test
+  public void dropLease_asLeader_deletesFromDatabase() throws Exception {
+    // Arrange
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
 
     // Acquire leadership via tryAcquireLeadership
@@ -769,26 +802,32 @@ public class DynamicLeaderLeaseManagerTest {
     DeleteResult deleteResult = mock(DeleteResult.class);
     when(this.mockCollection.deleteOne(any(Bson.class))).thenReturn(deleteResult);
 
-    // Act
-    this.leaseManager.drop(generationId).join();
+    // Act - dropLease deletes from memory and database
+    String leaseKey = getLeaseKeyFromCatalog(generationId);
+    this.leaseManager.dropLease(leaseKey).join();
 
     // Assert - verify deleteOne was called
     verify(this.mockCollection).deleteOne(any(Bson.class));
+    // Assert - lease is removed from local cache
+    assertThat(this.leaseManager.getLeases()).doesNotContainKey(leaseKey);
   }
 
   @Test
-  public void drop_asFollower_doesNotDeleteFromDatabase() {
+  public void dropLease_asFollower_removesFromMemoryOnly() {
     // Arrange
-    IndexGeneration indexGeneration = createTestIndexGeneration();
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
+    MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
     // Note: not acquiring leadership, so we're still a follower
 
-    // Act
-    this.leaseManager.drop(generationId);
+    // Act - dropLease removes from memory but does not delete from DB since we don't own it
+    String leaseKey = getLeaseKeyFromCatalog(generationId);
+    this.leaseManager.dropLease(leaseKey).join();
 
-    // Assert - verify deleteOne was NOT called
+    // Assert - verify deleteOne was NOT called (we don't own the lease)
     verify(this.mockCollection, never()).deleteOne(any(Bson.class));
+    // Assert - lease is removed from local cache
+    assertThat(this.leaseManager.getLeases()).doesNotContainKey(leaseKey);
   }
 
   // ==================== initializeLease ====================
@@ -1059,16 +1098,18 @@ public class DynamicLeaderLeaseManagerTest {
   // ==================== Helper Methods ====================
 
   /**
-   * Creates an index generation and registers its generationId in the catalog so that
+   * Creates a MaterializedViewIndexGeneration and registers its generationId in the catalog so that
    * DynamicLeaderLeaseManager.getLeaseKey (which uses catalog) works.
    */
-  private IndexGeneration createTestIndexGeneration() {
-    IndexGeneration gen = mockIndexGeneration(new ObjectId());
+  private MaterializedViewIndexGeneration createTestIndexGeneration() {
+    MaterializedViewIndexDefinitionGeneration defGen =
+        MaterializedViewIndex.mockMatViewDefinitionGeneration(new ObjectId());
+    MaterializedViewIndexGeneration gen = mockMatViewIndexGeneration(defGen);
     addCatalogMetadataForGeneration(gen.getGenerationId());
     return gen;
   }
 
-  private void addCatalogMetadataForGeneration(GenerationId generationId) {
+  private void addCatalogMetadataForGeneration(MaterializedViewGenerationId generationId) {
     String collectionName = generationId.indexId.toHexString();
     MaterializedViewCollectionMetadata metadata =
         new MaterializedViewCollectionMetadata(
@@ -1079,11 +1120,12 @@ public class DynamicLeaderLeaseManagerTest {
   }
 
   /** Returns the lease key (collection name) for the given generation from the catalog. */
-  private String getLeaseKeyFromCatalog(GenerationId generationId) {
+  private String getLeaseKeyFromCatalog(MaterializedViewGenerationId generationId) {
     return this.mvMetadataCatalog.getMetadata(generationId).collectionName();
   }
 
-  private Lease createLease(GenerationId generationId, String owner, Instant expiration) {
+  private Lease createLease(
+      MaterializedViewGenerationId generationId, String owner, Instant expiration) {
     return new Lease(
         getLeaseKeyFromCatalog(generationId),
         Lease.SCHEMA_VERSION,
@@ -1100,7 +1142,7 @@ public class DynamicLeaderLeaseManagerTest {
   }
 
   private Lease createLeaseWithCommitInfo(
-      GenerationId generationId, String owner, String commitInfo) {
+      MaterializedViewGenerationId generationId, String owner, String commitInfo) {
     return new Lease(
         getLeaseKeyFromCatalog(generationId),
         Lease.SCHEMA_VERSION,
@@ -1189,9 +1231,5 @@ public class DynamicLeaderLeaseManagerTest {
     when(cursor.hasNext()).thenReturn(true).thenReturn(false);
     when(cursor.next()).thenReturn(collectionInfoDoc);
     when(listCollIterable.iterator()).thenReturn(cursor);
-  }
-
-  private double getDanglingLeaseOnDropCount() {
-    return this.metricsFactory.get("danglingLeaseOnDrop").counter().count();
   }
 }

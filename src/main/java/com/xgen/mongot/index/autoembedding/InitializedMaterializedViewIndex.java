@@ -14,7 +14,6 @@ import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexMetrics;
 import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.IndexUnavailableException;
-import com.xgen.mongot.index.IndexWriter;
 import com.xgen.mongot.index.InitializedVectorIndex;
 import com.xgen.mongot.index.MetaResults;
 import com.xgen.mongot.index.ReaderClosedException;
@@ -76,7 +75,7 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
   }
 
   @Override
-  public IndexWriter getWriter() {
+  public MaterializedViewWriter getWriter() {
     return this.materializedViewWriter;
   }
 

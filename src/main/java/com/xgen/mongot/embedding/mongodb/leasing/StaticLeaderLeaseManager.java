@@ -21,9 +21,9 @@ import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.utils.MongoClientOperationExecutor;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexGeneration;
-import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
+import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
 import com.xgen.mongot.index.status.IndexStatus;
-import com.xgen.mongot.index.version.GenerationId;
+import com.xgen.mongot.index.version.MaterializedViewGenerationId;
 import com.xgen.mongot.metrics.MeterAndFtdcRegistry;
 import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.util.Check;
@@ -74,9 +74,9 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   // Mapping of leases to index Ids.
   private final Map<String, Lease> leases;
   // Tracks all GenerationIds that have been added to this lease manager (both leader and follower).
-  private final Set<GenerationId> managedGenerationIds;
+  private final Set<MaterializedViewGenerationId> managedGenerationIds;
   // Maps GenerationId to its definition version (as String) for use in pollFollowerStatuses().
-  private final Map<GenerationId, String> generationIdToDefinitionVersion;
+  private final Map<MaterializedViewGenerationId, String> generationIdToDefinitionVersion;
   private final MongoCollection<BsonDocument> collection;
   private final MongoClient mongoClient;
   private final boolean isLeader;
@@ -194,7 +194,8 @@ public class StaticLeaderLeaseManager implements LeaseManager {
     // If the lease already exists, then just add the index generation to the lease.
     // Note that we only add the lease in memory here, we write to the database only when we update
     // the commit info.
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewGenerationId generationId =
+        Check.instanceOf(indexGeneration.getGenerationId(), MaterializedViewGenerationId.class);
     this.managedGenerationIds.add(generationId);
     this.generationIdToDefinitionVersion.put(
         generationId, getIndexDefinitionVersion(indexGeneration));
@@ -231,7 +232,27 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
-  public CompletableFuture<Void> drop(GenerationId generationId) {
+  public CompletableFuture<Void> dropLease(String leaseKey) {
+    if (this.isLeader) {
+      return CompletableFuture.runAsync(
+              () -> this.collection.deleteOne(new Document("_id", leaseKey)))
+          .exceptionally(
+              throwable -> {
+                LOG.atWarn()
+                    .setCause(throwable)
+                    .addKeyValue("leaseKey", leaseKey)
+                    .log("Failed to delete lease entry in Lease table, ignore it for now.");
+                return null;
+              })
+          .thenRun(() -> this.leases.remove(leaseKey));
+    } else {
+      this.leases.remove(leaseKey);
+      return COMPLETED_FUTURE;
+    }
+  }
+
+  @Override
+  public void drop(MaterializedViewGenerationId generationId) {
     // The current drop implementation only handles index/lease deletion and not index generation
     // deletion. This is because there might be followers that are still relying on the status of
     // this index generation. We could potentially put an upper bound on the number of index
@@ -245,25 +266,16 @@ public class StaticLeaderLeaseManager implements LeaseManager {
     // (2) orphaned leases in the database don't affect correctness and can be cleaned up later.
     this.managedGenerationIds.remove(generationId);
     this.generationIdToDefinitionVersion.remove(generationId);
-    if (this.isLeader) {
-      return CompletableFuture.runAsync(
-          () -> {
-            this.collection.deleteOne(new Document("_id", getLeaseKey(generationId)));
-            this.leases.remove(getLeaseKey(generationId));
-          });
-    } else {
-      this.leases.remove(getLeaseKey(generationId));
-      return COMPLETED_FUTURE;
-    }
   }
 
   @Override
-  public boolean isLeader(GenerationId generationId) {
+  public boolean isLeader(MaterializedViewGenerationId generationId) {
     return this.isLeader;
   }
 
   @Override
-  public void updateCommitInfo(GenerationId generationId, EncodedUserData encodedUserData) {
+  public void updateCommitInfo(
+      MaterializedViewGenerationId generationId, EncodedUserData encodedUserData) {
     ensureLeaseExists(generationId);
     ensureLeader();
     Lease currentLease = this.leases.get(getLeaseKey(generationId));
@@ -272,7 +284,8 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
-  public EncodedUserData getCommitInfo(GenerationId generationId) throws IOException {
+  public EncodedUserData getCommitInfo(MaterializedViewGenerationId generationId)
+      throws IOException {
     // Leader can read from in-memory state.
     if (this.isLeader) {
       ensureLeaseExists(generationId);
@@ -293,7 +306,9 @@ public class StaticLeaderLeaseManager implements LeaseManager {
 
   @Override
   public void updateReplicationStatus(
-      GenerationId generationId, long indexDefinitionVersion, IndexStatus indexStatus)
+      MaterializedViewGenerationId generationId,
+      long indexDefinitionVersion,
+      IndexStatus indexStatus)
       throws MaterializedViewTransientException, MaterializedViewNonTransientException {
     // only update status in database if leader. Followers may still call this method, but we treat
     // it as a no-op.
@@ -320,7 +335,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
    * @return the effective status, or UNKNOWN if unable to determine
    */
   private IndexStatus getMaterializedViewReplicationStatus(
-      GenerationId generationId, String versionKey) {
+      MaterializedViewGenerationId generationId, String versionKey) {
     @Var
     Lease.IndexDefinitionVersionStatus requestedStatus =
         new Lease.IndexDefinitionVersionStatus(false, IndexStatus.StatusCode.UNKNOWN);
@@ -356,7 +371,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
-  public Set<GenerationId> getLeaderGenerationIds() {
+  public Set<MaterializedViewGenerationId> getLeaderGenerationIds() {
     if (this.isLeader) {
       return Collections.unmodifiableSet(this.managedGenerationIds);
     }
@@ -364,7 +379,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
-  public Set<GenerationId> getFollowerGenerationIds() {
+  public Set<MaterializedViewGenerationId> getFollowerGenerationIds() {
     if (!this.isLeader) {
       return Collections.unmodifiableSet(this.managedGenerationIds);
     }
@@ -377,8 +392,8 @@ public class StaticLeaderLeaseManager implements LeaseManager {
       // Leaders don't poll follower statuses
       return LeaseManager.FollowerPollResult.EMPTY;
     }
-    Map<GenerationId, IndexStatus> statuses = new HashMap<>();
-    for (GenerationId generationId : this.managedGenerationIds) {
+    Map<MaterializedViewGenerationId, IndexStatus> statuses = new HashMap<>();
+    for (MaterializedViewGenerationId generationId : this.managedGenerationIds) {
       String versionKey = this.generationIdToDefinitionVersion.get(generationId);
       if (versionKey == null) {
         LOG.warn("No definition version found for generation ID {}", generationId);
@@ -393,7 +408,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
 
   @Override
   public MaterializedViewCollectionMetadata initializeLease(
-      IndexDefinitionGeneration indexDefinitionGeneration,
+      MaterializedViewIndexDefinitionGeneration indexDefinitionGeneration,
       MaterializedViewCollectionMetadata proposedMetadata) {
     @Var var existingLease = this.leases.get(proposedMetadata.collectionName());
     if (existingLease == null) {
@@ -411,12 +426,13 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
-  public Optional<BsonTimestamp> getSteadyAsOfOplogPosition(GenerationId generationId) {
+  public Optional<BsonTimestamp> getSteadyAsOfOplogPosition(
+      MaterializedViewGenerationId generationId) {
     return Optional.ofNullable(this.leases.get(getLeaseKey(generationId)))
         .flatMap(Lease::getSteadyAsOfOplogPosition);
   }
 
-  private void ensureLeaseExists(GenerationId generationId) {
+  private void ensureLeaseExists(MaterializedViewGenerationId generationId) {
     if (!this.leases.containsKey(getLeaseKey(generationId))) {
       throw new IllegalStateException("Lease does not exist for " + getLeaseKey(generationId));
     }
@@ -429,12 +445,12 @@ public class StaticLeaderLeaseManager implements LeaseManager {
     }
   }
 
-  private String getLeaseKey(GenerationId generationId) {
+  private String getLeaseKey(MaterializedViewGenerationId generationId) {
     return this.mvMetadataCatalog.getMetadata(generationId).collectionName();
   }
 
   @Nullable
-  private Lease getLeaseFromDatabase(GenerationId generationId) throws Exception {
+  private Lease getLeaseFromDatabase(MaterializedViewGenerationId generationId) throws Exception {
     return getLeaseFromDatabase(getLeaseKey(generationId));
   }
 
@@ -450,7 +466,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   }
 
   private void updateLeaseInDatabase(
-      GenerationId generationId,
+      MaterializedViewGenerationId generationId,
       Lease currentLease,
       Lease updatedLease,
       EncodedUserData encodedUserData)

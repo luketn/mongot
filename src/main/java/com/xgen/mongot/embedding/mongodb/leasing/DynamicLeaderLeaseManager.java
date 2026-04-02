@@ -26,14 +26,13 @@ import com.xgen.mongot.embedding.utils.MongoClientOperationExecutor;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexGeneration;
 import com.xgen.mongot.index.definition.IndexDefinition;
-import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
+import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
 import com.xgen.mongot.index.status.IndexStatus;
-import com.xgen.mongot.index.version.GenerationId;
+import com.xgen.mongot.index.version.MaterializedViewGenerationId;
 import com.xgen.mongot.metrics.MeterAndFtdcRegistry;
 import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.mongodb.serialization.MongoDbCollectionInfo;
-import io.micrometer.core.instrument.Counter;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -83,19 +82,16 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   // Mapping of lease keys to leases.
   private final Map<String, Lease> leases;
   // Tracks GenerationIds where this instance is the leader.
-  private final Set<GenerationId> leaderGenerationIds;
+  private final Set<MaterializedViewGenerationId> leaderGenerationIds;
   // Tracks GenerationIds where this instance is a follower.
-  private final Set<GenerationId> followerGenerationIds;
+  private final Set<MaterializedViewGenerationId> followerGenerationIds;
   // Maps GenerationId to its definition version (as String) for use in pollFollowerStatuses().
-  private final Map<GenerationId, String> generationIdToDefinitionVersion;
+  private final Map<MaterializedViewGenerationId, String> matViewGenerationIdToDefinitionVersion;
   private final MaterializedViewCollectionMetadataCatalog mvMetadataCatalog;
   private final String databaseName;
   private final AutoEmbeddingMongoClient autoEmbeddingMongoClient;
   // End of give-up blackout (epoch ms). While now < this, do not acquire leadership.
   private final AtomicLong giveUpBlackoutEndTimeMs = new AtomicLong(0);
-  // Tracks cases where drop() cannot resolve the lease key because metadata was already removed,
-  // resulting in a dangling lease document in the database.
-  private final Counter danglingLeaseOnDropCounter;
 
   public DynamicLeaderLeaseManager(
       AutoEmbeddingMongoClient autoEmbeddingMongoClient,
@@ -110,10 +106,9 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     this.leases = new ConcurrentHashMap<>();
     this.leaderGenerationIds = ConcurrentHashMap.newKeySet();
     this.followerGenerationIds = ConcurrentHashMap.newKeySet();
-    this.generationIdToDefinitionVersion = new ConcurrentHashMap<>();
+    this.matViewGenerationIdToDefinitionVersion = new ConcurrentHashMap<>();
     this.databaseName = databaseName;
     this.autoEmbeddingMongoClient = autoEmbeddingMongoClient;
-    this.danglingLeaseOnDropCounter = metricsFactory.counter("danglingLeaseOnDrop");
   }
 
   public static DynamicLeaderLeaseManager create(
@@ -299,16 +294,18 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    *
    * <p>If we already own the lease for this index (e.g., during index definition update), the
    * generation is added as a leader. Otherwise, it starts as a follower and leadership is acquired
-   * via {@link #tryAcquireLeadership(GenerationId)}.
+   * via {@link #tryAcquireLeadership(MaterializedViewGenerationId)}.
    *
    * <p>If no lease exists in memory, an in-memory lease with empty owner is created. This lease
-   * will be persisted to the database when {@link #tryAcquireLeadership(GenerationId)} is called.
+   * will be persisted to the database when {@link
+   * #tryAcquireLeadership(MaterializedViewGenerationId)} is called.
    */
   @Override
   public void add(IndexGeneration indexGeneration, boolean skipInitialSync) {
-    GenerationId generationId = indexGeneration.getGenerationId();
+    MaterializedViewGenerationId generationId =
+        Check.instanceOf(indexGeneration.getGenerationId(), MaterializedViewGenerationId.class);
     String versionKey = getIndexDefinitionVersion(indexGeneration.getDefinition());
-    this.generationIdToDefinitionVersion.put(generationId, versionKey);
+    this.matViewGenerationIdToDefinitionVersion.put(generationId, versionKey);
 
     if (this.leases.containsKey(getLeaseKey(generationId))) {
       // Lease exists in memory - check if we own it.
@@ -370,54 +367,42 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
-  public CompletableFuture<Void> drop(GenerationId generationId) {
-    boolean wasLeader = this.leaderGenerationIds.remove(generationId);
-    boolean wasFollower = this.followerGenerationIds.remove(generationId);
-    this.generationIdToDefinitionVersion.remove(generationId);
+  public void drop(MaterializedViewGenerationId generationId) {
+    this.leaderGenerationIds.remove(generationId);
+    this.followerGenerationIds.remove(generationId);
+    this.matViewGenerationIdToDefinitionVersion.remove(generationId);
+  }
 
-    // Resolve leaseKey once — if metadata is already gone, just clean up and return.
-    @Var String leaseKey = null;
-    try {
-      leaseKey = getLeaseKey(generationId);
-    } catch (IllegalStateException e) {
-      LOG.warn(
-          "Metadata removed for generation {} during drop, skipping lease cleanup. "
-              + "Lease document may remain in database.",
-          generationId,
-          e);
-      this.danglingLeaseOnDropCounter.increment();
-      return COMPLETED_FUTURE;
-    }
+  @Override
+  public CompletableFuture<Void> dropLease(String leaseKey) {
 
     // Only delete the lease from the database if we own the lease.
     // Enforce ownership check in the filter to handle stale in-memory state.
     Lease lease = this.leases.get(leaseKey);
     if (lease != null && this.hostname.equals(lease.leaseOwner())) {
       LOG.atInfo()
-          .addKeyValue("generationId", generationId)
+          .addKeyValue("leaseKey", leaseKey)
           .addKeyValue("hostname", this.hostname)
-          .addKeyValue("wasLeader", wasLeader)
           .log("Dropping index - deleting lease from database (we own it)");
       // Remove the lease from memory first, then delete it from DB.
       // This ensures we stop considering ourselves the leader immediately.
       this.leases.remove(leaseKey);
-      String leaseKeyForAsync = leaseKey;
       return CompletableFuture.runAsync(
           () -> {
             try {
               var filter =
                   Filters.and(
-                      Filters.eq("_id", leaseKeyForAsync),
+                      Filters.eq("_id", leaseKey),
                       Filters.eq(Lease.Fields.LEASE_OWNER.getName(), this.hostname));
               var deleteResult = this.getCollection().deleteOne(filter);
               if (deleteResult.getDeletedCount() > 0) {
                 LOG.atInfo()
-                    .addKeyValue("generationId", generationId)
+                    .addKeyValue("leaseKey", leaseKey)
                     .log("Successfully deleted lease from database");
               } else {
                 // This is expected if another instance took over before we deleted.
                 LOG.atInfo()
-                    .addKeyValue("generationId", generationId)
+                    .addKeyValue("leaseKey", leaseKey)
                     .log("Lease not deleted - ownership changed or lease already removed");
               }
             } catch (Exception e) {
@@ -425,7 +410,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
               LOG.warn(
                   "Failed to delete lease for {} from database. "
                       + "Lease will expire naturally if not deleted.",
-                  leaseKeyForAsync,
+                  leaseKey,
                   e);
             }
           });
@@ -434,17 +419,14 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     // Follower path or no lease found - just clean up the in-memory state.
     if (lease != null) {
       LOG.atInfo()
-          .addKeyValue("generationId", generationId)
+          .addKeyValue("leaseKey", leaseKey)
           .addKeyValue("hostname", this.hostname)
           .addKeyValue("leaseOwner", lease.leaseOwner())
-          .addKeyValue("wasFollower", wasFollower)
           .log("Dropping index - not deleting lease from database (we don't own it)");
     } else {
       LOG.atInfo()
-          .addKeyValue("generationId", generationId)
+          .addKeyValue("leaseKey", leaseKey)
           .addKeyValue("hostname", this.hostname)
-          .addKeyValue("wasLeader", wasLeader)
-          .addKeyValue("wasFollower", wasFollower)
           .log("Dropping index - no lease found in memory");
     }
     this.leases.remove(leaseKey);
@@ -452,18 +434,19 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
-  public boolean isLeader(GenerationId generationId) {
+  public boolean isLeader(MaterializedViewGenerationId generationId) {
     return this.leaderGenerationIds.contains(generationId);
   }
 
   @Override
-  public long getLeaseVersion(GenerationId generationId) {
+  public long getLeaseVersion(MaterializedViewGenerationId generationId) {
     Lease lease = this.leases.get(getLeaseKey(generationId));
     return lease != null ? lease.leaseVersion() : -1;
   }
 
   @Override
-  public EncodedUserData getCommitInfo(GenerationId generationId) throws IOException {
+  public EncodedUserData getCommitInfo(MaterializedViewGenerationId generationId)
+      throws IOException {
     // Leader can read from the in-memory state.
     if (isLeader(generationId)) {
       @Var String leaseKey = null;
@@ -493,7 +476,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
-  public void updateCommitInfo(GenerationId generationId, EncodedUserData encodedUserData)
+  public void updateCommitInfo(
+      MaterializedViewGenerationId generationId, EncodedUserData encodedUserData)
       throws MaterializedViewTransientException, MaterializedViewNonTransientException {
     // Only update the commit info in the database if leader.
     if (isLeader(generationId)) {
@@ -516,7 +500,9 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
   @Override
   public void updateReplicationStatus(
-      GenerationId generationId, long indexDefinitionVersion, IndexStatus indexStatus)
+      MaterializedViewGenerationId generationId,
+      long indexDefinitionVersion,
+      IndexStatus indexStatus)
       throws MaterializedViewTransientException, MaterializedViewNonTransientException {
     // Only update the status in the database of leader.
     if (isLeader(generationId)) {
@@ -547,19 +533,19 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
-  public Set<GenerationId> getLeaderGenerationIds() {
+  public Set<MaterializedViewGenerationId> getLeaderGenerationIds() {
     return Collections.unmodifiableSet(this.leaderGenerationIds);
   }
 
   @Override
-  public Set<GenerationId> getFollowerGenerationIds() {
+  public Set<MaterializedViewGenerationId> getFollowerGenerationIds() {
     return Collections.unmodifiableSet(this.followerGenerationIds);
   }
 
   @Override
   public LeaseManager.FollowerPollResult pollFollowerStatuses() {
-    Map<GenerationId, IndexStatus> statuses = new HashMap<>();
-    Set<GenerationId> acquirableLeases = new HashSet<>();
+    Map<MaterializedViewGenerationId, IndexStatus> statuses = new HashMap<>();
+    Set<MaterializedViewGenerationId> acquirableLeases = new HashSet<>();
 
     LOG.atDebug()
         .addKeyValue("followerCount", this.followerGenerationIds.size())
@@ -570,17 +556,15 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
       return new LeaseManager.FollowerPollResult(statuses, acquirableLeases);
     }
 
-    // Build a mapping from lease key to generation ID for efficient lookup after batch fetch.
-    // Also build a per-generation cache of lease keys, so we don't call getLeaseKey() again later.
-    Map<String, GenerationId> leaseKeyToGenerationId = new HashMap<>();
-    Map<GenerationId, String> generationIdToLeaseKey = new HashMap<>();
+    // Build a mapping from MaterializedViewGenerationID to LeaseKey for efficient lookup after
+    // batch fetch.
+    Map<MaterializedViewGenerationId, String> generationIdToLeaseKey = new HashMap<>();
     List<String> leaseKeys = new ArrayList<>();
-    Set<GenerationId> removedDuringPoll = new HashSet<>();
-    for (GenerationId generationId : new ArrayList<>(this.followerGenerationIds)) {
+    Set<MaterializedViewGenerationId> removedDuringPoll = new HashSet<>();
+    for (MaterializedViewGenerationId generationId : new ArrayList<>(this.followerGenerationIds)) {
       try {
         String leaseKey = getLeaseKey(generationId);
         leaseKeys.add(leaseKey);
-        leaseKeyToGenerationId.put(leaseKey, generationId);
         generationIdToLeaseKey.put(generationId, leaseKey);
       } catch (IllegalStateException e) {
         LOG.warn(
@@ -613,7 +597,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     } catch (Exception e) {
       LOG.warn("Failed to batch fetch follower leases, falling back to UNKNOWN status", e);
       // On failure, mark all followers as UNKNOWN.
-      for (GenerationId generationId : this.followerGenerationIds) {
+      for (MaterializedViewGenerationId generationId :
+          new ArrayList<>(this.followerGenerationIds)) {
         statuses.put(generationId, new IndexStatus(IndexStatus.StatusCode.UNKNOWN));
       }
       return new LeaseManager.FollowerPollResult(statuses, acquirableLeases);
@@ -621,11 +606,11 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
     // Process each follower generation ID.
     Instant now = Instant.now();
-    for (GenerationId generationId : this.followerGenerationIds) {
+    for (MaterializedViewGenerationId generationId : new ArrayList<>(this.followerGenerationIds)) {
       if (removedDuringPoll.contains(generationId)) {
         continue;
       }
-      String versionKey = this.generationIdToDefinitionVersion.get(generationId);
+      String versionKey = this.matViewGenerationIdToDefinitionVersion.get(generationId);
       if (versionKey == null) {
         LOG.warn("No definition version found for generation ID {}", generationId);
         continue;
@@ -668,7 +653,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
   /** Extracts the effective status from a lease for a given generation ID and version key. */
   private IndexStatus getStatusFromLease(
-      Lease lease, GenerationId generationId, String versionKey) {
+      Lease lease, MaterializedViewGenerationId generationId, String versionKey) {
     @Var
     Lease.IndexDefinitionVersionStatus requestedStatus =
         new Lease.IndexDefinitionVersionStatus(false, IndexStatus.StatusCode.UNKNOWN);
@@ -699,7 +684,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
           .addKeyValue("hostname", this.hostname)
           .log("Heartbeat - renewing leases for leader generations");
     }
-    for (GenerationId generationId : new ArrayList<>(this.leaderGenerationIds)) {
+    for (MaterializedViewGenerationId generationId : new ArrayList<>(this.leaderGenerationIds)) {
       renewLease(generationId);
     }
   }
@@ -727,7 +712,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * @return true if leadership was successfully acquired, false otherwise
    */
   @Override
-  public boolean tryAcquireLeadership(GenerationId generationId) {
+  public boolean tryAcquireLeadership(MaterializedViewGenerationId generationId) {
     if (isInLeaseAcquisitionBlackout()) {
       LOG.atDebug()
           .addKeyValue("generationId", generationId)
@@ -771,7 +756,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
-  public Optional<BsonTimestamp> getSteadyAsOfOplogPosition(GenerationId generationId) {
+  public Optional<BsonTimestamp> getSteadyAsOfOplogPosition(
+      MaterializedViewGenerationId generationId) {
     try {
       return Optional.ofNullable(this.leases.get(getLeaseKey(generationId)))
           .flatMap(Lease::getSteadyAsOfOplogPosition);
@@ -785,7 +771,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
   @Override
   public MaterializedViewCollectionMetadata initializeLease(
-      IndexDefinitionGeneration indexDefinitionGeneration,
+      MaterializedViewIndexDefinitionGeneration indexDefinitionGeneration,
       MaterializedViewCollectionMetadata proposedMetadata)
       throws Exception {
     @Var var existingLease = this.leases.get(proposedMetadata.collectionName());
@@ -914,7 +900,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * }</pre>
    */
   private boolean acquireExistingLease(
-      GenerationId generationId, Lease currentLease, Lease newLease) throws Exception {
+      MaterializedViewGenerationId generationId, Lease currentLease, Lease newLease)
+      throws Exception {
     boolean isReclaimingOwnLease = this.hostname.equals(currentLease.leaseOwner());
 
     var filter =
@@ -972,7 +959,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * @param newLeaseVersion the new lease version after update
    */
   private Bson createAcquireLeaseFilter(
-      GenerationId generationId, long currentLeaseVersion, long newLeaseVersion) {
+      MaterializedViewGenerationId generationId, long currentLeaseVersion, long newLeaseVersion) {
     return Filters.and(
         Filters.eq("_id", getLeaseKey(generationId)),
         Filters.or(
@@ -1024,7 +1011,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    *
    * <p>Note: Can only be called after mvMetadataCatalog is populated.
    */
-  private void refreshLeaseFromDatabase(GenerationId generationId) {
+  private void refreshLeaseFromDatabase(MaterializedViewGenerationId generationId) {
     try {
       Lease lease = getLeaseFromDatabase(generationId);
       if (lease != null) {
@@ -1086,7 +1073,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * }
    * }</pre>
    */
-  private void renewLease(GenerationId generationId) {
+  private void renewLease(MaterializedViewGenerationId generationId) {
     @Var String leaseKey = null;
     try {
       leaseKey = getLeaseKey(generationId);
@@ -1152,7 +1139,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   }
 
   /** Transitions a generation ID from leader to follower state. */
-  private void becomeFollower(GenerationId generationId) {
+  private void becomeFollower(MaterializedViewGenerationId generationId) {
     this.leaderGenerationIds.remove(generationId);
     // Only add to follower if we're still managing this generation.
     // If the lease was removed by drop(), we must not re-add to followerGenerationIds.
@@ -1177,7 +1164,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
           "Metadata removed for generation {} during becomeFollower, skipping follower transition",
           generationId,
           e);
-      this.generationIdToDefinitionVersion.remove(generationId);
+      this.matViewGenerationIdToDefinitionVersion.remove(generationId);
     }
   }
 
@@ -1196,16 +1183,17 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * @param leaseKey the resolved lease key, or {@code null} if it was not resolved before the
    *     failure (e.g. {@code getLeaseKey} itself threw)
    */
-  private void cleanupAfterMetadataLoss(GenerationId generationId, @Nullable String leaseKey) {
+  private void cleanupAfterMetadataLoss(
+      MaterializedViewGenerationId generationId, @Nullable String leaseKey) {
     this.leaderGenerationIds.remove(generationId);
     this.followerGenerationIds.remove(generationId);
-    this.generationIdToDefinitionVersion.remove(generationId);
+    this.matViewGenerationIdToDefinitionVersion.remove(generationId);
     if (leaseKey != null) {
       this.leases.remove(leaseKey);
     }
   }
 
-  private String getLeaseKey(GenerationId generationId) {
+  private String getLeaseKey(MaterializedViewGenerationId generationId) {
     return this.mvMetadataCatalog.getMetadata(generationId).collectionName();
   }
 
@@ -1230,7 +1218,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * @return the lease document, or null if not found
    */
   @Nullable
-  private Lease getLeaseFromDatabase(GenerationId generationId) throws Exception {
+  private Lease getLeaseFromDatabase(MaterializedViewGenerationId generationId) throws Exception {
     return getLeaseFromDatabase(getLeaseKey(generationId));
   }
 
@@ -1279,7 +1267,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    */
   private void updateLeaseInDatabase(
       String leaseKey,
-      GenerationId generationId,
+      MaterializedViewGenerationId generationId,
       Lease currentLease,
       Lease updatedLease,
       EncodedUserData encodedUserData) {
