@@ -108,6 +108,7 @@ filegroup(
     srcs = [],
 )
 
+# Allow test scripts to access test results
 filegroup(
     name = "test-results",
     srcs = glob(["bazel-testlogs/**/test.xml"]),
