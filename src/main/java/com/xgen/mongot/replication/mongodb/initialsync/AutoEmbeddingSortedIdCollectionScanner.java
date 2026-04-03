@@ -1,7 +1,5 @@
 package com.xgen.mongot.replication.mongodb.initialsync;
 
-import static com.xgen.mongot.index.mongodb.MaterializedViewWriter.MV_DATABASE_NAME;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.FluentLogger;
 import com.google.errorprone.annotations.Var;
@@ -56,32 +54,13 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
   private boolean firstPage = true;
 
   /** Builds an AutoEmbeddingSortedIdCollectionScanner. */
+  @VisibleForTesting
   public AutoEmbeddingSortedIdCollectionScanner(
       Clock clock,
       InitialSyncContext context,
       InitialSyncMongoClient mongoClient,
       BsonValue lastScannedToken,
       MaterializedViewCollectionMetadataCatalog matViewCollectionMetadataCatalog,
-      MetricsFactory metricsFactory) {
-    this(
-        clock,
-        context,
-        mongoClient,
-        lastScannedToken,
-        matViewCollectionMetadataCatalog,
-        MV_DATABASE_NAME,
-        metricsFactory);
-  }
-
-  // TEST ONLY
-  @VisibleForTesting
-  AutoEmbeddingSortedIdCollectionScanner(
-      Clock clock,
-      InitialSyncContext context,
-      InitialSyncMongoClient mongoClient,
-      BsonValue lastScannedToken,
-      MaterializedViewCollectionMetadataCatalog matViewCollectionMetadataCatalog,
-      String matViewDatabaseName,
       MetricsFactory metricsFactory) {
     super(clock, context, mongoClient, lastScannedToken, metricsFactory, false);
     Check.checkState(
@@ -102,7 +81,9 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
     // TODO(CLOUDP-363914): collectionName can be different if we want to reuse different MV
     // collection to build new MV collection
     this.matViewNamespace =
-        new MongoNamespace(matViewDatabaseName, this.matViewCollectionMetadata.collectionName());
+        new MongoNamespace(
+            matViewCollectionMetadataCatalog.getDatabaseName(context.getGenerationId()),
+            this.matViewCollectionMetadata.collectionName());
 
     this.matViewFieldMappingWithHashes =
         AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(

@@ -36,7 +36,6 @@ java_library(
         "//src/main/java/com/xgen/mongot/index/definition",
         "//src/main/java/com/xgen/mongot/index/lucene/directory",
         "//src/main/java/com/xgen/mongot/index/lucene/query/pushdown",
-        "//src/main/java/com/xgen/mongot/index/mongodb",
         "//src/main/java/com/xgen/mongot/index/version",
         "//src/main/java/com/xgen/mongot/logging",
         "//src/main/java/com/xgen/mongot/metrics",

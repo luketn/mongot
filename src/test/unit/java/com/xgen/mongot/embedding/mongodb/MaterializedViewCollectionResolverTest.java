@@ -19,6 +19,7 @@ import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
+import com.xgen.mongot.embedding.mongodb.common.DefaultInternalDatabaseResolver;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
 import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
@@ -145,7 +146,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             this.materializedViewConfig,
@@ -183,7 +184,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             this.materializedViewConfig,
@@ -213,7 +214,7 @@ public class MaterializedViewCollectionResolverTest {
     // collectionInfoDocuments).
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             this.materializedViewConfig,
@@ -250,7 +251,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             this.materializedViewConfig,
@@ -290,7 +291,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             this.materializedViewConfig,
@@ -335,7 +336,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             this.materializedViewConfig,
@@ -387,7 +388,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             this.materializedViewConfig,
@@ -443,7 +444,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             configV0,
@@ -502,7 +503,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             configV1,
@@ -566,7 +567,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             configV0,
@@ -631,7 +632,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             configV1,
@@ -667,7 +668,7 @@ public class MaterializedViewCollectionResolverTest {
     // Use default config which should have defaultMaterializedViewNameFormatVersion = 1
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             this.materializedViewConfig,
@@ -728,7 +729,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             configV1,
@@ -788,7 +789,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             configV0,
@@ -818,7 +819,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             this.materializedViewConfig,
@@ -853,7 +854,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             this.materializedViewConfig,
@@ -892,7 +893,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             this.materializedViewConfig,
@@ -956,7 +957,7 @@ public class MaterializedViewCollectionResolverTest {
 
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             configV0,
@@ -988,7 +989,7 @@ public class MaterializedViewCollectionResolverTest {
     // v1 (default config): collection name should start with indexIdAtCreationTime.
     MaterializedViewCollectionResolver resolver =
         new MaterializedViewCollectionResolver(
-            MV_DATABASE_NAME,
+            new DefaultInternalDatabaseResolver(MV_DATABASE_NAME),
             this.autoEmbeddingMongoClient,
             this.metadataCatalog,
             this.materializedViewConfig,

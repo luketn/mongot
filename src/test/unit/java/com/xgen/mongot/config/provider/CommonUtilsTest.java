@@ -12,6 +12,7 @@ import com.xgen.mongot.cursor.MongotCursorManager;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.mongodb.MaterializedViewCollectionResolver;
 import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
+import com.xgen.mongot.embedding.mongodb.common.DefaultInternalDatabaseResolver;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
 import com.xgen.mongot.embedding.providers.EmbeddingServiceManager;
 import com.xgen.mongot.featureflag.FeatureFlags;
@@ -255,6 +256,8 @@ public class CommonUtilsTest {
             Optional.empty(),
             Optional.empty());
 
+    DefaultInternalDatabaseResolver dbResolver =
+        new DefaultInternalDatabaseResolver();
     MaterializedViewIndexFactory factory =
         CommonUtils.getMaterializedViewIndexFactory(
             mocks.autoEmbeddingMongoClient,
@@ -262,6 +265,7 @@ public class CommonUtilsTest {
             MeterAndFtdcRegistry.create(mocks.meterRegistry, mocks.ftdcRegistry),
             mocks.leaseManager,
             collectionResolver,
+            dbResolver,
             configWithRateLimit);
 
     Field writerFactoryField =
@@ -285,6 +289,7 @@ public class CommonUtilsTest {
             MeterAndFtdcRegistry.create(mocks.meterRegistry, mocks.ftdcRegistry),
             mocks.leaseManager,
             collectionResolver,
+            dbResolver,
             configWithoutRateLimit);
 
     var writerFactory2 = (MaterializedViewWriter.Factory) writerFactoryField.get(factoryNoLimit);

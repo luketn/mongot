@@ -18,6 +18,7 @@ import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
+import com.xgen.mongot.embedding.mongodb.common.InternalDatabaseResolver;
 import com.xgen.mongot.embedding.utils.MongoClientOperationExecutor;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexGeneration;
@@ -60,9 +61,6 @@ public class StaticLeaderLeaseManager implements LeaseManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(StaticLeaderLeaseManager.class);
 
-  // TODO(CLOUDP-356242): make this configurable
-  private static final String AUTO_EMBEDDING_INTERNAL_DATABASE_NAME = "__mdb_internal_search";
-
   private static final String METRICS_NAMESPACE = "embedding.leasing.stats";
 
   private static final ReplaceOptions REPLACE_OPTIONS = new ReplaceOptions().upsert(true);
@@ -77,18 +75,18 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   private final Set<MaterializedViewGenerationId> managedGenerationIds;
   // Maps GenerationId to its definition version (as String) for use in pollFollowerStatuses().
   private final Map<MaterializedViewGenerationId, String> generationIdToDefinitionVersion;
-  private final MongoCollection<BsonDocument> collection;
   private final MongoClient mongoClient;
   private final boolean isLeader;
   private final MaterializedViewCollectionMetadataCatalog mvMetadataCatalog;
-  private final String databaseName;
+  private final InternalDatabaseResolver dbResolver;
+  private final Map<String, String> leaseKeyToDatabase;
 
   /** Init static lease manager */
   public StaticLeaderLeaseManager(
       MongoClient mongoClient,
       MetricsFactory metricsFactory,
       String hostname,
-      String databaseName,
+      InternalDatabaseResolver dbResolver,
       boolean isLeader,
       MaterializedViewCollectionMetadataCatalog mvMetadataCatalog) {
     this.operationExecutor =
@@ -99,16 +97,8 @@ public class StaticLeaderLeaseManager implements LeaseManager {
     this.managedGenerationIds = ConcurrentHashMap.newKeySet();
     this.generationIdToDefinitionVersion = new ConcurrentHashMap<>();
     this.mongoClient = mongoClient;
-    this.databaseName = databaseName;
-    // Use LINEARIZABLE read concern for lease operations to ensure we always read the most
-    // up-to-date lease state. This is critical for lease correctness.
-    // LINEARIZABLE read concern requires ReadPreference.primary() to work correctly.
-    this.collection =
-        this.mongoClient
-            .getDatabase(databaseName)
-            .getCollection(LEASE_COLLECTION_NAME, BsonDocument.class)
-            .withReadConcern(ReadConcern.LINEARIZABLE)
-            .withReadPreference(ReadPreference.primary());
+    this.dbResolver = dbResolver;
+    this.leaseKeyToDatabase = new ConcurrentHashMap<>();
     this.isLeader = isLeader;
   }
 
@@ -116,31 +106,59 @@ public class StaticLeaderLeaseManager implements LeaseManager {
       MongoClient mongoClient,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
       String hostname,
+      InternalDatabaseResolver dbResolver,
       boolean isLeader,
       MaterializedViewCollectionMetadataCatalog mvMetadataCatalog) {
     return new StaticLeaderLeaseManager(
         mongoClient,
         new MetricsFactory(METRICS_NAMESPACE, meterAndFtdcRegistry.meterRegistry()),
         hostname,
-        AUTO_EMBEDDING_INTERNAL_DATABASE_NAME,
+        dbResolver,
         isLeader,
         mvMetadataCatalog);
   }
 
+  private String getDatabaseForLease(String leaseKey) {
+    String db = this.leaseKeyToDatabase.get(leaseKey);
+    if (db == null) {
+      throw new IllegalStateException(
+          "No database mapping found for lease key '"
+              + leaseKey
+              + "'. Ensure add() or initializeLease() has been called before operating on this"
+              + " key.");
+    }
+    return db;
+  }
+
+  private MongoCollection<BsonDocument> getCollection(String databaseName) {
+    return this.mongoClient
+        .getDatabase(databaseName)
+        .getCollection(LEASE_COLLECTION_NAME, BsonDocument.class)
+        .withReadConcern(ReadConcern.LINEARIZABLE)
+        .withReadPreference(ReadPreference.primary());
+  }
+
   /** Initializes the local lease state with the leases from the database. */
+  @VisibleForTesting
   public void syncLeasesFromMongod() {
     try {
+      String defaultDb = this.dbResolver.resolveDefault();
       List<BsonDocument> rawLeases =
           this.operationExecutor.execute(
-              "getLeases", () -> this.collection.find().into(new ArrayList<>()));
+              "getLeases",
+              () -> this.getCollection(defaultDb).find().into(new ArrayList<>()));
       for (BsonDocument rawLease : rawLeases) {
-        Lease lease = normalizedLeaseIfNeeded(Lease.fromBson(rawLease));
+        // Populate the database mapping before normalization so that getDatabaseForLease()
+        // resolves correctly when normalizedLeaseIfNeeded() calls back into it for UUID resolution.
+        Lease parsed = Lease.fromBson(rawLease);
+        this.leaseKeyToDatabase.putIfAbsent(parsed.id(), defaultDb);
+        Lease lease = normalizedLeaseIfNeeded(parsed);
         if (lease != null) {
           this.leases.put(lease.id(), lease);
         } else {
           // TODO(CLOUDP-384971): clean up corrupted leases
           LOG.atError()
-              .addKeyValue("leaseId", rawLease.getString("_id"))
+              .addKeyValue("leaseId", parsed.id())
               .log("Corrupted lease found, skipping");
         }
       }
@@ -166,7 +184,7 @@ public class StaticLeaderLeaseManager implements LeaseManager {
           Check.instanceOf(
                   getCollectionInfo(
                       this.mongoClient,
-                      this.databaseName,
+                      getDatabaseForLease(lease.id()),
                       lease.materializedViewCollectionMetadata().collectionName()),
                   MongoDbCollectionInfo.Collection.class)
               .info()
@@ -199,6 +217,10 @@ public class StaticLeaderLeaseManager implements LeaseManager {
     this.managedGenerationIds.add(generationId);
     this.generationIdToDefinitionVersion.put(
         generationId, getIndexDefinitionVersion(indexGeneration));
+    this.leaseKeyToDatabase.put(
+        getLeaseKey(generationId),
+        this.dbResolver.resolve(
+            indexGeneration.getDefinition().getDatabase()));
     if (this.leases.containsKey(getLeaseKey(generationId))) {
       var lease = this.leases.get(getLeaseKey(generationId));
       String versionKey =
@@ -234,8 +256,9 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   @Override
   public CompletableFuture<Void> dropLease(String leaseKey) {
     if (this.isLeader) {
+      String dbName = getDatabaseForLease(leaseKey);
       return CompletableFuture.runAsync(
-              () -> this.collection.deleteOne(new Document("_id", leaseKey)))
+              () -> this.getCollection(dbName).deleteOne(new Document("_id", leaseKey)))
           .exceptionally(
               throwable -> {
                 LOG.atWarn()
@@ -244,9 +267,13 @@ public class StaticLeaderLeaseManager implements LeaseManager {
                     .log("Failed to delete lease entry in Lease table, ignore it for now.");
                 return null;
               })
-          .thenRun(() -> this.leases.remove(leaseKey));
+          .thenRun(() -> {
+            this.leases.remove(leaseKey);
+            this.leaseKeyToDatabase.remove(leaseKey);
+          });
     } else {
       this.leases.remove(leaseKey);
+      this.leaseKeyToDatabase.remove(leaseKey);
       return COMPLETED_FUTURE;
     }
   }
@@ -370,6 +397,11 @@ public class StaticLeaderLeaseManager implements LeaseManager {
     return this.leases;
   }
 
+  @VisibleForTesting
+  Map<String, String> getLeaseKeyToDatabase() {
+    return this.leaseKeyToDatabase;
+  }
+
   @Override
   public Set<MaterializedViewGenerationId> getLeaderGenerationIds() {
     if (this.isLeader) {
@@ -410,6 +442,10 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   public MaterializedViewCollectionMetadata initializeLease(
       MaterializedViewIndexDefinitionGeneration indexDefinitionGeneration,
       MaterializedViewCollectionMetadata proposedMetadata) {
+    this.leaseKeyToDatabase.put(
+        proposedMetadata.collectionName(),
+        this.dbResolver.resolve(
+            indexDefinitionGeneration.getIndexDefinition().getDatabase()));
     @Var var existingLease = this.leases.get(proposedMetadata.collectionName());
     if (existingLease == null) {
       // Try to get lease from database and update in memory state.
@@ -458,7 +494,10 @@ public class StaticLeaderLeaseManager implements LeaseManager {
   private Lease getLeaseFromDatabase(String collectionName) throws Exception {
     BsonDocument rawLease =
         this.operationExecutor.execute(
-            "getLease", () -> this.collection.find(new Document("_id", collectionName)).first());
+            "getLease",
+            () -> this.getCollection(getDatabaseForLease(collectionName))
+                .find(new Document("_id", collectionName))
+                .first());
     if (rawLease == null) {
       return null;
     }
@@ -477,7 +516,8 @@ public class StaticLeaderLeaseManager implements LeaseManager {
         var filter = Filters.eq("_id", getLeaseKey(generationId));
         this.operationExecutor.execute(
             "createLease",
-            () -> this.collection.replaceOne(filter, updatedLease.toBson(), REPLACE_OPTIONS));
+            () -> this.getCollection(getDatabaseForLease(getLeaseKey(generationId)))
+                .replaceOne(filter, updatedLease.toBson(), REPLACE_OPTIONS));
         this.leases.put(getLeaseKey(generationId), updatedLease);
       } else {
         // Update with optimistic concurrency control on the lease version to ensure the lease
@@ -505,7 +545,9 @@ public class StaticLeaderLeaseManager implements LeaseManager {
                             Lease.Fields.COMMIT_INFO.getName(), encodedUserData.asString()))));
         var result =
             this.operationExecutor.execute(
-                "updateLease", () -> this.collection.replaceOne(filter, updatedLease.toBson()));
+                "updateLease",
+                () -> this.getCollection(getDatabaseForLease(getLeaseKey(generationId)))
+                    .replaceOne(filter, updatedLease.toBson()));
         if (result.getMatchedCount() == 0) {
           // This means the document was not in one of the two desired states described above.
           // TODO(CLOUDP-364787): We should move the index to failed state as this is not a

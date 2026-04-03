@@ -16,6 +16,8 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.result.DeleteResult;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
+import com.xgen.mongot.embedding.mongodb.common.DefaultInternalDatabaseResolver;
+import com.xgen.mongot.embedding.mongodb.common.InternalDatabaseResolver;
 import com.xgen.mongot.index.autoembedding.MaterializedViewIndexGeneration;
 import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
 import com.xgen.mongot.index.status.IndexStatus;
@@ -44,6 +46,8 @@ public class StaticLeaderLeaseManagerTest {
 
   private static final String HOSTNAME = "test-host";
   private static final String DATABASE_NAME = "test-db";
+  private static final InternalDatabaseResolver DB_RESOLVER =
+      new DefaultInternalDatabaseResolver(DATABASE_NAME);
 
   private MongoClient mockMongoClient;
   private MongoDatabase mockDatabase;
@@ -92,6 +96,10 @@ public class StaticLeaderLeaseManagerTest {
 
     // Assert - should return proposed metadata (no existing lease)
     assertThat(result).isEqualTo(proposedMetadata);
+    assertThat(leaseManager.getLeaseKeyToDatabase())
+        .containsKey("mv-collection-name");
+    assertThat(leaseManager.getLeaseKeyToDatabase().get("mv-collection-name"))
+        .isEqualTo(DATABASE_NAME);
   }
 
   @Test
@@ -135,6 +143,10 @@ public class StaticLeaderLeaseManagerTest {
     assertThat(result.collectionName()).isEqualTo(collectionName);
     assertThat(result.collectionUuid()).isEqualTo(existingUuid);
     assertThat(result.schemaMetadata().materializedViewSchemaVersion()).isEqualTo(0L);
+    assertThat(leaseManager.getLeases()).containsKey(collectionName);
+    assertThat(leaseManager.getLeaseKeyToDatabase()).containsKey(collectionName);
+    assertThat(leaseManager.getLeaseKeyToDatabase().get(collectionName))
+        .isEqualTo(DATABASE_NAME);
   }
 
   @Test
@@ -157,6 +169,11 @@ public class StaticLeaderLeaseManagerTest {
 
     // Assert - follower should return proposed metadata when no existing lease
     assertThat(result).isEqualTo(proposedMetadata);
+    assertThat(followerLeaseManager.getLeaseKeyToDatabase())
+        .containsKey("follower-mv-collection");
+    assertThat(
+            followerLeaseManager.getLeaseKeyToDatabase().get("follower-mv-collection"))
+        .isEqualTo(DATABASE_NAME);
   }
 
   // ==================== drop Tests ====================
@@ -249,7 +266,7 @@ public class StaticLeaderLeaseManagerTest {
         this.mockMongoClient,
         new SimpleMetricsFactory(),
         HOSTNAME,
-        DATABASE_NAME,
+        DB_RESOLVER,
         isLeader,
         this.mvMetadataCatalog);
   }
