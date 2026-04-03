@@ -99,6 +99,15 @@ import org.slf4j.LoggerFactory;
 public class VectorSearchCommand implements Command {
 
   private static final Logger LOG = LoggerFactory.getLogger(VectorSearchCommand.class);
+
+  /**
+   * Bundles the resolved embedding model name together with the raw (source) auto-embedding
+   * index definition. The source definition carries the original user-facing database name
+   * which is needed by {@link EmbeddingRequestContext} for multi-tenant credential lookup.
+   */
+  @VisibleForTesting
+  record EmbedRequestInfo(Optional<String> modelName, IndexDefinition sourceDefinition) {}
+
   private static final FluentLogger FLOGGER = FluentLogger.forEnclosingClass();
 
   private final MetricsFactory metricsFactory;
@@ -426,11 +435,9 @@ public class VectorSearchCommand implements Command {
         Tracing.simpleSpanGuard("VectorSearchCommand.getSearchResults", Tracing.TOGGLE_OFF)) {
       var timer = Timer.start();
       var commandTimer = Timer.start();
-      var materializedQuery =
-          maybeEmbed(
+      var materializedQuery = maybeEmbed(
               vectorSearchQuery,
-              findEmbeddingModelName(optionalIndex.get().getDefinition(), vectorSearchQuery),
-              optionalIndex.get().getDefinition());
+              findEmbedRequestInfo(optionalIndex.get().getDefinition(), vectorSearchQuery));
       if (vectorSearchQuery.returnStoredSource()) {
         return getBatch(
             materializedQuery,
@@ -570,18 +577,26 @@ public class VectorSearchCommand implements Command {
     return serializedBatch;
   }
 
+  // Returns EmbeddingRequestInfo if embedding request is needed, for queryVector on autoEmbed
+  // index, we also return empty here.
   @VisibleForTesting
-  Optional<String> findEmbeddingModelName(
+  Optional<EmbedRequestInfo> findEmbedRequestInfo(
       IndexDefinition regularIndexDefinition, VectorSearchQuery vectorSearchQuery)
       throws InvalidQueryException {
     if (vectorSearchQuery.criteria().query().isEmpty()) {
-      // No need to find model for queryVector.
+      // No need to find model for queryVector and source definition for request context.
       return Optional.empty();
     }
+    // TODO(CLOUDP-353553): Handle search index with autoEmbed field.
     if (regularIndexDefinition.getType() != VECTOR_SEARCH) {
       return Optional.empty();
     }
     @Var var vectorIndexDef = regularIndexDefinition.asVectorDefinition();
+    // For the EmbedRequestInfo we need the source definition that carries the original
+    // user-facing database name. For direct auto-embedding indexes (e.g., legacy type:text
+    // index) this is regularIndexDefinition itself; for mat-view derived indexes it is the
+    // raw auto-embedding definition looked up from the catalog. In both cases vectorIndexDef
+    // tracks the correct source definition.
     // This is a non-autoembedding index but has query string, could be a derived index definition
     // from auto-embedding index.
     if (!regularIndexDefinition.isAutoEmbeddingIndex()) {
@@ -614,7 +629,7 @@ public class VectorSearchCommand implements Command {
           .addKeyValue("indexModel", indexModel.orElse("none"))
           .addKeyValue("fieldPath", fieldPath.toString())
           .log("Using indexing model for embedding query (no query model specified)");
-      return indexModel;
+      return Optional.of(new EmbedRequestInfo(indexModel, vectorIndexDef));
     }
 
     // Check if the query model is allowed
@@ -645,7 +660,7 @@ public class VectorSearchCommand implements Command {
         .addKeyValue("indexModel", indexModel.get())
         .addKeyValue("fieldPath", fieldPath.toString())
         .log("Using user-specified model for embedding (compatible with indexing model)");
-    return queryModel;
+    return Optional.of(new EmbedRequestInfo(queryModel, vectorIndexDef));
   }
 
   private MongotCursorBatch createExhaustedCursorBatch(BsonArray results)
@@ -742,9 +757,7 @@ public class VectorSearchCommand implements Command {
   }
 
   private MaterializedVectorSearchQuery maybeEmbed(
-      VectorSearchQuery vectorSearchQuery,
-      Optional<String> canonicalModel,
-      IndexDefinition indexDefinition)
+      VectorSearchQuery vectorSearchQuery, Optional<EmbedRequestInfo> embedRequestInfo)
       throws InvalidQueryException,
           EmbeddingProviderTransientException,
           EmbeddingProviderNonTransientException {
@@ -763,6 +776,8 @@ public class VectorSearchCommand implements Command {
           Check.isPresent(criteria.queryVector(), "queryVector"),
           findAutoEmbeddingFieldsMapping(vectorSearchQuery));
     }
+    Optional<String> canonicalModel =
+        embedRequestInfo.flatMap(EmbedRequestInfo::modelName);
     if (canonicalModel.isEmpty()) {
       throw new InvalidQueryException(
           "Vector index for this text based query is invalid due to missing model");
@@ -771,8 +786,13 @@ public class VectorSearchCommand implements Command {
       throw new EmbeddingProviderTransientException("Embedding service not initialized.");
     }
 
+    // Use the raw (source) auto-embedding index definition for the embedding context.
+    // This carries the original user-facing database name needed for multi-tenant credential
+    // lookup, as opposed to the derived definition whose database is __mdb_internal_search.
+    IndexDefinition sourceDefinition = embedRequestInfo.get().sourceDefinition();
     EmbeddingRequestContext context =
-        prepareEmbeddingRequestContext(vectorSearchQuery, indexDefinition);
+        // TODO(CLOUDP-353553): Handle search index with autoEmbed field.
+        prepareEmbeddingRequestContext(vectorSearchQuery, sourceDefinition.asVectorDefinition());
     List<VectorOrError> results;
     try {
       results =
@@ -808,29 +828,31 @@ public class VectorSearchCommand implements Command {
   }
 
   private EmbeddingRequestContext prepareEmbeddingRequestContext(
-      VectorSearchQuery vectorSearchQuery, IndexDefinition indexDefinition)
+      VectorSearchQuery vectorSearchQuery, VectorIndexDefinition sourceIndexDefinition)
       throws InvalidQueryException {
-    // resolve numDimensions & providerOutputDataType for query
-
+    // Get autoEmbed field definition to resolve numDimensions & providerOutputDataType
     FieldPath sourcePath = vectorSearchQuery.criteria().path();
     Optional<VectorAutoEmbedFieldDefinition> autoEmbedField =
-        findAutoEmbedFieldDefinitionBySourcePath(vectorSearchQuery, sourcePath);
+        sourceIndexDefinition
+            .getMappings()
+            .getFieldDefinition(sourcePath)
+            .filter(fieldDef -> fieldDef.getType() == VectorIndexFieldDefinition.Type.AUTO_EMBED)
+            .map(VectorIndexFieldDefinition::asVectorAutoEmbedField);
     if (autoEmbedField.isPresent()) {
       // MV-based auto-embedding index: use provider quantization from auto-embed spec.
       VectorAutoEmbedFieldSpecification spec = autoEmbedField.get().specification();
       return new EmbeddingRequestContext(
-          indexDefinition.getDatabase(),
-          indexDefinition.getName(),
-          indexDefinition.getLastObservedCollectionName(),
+          sourceIndexDefinition.getDatabase(),
+          sourceIndexDefinition.getName(),
+          sourceIndexDefinition.getLastObservedCollectionName(),
           spec.numDimensions(),
           spec.autoEmbedQuantization());
     }
     // Type-text index: provider dtype is always float.
     VectorFieldSpecification spec =
-        indexDefinition
-            .asVectorDefinition()
+        sourceIndexDefinition
             .getMappings()
-            .getFieldDefinition(vectorSearchQuery.criteria().path())
+            .getFieldDefinition(sourcePath)
             .filter(VectorIndexFieldDefinition::isVectorField)
             .map(def -> def.asVectorField().specification())
             .orElseThrow(
@@ -840,9 +862,9 @@ public class VectorSearchCommand implements Command {
                             + "no embedding field for path '%s'".formatted(sourcePath)));
 
     return new EmbeddingRequestContext(
-        indexDefinition.getDatabase(),
-        indexDefinition.getName(),
-        indexDefinition.getLastObservedCollectionName(),
+        sourceIndexDefinition.getDatabase(),
+        sourceIndexDefinition.getName(),
+        sourceIndexDefinition.getLastObservedCollectionName(),
         spec.numDimensions(),
         VectorAutoEmbedQuantization.FLOAT // type:TEXT → always float32 provider output
         );
@@ -856,15 +878,6 @@ public class VectorSearchCommand implements Command {
             materializedViewIndex ->
                 materializedViewIndex.getSchemaMetadata().autoEmbeddingFieldsMapping())
         .orElse(Map.of());
-  }
-
-  private Optional<VectorAutoEmbedFieldDefinition> findAutoEmbedFieldDefinitionBySourcePath(
-      VectorSearchQuery vectorSearchQuery, FieldPath sourcePath) {
-    return resolveMaterializedViewIndex(vectorSearchQuery)
-        .map(materializedViewIndex -> materializedViewIndex.getDefinition().asVectorDefinition())
-        .flatMap(vectorDef -> vectorDef.getMappings().getFieldDefinition(sourcePath))
-        .filter(fieldDef -> fieldDef.getType() == VectorIndexFieldDefinition.Type.AUTO_EMBED)
-        .map(VectorIndexFieldDefinition::asVectorAutoEmbedField);
   }
 
   private Optional<InitializedMaterializedViewIndex> resolveMaterializedViewIndex(
