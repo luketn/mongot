@@ -3,6 +3,7 @@ package com.xgen.mongot.replication.mongodb.common;
 import com.google.common.annotations.VisibleForTesting;
 import com.xgen.mongot.embedding.AutoEmbeddingMemoryBudget;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig;
+import com.xgen.mongot.embedding.providers.congestion.AimdCongestionControl;
 import com.xgen.mongot.embedding.providers.congestion.AimdCongestionControl.CongestionControlParams;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.Runtime;
@@ -33,6 +34,12 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
   private static final int DEFAULT_MAT_VIEW_WRITER_MAX_CONNECTIONS = 4;
   private static final int MAX_MAT_VIEW_WRITER_MAX_CONNECTIONS = 16;
   private static final long DEFAULT_MATERIALIZED_VIEW_NAME_FORMAT_VERSION = 1;
+  private static final long DEFAULT_LEASE_MANAGER_HEARTBEAT_INTERVAL_MS =
+      Duration.ofSeconds(30).toMillis();
+  private static final long DEFAULT_MATERIALIZED_VIEW_STATUS_REFRESH_INTERVAL_MS =
+      Duration.ofSeconds(30).toMillis();
+  private static final long DEFAULT_MATERIALIZED_VIEW_OPTIME_UPDATE_INTERVAL_MS =
+      Duration.ofSeconds(10).toMillis();
 
   /**
    * Default memory budget as a percentage of JVM heap. The global default is 100% (unbounded). The
@@ -167,6 +174,17 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
    */
   public final int perBatchMemoryBudgetHeapPercent;
 
+  /** The interval in milliseconds at which the lease manager heartbeat task runs. */
+  public final long leaseManagerHeartbeatIntervalMs;
+
+  /**
+   * The interval in milliseconds at which the materialized view manager status refresh task runs.
+   */
+  public final long materializedViewStatusRefreshIntervalMs;
+
+  /** The interval in milliseconds at which the materialized view index optime is updated. */
+  public final long materializedViewOptimeUpdateIntervalMs;
+
   private AutoEmbeddingMaterializedViewConfig(
       boolean pauseAllInitialSyncs,
       List<ObjectId> pauseInitialSyncOnIndexIds,
@@ -193,7 +211,10 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Duration> transientBackoff,
       long defaultMaterializedViewNameFormatVersion,
       int globalMemoryBudgetHeapPercent,
-      int perBatchMemoryBudgetHeapPercent) {
+      int perBatchMemoryBudgetHeapPercent,
+      long leaseManagerHeartbeatIntervalMs,
+      long materializedViewStatusRefreshIntervalMs,
+      long materializedViewOptimeUpdateIntervalMs) {
     super(
         pauseAllInitialSyncs,
         pauseInitialSyncOnIndexIds,
@@ -221,6 +242,9 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     this.defaultMaterializedViewNameFormatVersion = defaultMaterializedViewNameFormatVersion;
     this.globalMemoryBudgetHeapPercent = globalMemoryBudgetHeapPercent;
     this.perBatchMemoryBudgetHeapPercent = perBatchMemoryBudgetHeapPercent;
+    this.leaseManagerHeartbeatIntervalMs = leaseManagerHeartbeatIntervalMs;
+    this.materializedViewStatusRefreshIntervalMs = materializedViewStatusRefreshIntervalMs;
+    this.materializedViewOptimeUpdateIntervalMs = materializedViewOptimeUpdateIntervalMs;
   }
 
   /**
@@ -249,7 +273,10 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Long> optionalTransientBackoffMs,
       Optional<Long> defaultMaterializedViewNameFormatVersion,
       Optional<Integer> globalMemoryBudgetHeapPercent,
-      Optional<Integer> perBatchMemoryBudgetHeapPercent) {
+      Optional<Integer> perBatchMemoryBudgetHeapPercent,
+      Optional<Long> optionalLeaseManagerHeartbeatIntervalMs,
+      Optional<Long> optionalMaterializedViewStatusRefreshIntervalMs,
+      Optional<Long> optionalMaterializedViewOptimeUpdateIntervalMs) {
     return create(
         Runtime.INSTANCE,
         globalReplicationConfig,
@@ -273,7 +300,10 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         optionalTransientBackoffMs,
         defaultMaterializedViewNameFormatVersion,
         globalMemoryBudgetHeapPercent,
-        perBatchMemoryBudgetHeapPercent);
+        perBatchMemoryBudgetHeapPercent,
+        optionalLeaseManagerHeartbeatIntervalMs,
+        optionalMaterializedViewStatusRefreshIntervalMs,
+        optionalMaterializedViewOptimeUpdateIntervalMs);
   }
 
   /** Used for testing. The above create() method should be called instead. */
@@ -301,7 +331,10 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Long> optionalTransientBackoffMs,
       Optional<Long> optionalMaterializedViewNameFormatVersion,
       Optional<Integer> optionalGlobalMemoryBudgetHeapPercent,
-      Optional<Integer> optionalPerBatchMemoryBudgetHeapPercent) {
+      Optional<Integer> optionalPerBatchMemoryBudgetHeapPercent,
+      Optional<Long> optionalLeaseManagerHeartbeatIntervalMs,
+      Optional<Long> optionalMaterializedViewStatusRefreshIntervalMs,
+      Optional<Long> optionalMaterializedViewOptimeUpdateIntervalMs) {
 
     int maxConcurrentEmbeddingInitialSyncs =
         getMaxConcurrentEmbeddingInitialSyncsWithDefault(
@@ -402,6 +435,22 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
             "perBatchMemoryBudgetHeapPercent",
             DEFAULT_PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT);
 
+    long leaseManagerHeartbeatIntervalMs =
+        getIntervalMsWithDefault(
+            optionalLeaseManagerHeartbeatIntervalMs,
+            "leaseManagerHeartbeatIntervalMs",
+            DEFAULT_LEASE_MANAGER_HEARTBEAT_INTERVAL_MS);
+    long materializedViewStatusRefreshIntervalMs =
+        getIntervalMsWithDefault(
+            optionalMaterializedViewStatusRefreshIntervalMs,
+            "materializedViewStatusRefreshIntervalMs",
+            DEFAULT_MATERIALIZED_VIEW_STATUS_REFRESH_INTERVAL_MS);
+    long materializedViewOptimeUpdateIntervalMs =
+        getIntervalMsWithDefault(
+            optionalMaterializedViewOptimeUpdateIntervalMs,
+            "materializedViewOptimeUpdateIntervalMs",
+            DEFAULT_MATERIALIZED_VIEW_OPTIME_UPDATE_INTERVAL_MS);
+
     return new AutoEmbeddingMaterializedViewConfig(
         globalReplicationConfig.pauseAllInitialSyncs(),
         globalReplicationConfig.pauseInitialSyncOnIndexIds(),
@@ -428,7 +477,26 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         transientBackoff,
         defaultMaterializedViewNameFormatVersion,
         globalMemoryBudgetHeapPercent,
-        perBatchMemoryBudgetHeapPercent);
+        perBatchMemoryBudgetHeapPercent,
+        leaseManagerHeartbeatIntervalMs,
+        materializedViewStatusRefreshIntervalMs,
+        materializedViewOptimeUpdateIntervalMs);
+  }
+
+  private static long getIntervalMsWithDefault(
+      Optional<Long> optionalIntervalMs, String name, long defaultMs) {
+    long value =
+        optionalIntervalMs.orElseGet(
+            () -> {
+              LOG.info("{} not configured, defaulting to {}ms.", name, defaultMs);
+              return defaultMs;
+            });
+    if (value <= 0) {
+      LOG.warn(
+          "{} must be positive, got {}. Falling back to default {}ms.", name, value, defaultMs);
+      return defaultMs;
+    }
+    return value;
   }
 
   /**
@@ -458,6 +526,9 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
         Optional.empty());
   }
 
@@ -467,6 +538,9 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     return create(
         runtime,
         defaultGlobalReplicationConfig(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
@@ -532,6 +606,14 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
             Fields.GLOBAL_MEMORY_BUDGET_HEAP_PERCENT, this.globalMemoryBudgetHeapPercent)
         .fieldOmitDefaultValue(
             Fields.PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT, this.perBatchMemoryBudgetHeapPercent)
+        .field(
+            Fields.LEASE_MANAGER_HEARTBEAT_INTERVAL_MS, this.leaseManagerHeartbeatIntervalMs)
+        .field(
+            Fields.MATERIALIZED_VIEW_STATUS_REFRESH_INTERVAL_MS,
+            this.materializedViewStatusRefreshIntervalMs)
+        .field(
+            Fields.MATERIALIZED_VIEW_OPTIME_UPDATE_INTERVAL_MS,
+            this.materializedViewOptimeUpdateIntervalMs)
         .build();
   }
 
@@ -886,5 +968,26 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
             .mustBePositive()
             .optional()
             .withDefault(DEFAULT_PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT);
+
+    private static final Field.WithDefault<Long> LEASE_MANAGER_HEARTBEAT_INTERVAL_MS =
+        Field.builder("leaseManagerHeartbeatIntervalMs")
+            .longField()
+            .mustBePositive()
+            .optional()
+            .withDefault(DEFAULT_LEASE_MANAGER_HEARTBEAT_INTERVAL_MS);
+
+    private static final Field.WithDefault<Long> MATERIALIZED_VIEW_STATUS_REFRESH_INTERVAL_MS =
+        Field.builder("materializedViewStatusRefreshIntervalMs")
+            .longField()
+            .mustBePositive()
+            .optional()
+            .withDefault(DEFAULT_MATERIALIZED_VIEW_STATUS_REFRESH_INTERVAL_MS);
+
+    private static final Field.WithDefault<Long> MATERIALIZED_VIEW_OPTIME_UPDATE_INTERVAL_MS =
+        Field.builder("materializedViewOptimeUpdateIntervalMs")
+            .longField()
+            .mustBePositive()
+            .optional()
+            .withDefault(DEFAULT_MATERIALIZED_VIEW_OPTIME_UPDATE_INTERVAL_MS);
   }
 }

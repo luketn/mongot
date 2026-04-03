@@ -29,7 +29,10 @@
         "resyncBackoffMs": 30000,
         "transientBackoffMs": 45000,
         "globalMemoryBudgetHeapPercent": 75,
-        "perBatchMemoryBudgetHeapPercent": 60
+        "perBatchMemoryBudgetHeapPercent": 60,
+        "leaseManagerHeartbeatIntervalMs": 1000,
+        "materializedViewStatusRefreshIntervalMs": 2000,
+        "materializedViewOptimeUpdateIntervalMs": 3000
       },
       "bson": {
         "pauseAllInitialSyncs": false,
@@ -66,7 +69,10 @@
           "$numberLong": "45000"
         },
         "globalMemoryBudgetHeapPercent": 75,
-        "perBatchMemoryBudgetHeapPercent": 60
+        "perBatchMemoryBudgetHeapPercent": 60,
+        "leaseManagerHeartbeatIntervalMs": { "$numberLong": "1000" },
+        "materializedViewStatusRefreshIntervalMs": { "$numberLong": "2000" },
+        "materializedViewOptimeUpdateIntervalMs": { "$numberLong": "3000" }
       }
     }
   ]

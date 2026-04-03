@@ -48,6 +48,7 @@ import com.xgen.mongot.index.version.IndexFormatVersion;
 import com.xgen.mongot.index.version.MaterializedViewGeneration;
 import com.xgen.mongot.index.version.MaterializedViewGenerationId;
 import com.xgen.mongot.index.version.UserIndexVersion;
+import com.xgen.mongot.replication.mongodb.common.AutoEmbeddingMaterializedViewConfig;
 import com.xgen.mongot.replication.mongodb.common.ClientSessionRecord;
 import com.xgen.mongot.replication.mongodb.common.DecodingWorkScheduler;
 import com.xgen.mongot.replication.mongodb.common.DocumentIndexer;
@@ -1395,7 +1396,8 @@ public class MaterializedViewManagerTest {
                   optimeUpdaterExecutor,
                   this.meterRegistry,
                   leaseManager,
-                  metadataCatalog);
+                  metadataCatalog,
+                  AutoEmbeddingMaterializedViewConfig.getDefault());
       this.manager = this.managerSupplier.get();
       this.manager.setIsReplicationEnabled(true);
     }

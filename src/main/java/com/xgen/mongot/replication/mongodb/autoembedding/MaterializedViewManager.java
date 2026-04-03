@@ -94,15 +94,6 @@ public class MaterializedViewManager implements ReplicationManager {
   // TODO(CLOUDP-356241): Make this parameter part of durabilityConfig
   private static final Duration DEFAULT_COMMIT_INTERVAL = Duration.ofSeconds(30);
 
-  /** Interval for emitting leader heartbeat log lines for monitoring purposes. */
-  private static final Duration DEFAULT_HEARTBEAT_INTERVAL = Duration.ofSeconds(30);
-
-  // TODO(CLOUDP-356241): Make this parameter part of materializedViewManagerConfig
-  private static final Duration DEFAULT_STATUS_TRACKING_INTERVAL = Duration.ofSeconds(30);
-
-  /** Interval for periodic optime updates. Used when acting as leader. */
-  private static final Duration DEFAULT_OPTIME_UPDATE_INTERVAL = Duration.ofSeconds(10);
-
   public static final String OPTIME_UPDATER_ERROR_COUNTER_NAME = "matViewOptimeUpdaterError";
 
   public static final String STATE_LABEL = "state";
@@ -172,6 +163,8 @@ public class MaterializedViewManager implements ReplicationManager {
 
   private final ScheduledFuture<?> statusRefreshFuture;
 
+  private final AutoEmbeddingMaterializedViewConfig materializedViewConfig;
+
   /**
    * Package-private constructor for testing - registers gauges and starts periodic tasks. This
    * constructor maintains backward compatibility with existing tests. Production code should use
@@ -190,7 +183,8 @@ public class MaterializedViewManager implements ReplicationManager {
       NamedScheduledExecutorService optimeUpdaterExecutor,
       MeterRegistry meterRegistry,
       LeaseManager leaseManager,
-      MaterializedViewCollectionMetadataCatalog matViewMetadataCatalog) {
+      MaterializedViewCollectionMetadataCatalog matViewMetadataCatalog,
+      AutoEmbeddingMaterializedViewConfig materializedViewConfig) {
     this(
         lifecycleExecutor,
         indexingWorkSchedulerFactory,
@@ -204,6 +198,7 @@ public class MaterializedViewManager implements ReplicationManager {
         meterRegistry,
         leaseManager,
         matViewMetadataCatalog,
+        materializedViewConfig,
         true); // registerGauges = true for backward compatibility
   }
 
@@ -224,6 +219,7 @@ public class MaterializedViewManager implements ReplicationManager {
       MeterRegistry meterRegistry,
       LeaseManager leaseManager,
       MaterializedViewCollectionMetadataCatalog matViewMetadataCatalog,
+      AutoEmbeddingMaterializedViewConfig materializedViewConfig,
       boolean registerGauges) {
     this.lifecycleExecutor = lifecycleExecutor;
     this.indexingWorkSchedulerFactory = indexingWorkSchedulerFactory;
@@ -243,10 +239,11 @@ public class MaterializedViewManager implements ReplicationManager {
     this.matViewMetadataCatalog = matViewMetadataCatalog;
     this.optimeUpdaterErrorCounter = this.meterRegistry.counter(OPTIME_UPDATER_ERROR_COUNTER_NAME);
     this.isReplicationEnabled = false;
+    this.materializedViewConfig = materializedViewConfig;
 
     // Always start heartbeat - it emits heartbeat only for indexes where this instance is leader
     LOG.atInfo()
-        .addKeyValue("interval", DEFAULT_HEARTBEAT_INTERVAL)
+        .addKeyValue("intervalMs", materializedViewConfig.leaseManagerHeartbeatIntervalMs)
         .log("Starting auto-embedding heartbeat");
     this.heartbeatFuture =
         heartbeatExecutor.scheduleWithFixedDelay(
@@ -262,7 +259,7 @@ public class MaterializedViewManager implements ReplicationManager {
               }
             },
             0,
-            DEFAULT_HEARTBEAT_INTERVAL.toMillis(),
+            this.materializedViewConfig.leaseManagerHeartbeatIntervalMs,
             TimeUnit.MILLISECONDS);
 
     // Periodic status refresh for all indexes (leader updates optime, follower polls status)
@@ -280,7 +277,7 @@ public class MaterializedViewManager implements ReplicationManager {
               }
             },
             0,
-            DEFAULT_STATUS_TRACKING_INTERVAL.toMillis(),
+            this.materializedViewConfig.materializedViewStatusRefreshIntervalMs,
             TimeUnit.MILLISECONDS);
 
     // Periodic optime updates for materialized view indexes.
@@ -299,7 +296,7 @@ public class MaterializedViewManager implements ReplicationManager {
               }
             },
             0,
-            DEFAULT_OPTIME_UPDATE_INTERVAL.toMillis(),
+            this.materializedViewConfig.materializedViewOptimeUpdateIntervalMs,
             TimeUnit.MILLISECONDS);
 
     if (registerGauges) {
@@ -390,8 +387,8 @@ public class MaterializedViewManager implements ReplicationManager {
             meterRegistry,
             leaseManager,
             matViewMetadataCatalog,
-            false); // Don't register gauges/tasks in constructor to avoid
-    // this-escape
+            materializedViewConfig,
+            false); // Don't register gauges/tasks in constructor to avoid this-escape
 
     // Register gauges after construction is complete
     createStateGauges(manager, manager.metricsFactory);
