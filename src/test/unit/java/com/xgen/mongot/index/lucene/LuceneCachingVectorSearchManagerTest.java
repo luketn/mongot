@@ -66,6 +66,7 @@ public class LuceneCachingVectorSearchManagerTest {
                 Optional.empty(),
                 false,
                 Optional.empty()),
+            Optional.empty(),
             Optional.empty());
 
     insertDocumentsIntoLucene(luceneFieldName);
@@ -114,6 +115,7 @@ public class LuceneCachingVectorSearchManagerTest {
                 Optional.empty(),
                 false,
                 Optional.empty()),
+            Optional.empty(),
             Optional.empty());
 
     insertDocumentsIntoLucene(luceneFieldName);

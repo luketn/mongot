@@ -553,7 +553,8 @@ public class BinaryQuantizedVectorRescorerTest {
     KnnFloatVectorQuery luceneQuery =
         new MongotKnnFloatQuery(metrics, this.vectorFieldName, queryVector, numCandidates);
 
-    return new LuceneVectorSearchManager(luceneQuery, vectorQuery.criteria(), Optional.empty());
+    return new LuceneVectorSearchManager(
+        luceneQuery, vectorQuery.criteria(), Optional.empty(), Optional.empty());
   }
 
   private static ApproximateVectorSearchCriteria createVectorSearchQuery(

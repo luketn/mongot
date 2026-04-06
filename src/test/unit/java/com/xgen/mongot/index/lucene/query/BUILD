@@ -26,6 +26,7 @@ java_test_suite(
         "MoreLikeThisQueryFactoryTest.java",
         "MoreLikeThisTestUtil.java",
         "NearQueryFactoryTest.java",
+        "NestedAvgVectorRescorerTest.java",
         "NumericNearQueryFactoriesTest.java",
         "NumericRangeQueryFactoriesTest.java",
         "NumericRangeVectorQueryFactoriesTest.java",
