@@ -15,6 +15,7 @@ import io.micrometer.core.instrument.search.MeterNotFoundException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -233,6 +234,32 @@ public class MetricsFactoryTest {
     Assert.assertSame(metricsFactoryTimer, meterRegistryTimer);
     Assert.assertSame(
         metricsFactoryTimer, metricsFactory.timer("timer", defaultTag, 0.5, 0.75, 0.9, 0.99));
+  }
+
+  @Test
+  public void histogramTimer_slo_buckets() {
+    PrometheusMeterRegistry meterRegistry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+    MetricsFactory metricsFactory = new MetricsFactory("testMetricsFactory", meterRegistry);
+
+    Timer timer =
+        metricsFactory.histogramTimer(
+            "timer", Duration.ofMillis(1), Duration.ofMillis(50), Duration.ofMillis(100));
+
+    for (int i = 0; i < 100; i++) {
+      timer.record(i, TimeUnit.MILLISECONDS);
+    }
+
+    var histogramCounts = timer.takeSnapshot().histogramCounts();
+    Assert.assertEquals(3, histogramCounts.length);
+    Assert.assertEquals(2, (int) histogramCounts[0].count());
+    Assert.assertEquals(51, (int) histogramCounts[1].count());
+    Assert.assertEquals(100, (int) histogramCounts[2].count());
+
+    String scrape = meterRegistry.scrape();
+    Assert.assertTrue(scrape.contains("testMetricsFactory_timer_seconds_bucket"));
+    Assert.assertTrue(scrape.contains("le=\"0.001\""));
+    Assert.assertTrue(scrape.contains("le=\"0.05\""));
+    Assert.assertTrue(scrape.contains("le=\"0.1\""));
   }
 
   @Test

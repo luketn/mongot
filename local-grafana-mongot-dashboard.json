@@ -3,7 +3,7 @@
   "title": "MongoT — Metrics & Traces",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 5,
+  "version": 10,
   "refresh": "10s",
   "tags": ["mongot", "prometheus", "jaeger"],
   "time": { "from": "now-15m", "to": "now" },
@@ -111,7 +111,7 @@
       "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
       "targets": [
         {
-          "expr": "avg_over_time(mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.5\"}[$__range])",
+          "expr": "histogram_quantile(0.5, sum by (le) (increase(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__range])))",
           "instant": true,
           "refId": "A"
         }
@@ -125,7 +125,7 @@
       "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
       "targets": [
         {
-          "expr": "avg_over_time(mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.75\"}[$__range])",
+          "expr": "histogram_quantile(0.75, sum by (le) (increase(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__range])))",
           "instant": true,
           "refId": "A"
         }
@@ -139,7 +139,7 @@
       "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
       "targets": [
         {
-          "expr": "avg_over_time(mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.9\"}[$__range])",
+          "expr": "histogram_quantile(0.9, sum by (le) (increase(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__range])))",
           "instant": true,
           "refId": "A"
         }
@@ -153,7 +153,7 @@
       "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
       "targets": [
         {
-          "expr": "avg_over_time(mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.99\"}[$__range])",
+          "expr": "histogram_quantile(0.99, sum by (le) (increase(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__range])))",
           "instant": true,
           "refId": "A"
         }
@@ -164,8 +164,8 @@
     {
       "type": "timeseries",
       "title": "Search Latency (over time)",
-      "description": "Closest match to the k6 request view from the latency summary metrics MongoT exports.",
-      "gridPos": { "x": 0, "y": 4, "w": 14, "h": 8 },
+      "description": "Histogram-backed search latency percentiles and max over time.",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
       "targets": [
         {
           "expr": "mongot_command_searchCommandTotalLatency_seconds_max{timeUnit=\"seconds\"}",
@@ -173,22 +173,22 @@
           "refId": "A"
         },
         {
-          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.99\"}",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval])))",
           "legendFormat": "p99",
           "refId": "B"
         },
         {
-          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.9\"}",
+          "expr": "histogram_quantile(0.9, sum by (le) (rate(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval])))",
           "legendFormat": "p90",
           "refId": "C"
         },
         {
-          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.75\"}",
+          "expr": "histogram_quantile(0.75, sum by (le) (rate(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval])))",
           "legendFormat": "p75",
           "refId": "D"
         },
         {
-          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.5\"}",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval])))",
           "legendFormat": "p50",
           "refId": "E"
         },
@@ -207,8 +207,15 @@
     {
       "type": "heatmap",
       "title": "Search Latency (heatmap)",
-      "description": "Approximation from exported mean and percentile series. A true request-distribution heatmap would require histogram buckets or raw per-request samples.",
-      "gridPos": { "x": 14, "y": 4, "w": 10, "h": 8 },
+      "description": "Built from Prometheus histogram buckets emitted by searchCommandTotalLatency, using Grafana's rate interval so bucket counts align with the 15s scrape cadence.",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "displayName": "Count",
+          "unit": "short",
+          "decimals": 0
+        }
+      },
       "cards": {
         "cardPadding": null,
         "cardRound": null
@@ -220,39 +227,15 @@
         "exponent": 0.5,
         "mode": "spectrum"
       },
-      "dataFormat": "timeseries",
+      "dataFormat": "tsbuckets",
       "heatmap": {},
       "highlightCards": true,
       "targets": [
         {
-          "expr": "mongot_command_searchCommandTotalLatency_seconds_max{timeUnit=\"seconds\"}",
-          "legendFormat": "max",
+          "expr": "sum by (le) (increase(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval]))",
+          "format": "heatmap",
+          "legendFormat": "{{le}}",
           "refId": "A"
-        },
-        {
-          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.99\"}",
-          "legendFormat": "p99",
-          "refId": "B"
-        },
-        {
-          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.9\"}",
-          "legendFormat": "p90",
-          "refId": "C"
-        },
-        {
-          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.75\"}",
-          "legendFormat": "p75",
-          "refId": "D"
-        },
-        {
-          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.5\"}",
-          "legendFormat": "p50",
-          "refId": "E"
-        },
-        {
-          "expr": "rate(mongot_command_searchCommandTotalLatency_seconds_sum{timeUnit=\"seconds\"}[$__rate_interval]) / clamp_min(rate(mongot_command_searchCommandTotalLatency_seconds_count{timeUnit=\"seconds\"}[$__rate_interval]), 1e-9)",
-          "legendFormat": "mean",
-          "refId": "F"
         }
       ],
       "tooltip": {
