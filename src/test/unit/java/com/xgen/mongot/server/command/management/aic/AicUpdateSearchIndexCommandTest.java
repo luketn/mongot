@@ -11,8 +11,10 @@ import static com.xgen.testing.mongot.server.command.management.definition.Manag
 import static com.xgen.testing.mongot.server.command.management.definition.ManageSearchIndexCommandDefinitionBuilder.VECTOR_QUANTIZATION;
 import static com.xgen.testing.mongot.server.command.management.definition.ManageSearchIndexCommandDefinitionBuilder.VECTOR_SIMILARITY;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -60,7 +62,7 @@ public class AicUpdateSearchIndexCommandTest {
     // Return an existing search index.
     var indexId = new ObjectId();
     Instant now = Instant.now();
-    when(mockAic.listIndexes(COLLECTION_UUID))
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID))
         .thenReturn(
             List.of(
                 SearchIndexDefinitionBuilder.builder()
@@ -107,8 +109,12 @@ public class AicUpdateSearchIndexCommandTest {
 
     ArgumentCaptor<SearchIndexDefinition> captor =
         ArgumentCaptor.forClass(SearchIndexDefinition.class);
+    ArgumentCaptor<BsonDocument> definitionBsonCaptor = ArgumentCaptor.forClass(BsonDocument.class);
     verify(mockAic)
-        .updateIndex(eq(new AuthoritativeIndexKey(COLLECTION_UUID, INDEX_NAME)), captor.capture());
+        .updateIndex(
+            eq(new AuthoritativeIndexKey(COLLECTION_UUID, INDEX_NAME)),
+            captor.capture(),
+            definitionBsonCaptor.capture());
     assertNotNull(captor.getValue());
     assertEquals(DATABASE_NAME, captor.getValue().getDatabase());
     assertEquals(COLLECTION_UUID, captor.getValue().getCollectionUuid());
@@ -123,6 +129,7 @@ public class AicUpdateSearchIndexCommandTest {
         captor.getValue().getMappings());
     assertEquals(2L, (long) captor.getValue().getDefinitionVersion().get());
     assertTrue(captor.getValue().getDefinitionVersionCreatedAt().get().isAfter(now));
+    assertEquals(updateDefinition.definitionBson(), definitionBsonCaptor.getValue());
   }
 
   @Test
@@ -132,7 +139,7 @@ public class AicUpdateSearchIndexCommandTest {
     // Return an existing vector index.
     var indexId = new ObjectId();
     Instant now = Instant.now();
-    when(mockAic.listIndexes(COLLECTION_UUID))
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID))
         .thenReturn(
             List.of(
                 VectorIndexDefinitionBuilder.builder()
@@ -180,7 +187,9 @@ public class AicUpdateSearchIndexCommandTest {
         ArgumentCaptor.forClass(VectorIndexDefinition.class);
     verify(mockAic)
         .updateIndex(
-            eq(new AuthoritativeIndexKey(COLLECTION_UUID, VECTOR_INDEX_NAME)), captor.capture());
+            eq(new AuthoritativeIndexKey(COLLECTION_UUID, VECTOR_INDEX_NAME)),
+            captor.capture(),
+            any());
     assertNotNull(captor.getValue());
     assertEquals(DATABASE_NAME, captor.getValue().getDatabase());
     assertEquals(COLLECTION_UUID, captor.getValue().getCollectionUuid());
@@ -207,12 +216,12 @@ public class AicUpdateSearchIndexCommandTest {
   }
 
   @Test
-  public void testUpdatingIndexTypeFails() {
+  public void testUpdatingIndexTypeFails() throws MetadataServiceException {
     var mockAic = mock(AuthoritativeIndexCatalog.class);
 
     // Return an existing vector index.
     var indexId = new ObjectId();
-    when(mockAic.listIndexes(COLLECTION_UUID))
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID))
         .thenReturn(
             List.of(
                 VectorIndexDefinitionBuilder.builder()
@@ -254,12 +263,12 @@ public class AicUpdateSearchIndexCommandTest {
   }
 
   @Test
-  public void testUpdatingIndexWrongType() {
+  public void testUpdatingIndexWrongType() throws MetadataServiceException {
     var mockAic = mock(AuthoritativeIndexCatalog.class);
 
     // Return some existing index.
     var indexId = new ObjectId();
-    when(mockAic.listIndexes(COLLECTION_UUID))
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID))
         .thenReturn(
             List.of(
                 VectorIndexDefinitionBuilder.builder()
@@ -299,7 +308,7 @@ public class AicUpdateSearchIndexCommandTest {
   }
 
   @Test
-  public void missingAnalyzerFailsToUpdate() throws BsonParseException {
+  public void missingAnalyzerFailsToUpdate() throws BsonParseException, MetadataServiceException {
     this.failsWithCommandFailed(
         "references non-existent analyzers: non-standard",
         bson(
@@ -316,7 +325,7 @@ public class AicUpdateSearchIndexCommandTest {
   }
 
   private void failsWithCommandFailed(String expectedMessage, BsonDocument indexDefinition)
-      throws BsonParseException {
+      throws BsonParseException, MetadataServiceException {
     NamedSearchIndex index;
     try (var parser = BsonDocumentParser.fromRoot(indexDefinition).build()) {
       index = NamedSearchIndex.fromBson(parser);
@@ -324,7 +333,7 @@ public class AicUpdateSearchIndexCommandTest {
 
     var objectId = new ObjectId();
     var mockAic = mock(AuthoritativeIndexCatalog.class);
-    when(mockAic.listIndexes(COLLECTION_UUID))
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID))
         .thenReturn(
             List.of(
                 SearchIndexDefinitionBuilder.builder()
@@ -358,5 +367,23 @@ public class AicUpdateSearchIndexCommandTest {
         COLLECTION_NAME,
         Optional.empty(),
         updateDefinition);
+  }
+
+  @Test
+  public void maybeLoadShed_alwaysReturnsFalse() {
+    AuthoritativeIndexCatalog mockAic = mock(AuthoritativeIndexCatalog.class);
+    var definition =
+        (UpdateSearchIndexCommandDefinition)
+            ManageSearchIndexCommandDefinitionBuilder.updateIndex()
+                .withIndexName(INDEX_NAME)
+                .withDefinition(
+                    UserSearchIndexDefinitionBuilder.builder()
+                        .mappings(DocumentFieldDefinitionBuilder.builder().dynamic(true))
+                        .build())
+                .buildSearchIndexCommand();
+    var command =
+        new AicUpdateSearchIndexCommand(
+            mockAic, DATABASE_NAME, COLLECTION_UUID, COLLECTION_NAME, Optional.empty(), definition);
+    assertFalse(command.maybeLoadShed());
   }
 }

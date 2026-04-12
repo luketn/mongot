@@ -2,6 +2,7 @@ package com.xgen.mongot.replication.mongodb.initialsync;
 
 import static com.xgen.mongot.index.mongodb.MaterializedViewWriter.MV_DATABASE_NAME;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.FluentLogger;
 import com.google.errorprone.annotations.Var;
 import com.mongodb.MongoNamespace;
@@ -9,11 +10,14 @@ import com.mongodb.ReadConcern;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Indexes;
 import com.mongodb.client.model.Sorts;
-import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils;
 import com.xgen.mongot.embedding.utils.AutoEmbeddingIndexDefinitionUtils;
 import com.xgen.mongot.index.DocumentEvent;
 import com.xgen.mongot.index.DocumentMetadata;
+import com.xgen.mongot.index.definition.SearchIndexDefinition;
+import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFieldMapping;
 import com.xgen.mongot.index.lucene.query.pushdown.ArrayComparator;
 import com.xgen.mongot.index.lucene.query.pushdown.MqlComparator;
@@ -27,7 +31,6 @@ import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.bson.BsonDocument;
@@ -48,15 +51,37 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
   private final DefaultKeyValueLogger logger;
   private final MongoNamespace matViewNamespace;
   private final VectorIndexFieldMapping matViewFieldMappingWithHashes;
-  private final MaterializedViewSchemaMetadata matViewSchemaMetadata;
+  private final MaterializedViewCollectionMetadata matViewCollectionMetadata;
 
   private boolean firstPage = true;
 
+  /** Builds an AutoEmbeddingSortedIdCollectionScanner. */
   public AutoEmbeddingSortedIdCollectionScanner(
       Clock clock,
       InitialSyncContext context,
       InitialSyncMongoClient mongoClient,
       BsonValue lastScannedToken,
+      MaterializedViewCollectionMetadataCatalog matViewCollectionMetadataCatalog,
+      MetricsFactory metricsFactory) {
+    this(
+        clock,
+        context,
+        mongoClient,
+        lastScannedToken,
+        matViewCollectionMetadataCatalog,
+        MV_DATABASE_NAME,
+        metricsFactory);
+  }
+
+  // TEST ONLY
+  @VisibleForTesting
+  AutoEmbeddingSortedIdCollectionScanner(
+      Clock clock,
+      InitialSyncContext context,
+      InitialSyncMongoClient mongoClient,
+      BsonValue lastScannedToken,
+      MaterializedViewCollectionMetadataCatalog matViewCollectionMetadataCatalog,
+      String matViewDatabaseName,
       MetricsFactory metricsFactory) {
     super(clock, context, mongoClient, lastScannedToken, metricsFactory, false);
     Check.checkState(
@@ -68,14 +93,21 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
     this.logger =
         DefaultKeyValueLogger.getLogger(
             AutoEmbeddingSortedIdCollectionScanner.class, defaultKeyValues);
+    // TODO(CLOUDP-363914): matViewSchemaMetadata can be different if we want to reuse different MV
+    // collection to build new MV collection
+    this.matViewCollectionMetadata =
+        Check.isPresent(
+            matViewCollectionMetadataCatalog.getMetadataIfPresent(context.getGenerationId()),
+            "matViewCollectionMetadata");
+    // TODO(CLOUDP-363914): collectionName can be different if we want to reuse different MV
+    // collection to build new MV collection
     this.matViewNamespace =
-        new MongoNamespace(MV_DATABASE_NAME, context.getIndexId().toHexString());
-    // TODO(CLOUDP-363914): pass matViewSchemaMetadata from InitialSyncContext.
-    this.matViewSchemaMetadata = new MaterializedViewSchemaMetadata(0, Map.of());
+        new MongoNamespace(matViewDatabaseName, this.matViewCollectionMetadata.collectionName());
+
     this.matViewFieldMappingWithHashes =
         AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
-            context.getIndexDefinition().asVectorDefinition().getMappings(),
-            this.matViewSchemaMetadata);
+            resolveFieldMapping(context),
+            this.matViewCollectionMetadata.schemaMetadata());
   }
 
   @Override
@@ -177,13 +209,14 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
         matViewIdx++;
       } else {
         // Doc is in both source collection and mat view.
+
         var comparisonResult =
             AutoEmbeddingDocumentUtils.compareDocuments(
                 sourceDoc,
                 matViewDoc,
-                this.context.getIndexDefinition().asVectorDefinition().getMappings(),
+                resolveFieldMapping(this.context),
                 this.matViewFieldMappingWithHashes,
-                this.matViewSchemaMetadata);
+                this.matViewCollectionMetadata.schemaMetadata());
         if (comparisonResult.needsReIndexing()) {
           var rawDocumentEvent = DocumentEvent.createUpdate(sourceDocMetadata, sourceDoc);
           // Check if we have any re-usable embeddings to pass in.
@@ -222,8 +255,7 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
     var highWaterMark = this.context.getChangeStreamResumeOperationTime();
 
     var builder =
-        new CollectionScanFindCommand.Builder(
-                this.context.getIndexDefinition().getIndexId().toHexString())
+        new CollectionScanFindCommand.Builder(this.matViewNamespace.getCollectionName())
             .readConcern(ReadConcern.MAJORITY, highWaterMark)
             .sort(Sorts.ascending(ID_KEY))
             .hint(Indexes.ascending(ID_KEY));
@@ -261,6 +293,16 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
 
   // Helper method to extract the document metadata from the given document with the appropriate
   // handling for views.
+  private static VectorIndexFieldMapping resolveFieldMapping(InitialSyncContext context) {
+    return switch (context.getIndexDefinition()) {
+      case VectorIndexDefinition vectorDef -> vectorDef.getMappings();
+      case SearchIndexDefinition ignored ->
+          // TODO(CLOUDP-353553): Support search auto-embedding in sorted ID collection scanner
+          throw new UnsupportedOperationException(
+              "Search auto-embedding not yet supported in sorted ID collection scanner");
+    };
+  }
+
   private DocumentMetadata getDocumentMetadata(RawBsonDocument doc) {
     if (this.context.getIndexDefinition().getView().isPresent()) {
       return DocumentMetadata.fromMetadataNamespace(

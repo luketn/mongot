@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "markdownDescription": "Label that identifies the [token filter](https://www.mongodb.com/docs/atlas/atlas-search/analyzers/token-filters/) type.",
+      "enum": [
+        "asciiFolding",
+        "daitchMokotoffSoundex",
+        "edgeGram",
+        "englishMinimalStemming",
+        "englishPossessive",
+        "flattenGraph",
+        "icuFolding",
+        "icuNormalizer",
+        "keywordRepeat",
+        "kStemming",
+        "length",
+        "lowercase",
+        "nGram",
+        "porterStemming",
+        "regex",
+        "removeDuplicates",
+        "reverse",
+        "shingle",
+        "snowballStemming",
+        "spanishPluralStemming",
+        "stempel",
+        "stopword",
+        "trim",
+        "wordDelimiterGraph"
+      ],
+      "markdownEnumDescriptions": [
+        "Token filter that converts alphabetic, numeric, and symbolic unicode characters that are not in the [Basic Latin Unicode block](https://en.wikipedia.org/wiki/Basic_Latin_(Unicode_block)) to their ASCII equivalents, if available.",
+        "Token filter that creates tokens for words that sound the same based on the [Daitch-Mokotoff Soundex](https://en.wikipedia.org/wiki/Daitch%E2%80%93Mokotoff_Soundex) phonetic algorithm.",
+        "Token filter that tokenizes input from the left side, or edge, of a text input into n-grams of configured sizes.",
+        "Token filter that stems English words by removing plural suffixes. It is less aggressive than other English stemmers and does not modify non-plural words.",
+        "Token filter that removes possessives (trailing 's) from words.",
+        "Token filter that transforms a token filter graph, such as the token filter graph that the `wordDelimiterGraph` token filter produces, into a flat form suitable for indexing.",
+        "Token filter that applies character folding from [Unicode Technical Report #30](http://www.unicode.org/reports/tr30/tr30-4.html) such as accent removal, case folding, canonical duplicates folding, and many others detailed in the report.",
+        "Token filter that normalizes tokens using a standard [Unicode Normalization Mode](https://unicode.org/reports/tr15/).",
+        "Token filter that emits each incoming token twice, once as keyword and once non-keyword.",
+        "Token filter that combines algorithmic stemming with a built-in dictionary for the English language to stem words.",
+        "Token filter that removes tokens that don't match the minimum and maximum length that you specify.",
+        "Token filter that normalizes token text to lowercase.",
+        "Token filter that tokenizes input into n-grams of configured sizes.",
+        "Token filter that uses the porter stemming algorithm to remove the common morphological and inflectional suffixes from words in English. It expects lowercase text and doesn't work as expected for uppercase text.",
+        "Token filter that applies a regular expression to each token and replaces matches with a specified string.",
+        "Token filter that filters out tokens at the same position and term text as the previous token in the stream.",
+        "Token filter that reverses each string token.",
+        "Token filter that constructs shingles (token n-grams) of configurable sizes from a series of tokens.",
+        "Token filter that stems tokens using a [Snowball-generated stemmer](https://snowballstem.org/).",
+        "Token filter that stems Spanish plural words. It expects lowercase text.",
+        "Token filter that uses Lucene's [default Polish stemmer table](https://lucene.apache.org/core/9_2_0/analysis/stempel/org/apache/lucene/analysis/pl/PolishAnalyzer.html#DEFAULT_STEMMER_FILE) to stem words in the Polish language. It expects lowercase text.",
+        "Token filter that removes tokens for the stop words that you specify.",
+        "Token filter that trims leading and trailing whitespace from tokens.",
+        "Token filter that splits tokens into sub-tokens based on configured rules."
+      ]
+    }
+  },
+  "required": ["type"],
+  "oneOf": [
+    {
+      "$ref": "tokenFilter/asciiFolding.json"
+    },
+    {
+      "$ref": "tokenFilter/daitchMokotoffSoundex.json"
+    },
+    {
+      "$ref": "tokenFilter/edgeGram.json"
+    },
+    {
+      "$ref": "tokenFilter/englishMinimalStemming.json"
+    },
+    {
+      "$ref": "tokenFilter/englishPossessive.json"
+    },
+    {
+      "$ref": "tokenFilter/flattenGraph.json"
+    },
+    {
+      "$ref": "tokenFilter/icuFolding.json"
+    },
+    {
+      "$ref": "tokenFilter/icuNormalizer.json"
+    },
+    {
+      "$ref": "tokenFilter/keywordRepeat.json"
+    },
+    {
+      "$ref": "tokenFilter/kStemming.json"
+    },
+    {
+      "$ref": "tokenFilter/length.json"
+    },
+    {
+      "$ref": "tokenFilter/lowercase.json"
+    },
+    {
+      "$ref": "tokenFilter/nGram.json"
+    },
+    {
+      "$ref": "tokenFilter/porterStemming.json"
+    },
+    {
+      "$ref": "tokenFilter/regex.json"
+    },
+    {
+      "$ref": "tokenFilter/removeDuplicates.json"
+    },
+    {
+      "$ref": "tokenFilter/reverse.json"
+    },
+    {
+      "$ref": "tokenFilter/shingle.json"
+    },
+    {
+      "$ref": "tokenFilter/snowballStemming.json"
+    },
+    {
+      "$ref": "tokenFilter/spanishPluralStemming.json"
+    },
+    {
+      "$ref": "tokenFilter/stempel.json"
+    },
+    {
+      "$ref": "tokenFilter/stopword.json"
+    },
+    {
+      "$ref": "tokenFilter/trim.json"
+    },
+    {
+      "$ref": "tokenFilter/wordDelimiterGraph.json"
+    }
+  ],
+  "definitions": {
+    "typePropertyOverrides": {
+      "errorMessage": "Unsupported token filter type.",
+      "$comment": "The custom error message defined above is a global override for all consuming schema."
+    }
+  }
+}

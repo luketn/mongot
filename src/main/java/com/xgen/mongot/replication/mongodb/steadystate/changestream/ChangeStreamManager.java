@@ -96,7 +96,10 @@ public class ChangeStreamManager {
         new HeuristicChangeStreamModeSelector(
             new CollectionStatsMongoClient(syncMongoClient),
             new CollectionSamplingMongoClient(syncMongoClient),
-            Executors.singleThreadScheduledExecutor("change-stream-mode-selector", meterRegistry),
+            Executors.singleThreadScheduledExecutor(
+                replicationConfig.getReplicationType().metricsNamespacePrefix
+                    + "change-stream-mode-selector",
+                meterRegistry),
             modeSelectorOverride,
             new MetricsFactory("indexing.changeStreamModeSelector", meterRegistry));
 
@@ -125,12 +128,7 @@ public class ChangeStreamManager {
             syncBatchMongoClient,
             modeSelector,
             meterAndFtdcRegistry,
-            replicationConfig.getChangeStreamQueryMaxTimeMs(),
-            replicationConfig.getChangeStreamCursorMaxTimeSec(),
-            replicationConfig.getEmbeddingGetMoreBatchSize(),
-            replicationConfig.getExcludedChangestreamFields(),
-            replicationConfig.getMatchCollectionUuidForUpdateLookup(),
-            replicationConfig.getEnableSplitLargeChangeStreamEvents());
+            replicationConfig);
 
     return createSync(
         meterAndFtdcRegistry,
@@ -158,7 +156,8 @@ public class ChangeStreamManager {
 
     NamedScheduledExecutorService executorService =
         Executors.fixedSizeThreadScheduledExecutor(
-            "change-stream-sync-dispatcher",
+            replicationConfig.getReplicationType().metricsNamespacePrefix
+                + "change-stream-sync-dispatcher",
             replicationConfig.getNumConcurrentChangeStreams(),
             meterAndFtdcRegistry.meterRegistry());
 
@@ -176,7 +175,8 @@ public class ChangeStreamManager {
             // in-flight getMores.
             shouldLimitMaxInFlightEmbeddingGetMores
                 ? Optional.of(replicationConfig.getMaxInFlightEmbeddingGetMores())
-                : Optional.empty());
+                : Optional.empty(),
+            replicationConfig.getReplicationType());
 
     return new ChangeStreamManager(
         indexingWorkSchedulerFactory, indexManagerFactory, syncDispatcher, modeSelector);

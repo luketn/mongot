@@ -9,7 +9,9 @@ import static com.xgen.mongot.util.Check.checkState;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.errorprone.annotations.Var;
+import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.logging.DefaultKeyValueLogger;
 import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.replication.mongodb.common.ChangeStreamResumeInfo;
@@ -17,6 +19,9 @@ import com.xgen.mongot.replication.mongodb.common.IndexCommitUserData;
 import com.xgen.mongot.replication.mongodb.common.InitialSyncException;
 import com.xgen.mongot.replication.mongodb.common.InitialSyncResumeInfo;
 import com.xgen.mongot.util.BsonUtils;
+import com.xgen.mongot.util.Check;
+import com.xgen.mongot.util.Crash;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
 import java.time.Duration;
@@ -42,6 +47,8 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
   private final Timer collectionScanTimer;
   /* Tracks the duration of applying change stream events */
   private final Timer changeStreamTimer;
+  private final InitialSyncMongoClient mongoClient;
+  private final Counter fsyncErrorCounter;
 
   @VisibleForTesting
   BufferlessInitialSyncManager(
@@ -51,7 +58,8 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
       ServerClusterTimeProvider clusterTimeProvider,
       Duration collectionScanTime,
       Optional<InitialSyncResumeInfo> resumeInfo,
-      MetricsFactory metricsFactory) {
+      MetricsFactory metricsFactory,
+      InitialSyncMongoClient mongoClient) {
     HashMap<String, Object> defaultKeyValues = new HashMap<>();
     defaultKeyValues.put("indexId", context.getIndexId());
     defaultKeyValues.put("generationId", context.getGenerationId());
@@ -66,6 +74,8 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
     this.resumeInfo = resumeInfo;
     this.collectionScanTimer = metricsFactory.timer("collectionScanTime");
     this.changeStreamTimer = metricsFactory.timer("changeStreamTime");
+    this.mongoClient = mongoClient;
+    this.fsyncErrorCounter = metricsFactory.counter("fsyncError");
   }
 
   static InitialSyncManagerFactory factory(
@@ -75,6 +85,7 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
       boolean avoidNaturalOrderScanSyncSourceChangeResync,
       List<String> excludedChangestreamFields,
       boolean matchCollectionUuidForUpdateLookup,
+      Optional<MaterializedViewCollectionMetadataCatalog> mvMetadataCatalog,
       MetricsFactory metricsFactory) {
     return (initialSyncContext, mongoClient, namespace, resumeInfo) ->
         create(
@@ -87,6 +98,7 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
             excludedChangestreamFields,
             matchCollectionUuidForUpdateLookup,
             resumeInfo,
+            mvMetadataCatalog,
             metricsFactory,
             avoidNaturalOrderScanSyncSourceChangeResync);
   }
@@ -101,13 +113,20 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
       List<String> excludedChangestreamFields,
       boolean matchCollectionUuidForUpdateLookup,
       Optional<InitialSyncResumeInfo> resumeInfo,
+      Optional<MaterializedViewCollectionMetadataCatalog> mvMetadataCatalog,
       MetricsFactory metricsFactory,
       boolean avoidNaturalOrderScanSyncSourceChangeResync) {
     BufferlessCollectionScannerFactory collectionScannerFactory =
         (context, lastId) -> {
-          if (isMaterializedViewBasedIndex(context.indexDefinitionGeneration)) {
+          if (isMaterializedViewBasedIndex(
+              context.indexDefinitionGeneration.getIndexDefinition())) {
             return new AutoEmbeddingSortedIdCollectionScanner(
-                Clock.systemUTC(), context, mongoClient, lastId, metricsFactory);
+                Clock.systemUTC(),
+                context,
+                mongoClient,
+                lastId,
+                Check.isPresent(mvMetadataCatalog, "mvMetadataCatalog"),
+                metricsFactory);
           } else {
             return new BufferlessCollectionScanner(
                 Clock.systemUTC(),
@@ -141,7 +160,8 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
         mongoClient::getMaxValidMajorityReadOptime,
         collectionScanTime,
         resumeInfo,
-        metricsFactory);
+        metricsFactory,
+        mongoClient);
   }
 
   /**
@@ -200,6 +220,34 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
         .addKeyValue("hostName", this.resumeInfo.map(InitialSyncResumeInfo::getSyncSourceHost))
         .log("Beginning initial sync.");
 
+    InitialSyncException.wrapIfThrows(
+        () -> {
+          // run fsync to force a disk write to create a newer checkpoint
+          // lastStableRecoveryTimestamp,
+          // which ensures record id correctness for natural order scan
+          if (this.context.useNaturalOrderScan()) {
+            try {
+              var response = this.mongoClient.fsync();
+              this.logger
+                  .atInfo()
+                  .addKeyValue("response", response.toJson())
+                  .log("finish fsync successfully");
+            } catch (MongoCommandException e) {
+              this.fsyncErrorCounter.increment();
+              this.logger
+                  .atInfo()
+                  .addKeyValue("errorCode", e.getErrorCode())
+                  .addKeyValue("errorCodeName", e.getErrorCodeName())
+                  .addKeyValue("message", e.getErrorMessage())
+                  .addKeyValue("response", e.getResponse().toJson())
+                  .log("Failed to run fsync during initial sync, ignore error and continue");
+            } catch (Exception e) {
+              this.fsyncErrorCounter.increment();
+              throw e;
+            }
+          }
+        });
+
     try (changeStreamApplier) {
       // Continue the initial sync until the entire collection has been scanned.
       @Var boolean continueSync = true;
@@ -240,20 +288,7 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
     IndexCommitUserData commitUserData =
         IndexCommitUserData.createChangeStreamResume(
             changeStreamResumeInfo.get(), this.context.getIndexFormatVersion());
-    this.context.indexer.updateCommitUserData(commitUserData);
-    try {
-      this.context.indexer.commit();
-    } catch (Exception e) {
-      this.logger
-          .atWarn()
-          .addKeyValue("indexId", this.context.getIndexId())
-          .addKeyValue("generationId", this.context.getGenerationId())
-          .log("First commit failed (likely due to interruption).");
-      // If replication is shutdown, this exception will be ignored by the ReplicationIndexManager.
-      // Otherwise, it's likely to be caused by some disk issues. We will retry with backoff.
-      throw InitialSyncException.createResumableTransient(e);
-    }
-
+    doFirstCommit(commitUserData);
     this.logger
         .atInfo()
         .addKeyValue("indexId", this.context.getIndexId())
@@ -267,7 +302,7 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
    * to accommodate slow external embedding API calls.
    */
   private Duration getShutdownTimeout() {
-    return isMaterializedViewBasedIndex(this.context.indexDefinitionGeneration)
+    return isMaterializedViewBasedIndex(this.context.indexDefinitionGeneration.getIndexDefinition())
         ? InitialSyncManager.AUTO_EMBEDDING_SHUTDOWN_TIMEOUT
         : InitialSyncManager.SHUTDOWN_TIMEOUT;
   }
@@ -333,5 +368,23 @@ public class BufferlessInitialSyncManager implements InitialSyncManager {
         "waiting for change stream events to be applied",
         changeStreamShutdown,
         this.logger);
+  }
+
+  private void doFirstCommit(IndexCommitUserData commitUserData) throws InitialSyncException {
+    this.context.indexer.updateCommitUserData(commitUserData);
+    CompletableFuture<Void> commitFuture =
+        InitialSyncManager.runAsync(
+            () ->
+                // This needs to be run in a separate thread to avoid being interrupted.
+                // Interrupting the commit operation will cause the index writer closed.
+                Crash.because("failed to do first commit after initial sync")
+                    .ifThrowsExceptionOrError(this.context.indexer::commit),
+            String.format("%s %s", this.context.uniqueString(), "FirstCommit"));
+    Duration shutdownTimeout = getShutdownTimeout();
+
+    // When shutdown is triggered, crash JVM if the commit operation doesn't complete in time.
+    Runnable firstCommitShutdown = () -> awaitShutdown(shutdownTimeout, commitFuture);
+
+    getResultOrThrow(commitFuture, "waiting for first commit", firstCommitShutdown, this.logger);
   }
 }

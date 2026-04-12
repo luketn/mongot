@@ -1,9 +1,12 @@
 package com.xgen.mongot.index.autoembedding;
 
-import static com.xgen.mongot.embedding.mongodb.leasing.StaticLeaderLeaseManager.DEFAULT_INDEX_DEFINITION_VERSION;
+import static com.xgen.mongot.embedding.mongodb.leasing.LeaseManager.DEFAULT_INDEX_DEFINITION_VERSION;
 import static com.xgen.mongot.index.definition.IndexDefinitionGeneration.Type.AUTO_EMBEDDING;
 import static com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration.MIN_VERSION_FOR_MATERIALIZED_VIEW_EMBEDDING;
 
+import com.xgen.mongot.cursor.batch.BatchSizeStrategy;
+import com.xgen.mongot.cursor.batch.QueryCursorOptions;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
@@ -11,23 +14,28 @@ import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexMetrics;
 import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.IndexUnavailableException;
-import com.xgen.mongot.index.IndexWriter;
 import com.xgen.mongot.index.InitializedVectorIndex;
+import com.xgen.mongot.index.MetaResults;
 import com.xgen.mongot.index.ReaderClosedException;
 import com.xgen.mongot.index.VectorIndexReader;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
 import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
+import com.xgen.mongot.index.lucene.EmptySearchBatchProducer;
 import com.xgen.mongot.index.mongodb.MaterializedViewWriter;
 import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.MaterializedVectorSearchQuery;
+import com.xgen.mongot.index.query.QueryOptimizationFlags;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.version.MaterializedViewGenerationId;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.bson.BsonArray;
+import org.bson.BsonTimestamp;
 
 public class InitializedMaterializedViewIndex implements InitializedVectorIndex {
   private static final NoOpIndexReader NO_OP_INDEX_READER = new NoOpIndexReader();
@@ -37,19 +45,28 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
   private final MaterializedViewWriter materializedViewWriter;
   private final AtomicReference<IndexStatus> statusRef;
   private final LeaseManager leaseManager;
+  private final MaterializedViewSchemaMetadata schemaMetadata;
+  private final AtomicLong leaderStatusGauge;
 
   public InitializedMaterializedViewIndex(
       MaterializedViewIndexDefinitionGeneration matViewDefinitionGeneration,
       MaterializedViewWriter materializedViewWriter,
       IndexMetricsUpdater indexMetricsUpdater,
       AtomicReference<IndexStatus> statusRef,
-      LeaseManager leaseManager) {
-    this.vectorIndexDefinition = matViewDefinitionGeneration.getIndexDefinition();
+      LeaseManager leaseManager,
+      MaterializedViewSchemaMetadata schemaMetadata) {
+    // TODO(CLOUDP-353553): Handle search index version - getIndexDefinition() now returns
+    //  IndexDefinition which may be a SearchIndexDefinition.
+    this.vectorIndexDefinition =
+        matViewDefinitionGeneration.getIndexDefinition().asVectorDefinition();
     this.generationId = matViewDefinitionGeneration.getGenerationId();
     this.indexMetricsUpdater = indexMetricsUpdater;
     this.materializedViewWriter = materializedViewWriter;
     this.statusRef = statusRef;
     this.leaseManager = leaseManager;
+    this.schemaMetadata = schemaMetadata;
+    this.leaderStatusGauge =
+        indexMetricsUpdater.getMetricsFactory().perIndexNumGauge("leaderStatus");
   }
 
   @Override
@@ -58,13 +75,23 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
   }
 
   @Override
-  public IndexWriter getWriter() {
+  public MaterializedViewWriter getWriter() {
     return this.materializedViewWriter;
   }
 
   @Override
   public IndexMetricsUpdater getMetricsUpdater() {
     return this.indexMetricsUpdater;
+  }
+
+  /**
+   * Updates the leader-status gauge for this index.
+   *
+   * @param isLeader true if this index is currently being replicated by a leader generator, false
+   *     otherwise
+   */
+  public void setLeaderMode(boolean isLeader) {
+    this.leaderStatusGauge.set(isLeader ? 1 : 0);
   }
 
   @Override
@@ -122,7 +149,7 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
   public boolean isCompatibleWith(IndexDefinition indexDefinition) {
     // TODO(CLOUDP-360523): Implement compatibility check for redefined index.
     return indexDefinition.isAutoEmbeddingIndex()
-        && indexDefinition.asVectorDefinition().getParsedAutoEmbeddingFeatureVersion()
+        && indexDefinition.getParsedAutoEmbeddingFeatureVersion()
             >= MIN_VERSION_FOR_MATERIALIZED_VIEW_EMBEDDING;
   }
 
@@ -138,10 +165,21 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
   public void throwIfUnavailableForQuerying() throws IndexUnavailableException {}
 
   @Override
-  public void close() throws IOException {}
+  public void close() throws IOException {
+    this.indexMetricsUpdater.close();
+  }
+
+  /** Returns the oplog position at which the MV first became STEADY. */
+  public Optional<BsonTimestamp> getSteadyAsOfOplogPosition() {
+    return this.leaseManager.getSteadyAsOfOplogPosition(this.generationId);
+  }
 
   public UUID getMaterializedViewCollectionUuid() {
     return this.materializedViewWriter.getCollectionUuid();
+  }
+
+  public MaterializedViewSchemaMetadata getSchemaMetadata() {
+    return this.schemaMetadata;
   }
 
   static class NoOpIndexReader implements VectorIndexReader {
@@ -149,6 +187,16 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
     public BsonArray query(MaterializedVectorSearchQuery materializedQuery)
         throws ReaderClosedException, IOException, InvalidQueryException {
       return new BsonArray();
+    }
+
+    @Override
+    public VectorProducerAndMetaResults query(
+        MaterializedVectorSearchQuery materializedVectorSearchQuery,
+        QueryCursorOptions queryCursorOptions,
+        BatchSizeStrategy batchSizeStrategy,
+        QueryOptimizationFlags queryOptimizationFlags)
+        throws IOException, InvalidQueryException, InterruptedException, ReaderClosedException {
+      return new VectorProducerAndMetaResults(new EmptySearchBatchProducer(), MetaResults.EMPTY);
     }
 
     @Override

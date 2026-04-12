@@ -207,11 +207,11 @@ public class MongoClientBuilderTest {
   @Test
   public void testBuildNonReplicationWithDefaults() {
     String uri = "mongodb://localhost:11111";
-    ConnectionString connectionString = new ConnectionString(uri);
+    var connectionInfo = new ConnectionInfo(new ConnectionString(uri));
     String applicationName = "testApp";
     MongoClient client =
         MongoClientBuilder.buildNonReplicationWithDefaults(
-            connectionString, applicationName, Optional.empty(), new SimpleMeterRegistry());
+            connectionInfo, applicationName, new SimpleMeterRegistry());
 
     MongoClientSettings settings = ((MongoClientImpl) client).getSettings();
 
@@ -250,12 +250,13 @@ public class MongoClientBuilderTest {
   }
 
   @Test
-  public void testBuildNonReplicationPreferringMongos() {
+  public void testBuildNonReplicationPreferringMongos() throws Exception {
     var syncSource =
         new SyncSourceConfig(
-            new ConnectionString("mongodb://mongod:11111"),
-            Optional.of(new ConnectionString("mongodb://mongos:11111")),
-            new ConnectionString("mongodb://mongod:11111"));
+            ConnectionStringUtil.toConnectionInfo("mongodb://mongod:11111"),
+            ConnectionStringUtil.toConnectionInfo("mongodb://mongod:11111"),
+            Optional.of(ConnectionStringUtil.toConnectionInfo("mongodb://mongos:11111")),
+            Optional.empty());
     String applicationName = "testApp";
     MongoClient client =
         MongoClientBuilder.buildNonReplicationPreferringMongos(

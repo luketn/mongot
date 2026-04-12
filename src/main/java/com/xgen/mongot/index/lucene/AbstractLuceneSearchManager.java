@@ -5,6 +5,7 @@ import com.xgen.mongot.index.query.sort.SequenceToken;
 import java.io.IOException;
 import java.util.Optional;
 import org.apache.lucene.search.CollectorManager;
+import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
@@ -15,13 +16,15 @@ import org.apache.lucene.search.TopFieldCollectorManager;
 import org.apache.lucene.search.TopScoreDocCollectorManager;
 
 abstract class AbstractLuceneSearchManager<T> implements LuceneSearchManager<T> {
-  
+
   private final Query luceneQuery;
   private final Optional<Sort> luceneSort;
   private final Optional<SequenceToken> searchAfter;
 
   AbstractLuceneSearchManager(
-      Query luceneQuery, Optional<Sort> luceneSort, Optional<SequenceToken> searchAfter) {
+      Query luceneQuery,
+      Optional<Sort> luceneSort,
+      Optional<SequenceToken> searchAfter) {
     this.luceneQuery = luceneQuery;
     this.luceneSort = luceneSort;
     this.searchAfter = searchAfter;
@@ -54,11 +57,11 @@ abstract class AbstractLuceneSearchManager<T> implements LuceneSearchManager<T> 
    */
   protected CollectorManager<? extends TopDocsCollector<?>, ? extends TopDocs>
       createCollectorManager(int batchSize, int hitsThreshold) {
-    var searchAfterFieldDoc = this.searchAfter.map(SequenceToken::fieldDoc).orElse(null);
+    FieldDoc after = this.searchAfter.map(SequenceToken::fieldDoc).orElse(null);
     return this.luceneSort.isPresent()
         ? new TopFieldCollectorManager(
-            this.luceneSort.get(), batchSize, searchAfterFieldDoc, hitsThreshold)
-        : new TopScoreDocCollectorManager(batchSize, searchAfterFieldDoc, hitsThreshold);
+            this.luceneSort.get(), batchSize, after, hitsThreshold)
+        : new TopScoreDocCollectorManager(batchSize, after, hitsThreshold);
   }
 
   /**

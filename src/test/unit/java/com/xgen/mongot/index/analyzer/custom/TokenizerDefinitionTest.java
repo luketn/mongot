@@ -14,7 +14,7 @@ import org.junit.runners.Parameterized;
 public class TokenizerDefinitionTest {
 
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
     private static final String SUITE_NAME = "custom-tokenizer-deserialization";
     private static final BsonDeserializationTestSuite<TokenizerDefinition> TEST_SUITE =
         BsonDeserializationTestSuite.fromDocument(
@@ -179,7 +179,7 @@ public class TokenizerDefinitionTest {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
     private static final String SUITE_NAME = "custom-tokenizer-serialization";
     private static final BsonSerializationTestSuite<TokenizerDefinition> TEST_SUITE =
         BsonSerializationTestSuite.fromEncodable(
@@ -187,7 +187,7 @@ public class TokenizerDefinitionTest {
 
     private final BsonSerializationTestSuite.TestSpec<TokenizerDefinition> testSpec;
 
-    public TestSerialization(BsonSerializationTestSuite.TestSpec<TokenizerDefinition> testSpec) {
+    public SerializationTest(BsonSerializationTestSuite.TestSpec<TokenizerDefinition> testSpec) {
       this.testSpec = testSpec;
     }
 
@@ -276,7 +276,7 @@ public class TokenizerDefinitionTest {
     }
   }
 
-  public static class TestDefinition {
+  public static class DefinitionTest {
 
     @Test
     public void testEquals() {

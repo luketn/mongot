@@ -39,6 +39,7 @@ java_test_suite(
         "TextQueryFactoryTest.java",
         "UuidRangeQueryFactoryTest.java",
         "VectorSearchFilterQueryFactoryTest.java",
+        "VectorSearchNestedFilterTest.java",
     ],
     tags = ["unit"],
     deps = [
@@ -71,6 +72,7 @@ java_test_suite(
         "//src/main/java/com/xgen/mongot/util/bson/parser",
         "//src/main/java/com/xgen/testing",
         "//src/main/java/com/xgen/testing/mongot/index/analyzer",
+        "//src/main/java/com/xgen/testing/mongot/index/analyzer/custom",
         "//src/main/java/com/xgen/testing/mongot/index/analyzer/definition",
         "//src/main/java/com/xgen/testing/mongot/index/definition",
         "//src/main/java/com/xgen/testing/mongot/index/lucene/query",

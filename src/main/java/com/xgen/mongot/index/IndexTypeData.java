@@ -2,6 +2,7 @@ package com.xgen.mongot.index;
 
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.metrics.MetricsFactory;
+import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -17,10 +18,11 @@ public final class IndexTypeData {
    * reporting.
    */
   public enum IndexTypeTag {
-    // Search workload
     TAG_SEARCH("search"),
-    // Regular vector search workload
+    TAG_SEARCH_AUTO_EMBEDDING("search_auto_embedding"),
     TAG_VECTOR_SEARCH("vector_search"),
+    // TODO(CLOUDP-390796): Clean up this Tag, should just use replicationType tag once type:text is
+    // deprecated.
     // Auto-embedding vector search workload
     TAG_VECTOR_SEARCH_AUTO_EMBEDDING("vector_search_auto_embedding");
 
@@ -28,13 +30,15 @@ public final class IndexTypeData {
       this.tagValue = tagValue;
     }
 
-    // tagValue for metrics reporting.
     public final String tagValue;
   }
 
   public static IndexTypeTag getIndexTypeTag(IndexDefinition indexDefinition) {
     return switch (indexDefinition.getType()) {
-      case SEARCH -> IndexTypeTag.TAG_SEARCH;
+      case SEARCH ->
+          indexDefinition.isAutoEmbeddingIndex()
+              ? IndexTypeTag.TAG_SEARCH_AUTO_EMBEDDING
+              : IndexTypeTag.TAG_SEARCH;
       case VECTOR_SEARCH ->
           indexDefinition.isAutoEmbeddingIndex()
               ? IndexTypeTag.TAG_VECTOR_SEARCH_AUTO_EMBEDDING
@@ -43,7 +47,8 @@ public final class IndexTypeData {
   }
 
   public static AtomicLong getNumGauge(
-      MetricsFactory metricsFactory, String gaugeName, IndexTypeTag indexTypeTag) {
-    return metricsFactory.numGauge(gaugeName, Tags.of(INDEX_TYPE_TAG_NAME, indexTypeTag.tagValue));
+      MetricsFactory metricsFactory, String gaugeName, IndexTypeTag indexTypeTag, Tag extraTag) {
+    return metricsFactory.numGauge(
+        gaugeName, Tags.of(INDEX_TYPE_TAG_NAME, indexTypeTag.tagValue).and(extraTag));
   }
 }

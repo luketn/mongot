@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenizer/regexSplit.json",
+  "type": "object",
+  "_description": "Tokenizer that splits tokens with a regular expression-based delimiter.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "const": "regexSplit",
+      "markdownDescription": "Label that identifies the `regexSplit` tokenizer type, which splits tokens with a regular expression-based delimiter.",
+      "description": "Label that identifies the regexSplit tokenizer type, which splits tokens with a regular expression-based delimiter.",
+      "$ref": "../tokenizer.json#/definitions/typePropertyOverrides"
+    },
+    "pattern": {
+      "suggestSortText": "1",
+      "type": "string",
+      "markdownDescription": "String that indicates the regular expression to match against.",
+      "description": "String that indicates the regular expression to match against."
+    }
+  },
+  "required": ["type", "pattern"],
+  "additionalProperties": false
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/mappings/fields/stringComponents/similarity.json",
+  "markdownDescription": "Similarity function to use to score search results.",
+  "description": "Similarity function to use to score search results.",
+  "type": "object",
+  "examples": [
+    {
+      "type": "bm25"
+    },
+    {
+      "type": "boolean"
+    },
+    {
+      "type": "stableTfl"
+    }
+  ],
+  "properties": {
+    "type": {
+      "oneOf": [
+        {
+          "const": "bm25"
+        },
+        {
+          "const": "boolean"
+        },
+        {
+          "const": "stableTfl"
+        }
+      ],
+      "default": "bm25",
+      "type": "string"
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

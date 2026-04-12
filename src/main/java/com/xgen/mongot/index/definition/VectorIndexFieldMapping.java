@@ -6,6 +6,17 @@ import com.xgen.mongot.util.FieldPath;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Mapping of vector index field definitions to their paths.
+ *
+ * <p>This class tracks:
+ *
+ * <ul>
+ *   <li>Field definitions mapped by their paths
+ *   <li>Document paths (ancestor paths of all fields)
+ *   <li>Embedded vector roots (array fields containing subdocuments with vectors)
+ * </ul>
+ */
 public record VectorIndexFieldMapping(
     ImmutableMap<FieldPath, VectorIndexFieldDefinition> fieldMap,
     ImmutableSet<String> documentPaths,
@@ -34,23 +45,26 @@ public record VectorIndexFieldMapping(
     return this.nestedRoot.isPresent() && this.nestedRoot.get().equals(path);
   }
 
+  /**
+   * Returns true if {@code path} is a strict ancestor of the configured {@code nestedRoot}.
+   *
+   * <p>For example, if {@code nestedRoot} is {@code "sections.paragraphs"}, then {@code "sections"}
+   * is an ancestor of the nested root. This is used during indexing to detect intermediate path
+   * segments that must be traversed before reaching the actual nested root.
+   */
+  public boolean isAncestorOfNestedRoot(FieldPath path) {
+    return this.nestedRoot.isPresent() && this.nestedRoot.get().isChildOf(path);
+  }
+
   public boolean hasNestedRoot() {
     return this.nestedRoot.isPresent();
   }
 
   public static VectorIndexFieldMapping create(
-      List<VectorIndexFieldDefinition> fields, Optional<FieldPath> nestedRoot)
-      throws IllegalArgumentException {
+      List<VectorIndexFieldDefinition> fields, Optional<FieldPath> nestedRoot) {
     ImmutableSet<String> documentPaths = createDocumentPathMap(fields);
     VectorIndexFieldMapping mapping =
         new VectorIndexFieldMapping(createMap(fields), documentPaths, nestedRoot);
-
-    if (nestedRoot.isPresent()
-        && !mapping.subDocumentExists(nestedRoot.get())
-        && !mapping.childPathExists(nestedRoot.get())) {
-      throw new IllegalArgumentException(
-          String.format("nestedRoot is set but no field path is under it: %s", nestedRoot.get()));
-    }
 
     return mapping;
   }

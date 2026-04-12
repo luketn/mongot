@@ -2,6 +2,7 @@ package com.xgen.mongot.index.definition;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.xgen.mongot.index.analyzer.definition.CustomAnalyzerDefinition;
 import com.xgen.mongot.index.analyzer.definition.StockAnalyzerNames;
@@ -126,12 +127,18 @@ public final class SearchIndexDefinition implements IndexDefinition {
   private final Map<String, TypeSetDefinition> typeSetsMap;
   private final Optional<Long> definitionVersion;
   private final Optional<Instant> definitionVersionCreatedAt;
+  private final boolean isAutoEmbeddingIndex;
+  private final ImmutableMap<FieldPath, String> modelNamePerPath;
+  private final Optional<Long> autoEmbeddingDefinitionVersion;
+  private final Optional<Long> materializedViewNameFormatVersion;
 
   /** Fast access to the statically configured FieldDefinitions. */
   private final UnmodifiableTrie<String, FieldDefinition> staticFieldDefinitions;
 
   /** Names of all overridden and custom analyzers referenced by this IndexDefinition. */
   private final Set<String> nonStockAnalyzerNames;
+
+  private final Optional<ObjectId> indexIdAtCreationTime;
 
   /** Constructs a new SearchIndexDefinition for a MongoDB Atlas Search index. */
   private SearchIndexDefinition(
@@ -154,7 +161,10 @@ public final class SearchIndexDefinition implements IndexDefinition {
       Optional<List<TypeSetDefinition>> typeSets,
       Optional<Sort> sort,
       Optional<Long> definitionVersion,
-      Optional<Instant> definitionVersionCreatedAt) {
+      Optional<Instant> definitionVersionCreatedAt,
+      Optional<ObjectId> indexIdAtCreationTime,
+      Optional<Long> autoEmbeddingDefinitionVersion,
+      Optional<Long> materializedViewNameFormatVersion) {
     this.indexId = indexId;
     this.name = name;
     this.database = database;
@@ -184,6 +194,11 @@ public final class SearchIndexDefinition implements IndexDefinition {
             .orElse(Collections.emptyMap());
     this.definitionVersion = definitionVersion;
     this.definitionVersionCreatedAt = definitionVersionCreatedAt;
+    this.isAutoEmbeddingIndex = calculateIsAutoEmbeddingIndex(mappings);
+    this.modelNamePerPath = calculateModelNamePerPath(mappings);
+    this.indexIdAtCreationTime = indexIdAtCreationTime;
+    this.autoEmbeddingDefinitionVersion = autoEmbeddingDefinitionVersion;
+    this.materializedViewNameFormatVersion = materializedViewNameFormatVersion;
   }
 
   public static SearchIndexDefinition create(
@@ -204,7 +219,10 @@ public final class SearchIndexDefinition implements IndexDefinition {
       Optional<List<TypeSetDefinition>> typeSets,
       Optional<Sort> sort,
       Optional<Long> definitionVersion,
-      Optional<Instant> definitionVersionCreatedAt) {
+      Optional<Instant> definitionVersionCreatedAt,
+      Optional<ObjectId> indexIdAtCreationTime,
+      Optional<Long> autoEmbeddingDefinitionVersion,
+      Optional<Long> materializedViewNameFormatVersion) {
     Trie<String, FieldDefinition> staticFields = new PatriciaTrie<>();
     registerFields(staticFields, Optional.empty(), mappings);
     UnmodifiableTrie<String, FieldDefinition> unmodifiableStaticFields =
@@ -242,7 +260,10 @@ public final class SearchIndexDefinition implements IndexDefinition {
         typeSets,
         sort,
         definitionVersion,
-        definitionVersionCreatedAt);
+        definitionVersionCreatedAt,
+        indexIdAtCreationTime,
+        autoEmbeddingDefinitionVersion,
+        materializedViewNameFormatVersion);
   }
 
   /**
@@ -272,7 +293,10 @@ public final class SearchIndexDefinition implements IndexDefinition {
         this.typeSets,
         this.sort,
         this.definitionVersion,
-        this.definitionVersionCreatedAt);
+        this.definitionVersionCreatedAt,
+        this.indexIdAtCreationTime,
+        this.autoEmbeddingDefinitionVersion,
+        this.materializedViewNameFormatVersion);
   }
 
   public static SearchIndexDefinition fromBson(BsonDocument document) throws BsonParseException {
@@ -321,7 +345,10 @@ public final class SearchIndexDefinition implements IndexDefinition {
         sort,
         parser.getField(IndexDefinition.Fields.DEFINITION_VERSION).unwrap(),
         DateUtil.parseInstantFromString(
-            parser, DATE_FORMAT, IndexDefinition.Fields.DEFINITION_VERSION_CREATED_AT));
+            parser, DATE_FORMAT, IndexDefinition.Fields.DEFINITION_VERSION_CREATED_AT),
+        parser.getField(IndexDefinition.Fields.INDEX_ID_AT_CREATION_TIME).unwrap(),
+        parser.getField(IndexDefinition.Fields.AUTO_EMBEDDING_DEFINITION_VERSION).unwrap(),
+        parser.getField(IndexDefinition.Fields.MATERIALIZED_VIEW_NAME_FORMAT_VERSION).unwrap());
   }
 
   @Override
@@ -348,6 +375,16 @@ public final class SearchIndexDefinition implements IndexDefinition {
         .field(
             IndexDefinition.Fields.DEFINITION_VERSION_CREATED_AT,
             this.definitionVersionCreatedAt.map(DATE_FORMAT::format))
+        .fieldOmitDefaultValue(
+            IndexDefinition.Fields.INDEX_ID_AT_CREATION_TIME,
+            this.indexIdAtCreationTime,
+            this.indexId)
+        .field(
+            IndexDefinition.Fields.AUTO_EMBEDDING_DEFINITION_VERSION,
+            this.autoEmbeddingDefinitionVersion)
+        .field(
+            IndexDefinition.Fields.MATERIALIZED_VIEW_NAME_FORMAT_VERSION,
+            this.materializedViewNameFormatVersion)
         .build();
   }
 
@@ -452,6 +489,7 @@ public final class SearchIndexDefinition implements IndexDefinition {
     return this.definitionVersion;
   }
 
+  @Override
   public Optional<Instant> getDefinitionVersionCreatedAt() {
     return this.definitionVersionCreatedAt;
   }
@@ -543,7 +581,53 @@ public final class SearchIndexDefinition implements IndexDefinition {
 
   @Override
   public boolean isAutoEmbeddingIndex() {
-    return false;
+    return this.isAutoEmbeddingIndex;
+  }
+
+  /**
+   * Returns the auto-embedding feature version for this search index. Returns 2 (materialized view
+   * based) if auto-embed fields are present, 0 otherwise.
+   */
+  public int getParsedAutoEmbeddingFeatureVersion() {
+    return this.isAutoEmbeddingIndex ? 2 : 0;
+  }
+
+  public ImmutableMap<FieldPath, String> getModelNamePerPath() {
+    return this.modelNamePerPath;
+  }
+
+  private static boolean calculateIsAutoEmbeddingIndex(DocumentFieldDefinition mappings) {
+    return mappings.fields().values().stream()
+        .anyMatch(fd -> fd.searchAutoEmbedFieldDefinition().isPresent());
+  }
+
+  private static ImmutableMap<FieldPath, String> calculateModelNamePerPath(
+      DocumentFieldDefinition mappings) {
+    ImmutableMap.Builder<FieldPath, String> builder = ImmutableMap.builder();
+    for (Map.Entry<String, FieldDefinition> entry : mappings.fields().entrySet()) {
+      entry
+          .getValue()
+          .searchAutoEmbedFieldDefinition()
+          .ifPresent(
+              autoEmbed ->
+                  builder.put(FieldPath.parse(entry.getKey()), autoEmbed.modelName()));
+    }
+    return builder.build();
+  }
+
+  @Override
+  public Optional<ObjectId> getIndexIdAtCreationTime() {
+    return this.indexIdAtCreationTime;
+  }
+
+  @Override
+  public Optional<Long> getAutoEmbeddingDefinitionVersion() {
+    return this.autoEmbeddingDefinitionVersion;
+  }
+
+  @Override
+  public Optional<Long> getMaterializedViewNameFormatVersion() {
+    return this.materializedViewNameFormatVersion;
   }
 
   @Override
@@ -576,7 +660,13 @@ public final class SearchIndexDefinition implements IndexDefinition {
             this.definitionVersionCreatedAt.map(Instant::getEpochSecond),
             that.definitionVersionCreatedAt.map(Instant::getEpochSecond))
         && Objects.equal(this.staticFieldDefinitions, that.staticFieldDefinitions)
-        && Objects.equal(this.nonStockAnalyzerNames, that.nonStockAnalyzerNames);
+        && Objects.equal(this.nonStockAnalyzerNames, that.nonStockAnalyzerNames)
+        && Objects.equal(
+            this.indexIdAtCreationTime.orElse(this.indexId),
+            that.indexIdAtCreationTime.orElse(that.indexId))
+        && Objects.equal(this.autoEmbeddingDefinitionVersion, that.autoEmbeddingDefinitionVersion)
+        && Objects.equal(
+            this.materializedViewNameFormatVersion, that.materializedViewNameFormatVersion);
   }
 
   @Override
@@ -601,7 +691,10 @@ public final class SearchIndexDefinition implements IndexDefinition {
         this.definitionVersion,
         this.definitionVersionCreatedAt.map(Instant::getEpochSecond),
         this.staticFieldDefinitions,
-        this.nonStockAnalyzerNames);
+        this.nonStockAnalyzerNames,
+        this.indexIdAtCreationTime.orElse(this.indexId),
+        this.autoEmbeddingDefinitionVersion,
+        this.materializedViewNameFormatVersion);
   }
 
   @Override

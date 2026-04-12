@@ -80,18 +80,16 @@ public sealed interface SearchQuery extends Query permits CollectorQuery, Operat
 
   static SearchQuery fromBson(BsonDocument document, QueryOptimizationFlags queryOptimizationFlags)
       throws BsonParseException {
-    try (var guard = Tracing.simpleSpanGuard("Query.fromBson")) {
-      try (var parser = BsonDocumentParser.fromRoot(document).build()) {
-        return fromBson(parser, queryOptimizationFlags);
-      }
-    }
+    return fromBson(document, queryOptimizationFlags, false);
   }
 
   private static SearchQuery fromBson(
-      DocumentParser parser, QueryOptimizationFlags queryOptimizationFlags)
+      DocumentParser parser,
+      QueryOptimizationFlags queryOptimizationFlags,
+      boolean allow10k)
       throws BsonParseException {
     var operator = Operator.atMostOneFromBson(parser);
-    var collector = Collector.atMostOneFromBson(parser);
+    var collector = Collector.atMostOneFromBson(parser, allow10k);
     if (operator.isPresent() && collector.isPresent()) {
       parser
           .getContext()
@@ -144,6 +142,12 @@ public sealed interface SearchQuery extends Query permits CollectorQuery, Operat
     }
 
     if (collector.isPresent()) {
+      if (collector.get().getOperator().isPresent()) {
+        OperatorEmbeddedRootValidator validator =
+            new OperatorEmbeddedRootValidator(parser.getContext());
+        validator.validate(
+            collector.get().getOperator().get(), returnScope.unwrap().map(ReturnScope::path));
+      }
       return new CollectorQuery(
           collector.get(),
           parser.getField(Query.Fields.INDEX).unwrap(),
@@ -162,6 +166,18 @@ public sealed interface SearchQuery extends Query permits CollectorQuery, Operat
             "Query should contain either an operator [%s] " + "or a collector [%s]",
             Operator.ALL_OPERATORS, Collector.ALL_COLLECTORS);
     return parser.getContext().handleSemanticError(errorDescription);
+  }
+
+  static SearchQuery fromBson(
+      BsonDocument document,
+      QueryOptimizationFlags queryOptimizationFlags,
+      boolean allow10k)
+      throws BsonParseException {
+    try (var guard = Tracing.simpleSpanGuard("Query.fromBson")) {
+      try (var parser = BsonDocumentParser.fromRoot(document).build()) {
+        return fromBson(parser, queryOptimizationFlags, allow10k);
+      }
+    }
   }
 
   Count count();

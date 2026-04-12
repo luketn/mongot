@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/mappings/fields/uuid.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Data type to use to index fields with `uuid` values, including UUID fields inside arrays and embedded documents. To learn more about this data type, see [uuid Type](https://dochub.mongodb.org/core/uuid-type-fts).",
+      "description": "Data type to use to index fields with `uuid` values.",
+      "const": "uuid",
+      "$ref": "../field.json#/definitions/typeErrorMessage"
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

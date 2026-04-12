@@ -20,7 +20,9 @@ public record VectorSearchCommandDefinition(
     String collectionName,
     UUID collectionUuid,
     Optional<String> viewName,
-    Optional<ExplainDefinition> explain)
+    Optional<ExplainDefinition> explain,
+    Optional<Long> deadlineTimestampMs,
+    Optional<CursorOptionsDefinition> cursorOptions)
     implements DocumentEncodable {
 
   static class Fields {
@@ -39,6 +41,16 @@ public record VectorSearchCommandDefinition(
         Field.builder("explain")
             .classField(ExplainDefinition::fromBson)
             .disallowUnknownFields()
+            .optional()
+            .noDefault();
+
+    static final Field.Optional<Long> DEADLINE_TIMESTAMP_MS =
+        Field.builder("deadlineTimestampMs").longField().optional().noDefault();
+
+    static final Field.Optional<CursorOptionsDefinition> CURSOR_OPTIONS =
+        Field.builder("cursorOptions")
+            .classField(CursorOptionsDefinition::fromBson)
+            .allowUnknownFields()
             .optional()
             .noDefault();
   }
@@ -109,7 +121,9 @@ public record VectorSearchCommandDefinition(
         parser.getField(Fields.VECTOR_SEARCH).unwrap(),
         parser.getField(Fields.COLLECTION_UUID).unwrap(),
         parser.getField(Fields.VIEW_NAME).unwrap(),
-        parser.getField(Fields.EXPLAIN).unwrap());
+        parser.getField(Fields.EXPLAIN).unwrap(),
+        parser.getField(Fields.DEADLINE_TIMESTAMP_MS).unwrap(),
+        parser.getField(Fields.CURSOR_OPTIONS).unwrap());
   }
 
   @Override
@@ -125,6 +139,8 @@ public record VectorSearchCommandDefinition(
             .field(Fields.DB, this.db)
             .field(Fields.COLLECTION_UUID, this.collectionUuid)
             .field(Fields.EXPLAIN, this.explain)
+            .field(Fields.DEADLINE_TIMESTAMP_MS, this.deadlineTimestampMs)
+            .field(Fields.CURSOR_OPTIONS, this.cursorOptions)
             .build();
 
     withoutVectorQuery.putAll(

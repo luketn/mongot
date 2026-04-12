@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter/spanishPluralStemming.json",
+  "type": "object",
+  "_description": "Token filter that stems Spanish plural words. It expects lowercase text.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the `spanishPluralStemming` token filter type, which stems Spanish plural words.",
+      "description": "Label that identifies the spanishPluralStemming token filter type, which stems Spanish plural words.",
+      "const": "spanishPluralStemming",
+      "$ref": "../tokenFilter.json#/definitions/typePropertyOverrides"
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

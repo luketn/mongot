@@ -5,24 +5,21 @@ import com.xgen.mongot.catalog.IndexCatalog;
 import com.xgen.mongot.catalog.InitializedIndexCatalog;
 import com.xgen.mongot.config.manager.DefaultConfigManager;
 import com.xgen.mongot.cursor.MongotCursorManager;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
+import com.xgen.mongot.embedding.mongodb.MaterializedViewCollectionResolver;
+import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
+import com.xgen.mongot.embedding.mongodb.leasing.DynamicLeaderLeaseManager;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
+import com.xgen.mongot.embedding.mongodb.leasing.LeaseManagerOpsCommands;
 import com.xgen.mongot.embedding.mongodb.leasing.StaticLeaderLeaseManager;
 import com.xgen.mongot.embedding.providers.EmbeddingServiceManager;
 import com.xgen.mongot.featureflag.FeatureFlags;
-import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlagRegistry;
 import com.xgen.mongot.index.IndexFactory;
-import com.xgen.mongot.index.analyzer.AnalyzerRegistry;
 import com.xgen.mongot.index.autoembedding.MaterializedViewIndexFactory;
 import com.xgen.mongot.index.blobstore.BlobstoreSnapshotterManager;
-import com.xgen.mongot.index.lucene.LuceneGlobalSettings;
-import com.xgen.mongot.index.lucene.LuceneIndexFactory;
-import com.xgen.mongot.index.lucene.blobstore.LuceneIndexSnapshotterManager;
-import com.xgen.mongot.index.lucene.config.LuceneConfig;
-import com.xgen.mongot.index.lucene.directory.EnvironmentVariantPerfConfig;
 import com.xgen.mongot.lifecycle.DefaultLifecycleManager;
 import com.xgen.mongot.lifecycle.LifecycleConfig;
 import com.xgen.mongot.metrics.MeterAndFtdcRegistry;
-import com.xgen.mongot.monitor.DiskMonitor;
 import com.xgen.mongot.monitor.Gate;
 import com.xgen.mongot.monitor.ReplicationStateMonitor;
 import com.xgen.mongot.replication.ReplicationManagerFactory;
@@ -35,7 +32,6 @@ import com.xgen.mongot.replication.mongodb.common.AutoEmbeddingMaterializedViewC
 import com.xgen.mongot.replication.mongodb.common.MongoDbReplicationConfig;
 import com.xgen.mongot.replication.mongodb.initialsync.config.InitialSyncConfig;
 import com.xgen.mongot.util.Check;
-import com.xgen.mongot.util.Crash;
 import com.xgen.mongot.util.mongodb.SyncSourceConfig;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.file.Path;
@@ -45,34 +41,6 @@ import org.slf4j.LoggerFactory;
 
 public class CommonUtils {
   private static final Logger LOG = LoggerFactory.getLogger(CommonUtils.class);
-
-  public static IndexFactory getIndexFactory(
-      LuceneConfig luceneConfig,
-      FeatureFlags featureFlags,
-      DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry,
-      EnvironmentVariantPerfConfig environmentVariantPerfConfig,
-      MeterAndFtdcRegistry meterAndFtdcRegistry,
-      Optional<LuceneIndexSnapshotterManager> snapshotterManager,
-      DiskMonitor diskMonitor) {
-    LuceneGlobalSettings.apply(luceneConfig);
-
-    var analyzerRegistryFactory =
-        Crash.because("failed to get AnalyzerRegistry.Factory instance")
-            .ifThrows(AnalyzerRegistry::factory);
-
-    return Crash.because("failed to get LuceneIndexFactory instance")
-        .ifThrows(
-            () ->
-                LuceneIndexFactory.fromConfig(
-                    luceneConfig,
-                    featureFlags,
-                    dynamicFeatureFlagRegistry,
-                    environmentVariantPerfConfig,
-                    meterAndFtdcRegistry,
-                    snapshotterManager,
-                    analyzerRegistryFactory,
-                    diskMonitor));
-  }
 
   /** Creates ReplicationManagerFactory. */
   public static ReplicationManagerFactory getReplicationManagerFactory(
@@ -170,61 +138,132 @@ public class CommonUtils {
           MeterAndFtdcRegistry meterAndFtdcRegistry,
           DefaultConfigManager.ReplicationMode replicationMode,
           Optional<Supplier<EmbeddingServiceManager>> embeddingServiceManagerSupplier,
-          LeaseManager leaseManager) {
+          LeaseManager leaseManager,
+          MaterializedViewCollectionMetadataCatalog mvMetadataCatalog,
+          AutoEmbeddingMongoClient autoEmbeddingMongoClient) {
 
-    return (Optional<SyncSourceConfig> syncConfig) -> {
-      // Create a no-op replication manager factory if replication mode is disabled or replication
-      // is set to be shutdown
-      if (syncConfig.isEmpty()
-          || replicationMode.equals(DefaultConfigManager.ReplicationMode.DISABLE)) {
+    return (Optional<SyncSourceConfig> syncSourceConfig) -> {
+      // Create a no-op replication manager factory if replication mode is disabled.
+      if (replicationMode.equals(DefaultConfigManager.ReplicationMode.DISABLE)) {
+        LOG.atWarn()
+            .log(
+                "Replication is disabled for auto-embedding, "
+                    + "skips creating MaterializedViewManager.");
         return Optional.empty();
       }
 
-      Check.checkState(
-          !replicationMode.equals(DefaultConfigManager.ReplicationMode.DISK_UTILIZATION_BASED),
-          "Materialized View Manager doesn't support disk utilization based processing.");
+      if (replicationMode.equals(DefaultConfigManager.ReplicationMode.DISK_UTILIZATION_BASED)) {
+        // Note: DISK_UTILIZATION_BASED mode is treated as ENABLE for auto-embedding because
+        // auto-embedding writes to the MongoDB materialized view collection (not local disk),
+        // so local disk utilization concerns don't apply.
+        // TODO(CLOUDP-360913): Implement customized disk monitor for mat view.
+        LOG.atWarn()
+            .log(
+                "Disk utilization based replication is not supported for auto-embedding, "
+                    + "create MaterializedViewManager anyway.");
+      }
 
-      return Optional.of(
+      var matViewManager =
           MaterializedViewManager.create(
               dataPath,
-              // TODO(CLOUDP-360542): Support MaterializedViewManager without syncConfig in Atlas.
-              Check.isPresent(syncConfig, "syncConfig"),
               autoEmbeddingMaterializedViewConfig,
               initialSyncConfig,
               featureFlags,
               cursorManager,
               embeddingServiceManagerSupplier,
               meterAndFtdcRegistry,
-              leaseManager));
+              leaseManager,
+              mvMetadataCatalog,
+              autoEmbeddingMongoClient);
+      syncSourceConfig.ifPresent(
+          syncSource -> {
+            matViewManager.updateSyncSource(syncSource);
+            matViewManager.setIsReplicationEnabled(true);
+          });
+      return Optional.of(matViewManager);
     };
   }
 
   /** Creates MaterializedViewIndexFactory from sync source config */
   public static MaterializedViewIndexFactory getMaterializedViewIndexFactory(
-      SyncSourceConfig syncSourceConfig,
+      AutoEmbeddingMongoClient autoEmbeddingMongoClient,
       FeatureFlags featureFlags,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
-      LeaseManager leaseManager) {
+      LeaseManager leaseManager,
+      MaterializedViewCollectionResolver collectionResolver,
+      AutoEmbeddingMaterializedViewConfig materializedViewConfig) {
     return new MaterializedViewIndexFactory(
-        syncSourceConfig, featureFlags, meterAndFtdcRegistry, leaseManager);
+        autoEmbeddingMongoClient,
+        featureFlags,
+        meterAndFtdcRegistry,
+        leaseManager,
+        collectionResolver,
+        materializedViewConfig.getMvWriteRateLimitRps(),
+        materializedViewConfig.matViewWriterMaxConnections);
   }
 
   /**
    * Creates a LeaseManager with explicit leader status from config.
    *
-   * @param syncSourceConfig the sync source configuration
+   * @param autoEmbeddingMongoClient the mongo client for auto embedding leases
    * @param meterAndFtdcRegistry the meter and FTDC registry
    * @param isAutoEmbeddingViewWriter true if this instance is the auto-embedding view writer
    *     (leader)
    * @return a LeaseManager configured with the specified leader status
+   * @deprecated Use {@link #getDynamicLeaseManager} instead for dynamic leader election.
    */
+  @Deprecated
   public static LeaseManager getLeaseManager(
-      SyncSourceConfig syncSourceConfig,
+      AutoEmbeddingMongoClient autoEmbeddingMongoClient,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
-      boolean isAutoEmbeddingViewWriter) {
+      boolean isAutoEmbeddingViewWriter,
+      MaterializedViewCollectionMetadataCatalog mvMetadataCatalog) {
     LOG.info("Auto-embedding leader mode set via config: {}", isAutoEmbeddingViewWriter);
     // hostname is an unused parameter for now, so passing in a placeholder.
     return StaticLeaderLeaseManager.create(
-        syncSourceConfig, meterAndFtdcRegistry, "localhost", isAutoEmbeddingViewWriter);
+        Check.isPresent(
+            autoEmbeddingMongoClient.getLeaseManagerMongoClient(),
+            "autoEmbeddingLeaseManagerMongoClient"),
+        meterAndFtdcRegistry,
+        "localhost",
+        isAutoEmbeddingViewWriter,
+        mvMetadataCatalog);
+  }
+
+  public static MaterializedViewCollectionResolver getMaterializedViewCollectionResolver(
+      AutoEmbeddingMongoClient autoEmbeddingMongoClient,
+      MaterializedViewCollectionMetadataCatalog metadataCatalog,
+      LeaseManager leaseManager,
+      AutoEmbeddingMaterializedViewConfig materializedViewConfig) {
+    return MaterializedViewCollectionResolver.create(
+        autoEmbeddingMongoClient,
+        metadataCatalog,
+        leaseManager,
+        materializedViewConfig);
+  }
+
+  /**
+   * Creates a DynamicLeaderLeaseManager for dynamic per-index leader election.
+   *
+   * <p>This is used in deployments with multiple mongot instances where leadership is determined
+   * dynamically at the index level through lease acquisition and renewal, rather than being
+   * statically configured.
+   *
+   * @param autoEmbeddingMongoClient the mongo client for auto embedding leases
+   * @param meterAndFtdcRegistry the meter and FTDC registry
+   * @param hostname the hostname of this mongot instance
+   * @param mvMetadataCatalog the materialized view collection metadata catalog
+   * @param opsCommands ops commands for lease manager
+   * @return a DynamicLeaderLeaseManager for dynamic leader election
+   */
+  public static LeaseManager getDynamicLeaseManager(
+      AutoEmbeddingMongoClient autoEmbeddingMongoClient,
+      MeterAndFtdcRegistry meterAndFtdcRegistry,
+      String hostname,
+      MaterializedViewCollectionMetadataCatalog mvMetadataCatalog,
+      LeaseManagerOpsCommands opsCommands) {
+    LOG.info("Creating DynamicLeaderLeaseManager for dynamic per-index leader election");
+    return DynamicLeaderLeaseManager.create(
+        autoEmbeddingMongoClient, meterAndFtdcRegistry, hostname, mvMetadataCatalog, opsCommands);
   }
 }

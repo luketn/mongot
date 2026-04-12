@@ -9,11 +9,13 @@ import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.MaterializedVectorSearchQuery;
 import com.xgen.mongot.index.query.VectorSearchQuery;
 import com.xgen.mongot.index.version.IndexFormatVersion;
+import com.xgen.mongot.util.FieldPath;
 import com.xgen.testing.TestUtils;
 import com.xgen.testing.mongot.index.definition.VectorIndexDefinitionBuilder;
 import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -31,6 +33,7 @@ class LuceneVectorTranslation {
   private Directory directory;
   private IndexWriter writer;
   private final FeatureFlags featureFlags;
+  private final Map<FieldPath, FieldPath> autoEmbeddingFieldsMapping;
 
   private void setUp() throws IOException {
     var temporaryFolder = TestUtils.getTempFolder();
@@ -47,11 +50,22 @@ class LuceneVectorTranslation {
   LuceneVectorTranslation(List<VectorIndexFieldDefinition> definitions) {
     this.indexDefinition = getIndexDefinition(definitions);
     this.featureFlags = FeatureFlags.getDefault();
+    this.autoEmbeddingFieldsMapping = Map.of();
   }
 
   LuceneVectorTranslation(List<VectorIndexFieldDefinition> definitions, FeatureFlags featureFlags) {
     this.indexDefinition = getIndexDefinition(definitions);
     this.featureFlags = featureFlags;
+    this.autoEmbeddingFieldsMapping = Map.of();
+  }
+
+  LuceneVectorTranslation(
+      List<VectorIndexFieldDefinition> definitions,
+      FeatureFlags featureFlags,
+      Map<FieldPath, FieldPath> autoEmbeddingFieldsMapping) {
+    this.indexDefinition = getIndexDefinition(definitions);
+    this.featureFlags = featureFlags;
+    this.autoEmbeddingFieldsMapping = autoEmbeddingFieldsMapping;
   }
 
   void assertTranslatedTo(VectorSearchQuery query, Query expected)
@@ -59,7 +73,7 @@ class LuceneVectorTranslation {
     Query result = translate(query);
     Assert.assertEquals("Lucene query:", expected, result);
   }
-
+  
   Query translate(VectorSearchQuery query) throws InvalidQueryException, IOException {
     setUp();
     return getLuceneQuery(query);
@@ -75,12 +89,14 @@ class LuceneVectorTranslation {
     var factory = LuceneVectorQueryFactoryDistributor.create(context);
     try (var reader = DirectoryReader.open(this.directory)) {
       return factory.createQuery(
-          new MaterializedVectorSearchQuery(query, query.criteria().queryVector().get()), reader);
+          new MaterializedVectorSearchQuery(
+              query, query.criteria().queryVector().get(), this.autoEmbeddingFieldsMapping),
+          reader);
     } finally {
       tearDown();
     }
   }
-
+  
   static VectorIndexDefinition getIndexDefinition(List<VectorIndexFieldDefinition> definitions) {
     return VectorIndexDefinitionBuilder.builder().setFields(definitions).build();
   }

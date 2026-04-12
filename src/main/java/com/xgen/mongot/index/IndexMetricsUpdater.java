@@ -8,8 +8,12 @@ import com.google.common.flogger.FluentLogger;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.definition.SearchIndexCapabilities;
 import com.xgen.mongot.index.definition.VectorIndexCapabilities;
+import com.xgen.mongot.index.query.CollectorQuery;
 import com.xgen.mongot.index.query.InvalidQueryException;
+import com.xgen.mongot.index.query.Query;
 import com.xgen.mongot.index.query.collectors.Collector;
+import com.xgen.mongot.index.query.collectors.DrillSidewaysInfoBuilder.DrillSidewaysInfo.QueryOptimizationStatus;
+import com.xgen.mongot.index.query.collectors.FacetCollector;
 import com.xgen.mongot.index.query.operators.Operator;
 import com.xgen.mongot.index.query.operators.TextOperator;
 import com.xgen.mongot.index.query.operators.VectorSearchCriteria;
@@ -29,6 +33,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BooleanSupplier;
+import org.apache.lucene.search.TotalHits;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -40,6 +46,17 @@ public class IndexMetricsUpdater implements Closeable {
   public static final String NAMESPACE = "index.stats";
   private static final double[] NUM_CANDIDATES_BUCKETS = {100, 500, 1000, 2000, 5000, 10_000};
   private static final double[] LIMIT_BUCKETS = {10, 50, 100, 200, 500, 1000};
+  private static final double[] VISITED_NODES_BUCKETS = {
+    100, 500, 1000, 2000, 5000, 10_000, 50_000
+  };
+
+  /**
+   * Upper bounds for {@code totalFacetBucketsPerQuery} (string facet bucket demand per query).
+   *
+   * <p>Kept coarse (vs finer histograms) to limit Prometheus series: tail-focused bands around the
+   * 10k bucket-limit context; use {@code sum}/{@code count} on export for mean demand.
+   */
+  private static final double[] TOTAL_FACET_BUCKETS_BUCKETS = {1000, 10_000, 50_000};
 
   private final IndexDefinition indexDefinition;
   private final PerIndexMetricsFactory metricsFactory;
@@ -55,6 +72,7 @@ public class IndexMetricsUpdater implements Closeable {
     APPROXIMATE,
     EXACT,
     FALLBACK_TO_EXACT,
+    FULL_SCAN,
   }
 
   /**
@@ -91,6 +109,7 @@ public class IndexMetricsUpdater implements Closeable {
         new IndexingMetricsUpdater(
             metricsFactory.childMetricsFactory(IndexingMetricsUpdater.NAMESPACE),
             indexDefinition.getType(),
+            getIndexTypeTag(indexDefinition),
             indexDefinition.getParsedIndexFeatureVersion(),
             true),
         new QueryingMetricsUpdater(
@@ -187,6 +206,8 @@ public class IndexMetricsUpdater implements Closeable {
     static final String VECTOR_FIELDS_INDEXED = "vectorFieldsIndexed";
     static final String INDEX_TYPE_TAG_NAME = "indexType";
     static final String LARGE_CHANGE_STREAM_EVENTS = "largeChangeStreamEvents";
+    static final String BLOOM_FILTER_ID_POSTING_CREATED = "bloomFilterIdPostingCreated";
+    static final String LUCENE_99_ID_POSTING_CREATED = "lucene99IdPostingCreated";
 
     @VisibleForTesting
     public static final List<Bytes> CHANGE_STREAM_EVENT_SIZE_THRESHOLDS =
@@ -205,6 +226,8 @@ public class IndexMetricsUpdater implements Closeable {
     private final ReplicationOpTimeInfo replicationOpTimeInfo;
     private final Timer batchIndexingTimer;
     private final Map<Bytes, Counter> changeStreamEventSizeCounters;
+    private final Counter bloomFilterIdPostingCreatedCounter;
+    private final Counter lucene99IdPostingCreatedCounter;
 
     @VisibleForTesting
     public IndexingMetricsUpdater(
@@ -212,6 +235,9 @@ public class IndexMetricsUpdater implements Closeable {
       this(
           metricsFactory,
           indexType,
+          indexType == IndexDefinition.Type.SEARCH
+              ? IndexTypeData.IndexTypeTag.TAG_SEARCH
+              : IndexTypeData.IndexTypeTag.TAG_VECTOR_SEARCH,
           indexType == IndexDefinition.Type.SEARCH
               ? SearchIndexCapabilities.CURRENT_FEATURE_VERSION
               : VectorIndexCapabilities.CURRENT_FEATURE_VERSION,
@@ -222,6 +248,7 @@ public class IndexMetricsUpdater implements Closeable {
     public IndexingMetricsUpdater(
         PerIndexMetricsFactory metricsFactory,
         IndexDefinition.Type indexType,
+        IndexTypeData.IndexTypeTag indexTypeTag,
         int indexFeatureVersion,
         boolean isIndexFeatureVersionFourEnabled) {
       Tags indexFeatureVersionTag =
@@ -247,6 +274,9 @@ public class IndexMetricsUpdater implements Closeable {
       this.sortableStringTruncated = metricsFactory.counter(SORTABLE_STRING_TRUNCATED);
       this.invalidGeometryField = metricsFactory.counter(INVALID_GEOMETRY_FIELD);
       this.vectorFieldsIndexed = metricsFactory.counter(VECTOR_FIELDS_INDEXED);
+      this.bloomFilterIdPostingCreatedCounter =
+          metricsFactory.counter(BLOOM_FILTER_ID_POSTING_CREATED);
+      this.lucene99IdPostingCreatedCounter = metricsFactory.counter(LUCENE_99_ID_POSTING_CREATED);
 
       this.replicationOpTimeInfo = new ReplicationOpTimeInfo();
       this.metricsFactory.perIndexObjectValueGauge(
@@ -279,7 +309,8 @@ public class IndexMetricsUpdater implements Closeable {
                   .snapshot()
                   .map(ReplicationOpTimeInfo.Snapshot::replicationLagMs)
                   .map(Long::doubleValue)
-                  .orElse(Double.NaN));
+                  .orElse(Double.NaN),
+          Tags.of(INDEX_TYPE_TAG_NAME, indexTypeTag.tagValue));
 
       this.batchIndexingTimer =
           this.metricsFactory.timer(
@@ -328,6 +359,14 @@ public class IndexMetricsUpdater implements Closeable {
       return this.vectorFieldsIndexed;
     }
 
+    public Counter getBloomFilterIdPostingCreatedCounter() {
+      return this.bloomFilterIdPostingCreatedCounter;
+    }
+
+    public Counter getLucene99IdPostingCreatedCounter() {
+      return this.lucene99IdPostingCreatedCounter;
+    }
+    
     public Timer getCommitTimer() {
       return this.commitTimer;
     }
@@ -360,7 +399,7 @@ public class IndexMetricsUpdater implements Closeable {
           getSteadyStateExceptionCounter(),
           getReplicationOpTimeInfo().snapshot(),
           getTotalBytesProcessedCounter(),
-          indexMetricValuesSupplier.computeIndexSize(),
+          indexMetricValuesSupplier.getCachedIndexSize(),
           // deprecated vectorFieldSize is set to 0
           0L,
           indexMetricValuesSupplier.getNumFields(),
@@ -414,6 +453,11 @@ public class IndexMetricsUpdater implements Closeable {
     /** The number of times mongot receives an extractable limit query from mongod. */
     private final Counter extractableLimitQueryCounter;
 
+    /** Counters for full scan experiment stats. These should be removed by 6/1/2026. */
+    private final Counter fallBackHeuristicSuccessCounter;
+
+    private final Counter fallBackHeuristicFailureCounter;
+
     /**
      * The number of times mongot oversubscription to an extracted limit hint was not enough, and a
      * second batch is required.
@@ -462,11 +506,15 @@ public class IndexMetricsUpdater implements Closeable {
 
     private final Counter noProgressBatchCounter;
     private final Timer tokenFacetsStateRefreshLatencyTimer;
+    private final Timer stringFacetsStateRefreshLatencyTimer;
 
     private final DistributionSummary numCandidatesUnquantized;
     private final DistributionSummary numCandidatesScalarQuantized;
     private final DistributionSummary numCandidatesBinaryQuantized;
     private final DistributionSummary limitPerQuery;
+
+    /** Distribution of total requested string facet buckets per facet query. */
+    private final DistributionSummary totalFacetBucketsPerQuery;
 
     /** Number of times a phantom LuceneIndexSearcherReference is not closed. */
     private final Counter phantomSearcherCleanupCounter;
@@ -482,9 +530,17 @@ public class IndexMetricsUpdater implements Closeable {
 
     /** Counters for visited nodes in KNN queries, indexed by filter and mode. */
     private final Counter vectorSearchVisitedNodesUnfilteredApproximateCounter;
+
     private final Counter vectorSearchVisitedNodesUnfilteredExactCounter;
     private final Counter vectorSearchVisitedNodesFilteredApproximateCounter;
     private final Counter vectorSearchVisitedNodesFilteredExactCounter;
+
+    /** Histograms for visited nodes per segment in KNN queries, indexed by filter and mode. */
+    private final DistributionSummary vectorSearchVisitedNodesPerSegmentUnfilteredApproximate;
+
+    private final DistributionSummary vectorSearchVisitedNodesPerSegmentFilteredApproximate;
+    private final DistributionSummary vectorSearchVisitedNodesPerSegmentUnfilteredExact;
+    private final DistributionSummary vectorSearchVisitedNodesPerSegmentFilteredExact;
 
     @VisibleForTesting
     public QueryingMetricsUpdater(PerIndexMetricsFactory metricsFactory) {
@@ -566,6 +622,10 @@ public class IndexMetricsUpdater implements Closeable {
           isSearchIndex
               ? metricsFactory.perIndexTimer("tokenFacetsStateRefreshLatency")
               : metricsFactory.timer("tokenFacetsStateRefreshLatency");
+      this.stringFacetsStateRefreshLatencyTimer =
+          isSearchIndex
+              ? metricsFactory.perIndexTimer("stringFacetsStateRefreshLatency")
+              : metricsFactory.timer("stringFacetsStateRefreshLatency");
       this.numCandidatesUnquantized =
           metricsFactory.histogram(
               "numCandidatesPerQuery",
@@ -586,6 +646,9 @@ public class IndexMetricsUpdater implements Closeable {
               KnnSearchMode.class,
               (String s) -> metricsFactory.counter("knnSearchMode", Tags.of("mode", s)));
       this.limitPerQuery = metricsFactory.histogram("limitPerQuery", LIMIT_BUCKETS);
+      this.totalFacetBucketsPerQuery =
+          metricsFactory.histogram(
+              "totalFacetBucketsPerQuery", Tags.empty(), TOTAL_FACET_BUCKETS_BUCKETS);
       this.phantomSearcherCleanupCounter = metricsFactory.counter("phantomSearcherCleanupCount");
       this.benefitFromIndexSortCounter = metricsFactory.counter("benefitFromIndexSortCount");
       this.vectorSearchVisitedNodesUnfilteredApproximateCounter =
@@ -600,6 +663,30 @@ public class IndexMetricsUpdater implements Closeable {
       this.vectorSearchVisitedNodesFilteredExactCounter =
           metricsFactory.counter(
               "vectorSearchVisitedNodes", Tags.of("filter", "true", "mode", "exact"));
+      this.vectorSearchVisitedNodesPerSegmentUnfilteredApproximate =
+          metricsFactory.histogram(
+              "vectorSearchVisitedNodesPerSegment",
+              Tags.of("filter", "false", "mode", "approximate"),
+              VISITED_NODES_BUCKETS);
+      this.vectorSearchVisitedNodesPerSegmentFilteredApproximate =
+          metricsFactory.histogram(
+              "vectorSearchVisitedNodesPerSegment",
+              Tags.of("filter", "true", "mode", "approximate"),
+              VISITED_NODES_BUCKETS);
+      this.vectorSearchVisitedNodesPerSegmentUnfilteredExact =
+          metricsFactory.histogram(
+              "vectorSearchVisitedNodesPerSegment",
+              Tags.of("filter", "false", "mode", "exact"),
+              VISITED_NODES_BUCKETS);
+      this.vectorSearchVisitedNodesPerSegmentFilteredExact =
+          metricsFactory.histogram(
+              "vectorSearchVisitedNodesPerSegment",
+              Tags.of("filter", "true", "mode", "exact"),
+              VISITED_NODES_BUCKETS);
+      this.fallBackHeuristicSuccessCounter =
+          metricsFactory.counter("fallBackHeuristicSuccessCounter");
+      this.fallBackHeuristicFailureCounter =
+          metricsFactory.counter("fallBackHeuristicFailureCounter");
     }
 
     public Counter getTotalQueryCounter() {
@@ -635,14 +722,63 @@ public class IndexMetricsUpdater implements Closeable {
         long visitedNodes, boolean hasFilter, KnnSearchMode mode) {
       Counter counter =
           switch (mode) {
-            case APPROXIMATE -> hasFilter
-                ? this.vectorSearchVisitedNodesFilteredApproximateCounter
-                : this.vectorSearchVisitedNodesUnfilteredApproximateCounter;
-            case EXACT, FALLBACK_TO_EXACT -> hasFilter
-                ? this.vectorSearchVisitedNodesFilteredExactCounter
-                : this.vectorSearchVisitedNodesUnfilteredExactCounter;
+            case APPROXIMATE ->
+                hasFilter
+                    ? this.vectorSearchVisitedNodesFilteredApproximateCounter
+                    : this.vectorSearchVisitedNodesUnfilteredApproximateCounter;
+            case EXACT, FALLBACK_TO_EXACT, FULL_SCAN ->
+                hasFilter
+                    ? this.vectorSearchVisitedNodesFilteredExactCounter
+                    : this.vectorSearchVisitedNodesUnfilteredExactCounter;
           };
       counter.increment(visitedNodes);
+    }
+
+    /**
+     * Records the number of visited nodes per segment for vector search queries.
+     *
+     * @param visitedNodes the number of nodes visited during the search
+     * @param hasFilter whether the query has a filter
+     * @param mode the search mode (APPROXIMATE or FALLBACK_TO_EXACT)
+     */
+    public void recordVectorSearchVisitedNodesPerSegment(
+        long visitedNodes, boolean hasFilter, KnnSearchMode mode) {
+      DistributionSummary histogram;
+      if (mode == KnnSearchMode.APPROXIMATE) {
+        histogram =
+            hasFilter
+                ? this.vectorSearchVisitedNodesPerSegmentFilteredApproximate
+                : this.vectorSearchVisitedNodesPerSegmentUnfilteredApproximate;
+      } else {
+        histogram =
+            hasFilter
+                ? this.vectorSearchVisitedNodesPerSegmentFilteredExact
+                : this.vectorSearchVisitedNodesPerSegmentUnfilteredExact;
+      }
+      histogram.record(visitedNodes);
+    }
+
+    /**
+     * Records total requested string facet buckets for facet queries when {@code enabled} returns
+     * true and the query has positive string bucket demand (numeric-only facet queries are
+     * skipped). Called from the search execution path after a successful query (e.g. {@link
+     * MeteredSearchIndexReader}), consistent with other query-time distribution metrics.
+     *
+     * <p>{@code enabled} is consulted only for {@link CollectorQuery} with a {@link FacetCollector}
+     * so dynamic flag evaluation stays off the hot path for non-facet queries.
+     */
+    public void recordTotalStringFacetBucketsIfApplicable(Query query, BooleanSupplier enabled) {
+      if (!(query instanceof CollectorQuery collectorQuery)
+          || !(collectorQuery.collector() instanceof FacetCollector facetCollector)) {
+        return;
+      }
+      if (!enabled.getAsBoolean()) {
+        return;
+      }
+      int totalStringBuckets = facetCollector.getTotalRequestedStringFacetBuckets();
+      if (totalStringBuckets > 0) {
+        this.totalFacetBucketsPerQuery.record(totalStringBuckets);
+      }
     }
 
     @VisibleForTesting
@@ -751,6 +887,10 @@ public class IndexMetricsUpdater implements Closeable {
       return this.tokenFacetsStateRefreshLatencyTimer;
     }
 
+    public Timer getStringFacetsStateRefreshLatencyTimer() {
+      return this.stringFacetsStateRefreshLatencyTimer;
+    }
+
     public DistributionSummary getNumCandidatesUnquantized() {
       return this.numCandidatesUnquantized;
     }
@@ -792,6 +932,7 @@ public class IndexMetricsUpdater implements Closeable {
           this.searchGetMoreCommandCounter,
           this.searchResultBatchLatencyTimer,
           this.tokenFacetsStateRefreshLatencyTimer,
+          this.stringFacetsStateRefreshLatencyTimer,
           this.queryFeaturesMetricsUpdater.getMetrics());
     }
 
@@ -803,6 +944,17 @@ public class IndexMetricsUpdater implements Closeable {
     public void close() {
       this.metricsFactory.close();
       this.queryFeaturesMetricsUpdater.close();
+    }
+
+    /**
+     * Given that we predicted that we should use full scan but instead chose HNSW search, record
+     * whether full scan would have been better in hindsight.
+     */
+    public void recordFallbackHeuristicResult(TotalHits.Relation relation) {
+      switch (relation) {
+        case EQUAL_TO -> this.fallBackHeuristicFailureCounter.increment();
+        case GREATER_THAN_OR_EQUAL_TO -> this.fallBackHeuristicSuccessCounter.increment();
+      }
     }
 
     /**
@@ -841,6 +993,9 @@ public class IndexMetricsUpdater implements Closeable {
       private static final String RETURN_SCOPE_COUNTER_NAME = "returnScope";
       private static final String VECTOR_SEARCH_FILTER_COUNTER_NAME = "vectorSearch_filter";
       private static final String EXPLAIN_COUNTER_NAME = "explain";
+      private static final String FACET_DRILL_SIDEWAYS_COUNTER_NAME =
+          "query_collector_facet_drill_sideways";
+      private static final String FACET_DRILL_SIDEWAYS_TYPE_TAG = "type";
 
       private final PerIndexMetricsFactory metricsFactory;
       private final Map<Collector.Type, Counter> collectorTypeCounterMap;
@@ -875,6 +1030,7 @@ public class IndexMetricsUpdater implements Closeable {
       private final Counter returnStoredSourceCounter;
       private final Counter returnScopeCounter;
       private final Counter explainCounter;
+      private final Map<QueryOptimizationStatus, Counter> facetDrillSidewaysCounterMap;
 
       /** Counts the number vector search queries with a pre-filter. */
       private final Counter vectorSearchFilterCounter;
@@ -901,6 +1057,22 @@ public class IndexMetricsUpdater implements Closeable {
             createCounter(metricsFactory, RETURN_STORED_SOURCE_COUNTER_NAME);
         this.returnScopeCounter = createCounter(metricsFactory, RETURN_SCOPE_COUNTER_NAME);
         this.explainCounter = createCounter(metricsFactory, EXPLAIN_COUNTER_NAME);
+        this.facetDrillSidewaysCounterMap =
+            Map.of(
+                QueryOptimizationStatus.OPTIMIZABLE,
+                metricsFactory.counter(
+                    METRIC_NAME,
+                    Tags.of(NAME_TAG, FACET_DRILL_SIDEWAYS_COUNTER_NAME)
+                        .and(
+                            FACET_DRILL_SIDEWAYS_TYPE_TAG,
+                            QueryOptimizationStatus.OPTIMIZABLE.name().toLowerCase())),
+                QueryOptimizationStatus.GENERIC,
+                metricsFactory.counter(
+                    METRIC_NAME,
+                    Tags.of(NAME_TAG, FACET_DRILL_SIDEWAYS_COUNTER_NAME)
+                        .and(
+                            FACET_DRILL_SIDEWAYS_TYPE_TAG,
+                            QueryOptimizationStatus.GENERIC.name().toLowerCase())));
         this.collectorTypeCounterMap = createEnumCounterMap(metricsFactory, Collector.Type.class);
         this.operatorTypeCounterMap = createEnumCounterMap(metricsFactory, Operator.Type.class);
         this.scoreTypeCounterMap = createEnumCounterMap(metricsFactory, Score.Type.class);
@@ -988,6 +1160,10 @@ public class IndexMetricsUpdater implements Closeable {
 
       public Counter getCollectorTypeCounter(Collector.Type collectorType) {
         return this.collectorTypeCounterMap.get(collectorType);
+      }
+
+      public Counter getFacetDrillSidewaysCounter(QueryOptimizationStatus status) {
+        return this.facetDrillSidewaysCounterMap.get(status);
       }
 
       public Counter getOperatorTypeCounter(Operator.Type operatorType) {
@@ -1081,7 +1257,9 @@ public class IndexMetricsUpdater implements Closeable {
             this.sortCounter,
             this.trackingCounter,
             this.requireSequenceTokensCounter,
-            this.returnScopeCounter);
+            this.returnScopeCounter,
+            this.facetDrillSidewaysCounterMap.get(QueryOptimizationStatus.OPTIMIZABLE).count(),
+            this.facetDrillSidewaysCounterMap.get(QueryOptimizationStatus.GENERIC).count());
       }
 
       @Override
@@ -1284,6 +1462,7 @@ public class IndexMetricsUpdater implements Closeable {
           new IndexingMetricsUpdater(
               metricsFactory.childMetricsFactory(IndexingMetricsUpdater.NAMESPACE),
               indexDefinition.getType(),
+              getIndexTypeTag(indexDefinition),
               indexDefinition.getParsedIndexFeatureVersion(),
               isIndexFeatureVersionFourEnabled);
       this.queryingMetricsUpdater =

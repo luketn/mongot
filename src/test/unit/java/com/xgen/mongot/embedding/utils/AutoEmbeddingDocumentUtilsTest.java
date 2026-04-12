@@ -4,21 +4,19 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils.buildAutoEmbeddingDocumentEvent;
 import static com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils.buildMaterializedViewDocumentEvent;
 import static com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils.compareDocuments;
+import static com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils.computeTextHash;
 import static com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils.getVectorTextPathMap;
-import static com.xgen.mongot.embedding.utils.ReplaceStringsFieldValueHandler.HASH_FIELD_SUFFIX;
-import static com.xgen.mongot.embedding.utils.ReplaceStringsFieldValueHandler.computeTextHash;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Streams;
-import com.google.common.hash.Hashing;
 import com.google.errorprone.annotations.Var;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
 import com.xgen.mongot.index.DocumentEvent;
 import com.xgen.mongot.index.DocumentMetadata;
 import com.xgen.mongot.index.definition.VectorAutoEmbedFieldDefinition;
+import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFieldDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFieldMapping;
 import com.xgen.mongot.index.definition.VectorIndexFilterFieldDefinition;
@@ -28,14 +26,13 @@ import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.bson.BsonVectorParser;
 import com.xgen.mongot.util.bson.FloatVector;
 import com.xgen.mongot.util.bson.Vector;
+import com.xgen.testing.mongot.index.definition.VectorIndexDefinitionBuilder;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 import org.bson.BsonArray;
 import org.bson.BsonDocument;
 import org.bson.BsonDouble;
@@ -300,21 +297,29 @@ public class AutoEmbeddingDocumentUtilsTest {
   }
 
   @Test
-  public void testBuildMaterializedViewDocumentEvent() throws IOException {
-    List<VectorIndexFieldDefinition> fields =
-        List.of(
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("a")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("b")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("c")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("extra")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("num")),
-            new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
+  public void testBuildMaterializedViewDocumentEvent_version0() throws IOException {
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder()
+            .withAutoEmbedField("a.b")
+            .withAutoEmbedField("b.d")
+            .withAutoEmbedField("extra")
+            .withAutoEmbedField("num")
+            .withFilterPath("a")
+            .withFilterPath("b.c")
+            .withFilterPath("color")
+            .build();
+
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
-    BsonDocument bsonDoc = createBasicBson();
-    bsonDoc.append("extra", new BsonString("no-embedding"));
-    bsonDoc.append("num", new BsonDouble(1.23));
-    bsonDoc.append("color", new BsonString("red"));
+    BsonDocument bsonDoc =
+        BsonDocument.parse(
+            "{"
+                + "\"a\": [\"arrayString1\", \"arrayString2\", {\"b\": \"bString\"}], "
+                + "\"b\": {\"c\":\"cString\", \"d\": [\"arrayString1\", \"arrayString2\"]}, "
+                + "\"color\": [\"red\", \"blue\"], "
+                + "\"extra\": \"no-embedding\", "
+                + "\"num\": 1.23, "
+                + "\"_id\": \"anId\""
+                + "}");
     RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
     DocumentEvent rawDocumentEvent =
         DocumentEvent.createInsert(
@@ -322,22 +327,207 @@ public class AutoEmbeddingDocumentUtilsTest {
 
     DocumentEvent result =
         buildMaterializedViewDocumentEvent(
-            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
+            rawDocumentEvent,
+            vectorIndexDefinition,
+            createEmbeddingsPerField(vectorIndexDefinition.getMappings(), embeddings),
+            MAT_VIEW_SCHEMA_METADATA);
 
     assertEquals(
-        createBasicMaterializedViewBson(bsonDoc, embeddings, mappings), result.getDocument().get());
+        new BsonDocument()
+            .append(
+                "a",
+                new BsonArray(
+                    List.of(
+                        new BsonString("arrayString1"),
+                        new BsonString("arrayString2"),
+                        new BsonDocument("b", BsonVectorParser.encode(embeddings.get("bString"))),
+                        new BsonDocument("b_hash", new BsonString(computeTextHash("bString"))))))
+            .append(
+                "b",
+                new BsonDocument("c", new BsonString("cString"))
+                    .append("d", BsonVectorParser.encode(embeddings.get("arrayString1")))
+                    .append("d_hash", new BsonString(computeTextHash("arrayString1"))))
+            .append("color", new BsonArray(List.of(new BsonString("red"), new BsonString("blue")))),
+        result.getDocument().get());
 
     assertEquals(rawDocumentEvent.getDocumentId(), result.getDocumentId());
   }
 
   @Test
+  public void testBuildMaterializedViewDocumentEvent_version1() throws IOException {
+    // Setup: a document with auto-embed field that has multiple text values (array scenario)
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder()
+            .withAutoEmbedField("a")
+            .withAutoEmbedField("b.c")
+            .withFilterPath("b")
+            .build();
+    MaterializedViewSchemaMetadata schemaMetadata =
+        new MaterializedViewSchemaMetadata(
+            1,
+            Map.of(
+                FieldPath.parse("a"), FieldPath.parse("_autoEmbed.a"),
+                FieldPath.parse("b.c"), FieldPath.parse("_autoEmbed.b.c")));
+
+    // Create vectors
+    Vector vector1 = Vector.fromFloats(new float[] {1.0f, 2.0f}, FloatVector.OriginalType.NATIVE);
+    Vector vector2Old =
+        Vector.fromFloats(new float[] {3.0f, 4.0f}, FloatVector.OriginalType.NATIVE);
+    Vector vector2New =
+        Vector.fromFloats(new float[] {9.0f, 10.0f}, FloatVector.OriginalType.NATIVE);
+
+    // Create document with text field
+    BsonDocument bsonDoc =
+        BsonDocument.parse(
+            "{"
+                + "\"a\": \"text2\", "
+                + "\"b\": [\"bString\", {\"c\":\"text1\"}], "
+                + "\"_id\": \"anId\""
+                + "}");
+    RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
+
+    // Create a DocumentEvent with existing embeddings for "text1" and "text2"
+    DocumentEvent rawEventWithOldEmbeddings =
+        DocumentEvent.createFromDocumentEventAndVectors(
+            DocumentEvent.createInsert(
+                DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc),
+            ImmutableMap.of(
+                FieldPath.parse("a"), ImmutableMap.of("text1", vector1, "text2", vector2Old)));
+
+    // Provide new embeddings only for "text2" (updated), not "text1" (reuse old)
+    ImmutableMap<FieldPath, ImmutableMap<String, Vector>> newEmbeddings =
+        ImmutableMap.of(
+            FieldPath.parse("a"),
+            ImmutableMap.of("text2", vector2New),
+            FieldPath.parse("b.c"),
+            ImmutableMap.of("text1", vector1));
+
+    // Build materialized view document event - the consolidated map should have:
+    // "text2" -> vector2New (from new), "text1" -> vector1 (from old, since not in new)
+    DocumentEvent result =
+        buildMaterializedViewDocumentEvent(
+            rawEventWithOldEmbeddings, vectorIndexDefinition, newEmbeddings, schemaMetadata);
+
+    // The result document should use vector1 for "text1" since that's what's in the document
+    BsonDocument resultDoc = result.getDocument().get().clone();
+    assertEquals(
+        new BsonDocument("b", new BsonArray(List.of(new BsonString("bString"))))
+            .append(
+                "_autoEmbed",
+                new BsonDocument("a", BsonVectorParser.encode(vector2New))
+                    .append(
+                        "_hash",
+                        new BsonDocument("a", new BsonString(computeTextHash("text2")))
+                            .append(
+                                "b",
+                                new BsonDocument("c", new BsonString(computeTextHash("text1")))))
+                    .append("b", new BsonDocument("c", BsonVectorParser.encode(vector1)))),
+        resultDoc);
+  }
+
+  @Test
+  public void testBuildMaterializedViewDocumentEvent_withExistingEmbeddings_prefersNewEmbeddings()
+      throws IOException {
+    // Setup: a document with auto-embed field "a"
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder().withAutoEmbedField("a").build();
+
+    // Create vectors for old and new embeddings
+    Vector oldVector = Vector.fromFloats(new float[] {1.0f, 2.0f}, FloatVector.OriginalType.NATIVE);
+    Vector newVector =
+        Vector.fromFloats(new float[] {9.0f, 10.0f}, FloatVector.OriginalType.NATIVE);
+
+    // Create document with text field
+    BsonDocument bsonDoc =
+        new BsonDocument()
+            .append("_id", new BsonString("anId"))
+            .append("a", new BsonString("text"));
+    RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
+
+    // Create a DocumentEvent with existing embeddings for "text"
+    DocumentEvent rawEventWithOldEmbeddings =
+        DocumentEvent.createFromDocumentEventAndVectors(
+            DocumentEvent.createInsert(
+                DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc),
+            ImmutableMap.of(FieldPath.parse("a"), ImmutableMap.of("text", oldVector)));
+
+    // Provide new embeddings for the same "text"
+    ImmutableMap<FieldPath, ImmutableMap<String, Vector>> newEmbeddings =
+        ImmutableMap.of(FieldPath.parse("a"), ImmutableMap.of("text", newVector));
+
+    // Build materialized view document event
+    DocumentEvent result =
+        buildMaterializedViewDocumentEvent(
+            rawEventWithOldEmbeddings,
+            vectorIndexDefinition,
+            newEmbeddings,
+            MAT_VIEW_SCHEMA_METADATA);
+
+    // Verify the new vector is used (not the old one)
+    BsonDocument resultDoc = result.getDocument().get().clone();
+    Vector resultVector = BsonVectorParser.parse(resultDoc.getBinary("a"));
+    assertThat(resultVector).isEqualTo(newVector);
+  }
+
+  @Test
+  public void testBuildMaterializedViewDocumentEvent_withExistingEmbeddings_usesOldWhenNoNew()
+      throws IOException {
+    // Setup: a document with auto-embed fields "a" and "b"
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder()
+            .withAutoEmbedField("a")
+            .withAutoEmbedField("b")
+            .build();
+
+    // Create vectors
+    Vector vectorA = Vector.fromFloats(new float[] {1.0f, 2.0f}, FloatVector.OriginalType.NATIVE);
+    Vector vectorB = Vector.fromFloats(new float[] {5.0f, 6.0f}, FloatVector.OriginalType.NATIVE);
+
+    // Create document with two text fields
+    BsonDocument bsonDoc =
+        new BsonDocument()
+            .append("_id", new BsonString("anId"))
+            .append("a", new BsonString("textA"))
+            .append("b", new BsonString("textB"));
+    RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
+
+    // Create a DocumentEvent with existing embeddings for both fields
+    DocumentEvent rawEventWithOldEmbeddings =
+        DocumentEvent.createFromDocumentEventAndVectors(
+            DocumentEvent.createInsert(
+                DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc),
+            ImmutableMap.of(
+                FieldPath.parse("a"), ImmutableMap.of("textA", vectorA),
+                FieldPath.parse("b"), ImmutableMap.of("textB", vectorB)));
+
+    // Provide new embeddings only for field "a", not "b"
+    ImmutableMap<FieldPath, ImmutableMap<String, Vector>> newEmbeddings =
+        ImmutableMap.of(FieldPath.parse("a"), ImmutableMap.of("textA", vectorA));
+
+    // Build materialized view document event
+    DocumentEvent result =
+        buildMaterializedViewDocumentEvent(
+            rawEventWithOldEmbeddings,
+            vectorIndexDefinition,
+            newEmbeddings,
+            MAT_VIEW_SCHEMA_METADATA);
+
+    // Verify both fields have embeddings - "a" from new, "b" from old
+    BsonDocument resultDoc = result.getDocument().get().clone();
+    assertThat(resultDoc.containsKey("a")).isTrue();
+    assertThat(resultDoc.containsKey("b")).isTrue();
+    assertThat(BsonVectorParser.parse(resultDoc.getBinary("a"))).isEqualTo(vectorA);
+    assertThat(BsonVectorParser.parse(resultDoc.getBinary("b"))).isEqualTo(vectorB);
+  }
+
+  @Test
   public void testNeedsReIndexing_DocumentsMatch_version0() throws IOException {
-    List<VectorIndexFieldDefinition> fields =
-        List.of(
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("a")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("b")),
-            new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder()
+            .withAutoEmbedField("a")
+            .withAutoEmbedField("b")
+            .withFilterPath("color")
+            .build();
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createBasicBson();
     RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
@@ -347,15 +537,18 @@ public class AutoEmbeddingDocumentUtilsTest {
 
     DocumentEvent result =
         buildMaterializedViewDocumentEvent(
-            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
+            rawDocumentEvent,
+            vectorIndexDefinition,
+            createEmbeddingsPerField(vectorIndexDefinition.getMappings(), embeddings),
+            MAT_VIEW_SCHEMA_METADATA);
 
     var comparisonResult =
         compareDocuments(
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
-            mappings,
+            vectorIndexDefinition.getMappings(),
             AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
-                mappings, MAT_VIEW_SCHEMA_METADATA),
+                vectorIndexDefinition.getMappings(), MAT_VIEW_SCHEMA_METADATA),
             MAT_VIEW_SCHEMA_METADATA);
 
     assertFalse(comparisonResult.needsReIndexing());
@@ -366,35 +559,32 @@ public class AutoEmbeddingDocumentUtilsTest {
 
   @Test
   public void testNeedsReIndexing_DocumentsMatch_version1() throws IOException {
-    List<VectorIndexFieldDefinition> fields =
-        List.of(
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("a")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("b")),
-            new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder()
+            .withAutoEmbedField("a")
+            .withAutoEmbedField("b.c")
+            .withAutoEmbedField("c.d")
+            .withAutoEmbedField("c.f")
+            .withFilterPath("color")
+            .build();
     var schemaMetadata =
         new MaterializedViewSchemaMetadata(
             1,
             Map.of(
                 FieldPath.parse("a"),
                 FieldPath.parse("_autoEmbed.a"),
-                FieldPath.parse("b"),
-                FieldPath.parse("_autoEmbed.b")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
+                FieldPath.parse("b.c"),
+                FieldPath.parse("_autoEmbed.b.c"),
+                FieldPath.parse("c.d"),
+                FieldPath.parse("_autoEmbed.c.d"),
+                FieldPath.parse("c.f"),
+                FieldPath.parse("_autoEmbed.c.f")));
+
     VectorIndexFieldMapping matViewMappingsWithHash =
-        AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(mappings, schemaMetadata);
+        AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
+            vectorIndexDefinition.getMappings(), schemaMetadata);
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
-    // TODO(CLOUDP-363914): Refactor this once we integrate schema metadata in
-    // AutoEmbeddingDocumentUtils::buildMaterializedViewDocumentEvent, for now, we needs to manually
-    // add hash field.
-    BsonDocument bsonDoc = new BsonDocument();
-    bsonDoc
-        .append("_id", new BsonString("anId"))
-        .append("_autoEmbed.a", new BsonString("aString"))
-        .append("_autoEmbed._hash.a", new BsonString(computeTextHash("aString")))
-        .append("_autoEmbed.b", new BsonString("bString"))
-        .append("_autoEmbed._hash.b", new BsonString(computeTextHash("bString")))
-        .append("_autoEmbed.c", new BsonString("cString"))
-        .append("_autoEmbed._hash.c", new BsonString(computeTextHash("cString")));
+    BsonDocument bsonDoc = createArrayEmbededBson();
     RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
     DocumentEvent rawDocumentEvent =
         DocumentEvent.createInsert(
@@ -402,27 +592,32 @@ public class AutoEmbeddingDocumentUtilsTest {
     DocumentEvent result =
         buildMaterializedViewDocumentEvent(
             rawDocumentEvent,
-            matViewMappingsWithHash,
-            createEmbeddingsPerField(matViewMappingsWithHash, embeddings));
+            vectorIndexDefinition,
+            createEmbeddingsPerField(vectorIndexDefinition.getMappings(), embeddings),
+            schemaMetadata);
     var comparisonResult =
         compareDocuments(
-            new RawBsonDocument(createBasicBson(), BsonUtils.BSON_DOCUMENT_CODEC),
+            rawBsonDoc,
             result.getDocument().get(),
-            mappings,
+            vectorIndexDefinition.getMappings(),
             matViewMappingsWithHash,
             schemaMetadata);
 
     assertTrue(comparisonResult.needsReIndexing());
-    assertEquals(2, comparisonResult.reusableEmbeddings().size());
+    assertEquals(3, comparisonResult.reusableEmbeddings().size());
     assertTrue(comparisonResult.reusableEmbeddings().containsKey(FieldPath.parse("a")));
-    assertTrue(comparisonResult.reusableEmbeddings().containsKey(FieldPath.parse("b")));
+    assertFalse(comparisonResult.reusableEmbeddings().containsKey(FieldPath.parse("b.c")));
+    assertTrue(comparisonResult.reusableEmbeddings().containsKey(FieldPath.parse("c.d")));
+    assertTrue(comparisonResult.reusableEmbeddings().containsKey(FieldPath.parse("c.f")));
+    assertEquals(
+        Set.of("arrayString1"),
+        comparisonResult.reusableEmbeddings().get(FieldPath.parse("c.d")).keySet());
   }
 
   @Test
   public void testCompareDocumentsEmptyStringField() throws IOException {
-    List<VectorIndexFieldDefinition> fields =
-        List.of(new VectorAutoEmbedFieldDefinition(FieldPath.parse("c")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder().withAutoEmbedField("c").build();
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createBsonWithGivenString("");
     RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
@@ -432,15 +627,18 @@ public class AutoEmbeddingDocumentUtilsTest {
 
     DocumentEvent result =
         buildMaterializedViewDocumentEvent(
-            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
+            rawDocumentEvent,
+            vectorIndexDefinition,
+            createEmbeddingsPerField(vectorIndexDefinition.getMappings(), embeddings),
+            MAT_VIEW_SCHEMA_METADATA);
 
     var comparisonResult =
         compareDocuments(
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
-            mappings,
+            vectorIndexDefinition.getMappings(),
             AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
-                mappings, MAT_VIEW_SCHEMA_METADATA),
+                vectorIndexDefinition.getMappings(), MAT_VIEW_SCHEMA_METADATA),
             MAT_VIEW_SCHEMA_METADATA);
 
     assertFalse(comparisonResult.needsReIndexing());
@@ -449,9 +647,8 @@ public class AutoEmbeddingDocumentUtilsTest {
 
   @Test
   public void testCompareDocumentsNonEmptyToEmptyStringField() throws IOException {
-    List<VectorIndexFieldDefinition> fields =
-        List.of(new VectorAutoEmbedFieldDefinition(FieldPath.parse("c")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder().withAutoEmbedField("c").build();
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     @Var BsonDocument bsonDoc = createBsonWithGivenString("aString");
     @Var RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
@@ -462,16 +659,19 @@ public class AutoEmbeddingDocumentUtilsTest {
 
     DocumentEvent result =
         buildMaterializedViewDocumentEvent(
-            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
+            rawDocumentEvent,
+            vectorIndexDefinition,
+            createEmbeddingsPerField(vectorIndexDefinition.getMappings(), embeddings),
+            MAT_VIEW_SCHEMA_METADATA);
 
     @Var
     var comparisonResult =
         compareDocuments(
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
-            mappings,
+            vectorIndexDefinition.getMappings(),
             AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
-                mappings, MAT_VIEW_SCHEMA_METADATA),
+                vectorIndexDefinition.getMappings(), MAT_VIEW_SCHEMA_METADATA),
             MAT_VIEW_SCHEMA_METADATA);
 
     assertFalse(comparisonResult.needsReIndexing());
@@ -488,9 +688,9 @@ public class AutoEmbeddingDocumentUtilsTest {
         compareDocuments(
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
-            mappings,
+            vectorIndexDefinition.getMappings(),
             AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
-                mappings, MAT_VIEW_SCHEMA_METADATA),
+                vectorIndexDefinition.getMappings(), MAT_VIEW_SCHEMA_METADATA),
             MAT_VIEW_SCHEMA_METADATA);
 
     assertTrue(comparisonResult.needsReIndexing());
@@ -499,9 +699,8 @@ public class AutoEmbeddingDocumentUtilsTest {
 
   @Test
   public void testCompareDocumentsEmptyStringFieldInArray() throws IOException {
-    List<VectorIndexFieldDefinition> fields =
-        List.of(new VectorAutoEmbedFieldDefinition(FieldPath.parse("root.a")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder().withAutoEmbedField("root.a").build();
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createArrayBsonWithGivenString("");
     RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
@@ -511,15 +710,18 @@ public class AutoEmbeddingDocumentUtilsTest {
 
     DocumentEvent result =
         buildMaterializedViewDocumentEvent(
-            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
+            rawDocumentEvent,
+            vectorIndexDefinition,
+            createEmbeddingsPerField(vectorIndexDefinition.getMappings(), embeddings),
+            MAT_VIEW_SCHEMA_METADATA);
 
     var comparisonResult =
         compareDocuments(
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
-            mappings,
+            vectorIndexDefinition.getMappings(),
             AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
-                mappings, MAT_VIEW_SCHEMA_METADATA),
+                vectorIndexDefinition.getMappings(), MAT_VIEW_SCHEMA_METADATA),
             MAT_VIEW_SCHEMA_METADATA);
 
     assertFalse(comparisonResult.needsReIndexing());
@@ -528,9 +730,8 @@ public class AutoEmbeddingDocumentUtilsTest {
 
   @Test
   public void testCompareDocumentsNonEmptyToEmptyStringFieldInArray() throws IOException {
-    List<VectorIndexFieldDefinition> fields =
-        List.of(new VectorAutoEmbedFieldDefinition(FieldPath.parse("root.a")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder().withAutoEmbedField("root.a").build();
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     @Var BsonDocument bsonDoc = createArrayBsonWithGivenString("aString");
     @Var RawBsonDocument rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
@@ -541,7 +742,10 @@ public class AutoEmbeddingDocumentUtilsTest {
 
     DocumentEvent result =
         buildMaterializedViewDocumentEvent(
-            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
+            rawDocumentEvent,
+            vectorIndexDefinition,
+            createEmbeddingsPerField(vectorIndexDefinition.getMappings(), embeddings),
+            MAT_VIEW_SCHEMA_METADATA);
 
     // Update one of the array fields to an empty string.
     bsonDoc = createArrayBsonWithGivenString("");
@@ -554,26 +758,28 @@ public class AutoEmbeddingDocumentUtilsTest {
         compareDocuments(
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
-            mappings,
+            vectorIndexDefinition.getMappings(),
             AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
-                mappings, MAT_VIEW_SCHEMA_METADATA),
+                vectorIndexDefinition.getMappings(), MAT_VIEW_SCHEMA_METADATA),
             MAT_VIEW_SCHEMA_METADATA);
 
-    assertTrue(comparisonResult.needsReIndexing());
+    // Expect false as the first vector string in "root.a" is unchanged, we only changed the second
+    // vector text, but should be ignored by Lucene.
+    assertFalse(comparisonResult.needsReIndexing());
     assertEquals(1, comparisonResult.reusableEmbeddings().size());
   }
 
   @Test
   public void testNeedsReIndexing_EmbeddingsMismatch() throws IOException {
-    List<VectorIndexFieldDefinition> fields =
-        List.of(
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("a")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("b")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("c")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("extra")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("num")),
-            new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    VectorIndexFieldMapping mappings = VectorIndexFieldMapping.create(fields, Optional.empty());
+    VectorIndexDefinition vectorIndexDefinition =
+        VectorIndexDefinitionBuilder.builder()
+            .withAutoEmbedField("a")
+            .withAutoEmbedField("b")
+            .withAutoEmbedField("c")
+            .withAutoEmbedField("extra")
+            .withAutoEmbedField("num")
+            .withFilterPath("color")
+            .build();
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createBasicBson();
     bsonDoc.append("extra", new BsonString("no-embedding"));
@@ -586,15 +792,18 @@ public class AutoEmbeddingDocumentUtilsTest {
 
     DocumentEvent result =
         buildMaterializedViewDocumentEvent(
-            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
+            rawDocumentEvent,
+            vectorIndexDefinition,
+            createEmbeddingsPerField(vectorIndexDefinition.getMappings(), embeddings),
+            MAT_VIEW_SCHEMA_METADATA);
 
     var comparisonResult =
         compareDocuments(
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
-            mappings,
+            vectorIndexDefinition.getMappings(),
             AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
-                mappings, MAT_VIEW_SCHEMA_METADATA),
+                vectorIndexDefinition.getMappings(), MAT_VIEW_SCHEMA_METADATA),
             MAT_VIEW_SCHEMA_METADATA);
 
     // Expect re-indexing since only 2 of the 3 auto-embedding fields have embeddings in the mat
@@ -607,13 +816,12 @@ public class AutoEmbeddingDocumentUtilsTest {
 
   @Test
   public void testNeedsReIndexing_FilterAddition() throws IOException {
-    List<VectorIndexFieldDefinition> fields =
-        List.of(
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("a")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("b")),
-            new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    @Var VectorIndexFieldMapping mappings =
-        VectorIndexFieldMapping.create(fields, Optional.empty());
+    VectorIndexDefinition vectorIndexDefinition1 =
+        VectorIndexDefinitionBuilder.builder()
+            .withAutoEmbedField("a")
+            .withAutoEmbedField("b")
+            .withFilterPath("color")
+            .build();
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createBasicBson();
     bsonDoc.append("color", new BsonString("red"));
@@ -625,28 +833,32 @@ public class AutoEmbeddingDocumentUtilsTest {
 
     DocumentEvent result =
         buildMaterializedViewDocumentEvent(
-            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
+            rawDocumentEvent,
+            vectorIndexDefinition1,
+            createEmbeddingsPerField(vectorIndexDefinition1.getMappings(), embeddings),
+            MAT_VIEW_SCHEMA_METADATA);
 
     // add a new filter field and update the source collection doc.
-    var newFields =
-        Streams.concat(
-                fields.stream(),
-                Stream.of(new VectorIndexFilterFieldDefinition(FieldPath.parse("size"))))
-            .toList();
+    VectorIndexDefinition vectorIndexDefinition2 =
+        VectorIndexDefinitionBuilder.builder()
+            .withAutoEmbedField("a")
+            .withAutoEmbedField("b")
+            .withFilterPath("color")
+            .withFilterPath("size")
+            .build();
     bsonDoc.append("size", new BsonString("large"));
     rawBsonDoc = new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC);
     rawDocumentEvent =
         DocumentEvent.createInsert(
             DocumentMetadata.fromOriginalDocument(Optional.of(rawBsonDoc)), rawBsonDoc);
-    mappings = VectorIndexFieldMapping.create(newFields, Optional.empty());
 
     var comparisonResult =
         compareDocuments(
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
-            mappings,
+            vectorIndexDefinition2.getMappings(),
             AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
-                mappings, MAT_VIEW_SCHEMA_METADATA),
+                vectorIndexDefinition2.getMappings(), MAT_VIEW_SCHEMA_METADATA),
             MAT_VIEW_SCHEMA_METADATA);
 
     // Expect re-indexing since filter fields dont match
@@ -658,14 +870,14 @@ public class AutoEmbeddingDocumentUtilsTest {
 
   @Test
   public void testNeedsReIndexing_FilterRemoval() throws IOException {
-    List<VectorIndexFieldDefinition> fields =
-        List.of(
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("a")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("b")),
-            new VectorIndexFilterFieldDefinition(FieldPath.parse("color")),
-            new VectorIndexFilterFieldDefinition(FieldPath.parse("size")));
-    @Var VectorIndexFieldMapping mappings =
-        VectorIndexFieldMapping.create(fields, Optional.empty());
+    VectorIndexDefinition vectorIndexDefinition1 =
+        VectorIndexDefinitionBuilder.builder()
+            .withAutoEmbedField("a")
+            .withAutoEmbedField("b")
+            .withFilterPath("color")
+            .withFilterPath("size")
+            .build();
+
     ImmutableMap<String, Vector> embeddings = createEmbeddings();
     BsonDocument bsonDoc = createBasicBson();
     bsonDoc.append("color", new BsonString("red"));
@@ -677,23 +889,26 @@ public class AutoEmbeddingDocumentUtilsTest {
 
     DocumentEvent result =
         buildMaterializedViewDocumentEvent(
-            rawDocumentEvent, mappings, createEmbeddingsPerField(mappings, embeddings));
+            rawDocumentEvent,
+            vectorIndexDefinition1,
+            createEmbeddingsPerField(vectorIndexDefinition1.getMappings(), embeddings),
+            MAT_VIEW_SCHEMA_METADATA);
 
     // remove a filter field and update the source collection doc.
-    var newFields =
-        List.of(
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("a")),
-            new VectorAutoEmbedFieldDefinition(FieldPath.parse("b")),
-            new VectorIndexFilterFieldDefinition(FieldPath.parse("color")));
-    mappings = VectorIndexFieldMapping.create(newFields, Optional.empty());
+    VectorIndexDefinition vectorIndexDefinition2 =
+        VectorIndexDefinitionBuilder.builder()
+            .withAutoEmbedField("a")
+            .withAutoEmbedField("b")
+            .withFilterPath("color")
+            .build();
 
     var comparisonResult =
         compareDocuments(
             rawDocumentEvent.getDocument().get(),
             result.getDocument().get(),
-            mappings,
+            vectorIndexDefinition2.getMappings(),
             AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
-                mappings, MAT_VIEW_SCHEMA_METADATA),
+                vectorIndexDefinition2.getMappings(), MAT_VIEW_SCHEMA_METADATA),
             MAT_VIEW_SCHEMA_METADATA);
 
     // Expect re-indexing since filter fields dont match
@@ -713,43 +928,26 @@ public class AutoEmbeddingDocumentUtilsTest {
     return bsonDoc;
   }
 
-  private BsonDocument createBsonWithGivenString(String value) {
+  private BsonDocument createArrayEmbededBson() {
     BsonDocument bsonDoc = new BsonDocument();
-    bsonDoc.append("_id", new BsonString("anId")).append("c", new BsonString(value));
+    bsonDoc
+        .append("_id", new BsonString("anId"))
+        .append("a", new BsonString("aString"))
+        .append("b", new BsonDocument("c", new BsonString("cString")))
+        .append(
+            "c",
+            new BsonArray(
+                List.of(
+                    new BsonDocument("d", new BsonString("arrayString1")),
+                    new BsonDocument("d", new BsonString("arrayString2")),
+                    new BsonDocument("f", new BsonString("fString")))))
+        .append("color", new BsonArray(List.of(new BsonString("red"), new BsonString("blue"))));
     return bsonDoc;
   }
 
-  private BsonDocument createBasicMaterializedViewBson(
-      BsonDocument originalDoc, Map<String, Vector> embeddings, VectorIndexFieldMapping mappings) {
+  private BsonDocument createBsonWithGivenString(String value) {
     BsonDocument bsonDoc = new BsonDocument();
-
-    // Iterate over the mapping's field paths
-    for (Map.Entry<FieldPath, VectorIndexFieldDefinition> entry : mappings.fieldMap().entrySet()) {
-      FieldPath fieldPath = entry.getKey();
-      VectorIndexFieldDefinition fieldDefinition = entry.getValue();
-
-      // Only process fields that are in the original document
-      String fieldName = fieldPath.toString();
-      if (!originalDoc.containsKey(fieldName)) {
-        continue;
-      }
-
-      if (fieldDefinition.getType() == VectorIndexFieldDefinition.Type.AUTO_EMBED) {
-        // For VectorTextFieldDefinition, replace text with vector
-        if (originalDoc.get(fieldName).isString()) {
-          String textValue = originalDoc.get(fieldName).asString().getValue();
-          if (embeddings.containsKey(textValue)) {
-            bsonDoc.append(fieldName, BsonVectorParser.encode(embeddings.get(textValue)));
-            // Add hash field for the text value (only when embedding exists)
-            String hash = Hashing.sha256().hashString(textValue, StandardCharsets.UTF_8).toString();
-            bsonDoc.append(fieldName + HASH_FIELD_SUFFIX, new BsonString(hash));
-          }
-        }
-      } else if (fieldDefinition.getType() == VectorIndexFieldDefinition.Type.FILTER) {
-        // For VectorFilterFieldDefinition, copy as-is
-        bsonDoc.append(fieldName, originalDoc.get(fieldName));
-      }
-    }
+    bsonDoc.append("_id", new BsonString("anId")).append("c", new BsonString(value));
     return bsonDoc;
   }
 
@@ -1020,8 +1218,7 @@ public class AutoEmbeddingDocumentUtilsTest {
   }
 
   @Test
-  public void extractFilterFieldValues_singleElementArray_preservesArrayNotScalar()
-      throws IOException {
+  public void extractFilterFieldValues_singleElementArray_preservesArrayNotScalar() {
     // Arrange
     List<VectorIndexFieldDefinition> fields =
         List.of(
@@ -1072,5 +1269,72 @@ public class AutoEmbeddingDocumentUtilsTest {
                 .append(
                     "tags",
                     new BsonArray(List.of(new BsonString("large"), new BsonString("sale")))));
+  }
+
+  // Tests for addBsonValueToBsonDocument
+
+  @Test
+  public void addBsonValueToBsonDocument_createsNewPaths() {
+    // Case 1: Simple field path (no parent) - adds value directly at leaf
+    BsonDocument doc1 = new BsonDocument();
+    AutoEmbeddingDocumentUtils.addBsonValueToBsonDocument(
+        doc1, FieldPath.parse("fieldName"), new BsonString("value"));
+    assertThat(doc1).isEqualTo(new BsonDocument("fieldName", new BsonString("value")));
+
+    // Case 2: Nested path - creates intermediate BsonDocuments
+    BsonDocument doc2 = new BsonDocument();
+    AutoEmbeddingDocumentUtils.addBsonValueToBsonDocument(
+        doc2, FieldPath.parse("level1.level2.leaf"), new BsonInt32(42));
+    assertThat(doc2)
+        .isEqualTo(
+            new BsonDocument(
+                "level1", new BsonDocument("level2", new BsonDocument("leaf", new BsonInt32(42)))));
+
+    // Case 3: Multiple fields under same parent - navigates into existing document
+    BsonDocument doc3 = new BsonDocument();
+    AutoEmbeddingDocumentUtils.addBsonValueToBsonDocument(
+        doc3, FieldPath.parse("parent.field1"), new BsonString("value1"));
+    AutoEmbeddingDocumentUtils.addBsonValueToBsonDocument(
+        doc3, FieldPath.parse("parent.field2"), new BsonString("value2"));
+    assertThat(doc3)
+        .isEqualTo(
+            new BsonDocument(
+                "parent",
+                new BsonDocument("field1", new BsonString("value1"))
+                    .append("field2", new BsonString("value2"))));
+  }
+
+  @Test
+  public void addBsonValueToBsonDocument_handlesExistingParentTypes() {
+    // Case 1: Parent exists as BsonDocument - navigates into it
+    BsonDocument doc1 = new BsonDocument("parent", new BsonDocument("existing", new BsonInt32(1)));
+    AutoEmbeddingDocumentUtils.addBsonValueToBsonDocument(
+        doc1, FieldPath.parse("parent.newField"), new BsonString("newValue"));
+    assertThat(doc1)
+        .isEqualTo(
+            new BsonDocument(
+                "parent",
+                new BsonDocument("existing", new BsonInt32(1))
+                    .append("newField", new BsonString("newValue"))));
+
+    // Case 2: Parent exists as BsonArray - adds new BsonDocument to the array
+    BsonArray existingArray = new BsonArray(List.of(new BsonString("existingItem")));
+    BsonDocument doc2 = new BsonDocument("parent", existingArray);
+    AutoEmbeddingDocumentUtils.addBsonValueToBsonDocument(
+        doc2, FieldPath.parse("parent.newField"), new BsonString("arrayNestedValue"));
+    assertThat(existingArray.size()).isEqualTo(2);
+    assertThat(existingArray.get(0)).isEqualTo(new BsonString("existingItem"));
+    assertThat(existingArray.get(1).asDocument().getString("newField").getValue())
+        .isEqualTo("arrayNestedValue");
+
+    // Case 3: Parent exists as primitive - converts to BsonArray with old value + new doc
+    BsonDocument doc3 = new BsonDocument("a", new BsonString("primitiveValue"));
+    AutoEmbeddingDocumentUtils.addBsonValueToBsonDocument(
+        doc3, FieldPath.parse("a.b"), new BsonString("nestedValue"));
+    assertThat(doc3.get("a").isArray()).isTrue();
+    BsonArray array = doc3.getArray("a");
+    assertThat(array.size()).isEqualTo(2);
+    assertThat(array.get(0)).isEqualTo(new BsonString("primitiveValue"));
+    assertThat(array.get(1).asDocument().getString("b").getValue()).isEqualTo("nestedValue");
   }
 }

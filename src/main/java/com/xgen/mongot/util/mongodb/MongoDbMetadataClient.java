@@ -56,10 +56,7 @@ public class MongoDbMetadataClient implements MongoDbServerInfoProvider, Closeab
     this.directMongodClient =
         Optional.of(
             MongoClientBuilder.buildNonReplicationWithDefaults(
-                syncSource.mongodUri,
-                "server info resolver",
-                syncSource.sslContext,
-                this.meterRegistry));
+                syncSource.mongodUri, "server info resolver", this.meterRegistry));
   }
 
   private static MongoDbCollectionInfos resolveCollectionInfos(
@@ -128,6 +125,7 @@ public class MongoDbMetadataClient implements MongoDbServerInfoProvider, Closeab
     if (this.previousVersionString.filter(versionString::equals).isPresent()) {
       return;
     }
+    LOG.atInfo().addKeyValue("mongoDbVersion", versionString).log("Updated Mongod version info");
 
     // If the version has changed, set the previous version gauge to 0
     this.previousMongodbVersionGauge.ifPresent(gauge -> gauge.set(0));

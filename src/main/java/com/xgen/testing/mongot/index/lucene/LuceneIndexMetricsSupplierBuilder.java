@@ -1,6 +1,7 @@
 package com.xgen.testing.mongot.index.lucene;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlagRegistry;
 import com.xgen.mongot.index.IndexReader;
@@ -11,11 +12,12 @@ import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.definition.SearchFieldDefinitionResolver;
 import com.xgen.mongot.index.definition.SearchIndexCapabilities;
 import com.xgen.mongot.index.definition.VectorIndexCapabilities;
-import com.xgen.mongot.index.lucene.IndexBackingStrategy;
 import com.xgen.mongot.index.lucene.LuceneIndexMetricValuesSupplier;
-import com.xgen.mongot.index.lucene.LuceneIndexWriter;
 import com.xgen.mongot.index.lucene.LuceneSearchIndexMetricValuesSupplier;
 import com.xgen.mongot.index.lucene.LuceneVectorIndexMetricValuesSupplier;
+import com.xgen.mongot.index.lucene.backing.DiskStats;
+import com.xgen.mongot.index.lucene.backing.IndexBackingStrategy;
+import com.xgen.mongot.index.lucene.writer.LuceneIndexWriter;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.metrics.MeterAndFtdcRegistry;
 import com.xgen.mongot.metrics.PerIndexMetricsFactory;
@@ -27,6 +29,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
 public class LuceneIndexMetricsSupplierBuilder {
@@ -42,10 +45,15 @@ public class LuceneIndexMetricsSupplierBuilder {
   private MeterRegistry meterRegistry = new SimpleMeterRegistry();
   private Duration numFieldsCacheDuration =
       LuceneSearchIndexMetricValuesSupplier.DEFAULT_NUM_FIELDS_CACHE_DURATION;
+  private Executor asyncRefreshExecutor = Runnable::run;
   private DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry =
       new DynamicFeatureFlagRegistry(
           Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
 
+  private LuceneIndexMetricsSupplierBuilder() {
+    when(this.indexBackingStrategy.getDiskStats()).thenReturn(DiskStats.EMPTY);
+  }
+  
   public static LuceneIndexMetricsSupplierBuilder builder() {
     return new LuceneIndexMetricsSupplierBuilder();
   }
@@ -109,6 +117,11 @@ public class LuceneIndexMetricsSupplierBuilder {
     return this;
   }
 
+  public LuceneIndexMetricsSupplierBuilder asyncRefreshExecutor(Executor executor) {
+    this.asyncRefreshExecutor = executor;
+    return this;
+  }
+
   public LuceneIndexMetricsSupplierBuilder dynamicFeatureFlagRegistry(
       DynamicFeatureFlagRegistry registry) {
     this.dynamicFeatureFlagRegistry = registry;
@@ -123,7 +136,7 @@ public class LuceneIndexMetricsSupplierBuilder {
         Check.isPresent(this.indexReader, "indexReader");
         SearchIndexReader searchIndexReader =
             Check.instanceOf(this.indexReader.get(), SearchIndexReader.class);
-        yield new LuceneSearchIndexMetricValuesSupplier(
+        yield LuceneSearchIndexMetricValuesSupplier.create(
             this.indexStatusSupplier,
             this.indexBackingStrategy,
             searchIndexReader,
@@ -138,6 +151,7 @@ public class LuceneIndexMetricsSupplierBuilder {
             SearchIndexCapabilities.CURRENT_FEATURE_VERSION,
             true,
             this.numFieldsCacheDuration,
+            this.asyncRefreshExecutor,
             this.dynamicFeatureFlagRegistry);
       }
       case VECTOR_SEARCH -> {
@@ -153,7 +167,7 @@ public class LuceneIndexMetricsSupplierBuilder {
         Check.checkState(
             this.customAnalyzers.isEmpty(),
             "LuceneVectorIndexMetricValuesSupplier doesn't support custom analyzer definitions.");
-        yield new LuceneVectorIndexMetricValuesSupplier(
+        yield LuceneVectorIndexMetricValuesSupplier.create(
             this.indexStatusSupplier,
             this.indexBackingStrategy,
             vectorIndexReader,

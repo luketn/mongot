@@ -44,6 +44,7 @@ java_library(
         "//src/main/java/com/xgen/mongot/server/util",
         "//src/main/java/com/xgen/mongot/util",
         "//src/main/java/com/xgen/mongot/util/concurrent",
+        "//src/main/java/com/xgen/mongot/util/mongodb",
         "//src/proto/searchenvoy:searchenvoy_java_proto",
         "@io_grpc_grpc_java//api",
         "@io_grpc_grpc_java//netty",

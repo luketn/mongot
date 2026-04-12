@@ -15,9 +15,7 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.document.KeywordField;
 import org.apache.lucene.document.LongField;
-import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.NumericDocValuesField;
-import org.apache.lucene.document.SortedNumericDocValuesField;
 import org.apache.lucene.util.BytesRef;
 import org.bson.BsonBinary;
 import org.bson.BsonDbPointer;
@@ -47,12 +45,11 @@ public class MqlFieldFactoryTest {
 
     Document expected =
         document(
+            new LongField("$mqlBson:double/foo.bar", 0, Field.Store.NO),
             new LongField(
                 "$mqlBson:double/foo.bar",
                 LuceneDoubleConversionUtils.NAN_SENTINEL,
                 Field.Store.NO),
-            new LongPoint("$mqlBson:double/foo.bar", 0),
-            new SortedNumericDocValuesField("$mqlBson:double/foo.bar", -1L),
             new LongField("$mqlBson:double/foo.baz", 0, Field.Store.NO));
     assertFieldsEquals(expected, d);
     validator.add(d);

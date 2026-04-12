@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/mappings/fields/stringComponents/extendedStringProperties.json",
+  "type": "object",
+  "properties": {
+    "multi": {
+      "suggestSortText": "6",
+      "type": "object",
+      "markdownDescription": "String field to index with the name of the alternate analyzer specified in the `multi` object. To learn more about configuring a `multi` object, see [Multi Analyzer](https://dochub.mongodb.org/core/multi-fts) and follow [an example](https://dochub.mongodb.org/core/string-example-fts).",
+      "description": "String field to index with the name of an alternate analyzer specified in the multi object.",
+      "examples": [
+        {
+          "<multi_analyzer_name>": {
+            "type": "string"
+          }
+        }
+      ],
+      "patternProperties": {
+        "^.*$": {
+          "$ref": "baseString.json"
+        }
+      }
+    }
+  }
+}

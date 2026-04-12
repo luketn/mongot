@@ -15,7 +15,6 @@ import com.xgen.mongot.util.concurrent.NamedScheduledExecutorService;
 import com.xgen.mongot.util.mongodb.Databases;
 import com.xgen.mongot.util.mongodb.RefreshSessionsCommand;
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
@@ -46,18 +45,17 @@ public class DefaultSessionRefresher implements SessionRefresher, VerboseRunnabl
   private final Timer refreshTimer;
 
   private DefaultSessionRefresher(
-      MeterRegistry meterRegistry,
+      MetricsFactory metricsFactory,
+      CommonReplicationConfig.Type replicationType,
       NamedScheduledExecutorService refreshExecutor,
       MongoClient mongoClient) {
     this.refreshExecutor = refreshExecutor;
     this.mongoClient = mongoClient;
     this.sessionIds = new HashSet<>();
-
-    MetricsFactory metricsFactory =
-        new MetricsFactory("replication.sessionRefresher", meterRegistry);
     Tags replicationTags = Tags.of(ServerStatusDataExtractor.Scope.REPLICATION.getTag());
 
-    this.sessionsGauge = metricsFactory.numGauge("sessions");
+    this.sessionsGauge =
+        metricsFactory.numGauge("sessions", Tags.of("replicationType", replicationType.name()));
     this.refreshCounter = metricsFactory.counter("refreshes");
     this.failedRefreshCounter =
         metricsFactory.counter(MongodbClientMeterData.FAILED_SESSION_REFRESHES, replicationTags);
@@ -66,19 +64,22 @@ public class DefaultSessionRefresher implements SessionRefresher, VerboseRunnabl
   }
 
   public static DefaultSessionRefresher create(
-      MeterRegistry meterRegistry,
+      MetricsFactory metricsFactory,
+      CommonReplicationConfig.Type replicationType,
       NamedScheduledExecutorService refreshExecutor,
       MongoClient mongoClient) {
-    return create(meterRegistry, refreshExecutor, mongoClient, DEFAULT_REFRESH_PERIOD);
+    return create(
+        metricsFactory, replicationType, refreshExecutor, mongoClient, DEFAULT_REFRESH_PERIOD);
   }
 
   static DefaultSessionRefresher create(
-      MeterRegistry meterRegistry,
+      MetricsFactory metricsFactory,
+      CommonReplicationConfig.Type replicationType,
       NamedScheduledExecutorService refreshExecutor,
       MongoClient mongoClient,
       Duration refreshPeriod) {
     DefaultSessionRefresher refresher =
-        new DefaultSessionRefresher(meterRegistry, refreshExecutor, mongoClient);
+        new DefaultSessionRefresher(metricsFactory, replicationType, refreshExecutor, mongoClient);
     refreshExecutor.scheduleWithFixedDelay(
         refresher, refreshPeriod.toMillis(), refreshPeriod.toMillis(), TimeUnit.MILLISECONDS);
     return refresher;

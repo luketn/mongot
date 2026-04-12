@@ -1,25 +1,37 @@
 package com.xgen.mongot.embedding.utils;
 
-import static com.xgen.mongot.embedding.utils.ReplaceStringsFieldValueHandler.HASH_FIELD_SUFFIX;
+import static com.xgen.mongot.embedding.utils.AutoEmbeddingDocumentUtils.HASH_FIELD_SUFFIX;
 import static com.xgen.mongot.index.mongodb.MaterializedViewWriter.MV_DATABASE_NAME;
 
 import com.google.common.truth.Truth;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
+import com.xgen.mongot.index.definition.BooleanFieldDefinition;
+import com.xgen.mongot.index.definition.DocumentFieldDefinition;
+import com.xgen.mongot.index.definition.FieldDefinition;
+import com.xgen.mongot.index.definition.SearchAutoEmbedFieldDefinition;
+import com.xgen.mongot.index.definition.SearchIndexDefinition;
+import com.xgen.mongot.index.definition.SearchIndexVectorFieldDefinition;
 import com.xgen.mongot.index.definition.VectorAutoEmbedFieldDefinition;
+import com.xgen.mongot.index.definition.VectorFieldSpecification;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFieldDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFilterFieldDefinition;
+import com.xgen.mongot.index.definition.VectorIndexingAlgorithm;
 import com.xgen.mongot.index.definition.VectorQuantization;
 import com.xgen.mongot.index.definition.VectorSimilarity;
 import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.bson.parser.BsonDocumentParser;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
+import com.xgen.testing.mongot.index.definition.DocumentFieldDefinitionBuilder;
+import com.xgen.testing.mongot.index.definition.FieldDefinitionBuilder;
+import com.xgen.testing.mongot.index.definition.SearchIndexDefinitionBuilder;
 import com.xgen.testing.mongot.index.definition.VectorIndexDefinitionBuilder;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.bson.BsonDocument;
+import org.bson.BsonInt32;
 import org.bson.BsonString;
 import org.junit.Assert;
 import org.junit.Test;
@@ -39,7 +51,8 @@ public class AutoEmbeddingIndexDefinitionUtilsTest {
             "text",
             FieldPath.parse("b"),
             VectorSimilarity.COSINE,
-            VectorQuantization.NONE);
+            VectorQuantization.NONE,
+            Optional.empty());
     var filterField = new VectorIndexFilterFieldDefinition(FieldPath.parse("color"));
 
     List<VectorIndexFieldDefinition> fields =
@@ -93,7 +106,8 @@ public class AutoEmbeddingIndexDefinitionUtilsTest {
             "text",
             FieldPath.parse("b.a"),
             VectorSimilarity.COSINE,
-            VectorQuantization.NONE);
+            VectorQuantization.NONE,
+            Optional.empty());
     var filterField = new VectorIndexFilterFieldDefinition(FieldPath.parse("color"));
 
     List<VectorIndexFieldDefinition> fields =
@@ -149,7 +163,9 @@ public class AutoEmbeddingIndexDefinitionUtilsTest {
           new BsonDocument()
               .append("path", new BsonString("field"))
               .append("model", new BsonString("voyage-3-large"))
-              .append("modality", new BsonString(modalityValue));
+              .append("modality", new BsonString(modalityValue))
+              .append("similarity", new BsonString("cosine"))
+              .append("quantization", new BsonString("none"));
 
       try (var parser = BsonDocumentParser.fromRoot(bsonDoc).build()) {
         var field = VectorAutoEmbedFieldDefinition.fromBson(parser);
@@ -157,16 +173,19 @@ public class AutoEmbeddingIndexDefinitionUtilsTest {
       }
     }
 
-    // Test invalid modality values
+    // Test invalid modality values - use allowUnknownFields because when modality validation
+    // fails early, the remaining fields (similarity, quantization) won't be consumed
     List<String> invalidModalityValues = List.of("image", "audio", "video", "", "multimodal");
     for (String modalityValue : invalidModalityValues) {
       var bsonDoc =
           new BsonDocument()
               .append("path", new BsonString("field"))
               .append("model", new BsonString("voyage-3-large"))
-              .append("modality", new BsonString(modalityValue));
+              .append("modality", new BsonString(modalityValue))
+              .append("similarity", new BsonString("cosine"))
+              .append("quantization", new BsonString("none"));
 
-      try (var parser = BsonDocumentParser.fromRoot(bsonDoc).build()) {
+      try (var parser = BsonDocumentParser.fromRoot(bsonDoc).allowUnknownFields(true).build()) {
         var exception =
             Assert.assertThrows(
                 BsonParseException.class, () -> VectorAutoEmbedFieldDefinition.fromBson(parser));
@@ -187,7 +206,8 @@ public class AutoEmbeddingIndexDefinitionUtilsTest {
             "text",
             FieldPath.parse("b"),
             VectorSimilarity.COSINE,
-            VectorQuantization.NONE);
+            VectorQuantization.NONE,
+            Optional.empty());
     var filterField = new VectorIndexFilterFieldDefinition(FieldPath.parse("color"));
 
     List<VectorIndexFieldDefinition> fields =
@@ -224,7 +244,8 @@ public class AutoEmbeddingIndexDefinitionUtilsTest {
             "text",
             FieldPath.parse("b.a"),
             VectorSimilarity.COSINE,
-            VectorQuantization.NONE);
+            VectorQuantization.NONE,
+            Optional.empty());
     var filterField = new VectorIndexFilterFieldDefinition(FieldPath.parse("color"));
 
     List<VectorIndexFieldDefinition> fields =
@@ -270,7 +291,8 @@ public class AutoEmbeddingIndexDefinitionUtilsTest {
             "text",
             FieldPath.parse("sections.text"),
             VectorSimilarity.COSINE,
-            VectorQuantization.NONE);
+            VectorQuantization.NONE,
+            Optional.empty());
     var filterUnderNested = new VectorIndexFilterFieldDefinition(FieldPath.parse("sections.name"));
     List<VectorIndexFieldDefinition> fields = List.of(autoEmbedFieldUnderNested, filterUnderNested);
     var autoEmbedIndexDefinition =
@@ -302,14 +324,191 @@ public class AutoEmbeddingIndexDefinitionUtilsTest {
   }
 
   @Test
-  public void testGetMatViewIndexFieldsPreservesNestedRootAndHashPaths() {
+  public void fromBson_withoutHnswOptions_usesDefaults() throws BsonParseException {
+    var bsonDoc =
+        new BsonDocument()
+            .append("path", new BsonString("desc"))
+            .append("model", new BsonString("voyage-3-large"))
+            .append("modality", new BsonString("text"))
+            .append("similarity", new BsonString("cosine"))
+            .append("quantization", new BsonString("none"));
+
+    try (var parser = BsonDocumentParser.fromRoot(bsonDoc).build()) {
+      var field = VectorAutoEmbedFieldDefinition.fromBson(parser);
+      Assert.assertTrue(
+          field.specification().indexingAlgorithm()
+              instanceof VectorIndexingAlgorithm.HnswIndexingAlgorithm);
+      var hnsw =
+          (VectorIndexingAlgorithm.HnswIndexingAlgorithm) field.specification().indexingAlgorithm();
+      Assert.assertEquals(
+          VectorIndexingAlgorithm.HnswIndexingAlgorithm.DEFAULT_MAX_EDGES,
+          hnsw.options().maxEdges());
+      Assert.assertEquals(
+          VectorIndexingAlgorithm.HnswIndexingAlgorithm.DEFAULT_NUM_EDGE_CANDIDATES,
+          hnsw.options().numEdgeCandidates());
+    }
+  }
+
+  @Test
+  public void fromBson_withHnswOptions_parsesValues() throws BsonParseException {
+    var hnswOptionsDoc =
+        new BsonDocument()
+            .append("maxEdges", new BsonInt32(32))
+            .append("numEdgeCandidates", new BsonInt32(200));
+    var bsonDoc =
+        new BsonDocument()
+            .append("path", new BsonString("desc"))
+            .append("model", new BsonString("voyage-3-large"))
+            .append("modality", new BsonString("text"))
+            .append("similarity", new BsonString("cosine"))
+            .append("quantization", new BsonString("none"))
+            .append("hnswOptions", hnswOptionsDoc);
+
+    try (var parser = BsonDocumentParser.fromRoot(bsonDoc).build()) {
+      var field = VectorAutoEmbedFieldDefinition.fromBson(parser);
+      var hnsw =
+          (VectorIndexingAlgorithm.HnswIndexingAlgorithm) field.specification().indexingAlgorithm();
+      Assert.assertEquals(32, hnsw.options().maxEdges());
+      Assert.assertEquals(200, hnsw.options().numEdgeCandidates());
+    }
+  }
+
+  @Test
+  public void fromBson_withPartialHnswOptions_onlyMaxEdges_usesDefaultNumEdgeCandidates()
+      throws BsonParseException {
+    var hnswOptionsDoc = new BsonDocument().append("maxEdges", new BsonInt32(32));
+    var bsonDoc =
+        new BsonDocument()
+            .append("path", new BsonString("desc"))
+            .append("model", new BsonString("voyage-3-large"))
+            .append("modality", new BsonString("text"))
+            .append("similarity", new BsonString("cosine"))
+            .append("quantization", new BsonString("none"))
+            .append("hnswOptions", hnswOptionsDoc);
+
+    try (var parser = BsonDocumentParser.fromRoot(bsonDoc).build()) {
+      var field = VectorAutoEmbedFieldDefinition.fromBson(parser);
+      var hnsw =
+          (VectorIndexingAlgorithm.HnswIndexingAlgorithm) field.specification().indexingAlgorithm();
+      Assert.assertEquals(32, hnsw.options().maxEdges());
+      Assert.assertEquals(
+          VectorIndexingAlgorithm.HnswIndexingAlgorithm.DEFAULT_NUM_EDGE_CANDIDATES,
+          hnsw.options().numEdgeCandidates());
+    }
+  }
+
+  @Test
+  public void fromBson_withPartialHnswOptions_onlyNumEdgeCandidates_usesDefaultMaxEdges()
+      throws BsonParseException {
+    var hnswOptionsDoc = new BsonDocument().append("numEdgeCandidates", new BsonInt32(200));
+    var bsonDoc =
+        new BsonDocument()
+            .append("path", new BsonString("desc"))
+            .append("model", new BsonString("voyage-3-large"))
+            .append("modality", new BsonString("text"))
+            .append("similarity", new BsonString("cosine"))
+            .append("quantization", new BsonString("none"))
+            .append("hnswOptions", hnswOptionsDoc);
+
+    try (var parser = BsonDocumentParser.fromRoot(bsonDoc).build()) {
+      var field = VectorAutoEmbedFieldDefinition.fromBson(parser);
+      var hnsw =
+          (VectorIndexingAlgorithm.HnswIndexingAlgorithm) field.specification().indexingAlgorithm();
+      Assert.assertEquals(
+          VectorIndexingAlgorithm.HnswIndexingAlgorithm.DEFAULT_MAX_EDGES,
+          hnsw.options().maxEdges());
+      Assert.assertEquals(200, hnsw.options().numEdgeCandidates());
+    }
+  }
+
+  @Test
+  public void toBson_roundTrip_withHnswOptions_preservesValues() throws BsonParseException {
+    var options = new VectorFieldSpecification.HnswOptions(32, 200);
+    var field =
+        new VectorAutoEmbedFieldDefinition(
+            "voyage-3-large",
+            "text",
+            FieldPath.parse("desc"),
+            VectorSimilarity.DOT_PRODUCT,
+            VectorQuantization.NONE,
+            Optional.of(options));
+
+    BsonDocument bson = field.toBson();
+    Assert.assertTrue(bson.containsKey("hnswOptions"));
+    Assert.assertEquals(32, bson.getDocument("hnswOptions").getInt32("maxEdges").getValue());
+    Assert.assertEquals(
+        200, bson.getDocument("hnswOptions").getInt32("numEdgeCandidates").getValue());
+
+    try (var parser = BsonDocumentParser.fromRoot(bson).allowUnknownFields(true).build()) {
+      var roundTripped = VectorAutoEmbedFieldDefinition.fromBson(parser);
+      var hnsw =
+          (VectorIndexingAlgorithm.HnswIndexingAlgorithm)
+              roundTripped.specification().indexingAlgorithm();
+      Assert.assertEquals(32, hnsw.options().maxEdges());
+      Assert.assertEquals(200, hnsw.options().numEdgeCandidates());
+    }
+  }
+
+  @Test
+  public void toBson_defaultHnswOptions_omitsHnswOptionsField() {
+    var field =
+        new VectorAutoEmbedFieldDefinition(
+            "voyage-3-large",
+            "text",
+            FieldPath.parse("desc"),
+            VectorSimilarity.DOT_PRODUCT,
+            VectorQuantization.NONE,
+            Optional.empty());
+
+    BsonDocument bson = field.toBson();
+    Assert.assertFalse(bson.containsKey("hnswOptions"));
+  }
+
+  @Test
+  public void getMatViewIndexFields_preservesHnswOptions() {
+    var hnswOptions = new VectorFieldSpecification.HnswOptions(32, 200);
+    var autoEmbedField =
+        new VectorAutoEmbedFieldDefinition(
+            "voyage-3-large",
+            "text",
+            FieldPath.parse("a"),
+            VectorSimilarity.COSINE,
+            VectorQuantization.NONE,
+            Optional.of(hnswOptions));
+    var filterField = new VectorIndexFilterFieldDefinition(FieldPath.parse("color"));
+    List<VectorIndexFieldDefinition> fields = List.of(autoEmbedField, filterField);
+    var indexDefinition = VectorIndexDefinitionBuilder.builder().setFields(fields).build();
+
+    var matViewFieldMapping =
+        AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
+            indexDefinition.getMappings(), MAT_VIEW_SCHEMA_METADATA);
+
+    var matViewAutoEmbedField =
+        matViewFieldMapping.fieldMap().values().stream()
+            .filter(f -> f.getType() == VectorIndexFieldDefinition.Type.AUTO_EMBED)
+            .findFirst()
+            .get()
+            .asVectorAutoEmbedField();
+    Assert.assertTrue(
+        matViewAutoEmbedField.specification().indexingAlgorithm()
+            instanceof VectorIndexingAlgorithm.HnswIndexingAlgorithm);
+    var preservedHnsw =
+        (VectorIndexingAlgorithm.HnswIndexingAlgorithm)
+            matViewAutoEmbedField.specification().indexingAlgorithm();
+    Assert.assertEquals(32, preservedHnsw.options().maxEdges());
+    Assert.assertEquals(200, preservedHnsw.options().numEdgeCandidates());
+  }
+
+  @Test
+  public void getMatViewIndexFieldsPreservesNestedRootAndHashPaths() {
     var autoEmbedUnderNested =
         new VectorAutoEmbedFieldDefinition(
             "voyage-3-large",
             "text",
             FieldPath.parse("sections.embedding"),
             VectorSimilarity.COSINE,
-            VectorQuantization.NONE);
+            VectorQuantization.NONE,
+            Optional.empty());
     var filterUnderNested = new VectorIndexFilterFieldDefinition(FieldPath.parse("sections.name"));
     List<VectorIndexFieldDefinition> fields = List.of(autoEmbedUnderNested, filterUnderNested);
     var autoEmbedIndexDefinition =
@@ -332,5 +531,296 @@ public class AutoEmbeddingIndexDefinitionUtilsTest {
     Assert.assertTrue(
         "Should contain hash path for nested auto-embed field",
         matViewFieldMapping.fieldMap().containsKey(expectedHashPath));
+  }
+
+  // ======================= Similarity/Quantization Serialization Tests =======================
+
+  @Test
+  public void toBson_withSimilarityAndQuantization_includesFields() {
+    var field =
+        new VectorAutoEmbedFieldDefinition(
+            "voyage-3-large",
+            "text",
+            FieldPath.parse("desc"),
+            VectorSimilarity.DOT_PRODUCT,
+            VectorQuantization.SCALAR,
+            Optional.empty());
+
+    BsonDocument bson = field.toBson();
+
+    Assert.assertTrue("toBson should include similarity field", bson.containsKey("similarity"));
+    Assert.assertEquals("dotProduct", bson.getString("similarity").getValue());
+    Assert.assertTrue("toBson should include quantization field", bson.containsKey("quantization"));
+    Assert.assertEquals("scalar", bson.getString("quantization").getValue());
+  }
+
+  @Test
+  public void toBson_withDefaultSimilarityAndQuantization_includesFields() {
+    var field =
+        new VectorAutoEmbedFieldDefinition(
+            "voyage-3-large",
+            "text",
+            FieldPath.parse("desc"),
+            VectorSimilarity.COSINE,
+            VectorQuantization.NONE,
+            Optional.empty());
+
+    BsonDocument bson = field.toBson();
+
+    // Even default values should be serialized
+    Assert.assertTrue("toBson should include similarity field", bson.containsKey("similarity"));
+    Assert.assertEquals("cosine", bson.getString("similarity").getValue());
+    Assert.assertTrue("toBson should include quantization field", bson.containsKey("quantization"));
+    Assert.assertEquals("none", bson.getString("quantization").getValue());
+  }
+
+  @Test
+  public void fromBson_withSimilarityAndQuantization_parsesValues() throws BsonParseException {
+    var bsonDoc =
+        new BsonDocument()
+            .append("path", new BsonString("desc"))
+            .append("model", new BsonString("voyage-3-large"))
+            .append("modality", new BsonString("text"))
+            .append("similarity", new BsonString("dotProduct"))
+            .append("quantization", new BsonString("scalar"));
+
+    try (var parser = BsonDocumentParser.fromRoot(bsonDoc).build()) {
+      var field = VectorAutoEmbedFieldDefinition.fromBson(parser);
+      Assert.assertEquals(VectorSimilarity.DOT_PRODUCT, field.specification().similarity());
+      Assert.assertEquals(VectorQuantization.SCALAR, field.specification().quantization());
+    }
+  }
+
+  @Test
+  public void fromBson_withEuclideanSimilarity_parsesCorrectly() throws BsonParseException {
+    var bsonDoc =
+        new BsonDocument()
+            .append("path", new BsonString("desc"))
+            .append("model", new BsonString("voyage-3-large"))
+            .append("modality", new BsonString("text"))
+            .append("similarity", new BsonString("euclidean"))
+            .append("quantization", new BsonString("none"));
+
+    try (var parser = BsonDocumentParser.fromRoot(bsonDoc).build()) {
+      var field = VectorAutoEmbedFieldDefinition.fromBson(parser);
+      Assert.assertEquals(VectorSimilarity.EUCLIDEAN, field.specification().similarity());
+      Assert.assertEquals(VectorQuantization.NONE, field.specification().quantization());
+    }
+  }
+
+  @Test
+  public void roundTrip_similarityAndQuantization_preservesValues() throws BsonParseException {
+    var original =
+        new VectorAutoEmbedFieldDefinition(
+            "voyage-3-large",
+            "text",
+            FieldPath.parse("desc"),
+            VectorSimilarity.EUCLIDEAN,
+            VectorQuantization.SCALAR,
+            Optional.empty());
+
+    BsonDocument bson = original.toBson();
+
+    try (var parser = BsonDocumentParser.fromRoot(bson).allowUnknownFields(true).build()) {
+      var roundTripped = VectorAutoEmbedFieldDefinition.fromBson(parser);
+      Assert.assertEquals(
+          original.specification().similarity(), roundTripped.specification().similarity());
+      Assert.assertEquals(
+          original.specification().quantization(), roundTripped.specification().quantization());
+    }
+  }
+
+  @Test
+  public void roundTrip_allOptions_preservesAllValues() throws BsonParseException {
+    var hnswOptions = new VectorFieldSpecification.HnswOptions(64, 300);
+    var original =
+        new VectorAutoEmbedFieldDefinition(
+            "voyage-3-large",
+            "text",
+            FieldPath.parse("nested.field.path"),
+            VectorSimilarity.DOT_PRODUCT,
+            VectorQuantization.SCALAR,
+            Optional.of(hnswOptions));
+
+    BsonDocument bson = original.toBson();
+
+    // Verify all fields are present in BSON
+    Assert.assertEquals("nested.field.path", bson.getString("path").getValue());
+    Assert.assertEquals("voyage-3-large", bson.getString("model").getValue());
+    Assert.assertEquals("text", bson.getString("modality").getValue());
+    Assert.assertEquals("dotProduct", bson.getString("similarity").getValue());
+    Assert.assertEquals("scalar", bson.getString("quantization").getValue());
+    Assert.assertTrue(bson.containsKey("hnswOptions"));
+    Assert.assertEquals(64, bson.getDocument("hnswOptions").getInt32("maxEdges").getValue());
+    Assert.assertEquals(
+        300, bson.getDocument("hnswOptions").getInt32("numEdgeCandidates").getValue());
+
+    // Round-trip and verify all values are preserved
+    try (var parser = BsonDocumentParser.fromRoot(bson).allowUnknownFields(true).build()) {
+      var roundTripped = VectorAutoEmbedFieldDefinition.fromBson(parser);
+      Assert.assertEquals(original.getPath(), roundTripped.getPath());
+      Assert.assertEquals(
+          original.specification().modelName(), roundTripped.specification().modelName());
+      Assert.assertEquals(
+          original.specification().modality(), roundTripped.specification().modality());
+      Assert.assertEquals(
+          original.specification().similarity(), roundTripped.specification().similarity());
+      Assert.assertEquals(
+          original.specification().quantization(), roundTripped.specification().quantization());
+
+      var roundTrippedHnsw =
+          (VectorIndexingAlgorithm.HnswIndexingAlgorithm)
+              roundTripped.specification().indexingAlgorithm();
+      Assert.assertEquals(64, roundTrippedHnsw.options().maxEdges());
+      Assert.assertEquals(300, roundTrippedHnsw.options().numEdgeCandidates());
+    }
+  }
+
+  // ---- Search index derivation tests ----
+
+  @Test
+  public void testGetDerivedSearchIndexDefinition() {
+    SearchAutoEmbedFieldDefinition autoEmbedField =
+        new SearchAutoEmbedFieldDefinition("voyage-3-large", FieldPath.parse("content"));
+    DocumentFieldDefinition mappings =
+        DocumentFieldDefinitionBuilder.builder()
+            .dynamic(false)
+            .field(
+                "embedding",
+                FieldDefinitionBuilder.builder().searchAutoEmbed(autoEmbedField).build())
+            .field(
+                "active",
+                FieldDefinitionBuilder.builder().bool(new BooleanFieldDefinition()).build())
+            .build();
+
+    SearchIndexDefinition rawDefinition =
+        SearchIndexDefinitionBuilder.builder().defaultMetadata().mappings(mappings).build();
+
+    UUID collectionUuid = UUID.randomUUID();
+    // sourceField is "content", so schema maps content → _autoEmbed.content
+    var schemaMetadata =
+        new MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata(
+            1L,
+            Map.of(
+                FieldPath.parse("content"),
+                FieldPath.parse("_autoEmbed.content")));
+    SearchIndexDefinition derivedDefinition =
+        AutoEmbeddingIndexDefinitionUtils.getDerivedSearchIndexDefinition(
+            rawDefinition, MV_DATABASE_NAME, collectionUuid, schemaMetadata);
+
+    Assert.assertEquals(collectionUuid, derivedDefinition.getCollectionUuid());
+    Assert.assertEquals(MV_DATABASE_NAME, derivedDefinition.getDatabase());
+    Assert.assertEquals(
+        rawDefinition.getIndexId().toHexString(),
+        derivedDefinition.getLastObservedCollectionName());
+    Assert.assertEquals(Optional.empty(), derivedDefinition.getView());
+
+    // Field should be remapped from "embedding" key to "_autoEmbed.content" key
+    Assert.assertNull(
+        "Original key should not exist in derived definition",
+        derivedDefinition.getMappings().fields().get("embedding"));
+    FieldDefinition remappedField =
+        derivedDefinition.getMappings().fields().get("_autoEmbed.content");
+    Assert.assertNotNull("Remapped field should exist", remappedField);
+    Assert.assertTrue(
+        "Auto-embed field should be replaced with vector field",
+        remappedField.searchIndexVectorFieldDefinition().isPresent());
+    Assert.assertTrue(
+        "Auto-embed field should be removed from derived definition",
+        remappedField.searchAutoEmbedFieldDefinition().isEmpty());
+
+    SearchIndexVectorFieldDefinition vectorField =
+        remappedField.searchIndexVectorFieldDefinition().get();
+    Assert.assertEquals(autoEmbedField.specification(), vectorField.specification());
+
+    FieldDefinition activeField = derivedDefinition.getMappings().fields().get("active");
+    Assert.assertTrue(
+        "Non-auto-embed fields should be preserved",
+        activeField.booleanFieldDefinition().isPresent());
+  }
+
+  @Test
+  public void testGetDerivedSearchIndexDefinition_multipleAutoEmbedFields() {
+    SearchAutoEmbedFieldDefinition autoEmbedField1 =
+        new SearchAutoEmbedFieldDefinition("voyage-3-large", FieldPath.parse("content"));
+    SearchAutoEmbedFieldDefinition autoEmbedField2 =
+        new SearchAutoEmbedFieldDefinition("voyage-3-large", FieldPath.parse("summary"));
+    DocumentFieldDefinition mappings =
+        DocumentFieldDefinitionBuilder.builder()
+            .dynamic(false)
+            .field(
+                "contentEmbedding",
+                FieldDefinitionBuilder.builder().searchAutoEmbed(autoEmbedField1).build())
+            .field(
+                "summaryEmbedding",
+                FieldDefinitionBuilder.builder().searchAutoEmbed(autoEmbedField2).build())
+            .build();
+
+    SearchIndexDefinition rawDefinition =
+        SearchIndexDefinitionBuilder.builder().defaultMetadata().mappings(mappings).build();
+
+    UUID collectionUuid = UUID.randomUUID();
+    var schemaMetadata =
+        new MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata(
+            1L,
+            Map.of(
+                FieldPath.parse("content"),
+                FieldPath.parse("_autoEmbed.content"),
+                FieldPath.parse("summary"),
+                FieldPath.parse("_autoEmbed.summary")));
+    SearchIndexDefinition derivedDefinition =
+        AutoEmbeddingIndexDefinitionUtils.getDerivedSearchIndexDefinition(
+            rawDefinition, MV_DATABASE_NAME, collectionUuid, schemaMetadata);
+
+    FieldDefinition contentField =
+        derivedDefinition.getMappings().fields().get("_autoEmbed.content");
+    Assert.assertNotNull(contentField);
+    Assert.assertTrue(contentField.searchIndexVectorFieldDefinition().isPresent());
+    Assert.assertTrue(contentField.searchAutoEmbedFieldDefinition().isEmpty());
+
+    FieldDefinition summaryField =
+        derivedDefinition.getMappings().fields().get("_autoEmbed.summary");
+    Assert.assertNotNull(summaryField);
+    Assert.assertTrue(summaryField.searchIndexVectorFieldDefinition().isPresent());
+    Assert.assertTrue(summaryField.searchAutoEmbedFieldDefinition().isEmpty());
+  }
+
+  @Test
+  public void testGetDerivedSearchIndexDefinition_preservesIndexMetadata() {
+    SearchAutoEmbedFieldDefinition autoEmbedField =
+        new SearchAutoEmbedFieldDefinition("voyage-3-large", FieldPath.parse("content"));
+    DocumentFieldDefinition mappings =
+        DocumentFieldDefinitionBuilder.builder()
+            .dynamic(false)
+            .field(
+                "embedding",
+                FieldDefinitionBuilder.builder().searchAutoEmbed(autoEmbedField).build())
+            .build();
+
+    SearchIndexDefinition rawDefinition =
+        SearchIndexDefinitionBuilder.builder()
+            .defaultMetadata()
+            .mappings(mappings)
+            .analyzerName("lucene.standard")
+            .build();
+
+    UUID collectionUuid = UUID.randomUUID();
+    var schemaMetadata =
+        new MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata(
+            1L,
+            Map.of(
+                FieldPath.parse("content"),
+                FieldPath.parse("_autoEmbed.content")));
+    SearchIndexDefinition derivedDefinition =
+        AutoEmbeddingIndexDefinitionUtils.getDerivedSearchIndexDefinition(
+            rawDefinition, MV_DATABASE_NAME, collectionUuid, schemaMetadata);
+
+    Assert.assertEquals(rawDefinition.getIndexId(), derivedDefinition.getIndexId());
+    Assert.assertEquals(rawDefinition.getName(), derivedDefinition.getName());
+    Assert.assertEquals(rawDefinition.getNumPartitions(), derivedDefinition.getNumPartitions());
+    Assert.assertEquals(rawDefinition.getAnalyzerName(), derivedDefinition.getAnalyzerName());
+    Assert.assertEquals(
+        rawDefinition.getParsedIndexFeatureVersion(),
+        derivedDefinition.getParsedIndexFeatureVersion());
   }
 }

@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 import org.apache.lucene.facet.FacetsConfig;
 import org.apache.lucene.util.UnicodeUtil;
 
@@ -56,7 +57,10 @@ public class FieldName {
     EMBEDDED_ROOT("embeddedRoot"),
     FIELD_NAMES("fieldNames"),
     ID("_id"),
-    PARENT_FIELD("parentField");
+    PARENT_FIELD("parentField"),
+    /** Internal meta field used to encode null/noData ordering for index sort. */
+    NULLNESS("nullness"),
+    CUSTOM_VECTOR_ENGINE_ID("customVectorEngineId");
 
     private static final String PREFIX = "$meta/";
 
@@ -591,5 +595,21 @@ public class FieldName {
               "Field name does not contain a valid TypeField or MultiField component: %s",
               fieldName));
     }
+  }
+
+  public static String getNullnessFieldName(FieldPath path) {
+    return MetaField.NULLNESS.getLuceneFieldName() + "/" + path;
+  }
+
+  private static final String NULLNESS_FIELD_PREFIX =
+      MetaField.NULLNESS.getLuceneFieldName() + "/";
+
+  /**
+   * Returns true if the given Lucene field name identifies a {@code $meta/nullness} sort field
+   * (e.g. {@code "$meta/nullness/age"}). Used to strip nullness positions from {@code
+   * $searchSortValues} before sending results to mongos for merge-sort.
+   */
+  public static boolean isNullnessFieldName(@Nullable String luceneFieldName) {
+    return luceneFieldName != null && luceneFieldName.startsWith(NULLNESS_FIELD_PREFIX);
   }
 }

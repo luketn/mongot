@@ -3,6 +3,7 @@ package com.xgen.testing.mongot.index.analyzer.custom;
 import com.xgen.mongot.index.analyzer.custom.AsciiFoldingTokenFilterDefinition;
 import com.xgen.mongot.index.analyzer.custom.DaitchMokotoffSoundexTokenFilterDefinition;
 import com.xgen.mongot.index.analyzer.custom.EdgeGramTokenFilterDefinition;
+import com.xgen.mongot.index.analyzer.custom.EnglishMinimalStemmingTokenFilterDefinition;
 import com.xgen.mongot.index.analyzer.custom.EnglishPossessiveTokenFilterDefinition;
 import com.xgen.mongot.index.analyzer.custom.FlattenGraphTokenFilterDefinition;
 import com.xgen.mongot.index.analyzer.custom.IcuFoldingTokenFilterDefinition;
@@ -122,6 +123,16 @@ public class TokenFilterDefinitionBuilder {
 
     public IcuFoldingTokenFilterDefinition build() {
       return new IcuFoldingTokenFilterDefinition();
+    }
+  }
+
+  public static class EnglishMinimalStemmingTokenFilter {
+    public static EnglishMinimalStemmingTokenFilter builder() {
+      return new EnglishMinimalStemmingTokenFilter();
+    }
+
+    public EnglishMinimalStemmingTokenFilterDefinition build() {
+      return new EnglishMinimalStemmingTokenFilterDefinition();
     }
   }
 

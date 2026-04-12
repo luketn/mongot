@@ -1,5 +1,6 @@
 package com.xgen.mongot.replication.mongodb.initialsync;
 
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.logging.DefaultKeyValueLogger;
 import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.replication.mongodb.common.ChangeStreamResumeInfo;
@@ -12,6 +13,7 @@ import com.xgen.mongot.util.concurrent.OneShotSingleThreadExecutor;
 import com.xgen.mongot.util.functionalinterfaces.CheckedRunnable;
 import com.xgen.mongot.util.functionalinterfaces.CheckedSupplier;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -45,6 +47,7 @@ interface InitialSyncManager {
   static InitialSyncManagerFactory getFactory(
       InitialSyncConfig bufferlessConfig,
       CommonReplicationConfig replicationConfig,
+      Optional<MaterializedViewCollectionMetadataCatalog> mvMetadataCatalog,
       MetricsFactory metricsFactory) {
     return BufferlessInitialSyncManager.factory(
         bufferlessConfig.collectionScanTime(),
@@ -53,6 +56,7 @@ interface InitialSyncManager {
         bufferlessConfig.avoidNaturalOrderScanSyncSourceChangeResync(),
         replicationConfig.getExcludedChangestreamFields(),
         replicationConfig.getMatchCollectionUuidForUpdateLookup(),
+        mvMetadataCatalog,
         metricsFactory);
   }
 

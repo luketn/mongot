@@ -63,8 +63,8 @@ public enum Feature {
   RESTART_WITH_NO_CONF_CALL("restartWithNoConfCall", State.DISABLED),
   SORTED_INDEX("enableSortedIndex", State.DISABLED),
   TRUNCATE_AUTOCOMPLETE_TOKENS("enableTruncateAutocompleteTokens", State.DISABLED),
-  ENABLE_VALIDATION_OF_RETURN_STORED_SOURCE("enableValidationOfReturnStoredSource", State.DISABLED),
-  VECTOR_STORED_SOURCE("vectorStoredSource", State.DISABLED),
+  ENABLE_VALIDATION_OF_RETURN_STORED_SOURCE("enableValidationOfReturnStoredSource", State.ENABLED),
+  VECTOR_STORED_SOURCE("vectorStoredSource", State.ENABLED),
   INSTRUMENTED_QUERY_CACHE("instrumentedQueryCache", State.DISABLED),
   PHANTOM_REFERENCE_CLEANUP("phantomReferenceCleanup", State.DISABLED),
   FTDC_EXECUTOR_METRICS_TO_PROMETHEUS("ftdcExecutorMetricsToPrometheus", State.DISABLED),
@@ -72,7 +72,10 @@ public enum Feature {
   INDEX_SIZE_QUANTIZATION_METRICS("enableIndexSizeQuantizationMetrics", State.DISABLED),
   LOGGABLE_DOCUMENT_ID("mongotLoggableDocumentId", State.DISABLED),
   CACHE_WARMER("cacheWarmer", State.DISABLED),
-  CONCURRENT_INDEX_PARTITION_SEARCH("enableConcurrentIndexPartitionSearch", State.DISABLED);
+  CONCURRENT_INDEX_PARTITION_SEARCH("enableConcurrentIndexPartitionSearch", State.DISABLED),
+  CANCEL_MERGE("enableCancelMerge", State.DISABLED),
+  KNN_FULL_SCAN_HEURISTIC("enableKnnFullScanHeuristic", State.DISABLED),
+  CUSTOM_VECTOR_ENGINE("customVectorEngine", State.DISABLED);
 
   private final String name;
   private final State defaultState;

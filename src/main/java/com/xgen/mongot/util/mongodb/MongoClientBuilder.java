@@ -42,7 +42,10 @@ public class MongoClientBuilder {
   private Optional<SSLContext> sslContext;
   private Optional<ReadConcern> readConcern;
 
-  private MongoClientBuilder(ConnectionString connectionString, MeterRegistry meterRegistry) {
+  private MongoClientBuilder(
+      ConnectionString connectionString,
+      String metricsNamespacePrefix,
+      MeterRegistry meterRegistry) {
     this.connectionString = connectionString;
     MetricsFactory metricsFactory = new MetricsFactory("mongoClientBuilder", meterRegistry);
     this.successfulDynamicLinkingCounter =
@@ -50,7 +53,7 @@ public class MongoClientBuilder {
     this.failedDynamicLinkingCounter =
         metricsFactory.counter(MongodbClientMeterData.FAILED_DYNAMIC_LINKING, METRIC_TAGS);
     this.connectionPoolListenerFactory =
-        new InstrumentedConnectionPoolListenerFactory(meterRegistry);
+        new InstrumentedConnectionPoolListenerFactory(metricsNamespacePrefix, meterRegistry);
     this.sslContextFactory = Optional.empty();
     this.applicationName = Optional.empty();
     this.maxConnections = Optional.empty();
@@ -61,15 +64,41 @@ public class MongoClientBuilder {
 
   public static MongoClientBuilder builder(
       ConnectionString connectionString, MeterRegistry meterRegistry) {
-    return new MongoClientBuilder(connectionString, meterRegistry);
+    return new MongoClientBuilder(connectionString, "", meterRegistry);
   }
 
-  /** Convenience method to create a non-replication MongoClient that prefers mongos. */
+  public static MongoClientBuilder builder(
+      ConnectionString connectionString,
+      String metricsNamespacePrefix,
+      MeterRegistry meterRegistry) {
+    return new MongoClientBuilder(connectionString, metricsNamespacePrefix, meterRegistry);
+  }
+
+  /**
+   * Builds a non-replication {@link MongoClient} for read/write against the sync source as a whole
+   * cluster: uses {@link SyncSourceConfig#mongosUri} when present (sharded deployments), otherwise
+   * {@link SyncSourceConfig#mongodClusterReadWriteUri} so the driver can discover the primary via
+   * replica-set discovery. Prefer this over {@link #buildNonReplicationPreferringMongos} when
+   * operations must reach the correct primary or mongos rather than a single direct {@code mongod}
+   * host.
+   */
+  public static MongoClient buildClusterReadWriteClient(
+      SyncSourceConfig syncSourceConfig, String applicationName, MeterRegistry meterRegistry) {
+    var syncSource = syncSourceConfig.mongosUri.orElse(syncSourceConfig.mongodClusterReadWriteUri);
+    return buildNonReplicationWithDefaults(syncSource, applicationName, meterRegistry);
+  }
+
+  /**
+   * Builds a non-replication {@link MongoClient} using {@link SyncSourceConfig#mongosUri} when set,
+   * otherwise {@link SyncSourceConfig#mongodUri}. Use this when traffic should go through mongos if
+   * available (e.g. metadata or read paths), while still working when only a direct mongod URI is
+   * configured. Not suitable for writes that must hit the full cluster; for that use {@link
+   * #buildClusterReadWriteClient}.
+   */
   public static MongoClient buildNonReplicationPreferringMongos(
-      SyncSourceConfig syncSource, String applicationName, MeterRegistry meterRegistry) {
-    var connectionString = syncSource.mongosUri.orElse(syncSource.mongodUri);
-    return buildNonReplicationWithDefaults(
-        connectionString, applicationName, syncSource.sslContext, meterRegistry);
+      SyncSourceConfig syncSourceConfig, String applicationName, MeterRegistry meterRegistry) {
+    var syncSource = syncSourceConfig.mongosUri.orElse(syncSourceConfig.mongodUri);
+    return buildNonReplicationWithDefaults(syncSource, applicationName, meterRegistry);
   }
 
   /**
@@ -77,15 +106,12 @@ public class MongoClientBuilder {
    * maxConnections} and {@code socketTimeoutMs}.
    */
   public static MongoClient buildNonReplicationWithDefaults(
-      ConnectionString connectionString,
-      String applicationName,
-      Optional<SSLContext> sslContext,
-      MeterRegistry meterRegistry) {
+      ConnectionInfo connectionInfo, String applicationName, MeterRegistry meterRegistry) {
     return buildNonReplicationWithDefaults(
-        connectionString,
+        connectionInfo.uri(),
         applicationName,
         Defaults.SINGLE_THREAD_MAX_CONNECTIONS,
-        sslContext,
+        connectionInfo.sslContext(),
         meterRegistry);
   }
 
@@ -188,10 +214,6 @@ public class MongoClientBuilder {
         // string value for direct connection.
         settings.retryWrites(false);
       }
-
-      if (Boolean.TRUE.equals(this.connectionString.getSslEnabled())) {
-        attemptOpenSslDynamicLinking(settings);
-      }
     }
 
     if (this.socketTimeoutMs.isPresent()) {
@@ -203,6 +225,10 @@ public class MongoClientBuilder {
                     .orElse(this.socketTimeoutMs.get());
             builder.readTimeout(timeout, TimeUnit.MILLISECONDS);
           });
+    }
+
+    if (Boolean.TRUE.equals(this.connectionString.getSslEnabled())) {
+      attemptOpenSslDynamicLinking(settings);
     }
 
     if (this.sslContext.isPresent()) {

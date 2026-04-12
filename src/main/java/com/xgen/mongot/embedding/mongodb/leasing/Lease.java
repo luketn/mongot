@@ -1,7 +1,12 @@
 package com.xgen.mongot.embedding.mongodb.leasing;
 
+import static com.xgen.mongot.util.Uuids.NIL;
+import static java.time.temporal.ChronoUnit.SECONDS;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.errorprone.annotations.Var;
 import com.mongodb.lang.NonNull;
+import com.mongodb.lang.Nullable;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.status.IndexStatus;
@@ -58,7 +63,8 @@ import org.bson.codecs.pojo.annotations.BsonId;
  *        "schemaFieldMapping": {"title": "_autoEmbed.title"},
  *        "mvMetadataSchemaVersion": 1
  *      }
- *     }
+ *     },
+ *     "steadyAsOfOplogPosition": {"$timestamp": {"t": 1702857600, "i": 1}}
  *   }
  * </pre>
  */
@@ -73,10 +79,11 @@ public record Lease(
     String commitInfo,
     String latestIndexDefinitionVersion,
     Map<String, IndexDefinitionVersionStatus> indexDefinitionVersionStatusMap,
-    @NonNull MaterializedViewCollectionMetadata materializedViewCollectionMetadata)
+    @NonNull MaterializedViewCollectionMetadata materializedViewCollectionMetadata,
+    @Nullable BsonTimestamp steadyAsOfOplogPosition)
     implements DocumentEncodable {
 
-  private static final long SCHEMA_VERSION = 1L;
+  public static final long SCHEMA_VERSION = 1L;
 
   @VisibleForTesting static final long FIRST_LEASE_VERSION = 1L;
 
@@ -157,6 +164,13 @@ public record Lease(
                 .allowUnknownFields()
                 .optional()
                 .noDefault();
+
+    /**
+     * The oplog position when the leader's MV transitioned to STEADY state. Used by followers to
+     * detect MV replication lag. Null if MV has never reached STEADY or for legacy documents.
+     */
+    public static final Field.Optional<BsonTimestamp> STEADY_AS_OF_OPLOG_POSITION =
+        Field.builder("steadyAsOfOplogPosition").bsonTimestampField().optional().noDefault();
   }
 
   public static Lease fromBson(DocumentParser parser) throws BsonParseException {
@@ -178,8 +192,11 @@ public record Lease(
             .orElse(
                 new MaterializedViewCollectionMetadata(
                     MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO,
-                    UUID.fromString(parser.getField(Fields.COLLECTION_UUID).unwrap()),
-                    parser.getField(Fields.COLLECTION_NAME).unwrap())));
+                    // Community users don't have this field, we need to have a UUID.NIL here.
+                    NIL,
+                    // _id should be same as MatView collection name.
+                    parser.getField(Fields._ID).unwrap())),
+        parser.getField(Fields.STEADY_AS_OF_OPLOG_POSITION).unwrap().orElse(null));
   }
 
   public static Lease fromBson(BsonDocument bsonDocument) throws BsonParseException {
@@ -223,6 +240,34 @@ public record Lease(
     }
   }
 
+  /**
+   * Creates an initial Lease for synchronization purposes, this is acquirable by any other
+   * instance.
+   */
+  public static Lease initialLease(
+      String leaseId,
+      UUID collectionUuid,
+      String collectionName,
+      String indexDefinitionVersion,
+      IndexStatus initialIndexStatus,
+      MaterializedViewCollectionMetadata materializedViewCollectionMetadata) {
+    return new Lease(
+        leaseId,
+        SCHEMA_VERSION,
+        collectionUuid.toString(),
+        collectionName,
+        "",
+        Instant.now().minus(1, SECONDS),
+        FIRST_LEASE_VERSION,
+        EncodedUserData.EMPTY.asString(),
+        indexDefinitionVersion,
+        Map.of(
+            indexDefinitionVersion,
+            new IndexDefinitionVersionStatus(false, initialIndexStatus.getStatusCode())),
+        materializedViewCollectionMetadata,
+        null);
+  }
+
   public static Lease newLease(
       String leaseId,
       UUID collectionUuid,
@@ -244,7 +289,8 @@ public record Lease(
         Map.of(
             indexDefinitionVersion,
             new IndexDefinitionVersionStatus(false, initialIndexStatus.getStatusCode())),
-        materializedViewCollectionMetadata);
+        materializedViewCollectionMetadata,
+        null);
   }
 
   public Lease withUpdatedCheckpoint(EncodedUserData commitInfo) {
@@ -259,35 +305,48 @@ public record Lease(
         commitInfo.asString(),
         this.latestIndexDefinitionVersion,
         this.indexDefinitionVersionStatusMap,
-        this.materializedViewCollectionMetadata);
+        this.materializedViewCollectionMetadata,
+        this.steadyAsOfOplogPosition);
   }
 
-  /** Creates a new lease with a new index definition version, preserving the highWaterMark. */
+  /**
+   * Creates a new lease with a new index definition version.
+   *
+   * <p>{@code skipInitialSync == true} (Lucene-only change, e.g. hnswOptions): Keep current
+   * commitInfo and steadyAsOfOplogPosition. The new generator will RESUME_STEADY_STATE from the
+   * previous checkpoint.
+   *
+   * <p>{@code skipInitialSync == false} (real definition change, e.g. filter): Replace commit info
+   * with initial-sync-style resume from the current high watermark (latest oplog position we had
+   * reached). The new generator will RESUME_INITIAL_SYNC from that point; the original resume token
+   * is not kept.
+   */
   public Lease withNewIndexDefinitionVersion(
-      String indexDefinitionVersion, IndexStatus initialIndexStatus) {
-    // this method creates a new lease with the following changes
-    // 1. it adds the new index definition version to the indexDefinitionVersionStatusMap
-    // 2. it sets the latestIndexDefinitionVersion to the new index definition version
-    // 3. it preserves the highWaterMark from the previous commitInfo but resets scan position.
+      String indexDefinitionVersion, IndexStatus initialIndexStatus, boolean skipInitialSync) {
+    // 1. Add the new index definition version to the map.
+    // 2. Set latestIndexDefinitionVersion to the new version.
+    // 3. Either use high water mark (reset to initial-sync from that point) or preserve commitInfo.
     Map<String, IndexDefinitionVersionStatus> newVersionStatus =
         new HashMap<>(this.indexDefinitionVersionStatusMap);
     newVersionStatus.put(
         indexDefinitionVersion,
         new IndexDefinitionVersionStatus(false, initialIndexStatus.getStatusCode()));
-    String newCommitInfo =
-        extractHighWaterMark()
-            .map(
-                highWaterMark -> {
-                  InitialSyncResumeInfo resumeInfo =
-                      new BufferlessIdOrderInitialSyncResumeInfo(highWaterMark, BsonUtils.MIN_KEY);
-                  // MaterializedViewGeneration always uses CURRENT, so this will match the expected
-                  // version.
-                  return IndexCommitUserData.createInitialSyncResume(
-                          IndexFormatVersion.CURRENT, resumeInfo)
-                      .toEncodedData()
-                      .asString();
-                })
-            .orElse(EncodedUserData.EMPTY.asString());
+    @Var String newCommitInfo = this.commitInfo;
+    if (!skipInitialSync) {
+      newCommitInfo =
+          extractHighWaterMark()
+              .map(
+                  highWaterMark -> {
+                    InitialSyncResumeInfo resumeInfo =
+                        new BufferlessIdOrderInitialSyncResumeInfo(
+                            highWaterMark, BsonUtils.MIN_KEY);
+                    return IndexCommitUserData.createInitialSyncResume(
+                            IndexFormatVersion.CURRENT, resumeInfo)
+                        .toEncodedData()
+                        .asString();
+                  })
+              .orElse(EncodedUserData.EMPTY.asString());
+    }
     return new Lease(
         this.id,
         SCHEMA_VERSION,
@@ -299,16 +358,31 @@ public record Lease(
         newCommitInfo,
         indexDefinitionVersion,
         newVersionStatus,
-        this.materializedViewCollectionMetadata);
+        this.materializedViewCollectionMetadata,
+        skipInitialSync ? this.steadyAsOfOplogPosition : null);
   }
 
-  public Lease withUpdatedStatus(IndexStatus indexStatus, long indexDefinitionVersion) {
+  /**
+   * Updates status and potentially sets steadyAsOfOplogPosition when transitioned to STEADY
+   *
+   * @param indexStatus the new status
+   * @param indexDefinitionVersion version being updated
+   */
+  public Lease withUpdatedStatus(
+      IndexStatus indexStatus, long indexDefinitionVersion, @Nullable BsonTimestamp oplogPosition) {
     var isSteady = indexStatus.getStatusCode() == IndexStatus.StatusCode.STEADY;
     Map<String, IndexDefinitionVersionStatus> newVersionStatus =
         new HashMap<>(this.indexDefinitionVersionStatusMap);
     newVersionStatus.put(
         String.valueOf(indexDefinitionVersion),
         new IndexDefinitionVersionStatus(isSteady, indexStatus.getStatusCode()));
+
+    // Set steadyAsOfOplogPosition only on first STEADY transition
+    @Var BsonTimestamp newSteadyPosition = this.steadyAsOfOplogPosition;
+    if (isSteady && this.steadyAsOfOplogPosition == null) {
+      newSteadyPosition = oplogPosition;
+    }
+
     return new Lease(
         this.id,
         SCHEMA_VERSION,
@@ -320,7 +394,8 @@ public record Lease(
         this.commitInfo,
         this.latestIndexDefinitionVersion,
         newVersionStatus,
-        this.materializedViewCollectionMetadata);
+        this.materializedViewCollectionMetadata,
+        newSteadyPosition);
   }
 
   /**
@@ -342,7 +417,50 @@ public record Lease(
         this.commitInfo,
         this.latestIndexDefinitionVersion,
         this.indexDefinitionVersionStatusMap,
-        this.materializedViewCollectionMetadata);
+        this.materializedViewCollectionMetadata,
+        this.steadyAsOfOplogPosition);
+  }
+
+  public Lease withResolvedMatViewUuid(UUID matViewCollectionUuid) {
+    var newMetadata =
+        new MaterializedViewCollectionMetadata(
+            this.materializedViewCollectionMetadata().schemaMetadata(),
+            matViewCollectionUuid,
+            this.materializedViewCollectionMetadata().collectionName());
+    // Keeps everything same but new schema version and mat view collection UUID.
+    return new Lease(
+        this.id(),
+        SCHEMA_VERSION,
+        this.collectionUuid(),
+        this.collectionName(),
+        this.leaseOwner(),
+        this.leaseExpiration(),
+        this.leaseVersion(),
+        this.commitInfo(),
+        this.latestIndexDefinitionVersion(),
+        this.indexDefinitionVersionStatusMap(),
+        newMetadata,
+        this.steadyAsOfOplogPosition);
+  }
+
+  /**
+   * Returns a copy of this lease with ownership released: expiration set to the past and the owner
+   * set to empty string so other instances can acquire via replaceOne. Used when giving up leases.
+   */
+  public Lease withReleasedOwnership() {
+    return new Lease(
+        this.id,
+        SCHEMA_VERSION,
+        this.collectionUuid,
+        this.collectionName,
+        "",
+        Instant.now().minusSeconds(1),
+        this.leaseVersion + 1,
+        this.commitInfo,
+        this.latestIndexDefinitionVersion,
+        this.indexDefinitionVersionStatusMap,
+        this.materializedViewCollectionMetadata,
+        this.steadyAsOfOplogPosition);
   }
 
   /**
@@ -365,6 +483,11 @@ public record Lease(
     }
   }
 
+  /** Fetch the last steady oplog position from the lease */
+  public Optional<BsonTimestamp> getSteadyAsOfOplogPosition() {
+    return Optional.ofNullable(this.steadyAsOfOplogPosition);
+  }
+
   @Override
   public BsonDocument toBson() {
     return BsonDocumentBuilder.builder()
@@ -381,6 +504,8 @@ public record Lease(
         .field(
             Fields.MATERIALIZED_VIEW_COLLECTION_METADATA,
             Optional.of(this.materializedViewCollectionMetadata))
+        .field(
+            Fields.STEADY_AS_OF_OPLOG_POSITION, Optional.ofNullable(this.steadyAsOfOplogPosition))
         .build();
   }
 }

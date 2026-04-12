@@ -10,6 +10,8 @@ java_test_suite(
     deps = [
         "//src/main/java/com/xgen/mongot/catalog",
         "//src/main/java/com/xgen/mongot/cursor",
+        "//src/main/java/com/xgen/mongot/embedding/config",
+        "//src/main/java/com/xgen/mongot/embedding/mongodb/common",
         "//src/main/java/com/xgen/mongot/embedding/mongodb/leasing",
         "//src/main/java/com/xgen/mongot/featureflag",
         "//src/main/java/com/xgen/mongot/index",
@@ -35,7 +37,6 @@ java_test_suite(
         "@maven//:junit_junit",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_mongodb_bson",
-        "@maven//:org_mongodb_mongodb_driver_core",
         "@maven//:org_mongodb_mongodb_driver_sync",
         "@maven//:org_slf4j_slf4j_api",
     ],

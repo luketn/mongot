@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Generated files
+output/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+Thumbs.db
+
+# IDE
+.vscode/
+*.swo
+*~
+
+# npm package
+*.tgz
+
+# Bazel uses pnpm-lock.yaml instead of package-lock.json
+package-lock.json

@@ -176,6 +176,12 @@
       }
     },
     {
+      "description": "englishMinimalStemming",
+      "value": {
+        "type": "englishMinimalStemming"
+      }
+    },
+    {
       "description": "englishPossessive",
       "value": {
         "type": "englishPossessive"

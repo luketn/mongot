@@ -4,16 +4,18 @@ import com.xgen.mongot.cursor.batch.BatchSizeStrategy;
 import com.xgen.mongot.cursor.batch.BatchSizeStrategySelector;
 import com.xgen.mongot.cursor.batch.ConstantBatchSizeStrategy;
 import com.xgen.mongot.cursor.batch.QueryCursorOptions;
+import com.xgen.mongot.index.BatchProducer;
 import com.xgen.mongot.index.CountMetaBatchProducer;
 import com.xgen.mongot.index.Index;
 import com.xgen.mongot.index.IndexUnavailableException;
+import com.xgen.mongot.index.InitializedIndex;
 import com.xgen.mongot.index.InitializedSearchIndex;
+import com.xgen.mongot.index.InitializedVectorIndex;
 import com.xgen.mongot.index.MetaResults;
-import com.xgen.mongot.index.SearchIndex;
+import com.xgen.mongot.index.ReaderClosedException;
 import com.xgen.mongot.index.SearchIndexReader;
 import com.xgen.mongot.index.lucene.EmptySearchBatchProducer;
 import com.xgen.mongot.index.query.InvalidQueryException;
-import com.xgen.mongot.index.query.Query;
 import com.xgen.mongot.index.query.QueryOptimizationFlags;
 import com.xgen.mongot.index.query.SearchQuery;
 import com.xgen.mongot.index.status.IndexStatus;
@@ -26,11 +28,11 @@ import java.io.IOException;
 /** Creates cursors with unique incrementing id. */
 class CursorFactory {
 
-  static class SearchCursorAndMetaResults {
+  static class CursorAndMetaResults {
     public final MongotCursor cursor;
     public final MetaResults metaResults;
 
-    public SearchCursorAndMetaResults(MongotCursor cursor, MetaResults metaResults) {
+    public CursorAndMetaResults(MongotCursor cursor, MetaResults metaResults) {
       this.cursor = cursor;
       this.metaResults = metaResults;
     }
@@ -52,13 +54,17 @@ class CursorFactory {
     this.cursorIdSupplier = cursorIdSupplier;
   }
 
-  SearchCursorAndMetaResults createCursor(
+  CursorAndMetaResults createCursor(
       String namespace,
-      InitializedSearchIndex index,
-      Query query,
+      InitializedIndex index,
+      CursorQuery cursorQuery,
       QueryCursorOptions queryCursorOptions,
       QueryOptimizationFlags queryOptimizationFlags)
-      throws IndexUnavailableException, IOException, InvalidQueryException, InterruptedException {
+      throws IndexUnavailableException,
+          IOException,
+          InvalidQueryException,
+          InterruptedException,
+          ReaderClosedException {
     index.throwIfUnavailableForQuerying();
 
     // Check to see if the index is in a state that it should return an empty cursor.
@@ -74,17 +80,46 @@ class CursorFactory {
             "CursorFactory.createCursor",
             Attributes.of(AttributeKey.longKey("cursorId"), cursorId))) {
       BatchSizeStrategy batchSizeStrategy =
-          BatchSizeStrategySelector.forQuery(query, queryCursorOptions);
+          BatchSizeStrategySelector.forQuery(cursorQuery.getQuery(), queryCursorOptions);
 
-      SearchIndexReader.SearchProducerAndMetaResults producerAndMeta =
-          index
-              .getReader()
-              .query(query, queryCursorOptions, batchSizeStrategy, queryOptimizationFlags);
+      if (cursorQuery instanceof CursorQuery.Search && !(index instanceof InitializedSearchIndex)) {
+        throw new InvalidQueryException(
+            "Cannot execute $search over vectorSearch index '%s'"
+                .formatted(cursorQuery.getQuery().index()),
+            InvalidQueryException.Type.STRICT);
+      }
+      if (cursorQuery instanceof CursorQuery.Vector && !(index instanceof InitializedVectorIndex)) {
+        throw new InvalidQueryException(
+            "Cannot execute $vectorSearch over search index '%s'"
+                .formatted(cursorQuery.getQuery().index()),
+            InvalidQueryException.Type.STRICT);
+      }
 
-      return new SearchCursorAndMetaResults(
-          new MongotCursor(
-              cursorId, producerAndMeta.searchBatchProducer, namespace, batchSizeStrategy),
-          producerAndMeta.metaResults);
+      BatchProducer batchProducer;
+      MetaResults metaResults;
+      switch (cursorQuery) {
+        case CursorQuery.Search(var query) -> {
+          var r =
+              index
+                  .asSearchIndex()
+                  .getReader()
+                  .query(query, queryCursorOptions, batchSizeStrategy, queryOptimizationFlags);
+          batchProducer = r.searchBatchProducer;
+          metaResults = r.metaResults;
+        }
+        case CursorQuery.Vector(var query) -> {
+          var r =
+              index
+                  .asVectorIndex()
+                  .getReader()
+                  .query(query, queryCursorOptions, batchSizeStrategy, queryOptimizationFlags);
+          batchProducer = r.vectorBatchProducer;
+          metaResults = r.metaResults;
+        }
+      }
+
+      return new CursorAndMetaResults(
+          new MongotCursor(cursorId, batchProducer, namespace, batchSizeStrategy), metaResults);
     }
   }
 
@@ -142,9 +177,9 @@ class CursorFactory {
     }
   }
 
-  SearchCursorAndMetaResults getEmptyCursor(String namespace) {
+  CursorAndMetaResults getEmptyCursor(String namespace) {
     EmptySearchBatchProducer emptyProducer = new EmptySearchBatchProducer();
-    return new SearchCursorAndMetaResults(
+    return new CursorAndMetaResults(
         new MongotCursor(
             this.cursorIdSupplier.nextId(),
             emptyProducer,
@@ -169,12 +204,7 @@ class CursorFactory {
     }
   }
 
-  /**
-   * Check the "effective status" of the index, a status that incorporates the index status from
-   * {@link Index#getStatus()} with the statuses of synonym mappings in {@link
-   * com.xgen.mongot.index.SearchIndex#getSynonymRegistry()}.
-   */
-  static boolean doesNotExist(SearchIndex index) {
+  static boolean doesNotExist(Index index) {
     return index.getStatus().getStatusCode() == IndexStatus.StatusCode.DOES_NOT_EXIST;
   }
 }

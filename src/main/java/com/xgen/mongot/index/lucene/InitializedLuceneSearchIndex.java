@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.xgen.mongot.featureflag.Feature;
 import com.xgen.mongot.featureflag.FeatureFlags;
 import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlagRegistry;
+import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlags;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexClosedException;
 import com.xgen.mongot.index.IndexMetricValuesSupplier;
@@ -26,8 +27,10 @@ import com.xgen.mongot.index.definition.SearchIndexDefinition;
 import com.xgen.mongot.index.lucene.blobstore.LuceneIndexSnapshotter;
 import com.xgen.mongot.index.lucene.directory.IndexDirectoryFactory;
 import com.xgen.mongot.index.lucene.directory.IndexDirectoryHelper;
+import com.xgen.mongot.index.lucene.init.LuceneIndexResourcesInitializer;
 import com.xgen.mongot.index.lucene.searcher.LuceneSearcherFactory;
 import com.xgen.mongot.index.lucene.searcher.LuceneSearcherManager;
+import com.xgen.mongot.index.lucene.writer.SingleLuceneIndexWriter;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.synonym.SynonymRegistry;
 import com.xgen.mongot.index.version.GenerationId;
@@ -152,7 +155,10 @@ class InitializedLuceneSearchIndex implements InitializedSearchIndex {
                 SingleLuceneIndexWriter.createForSearchIndex(
                     directory,
                     searchIndexProperties.mergeScheduler.createForIndexPartition(
-                        generationId, indexPartitionId, definition.getNumPartitions()),
+                        generationId,
+                        indexPartitionId,
+                        definition.getNumPartitions(),
+                        featureFlags.isEnabled(Feature.CANCEL_MERGE)),
                     searchIndexProperties.mergePolicy,
                     searchIndexProperties.ramBufferSizeMb,
                     searchIndexProperties.fieldLimit,
@@ -163,9 +169,10 @@ class InitializedLuceneSearchIndex implements InitializedSearchIndex {
                     indexMetricsUpdaterBuilder.getIndexingMetricsUpdater(),
                     luceneIndexSnapshotter.map(
                         snapshotter -> snapshotter.getSnapshotDeletionPolicy(indexPartitionId)),
-                    featureFlags),
+                    featureFlags,
+                    dynamicFeatureFlagRegistry),
             luceneIndexWriter ->
-                new LuceneSearcherManager(
+                LuceneSearcherManager.create(
                     luceneIndexWriter.getLuceneWriter(),
                     searcherFactory,
                     searchIndexProperties.metricsFactory));
@@ -204,7 +211,7 @@ class InitializedLuceneSearchIndex implements InitializedSearchIndex {
                     : Optional.empty());
 
     IndexMetricValuesSupplier indexMetricValuesSupplier =
-        new LuceneSearchIndexMetricValuesSupplier(
+        LuceneSearchIndexMetricValuesSupplier.create(
             index.getStatusRef(),
             searchIndexProperties.indexBackingStrategy,
             searchIndexReader,
@@ -214,14 +221,19 @@ class InitializedLuceneSearchIndex implements InitializedSearchIndex {
             searchIndexProperties.metricsFactory,
             definition.getParsedIndexFeatureVersion(),
             featureFlags.isEnabled(Feature.INDEX_FEATURE_VERSION_FOUR),
-            dynamicFeatureFlagRegistry);
+            dynamicFeatureFlagRegistry,
+            searchIndexProperties.metricRefreshExecutor);
 
     IndexMetricsUpdater indexMetricsUpdater =
         indexMetricsUpdaterBuilder.build(indexMetricValuesSupplier);
 
     SearchIndexReader reader =
         new MeteredSearchIndexReader(
-            searchIndexReader, indexMetricsUpdater.getQueryingMetricsUpdater());
+            searchIndexReader,
+            indexMetricsUpdater.getQueryingMetricsUpdater(),
+            () ->
+                dynamicFeatureFlagRegistry.evaluateClusterInvariant(
+                    DynamicFeatureFlags.ENABLE_TOTAL_STRING_FACET_BUCKETS));
 
     IndexWriter writer =
         new MeteredIndexWriter(

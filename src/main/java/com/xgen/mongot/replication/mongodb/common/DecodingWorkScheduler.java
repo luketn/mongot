@@ -1,5 +1,7 @@
 package com.xgen.mongot.replication.mongodb.common;
 
+import static com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig.Type.DEFAULT;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.xgen.mongot.index.IndexMetricsUpdater.ReplicationMetricsUpdater;
@@ -60,18 +62,20 @@ public class DecodingWorkScheduler extends Thread {
   private boolean shutdown;
 
   DecodingWorkScheduler(
-      int numConcurrentDecoding, NamedExecutorService executor, MeterRegistry registry) {
+      int numConcurrentDecoding,
+      CommonReplicationConfig.Type type,
+      NamedExecutorService executor,
+      MetricsFactory metricsFactory) {
     super("DecodingWorkScheduler");
     this.executor = executor;
     this.concurrentDecodingBatches = new Semaphore(numConcurrentDecoding);
 
     this.shutdownFuture = new CompletableFuture<>();
     this.shutdown = false;
-
-    MetricsFactory metricsFactory = new MetricsFactory("decodingWorkScheduler", registry);
+    
     Tag replicationTag = ServerStatusDataExtractor.Scope.REPLICATION.getTag();
 
-    this.schedulerQueue = new SchedulerQueue<>(metricsFactory);
+    this.schedulerQueue = new SchedulerQueue<>(type, metricsFactory);
 
     this.enqueueCounter = metricsFactory.counter("enqueueCalls");
     this.dequeueCounter = metricsFactory.counter("dequeueCalls");
@@ -92,8 +96,26 @@ public class DecodingWorkScheduler extends Thread {
    * @return an DecodingWorkScheduler.
    */
   public static DecodingWorkScheduler create(int numDecodingThreads, MeterRegistry registry) {
-    var executor = Executors.fixedSizeThreadPool("decoding", numDecodingThreads, registry);
-    var scheduler = new DecodingWorkScheduler(numDecodingThreads, executor, registry);
+    return create(numDecodingThreads, DEFAULT, registry);
+  }
+
+  /**
+   * Creates and starts a new DecodingWorkScheduler.
+   *
+   * @return an DecodingWorkScheduler with metricsNamespacePrefix added to the beginning of all
+   *     metrics.
+   */
+  public static DecodingWorkScheduler create(
+      int numDecodingThreads, CommonReplicationConfig.Type type, MeterRegistry registry) {
+    var executor =
+        Executors.fixedSizeThreadPool(
+            type.metricsNamespacePrefix + "decoding", numDecodingThreads, registry);
+    var scheduler =
+        new DecodingWorkScheduler(
+            numDecodingThreads,
+            type,
+            executor,
+            new MetricsFactory("decodingWorkScheduler", registry));
     scheduler.start();
     return scheduler;
   }

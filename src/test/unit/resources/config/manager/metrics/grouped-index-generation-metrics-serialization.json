@@ -109,6 +109,19 @@
                   "99th": 3.0
                 }
               },
+              "stringFacetsStateRefreshLatency": {
+                "timeUnit": "milliseconds",
+                "count": 2,
+                "totalTimeSeconds": 8.0,
+                "maxTimeSeconds": 4.0,
+                "meanTimeSeconds": 2.0,
+                "percentiles": {
+                  "50th": 2.0,
+                  "75th": 2.0,
+                  "90th": 2.0,
+                  "99th": 3.0
+                }
+              },
               "synonymCount": 6.0,
               "textSynonymCount": 4.0,
               "textSynonymsWithoutMatchCriteriaCount": 3.0,
@@ -125,6 +138,8 @@
               "sortCount": 3.0,
               "trackingCount": 11.0,
               "returnScopeCount": 12.0,
+              "facetDrillSidewaysOptimizableCount": 0.0,
+              "facetDrillSidewaysGenericCount": 0.0,
               "operatorTypeCount": {
                 "allDocuments": 0.0,
                 "autocomplete": 0.0,
@@ -395,6 +410,21 @@
                   "99th": 3.0
                 }
               },
+              "stringFacetsStateRefreshLatency": {
+                "timeUnit": "milliseconds",
+                "count": {
+                  "$numberLong": "2"
+                },
+                "totalTimeSeconds": 8.0,
+                "maxTimeSeconds": 4.0,
+                "meanTimeSeconds": 2.0,
+                "percentiles": {
+                  "50th": 2.0,
+                  "75th": 2.0,
+                  "90th": 2.0,
+                  "99th": 3.0
+                }
+              },
               "synonymCount": 6.0,
               "textSynonymCount": 4.0,
               "textSynonymsWithoutMatchCriteriaCount": 3.0,
@@ -411,6 +441,8 @@
               "sortCount": 3.0,
               "trackingCount": 11.0,
               "returnScopeCount": 12.0,
+              "facetDrillSidewaysOptimizableCount": 0.0,
+              "facetDrillSidewaysGenericCount": 0.0,
               "operatorTypeCount": {
                 "allDocuments": 0.0,
                 "autocomplete": 0.0,

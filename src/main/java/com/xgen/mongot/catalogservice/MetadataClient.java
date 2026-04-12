@@ -1,5 +1,6 @@
 package com.xgen.mongot.catalogservice;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.BulkWriteOptions;
@@ -8,6 +9,7 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.ReplaceOneModel;
 import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.WriteModel;
+import com.mongodb.client.result.UpdateResult;
 import com.xgen.mongot.util.bson.parser.DocumentEncodable;
 import java.util.List;
 import java.util.Map;
@@ -20,13 +22,20 @@ import org.bson.conversions.Bson;
  * internal mongod metadata collections.
  */
 public class MetadataClient<T extends DocumentEncodable> {
-  protected static final String DATABASE_NAME = "__mdb_internal_search";
+  public static final String DATABASE_NAME = "__mdb_internal_search";
 
   private final MongoClient mongoClient;
+  private final String databaseName;
   private final String collectionName;
 
   public MetadataClient(MongoClient mongoClient, String collectionName) {
+    this(mongoClient, DATABASE_NAME, collectionName);
+  }
+
+  @VisibleForTesting
+  MetadataClient(MongoClient mongoClient, String databaseName, String collectionName) {
     this.mongoClient = mongoClient;
+    this.databaseName = databaseName;
     this.collectionName = collectionName;
   }
 
@@ -58,13 +67,38 @@ public class MetadataClient<T extends DocumentEncodable> {
   }
 
   /**
-   * Deletes a single item in the metadata collection with the given filter.
+   * Updates a single document, updating specific fields as specified in the update document.
+   *
+   * @param filter filter to identify the single doc to update
+   * @param update bson document describing the fields to update
+   * @throws MetadataServiceException if there was an error updating the document
+   */
+  public synchronized UpdateResult updateOne(BsonDocument filter, BsonDocument update)
+      throws MetadataServiceException {
+    return MetadataServiceException.wrapIfThrows(
+        () -> this.getCollection().updateOne(filter, update));
+  }
+
+  /**
+   * Deletes a single item in the metadata collection that matches the given filter. If multiple
+   * items match, it will delete the first item found based on the internal ordering of the
+   * documents.
    *
    * @param filter filter for the document to delete
    * @throws MetadataServiceException if there was an error deleting the specified document
    */
   public synchronized void delete(BsonDocument filter) throws MetadataServiceException {
     MetadataServiceException.wrapIfThrows(() -> this.getCollection().deleteOne(filter));
+  }
+
+  /**
+   * Deletes a multiple items in the metadata collection that match the given filter.
+   *
+   * @param filter filter for the documents to delete
+   * @throws MetadataServiceException if there was an error deleting the specified document
+   */
+  public synchronized void deleteMany(BsonDocument filter) throws MetadataServiceException {
+    MetadataServiceException.wrapIfThrows(() -> this.getCollection().deleteMany(filter));
   }
 
   /**
@@ -126,9 +160,13 @@ public class MetadataClient<T extends DocumentEncodable> {
    * Returns all documents in the metadata collection matching the given filter.
    *
    * @param filter filter to apply to the list command
+   * @throws MetadataServiceException if there was an error reading from mongod
    */
-  public synchronized List<BsonDocument> list(BsonDocument filter) {
-    return StreamSupport.stream(this.getCollection().find(filter).spliterator(), false).toList();
+  public synchronized List<BsonDocument> list(BsonDocument filter) throws MetadataServiceException {
+
+    return MetadataServiceException.wrapIfThrows(
+        () ->
+            StreamSupport.stream(this.getCollection().find(filter).spliterator(), false).toList());
   }
 
   /**
@@ -147,7 +185,7 @@ public class MetadataClient<T extends DocumentEncodable> {
 
   private MongoCollection<BsonDocument> getCollection() {
     return this.mongoClient
-        .getDatabase(DATABASE_NAME)
+        .getDatabase(this.databaseName)
         .getCollection(this.collectionName, BsonDocument.class);
   }
 }

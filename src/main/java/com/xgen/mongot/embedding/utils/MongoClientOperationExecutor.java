@@ -6,14 +6,15 @@ import com.mongodb.MongoNodeIsRecoveringException;
 import com.mongodb.MongoNotPrimaryException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
+import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.metrics.MetricsFactory;
-import com.xgen.mongot.metrics.Timed;
 import com.xgen.mongot.util.mongodb.Errors;
 import com.xgen.mongot.util.retry.ExponentialBackoffPolicy;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import net.jodah.failsafe.function.CheckedRunnable;
@@ -36,6 +37,9 @@ public class MongoClientOperationExecutor {
   private final String requestLatencyMetricName;
   private final String failedRequestsMetricName;
   private final String successfulRequestsMetricName;
+  private final ConcurrentHashMap<String, Timer> timerCache = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, Counter> successCounterCache = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, Counter> failureCounterCache = new ConcurrentHashMap<>();
 
   /**
    * Creates a new MongoClientOperationExecutor.
@@ -56,8 +60,7 @@ public class MongoClientOperationExecutor {
             .build()
             .applyParameters(
                 new RetryPolicy<>()
-                    .handleIf(
-                        ex -> ex instanceof MongoException && isRetryable((MongoException) ex))
+                    .handleIf(MongoClientOperationExecutor::isRetryable)
                     .onRetry(
                         ex ->
                             LOG.warn(
@@ -79,21 +82,34 @@ public class MongoClientOperationExecutor {
   public <T> T execute(String operationName, CheckedSupplier<T> operation) throws Exception {
 
     var metricTags = Tags.of("operation", operationName);
-    Timer timer = this.metricsFactory.timer(this.requestLatencyMetricName, metricTags);
+    Timer timer =
+        this.timerCache.computeIfAbsent(
+            operationName,
+            k ->
+                this.metricsFactory.timer(
+                    this.requestLatencyMetricName, metricTags, 0.5, 0.75, 0.9, 0.99));
     Counter successCounter =
-        this.metricsFactory.counter(this.successfulRequestsMetricName, metricTags);
-    Counter failureCounter = this.metricsFactory.counter(this.failedRequestsMetricName, metricTags);
+        this.successCounterCache.computeIfAbsent(
+            operationName,
+            k -> this.metricsFactory.counter(this.successfulRequestsMetricName, metricTags));
+    Counter failureCounter =
+        this.failureCounterCache.computeIfAbsent(
+            operationName,
+            k -> this.metricsFactory.counter(this.failedRequestsMetricName, metricTags));
 
+    // The latency metric here includes retries and is recorded for both success and failure.
+    Timer.Sample sample = Timer.start();
     try {
-      // The latency metric here includes retries.
-      T result = Timed.supplier(timer, () -> Failsafe.with(this.retryPolicy).get(operation));
-
+      T result = Failsafe.with(this.retryPolicy).get(operation);
       successCounter.increment();
       return result;
 
     } catch (Exception e) {
       failureCounter.increment();
       throw e;
+
+    } finally {
+      sample.stop(timer);
     }
   }
 
@@ -106,15 +122,27 @@ public class MongoClientOperationExecutor {
         });
   }
 
-  private static boolean isRetryable(MongoException e) {
-    if (e instanceof MongoSocketException
-        || e instanceof MongoNotPrimaryException
-        || e instanceof MongoNodeIsRecoveringException
-        || e instanceof MongoCursorNotFoundException
-        || e instanceof MongoTimeoutException) {
+  private static boolean isRetryable(Throwable e) {
+    if (e instanceof IllegalStateException) {
+      // When MongoClient is closed during sync source update, it will throw IllegalStateException.
+      // This is not an ideal exception type check as MongoClient throws IllegalStateException when
+      // it is closed instead of MongoException.
       return true;
     }
-
-    return Errors.RETRYABLE_ERROR_CODES.contains(e.getCode());
+    if (e instanceof MaterializedViewTransientException) {
+      // MaterializedViewTransientException may be thrown when sync source is missing.
+      return true;
+    }
+    if (!(e instanceof MongoException mongoException)) {
+      return false;
+    }
+    if (mongoException instanceof MongoSocketException
+        || mongoException instanceof MongoNotPrimaryException
+        || mongoException instanceof MongoNodeIsRecoveringException
+        || mongoException instanceof MongoCursorNotFoundException
+        || mongoException instanceof MongoTimeoutException) {
+      return true;
+    }
+    return Errors.RETRYABLE_ERROR_CODES.contains(mongoException.getCode());
   }
 }

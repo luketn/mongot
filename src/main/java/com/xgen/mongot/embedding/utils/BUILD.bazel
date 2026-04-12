@@ -9,9 +9,9 @@ java_library(
         "CollectFieldValueHandler.java",
         "CollectVectorTextStringsDocumentHandler.java",
         "CollectVectorTextStringsFieldValueHandler.java",
+        "MaterializedViewDocumentHandler.java",
+        "MaterializedViewFieldValueHandler.java",
         "MongoClientOperationExecutor.java",
-        "ReplaceStringsDocumentHandler.java",
-        "ReplaceStringsFieldValueHandler.java",
     ],
     visibility = ["//:__subpackages__"],
     exports = [
@@ -23,6 +23,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/xgen/mongot/embedding/config",
+        "//src/main/java/com/xgen/mongot/embedding/exceptions",
         "//src/main/java/com/xgen/mongot/index",
         "//src/main/java/com/xgen/mongot/index/definition",
         "//src/main/java/com/xgen/mongot/index/ingestion",
@@ -36,6 +37,7 @@ java_library(
         "@maven//:com_google_guava_guava",
         "@maven//:io_micrometer_micrometer_core",
         "@maven//:net_jodah_failsafe",
+        "@maven//:org_apache_commons_commons_collections4",
         "@maven//:org_mongodb_bson",
         "@maven//:org_mongodb_mongodb_driver_core",
         "@maven//:org_slf4j_slf4j_api",

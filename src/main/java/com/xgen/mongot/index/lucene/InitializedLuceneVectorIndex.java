@@ -24,10 +24,12 @@ import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.index.lucene.blobstore.LuceneIndexSnapshotter;
 import com.xgen.mongot.index.lucene.directory.IndexDirectoryFactory;
 import com.xgen.mongot.index.lucene.directory.IndexDirectoryHelper;
+import com.xgen.mongot.index.lucene.init.LuceneIndexResourcesInitializer;
 import com.xgen.mongot.index.lucene.query.LuceneVectorQueryFactoryDistributor;
 import com.xgen.mongot.index.lucene.query.context.VectorQueryFactoryContext;
 import com.xgen.mongot.index.lucene.searcher.LuceneSearcherFactory;
 import com.xgen.mongot.index.lucene.searcher.LuceneSearcherManager;
+import com.xgen.mongot.index.lucene.writer.SingleLuceneIndexWriter;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.mongot.util.Crash;
@@ -143,7 +145,8 @@ class InitializedLuceneVectorIndex implements InitializedVectorIndex {
                 SingleLuceneIndexWriter.createForVectorIndex(
                     directory,
                     vectorIndexProperties.mergeScheduler.createForIndexPartition(
-                        generationId, indexPartitionId, definition.getNumPartitions()),
+                        generationId, indexPartitionId, definition.getNumPartitions(),
+                        featureFlags.isEnabled(Feature.CANCEL_MERGE)),
                     vectorIndexProperties.mergePolicy,
                     vectorIndexProperties.ramBufferSizeMb,
                     vectorIndexProperties.fieldLimit,
@@ -152,9 +155,10 @@ class InitializedLuceneVectorIndex implements InitializedVectorIndex {
                     definition.getIndexCapabilities(vectorIndexProperties.indexFormatVersion),
                     indexMetricsUpdaterBuilder.getIndexingMetricsUpdater(),
                     luceneIndexSnapshotter.map(
-                        snapshotter -> snapshotter.getSnapshotDeletionPolicy(indexPartitionId))),
+                        snapshotter -> snapshotter.getSnapshotDeletionPolicy(indexPartitionId)),
+                    featureFlags),
             luceneIndexWriter ->
-                new LuceneSearcherManager(
+                LuceneSearcherManager.create(
                     luceneIndexWriter.getLuceneWriter(),
                     searcherFactory,
                     vectorIndexProperties.metricsFactory));
@@ -193,7 +197,7 @@ class InitializedLuceneVectorIndex implements InitializedVectorIndex {
                     : Optional.empty());
 
     IndexMetricValuesSupplier indexMetricValuesSupplier =
-        new LuceneVectorIndexMetricValuesSupplier(
+        LuceneVectorIndexMetricValuesSupplier.create(
             index.getStatusRef(),
             vectorIndexProperties.indexBackingStrategy,
             vectorIndexReader,

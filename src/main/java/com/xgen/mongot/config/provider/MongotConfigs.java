@@ -41,8 +41,7 @@ public class MongotConfigs implements SanitizableDocumentEncodable {
       FeatureFlags featureFlags,
       EnvironmentVariantPerfConfig environmentVariantPerfConfig,
       RegularBlockingRequestSettings regularBlockingRequestSettings,
-      AutoEmbeddingMaterializedViewConfig autoEmbeddingMaterializedViewConfig
-  ) {
+      AutoEmbeddingMaterializedViewConfig autoEmbeddingMaterializedViewConfig) {
     this.luceneConfig = luceneConfig;
     this.replicationConfig = replicationConfig;
     this.initialSyncConfig = initialSyncConfig;
@@ -61,6 +60,9 @@ public class MongotConfigs implements SanitizableDocumentEncodable {
     var luceneConfig =
         LuceneConfig.create(
             dataPath,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
@@ -114,6 +116,23 @@ public class MongotConfigs implements SanitizableDocumentEncodable {
         environmentVariantPerfConfig,
         regularBlockingRequestSettings,
         autoEmbeddingMaterializedViewConfig);
+  }
+
+  public static MongotConfigs getDefault(
+      Path dataPath, AutoEmbeddingMaterializedViewConfig mvConfig) {
+    var defaults = getDefault(dataPath);
+    return new MongotConfigs(
+        defaults.luceneConfig,
+        defaults.replicationConfig,
+        defaults.initialSyncConfig,
+        defaults.durabilityConfig,
+        defaults.cursorConfig,
+        defaults.indexDefinitionConfig,
+        defaults.lifecycleConfig,
+        defaults.featureFlags,
+        defaults.environmentVariantPerfConfig,
+        defaults.regularBlockingRequestSettings,
+        mvConfig);
   }
 
   @Override

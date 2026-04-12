@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/synonyms.json",
+  "markdownDescription": "Synonym mappings to use in your index. To learn more, see [Define Synonym Mappings in Your Atlas Search Index](https://dochub.mongodb.org/core/synonym-mapping-fts).",
+  "description": "Synonym mappings to use in your index.",
+  "type": "array",
+  "examples": [
+    [
+      {
+        "name": "<synonym_mapping_name>",
+        "source": {
+          "collection": "<source_collection_name>"
+        },
+        "analyzer": "<synonym_mapping_analyzer>"
+      }
+    ]
+  ],
+  "items": [
+    {
+      "type": "object",
+      "properties": {
+        "name": {
+          "suggestSortText": "0",
+          "$ref": "common.json#/definitions/non-empty-string",
+          "markdownDescription": "Label that identifies the synonym mapping. You must specify a unique value in the index definition and not an empty string.",
+          "description": "Label that identifies the synonym mapping."
+        },
+        "source": {
+          "suggestSortText": "1",
+          "type": "object",
+          "markdownDescription": "[Source collection](https://dochub.mongodb.org/core/source-collection-fts) for synonym mappings to use in the index. This option takes the `collection` field.",
+          "description": "Source collection for synonym mappings to use in the index.",
+          "properties": {
+            "collection": {
+              "type": "string",
+              "markdownDescription": "Label that identifies the collection for synonym mappings to use in the index. You must specify a collection in the same database as your index. Documents in this collection must be in the format described in the [Synonyms Source Collection Documents](https://dochub.mongodb.org/core/source-collection-fts).",
+              "description": "Label that identifies the collection for synonym mappings to use in the index."
+            }
+          },
+          "required": ["collection"]
+        },
+        "analyzer": {
+          "suggestSortText": "2",
+          "$ref": "common.json#/definitions/synonymAnalyzers",
+          "markdownDescription": "Label that identifies the [analyzer](https://dochub.mongodb.org/core/analyzers-fts) to use with this synonym mapping. You can use a synonym mapping to query only fields analyzed with the same analyzer. By default, Atlas Search uses the [Standard Analyzer](https://dochub.mongodb.org/core/standard-fts). You can use any Atlas Search analyzer except the `lucene.kuromoji` and `lucene.cjk` [language analyzers](https://dochub.mongodb.org/core/language-fts) and the following [custom analyzer](https://dochub.mongodb.org/core/custom-fts) tokenizers and [token filters](https://dochub.mongodb.org/core/token-filters-fts):\n\n- `nGram` Tokenizer\n- `edgeGram Tokenizer`\n- `daitchMokotoffSoundex` Token Filter\n- `nGram` Token Filter\n- `edgeGram` Token Filter\n- `shingle` Token Filter\n- `wordDelimiterGraph` Token Filter\n\nTo use synonyms with stop words, you must either index the field using the standard analyzer or add the synonym entry without the stop word. To learn more, see [synonyms options](https://dochub.mongodb.org/core/synonym-options-fts).",
+          "description": "Label that identifies the analyzer to use with this synonym mapping."
+        }
+      },
+      "required": ["name", "source", "analyzer"]
+    }
+  ]
+}

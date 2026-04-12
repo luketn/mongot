@@ -1,9 +1,11 @@
 package com.xgen.mongot.index.definition;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.DoNotMock;
 import com.mongodb.MongoNamespace;
 import com.xgen.mongot.index.version.IndexCapabilities;
 import com.xgen.mongot.index.version.IndexFormatVersion;
+import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.bson.parser.BsonDocumentParser;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
 import com.xgen.mongot.util.bson.parser.DocumentEncodable;
@@ -11,6 +13,7 @@ import com.xgen.mongot.util.bson.parser.DocumentParser;
 import com.xgen.mongot.util.bson.parser.Field;
 import com.xgen.mongot.util.bson.parser.Field.Required;
 import com.xgen.mongot.util.bson.parser.Field.WithDefault;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -82,6 +85,16 @@ public sealed interface IndexDefinition extends DocumentEncodable
             .classField(StoredSourceDefinition::fromBson)
             .optional()
             .noDefault();
+
+    // This is the original IndexID carried over before Cluster migration or upgrade
+    public static final Field.Optional<ObjectId> INDEX_ID_AT_CREATION_TIME =
+        Field.builder("indexIDAtCreationTime").objectIdField().optional().noDefault();
+
+    static final Field.Optional<Long> AUTO_EMBEDDING_DEFINITION_VERSION =
+        Field.builder("autoEmbeddingDefinitionVersion").longField().optional().noDefault();
+
+    static final Field.Optional<Long> MATERIALIZED_VIEW_NAME_FORMAT_VERSION =
+        Field.builder("materializedViewNameFormatVersion").longField().optional().noDefault();
   }
 
   DateTimeFormatter DATE_FORMAT =
@@ -124,6 +137,8 @@ public sealed interface IndexDefinition extends DocumentEncodable
 
   Optional<Long> getDefinitionVersion();
 
+  Optional<Instant> getDefinitionVersionCreatedAt();
+
   /**
    * The index_feature_version specified in the {@link SearchIndexDefinition} or in the {@link
    * VectorIndexDefinition}. Depending on the {@link IndexFormatVersion} of this index, this index
@@ -136,11 +151,39 @@ public sealed interface IndexDefinition extends DocumentEncodable
   /**
    * Returns true if any field requires auto-embedding.
    *
-   * <p>Auto-embedding is only supported in {@link VectorIndexDefinition}. A vector index field
-   * requires auto-embedding if it is specified with type {@link
-   * VectorIndexFieldDefinition.Type#TEXT}.
+   * <p>Auto-embedding is supported in both {@link VectorIndexDefinition} (via {@link
+   * VectorIndexFieldDefinition.Type#TEXT} or {@link VectorIndexFieldDefinition.Type#AUTO_EMBED})
+   * and {@link SearchIndexDefinition} (via {@link FieldTypeDefinition.Type#AUTO_EMBED_VECTOR}).
    */
   boolean isAutoEmbeddingIndex();
+
+  /**
+   * Returns the auto-embedding feature version. Returns 0 if not an auto-embedding index. Returns
+   * 1 for legacy text-type auto-embedding (vector indexes only). Returns 2+ for materialized
+   * view-based auto-embedding.
+   */
+  int getParsedAutoEmbeddingFeatureVersion();
+
+  /**
+   * Returns the embedding model name per field path for auto-embedding fields. Returns an empty map
+   * if this is not an auto-embedding index.
+   */
+  ImmutableMap<FieldPath, String> getModelNamePerPath();
+
+  /** Returns the original IndexID carried over before Cluster migration or upgrade */
+  Optional<ObjectId> getIndexIdAtCreationTime();
+
+  /**
+   * Returns the auto-embedding definition version that can be different from index definition
+   * version, controls versioning of auto-embedding materialized view collection.
+   */
+  Optional<Long> getAutoEmbeddingDefinitionVersion();
+
+  /**
+   * Returns the materialized view collection name format version if this is a materialized view
+   * based index.
+   */
+  Optional<Long> getMaterializedViewNameFormatVersion();
 
   default MongoNamespace getLastObservedNamespace() {
     return new MongoNamespace(this.getDatabase(), this.getLastObservedCollectionName());

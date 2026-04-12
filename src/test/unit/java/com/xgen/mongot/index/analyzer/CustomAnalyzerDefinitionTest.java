@@ -22,14 +22,14 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      CustomAnalyzerDefinitionTest.TestDeserialization.class,
-      CustomAnalyzerDefinitionTest.TestSerialization.class,
-      CustomAnalyzerDefinitionTest.TestDefinition.class
+      CustomAnalyzerDefinitionTest.DeserializationTest.class,
+      CustomAnalyzerDefinitionTest.SerializationTest.class,
+      CustomAnalyzerDefinitionTest.DefinitionTest.class
     })
 public class CustomAnalyzerDefinitionTest {
 
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
     private static final String SUITE_NAME = "custom-analyzer-deserialization";
     private static final BsonDeserializationTestSuite<CustomAnalyzerDefinition> TEST_SUITE =
         BsonDeserializationTestSuite.fromDocument(
@@ -81,7 +81,7 @@ public class CustomAnalyzerDefinitionTest {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
     private static final String SUITE_NAME = "custom-analyzer-serialization";
     private static final BsonSerializationTestSuite<CustomAnalyzerDefinition> TEST_SUITE =
         BsonSerializationTestSuite.fromEncodable(
@@ -89,7 +89,7 @@ public class CustomAnalyzerDefinitionTest {
 
     private final BsonSerializationTestSuite.TestSpec<CustomAnalyzerDefinition> testSpec;
 
-    public TestSerialization(
+    public SerializationTest(
         BsonSerializationTestSuite.TestSpec<CustomAnalyzerDefinition> testSpec) {
       this.testSpec = testSpec;
     }
@@ -131,7 +131,7 @@ public class CustomAnalyzerDefinitionTest {
     }
   }
 
-  public static class TestDefinition {
+  public static class DefinitionTest {
     @Test
     public void testOnlyStreamTokenizerProducesStream() {
       CustomAnalyzerDefinition definition =

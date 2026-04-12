@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenizer/keyword.json",
+  "type": "object",
+  "_description": "Tokenizer that tokenizes the entire input as a single token.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "const": "keyword",
+      "markdownDescription": "Label that identifies the `keyword` tokenizer type, which tokenizes the entire input as a single token.",
+      "description": "Label that identifies the keyword tokenizer type, which tokenizes the entire input as a single token.",
+      "$ref": "../tokenizer.json#/definitions/typePropertyOverrides"
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

@@ -8,6 +8,7 @@ java_test_suite(
         "DaitchMokotoffSoundexTokenFilterDefinitionTest.java",
         "EdgeGramTokenFilterDefinitionTest.java",
         "EdgeGramTokenizerDefinitionTest.java",
+        "EnglishMinimalStemmingTokenFilterDefinitionTest.java",
         "EnglishPossessiveTokenFilterDefinitionTest.java",
         "FlattenGraphTokenFilterDefinitionTest.java",
         "HtmlStripCharFilterDefinitionTest.java",

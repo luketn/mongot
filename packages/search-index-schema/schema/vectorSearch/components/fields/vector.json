@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "vectorSearch/components/fields/vector.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Field type to use to index array of numbers for vector search. To learn more, see [vector Type](https://dochub.mongodb.org/core/avs-vector-type/).",
+      "description": "Field type to use to index array of numbers for vector search.",
+      "const": "vector",
+      "$ref": "../fields.json#/definitions/typeErrorMessage"
+    },
+    "path": {
+      "suggestSortText": "1",
+      "type": "string",
+      "pattern": "^.*$",
+      "markdownDescription": "Name of the field to index. Use dot notation for embedded fields. ",
+      "errorMessage": "Field name does not meet MongoDB field naming restrictions. To learn more, see [Field Names](https://dochub.mongodb.org/core/mdb-field-names) ."
+    },
+    "numDimensions": {
+      "suggestSortText": "2",
+      "type": "integer",
+      "markdownDescription": "Number of vector dimensions. Value can be between 1 and 4096, both inclusive.",
+      "description": "Number of vector dimensions. Value can be between 1 and 4096, both inclusive.",
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "similarity": {
+      "suggestSortText": "3",
+      "type": "string",
+      "markdownDescription": "Vector similarity function to use to search for top K-nearest neighbors. \nValues include:\n- `euclidean` - measures the distance between ends of vectors allowing similarity measurements based on varying dimensions. See [Euclidean](https://en.wikipedia.org/wiki/Euclidean_distance) to learn more.\n- `cosine` - measures similarity based on the angle between vectors allowing for similarity measurements not scaled by magnitude. See [Cosine](https://en.wikipedia.org/wiki/Cosine_similarity) to learn more.\n- `dotProduct` - measures similarity based on both the angle between, and magnitude of vectors. See [Dot Product](https://en.wikipedia.org/wiki/Dot_product) to learn more.",
+      "description": "Vector similarity function to use to search for top K-nearest neighbors",
+      "enum": ["euclidean", "cosine", "dotProduct"]
+    },
+    "quantization": {
+      "suggestSortText": "4",
+      "type": "string",
+      "description": "Type of quantization to apply on the double or 32-bit float values in your vector field",
+      "markdownDescription": "Type of quantization to apply on the double or 32-bit float values in your vector field. \nValues include:\n- `none` - for no quantization of the vector embeddings.\n- `scalar` - for transforming 4 byte floating point values to 1 byte integers.\n- `binary` - for transforming 4 byte floating point values to a single bit.",
+      "default": "none",
+      "oneOf": [
+        {
+          "const": "none"
+        },
+        {
+          "const": "scalar"
+        },
+        {
+          "const": "binary"
+        }
+      ]
+    }
+  },
+  "if": {
+    "properties": {
+      "quantization": {
+        "const": "binary"
+      }
+    },
+    "required": ["quantization"]
+  },
+  "then": {
+    "properties": {
+      "numDimensions": {
+        "multipleOf": 8
+      }
+    }
+  },
+  "required": ["type", "path", "numDimensions", "similarity"],
+  "examples": [
+    {
+      "type": "vector",
+      "path": "<field-name>",
+      "numDimensions": 0,
+      "similarity": "<similarity-function>"
+    }
+  ],
+  "additionalProperties": false
+}

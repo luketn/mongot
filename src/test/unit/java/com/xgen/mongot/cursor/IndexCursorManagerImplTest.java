@@ -17,6 +17,7 @@ import com.xgen.mongot.catalog.DefaultIndexCatalog;
 import com.xgen.mongot.cursor.batch.QueryCursorOptions;
 import com.xgen.mongot.index.IndexGeneration;
 import com.xgen.mongot.index.IndexUnavailableException;
+import com.xgen.mongot.index.InitializedIndex;
 import com.xgen.mongot.index.InitializedSearchIndex;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.lucene.explain.tracing.Explain;
@@ -76,17 +77,18 @@ public class IndexCursorManagerImplTest {
 
     // create a cursor factory where cursors are being recorded and spied upon
     CursorFactory factory = spy(new CursorFactory(CursorIdSupplier.createDefault()));
-    Answer<CursorFactory.SearchCursorAndMetaResults> wrapNewCursors =
+    Answer<CursorFactory.CursorAndMetaResults> wrapNewCursors =
         invocationOnMock -> {
-          CursorFactory.SearchCursorAndMetaResults cursorAndMeta =
-              (CursorFactory.SearchCursorAndMetaResults) invocationOnMock.callRealMethod();
+          CursorFactory.CursorAndMetaResults cursorAndMeta =
+              (CursorFactory.CursorAndMetaResults) invocationOnMock.callRealMethod();
 
           MongotCursor mockCursor = spy(cursorAndMeta.cursor);
           this.lastCreatedSearchCursor = Optional.of(mockCursor);
-          return new CursorFactory.SearchCursorAndMetaResults(
-              mockCursor, cursorAndMeta.metaResults);
+          return new CursorFactory.CursorAndMetaResults(mockCursor, cursorAndMeta.metaResults);
         };
-    Mockito.doAnswer(wrapNewCursors).when(factory).createCursor(any(), any(), any(), any(), any());
+    Mockito.doAnswer(wrapNewCursors)
+        .when(factory)
+        .createCursor(any(), any(InitializedIndex.class), any(CursorQuery.class), any(), any());
 
     Answer<CursorFactory.SearchCursorAndMetaCursor> wrapNewIntermediateCursors =
         invocationOnMock -> {

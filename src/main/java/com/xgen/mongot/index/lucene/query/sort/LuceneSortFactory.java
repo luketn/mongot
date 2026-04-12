@@ -16,9 +16,12 @@ import com.xgen.mongot.index.query.sort.SequenceToken;
 import com.xgen.mongot.index.query.sort.Sort;
 import com.xgen.mongot.index.query.sort.SortBetaV1;
 import com.xgen.mongot.index.query.sort.SortSpec;
+import com.xgen.mongot.index.query.sort.UserFieldSortOptions;
 import com.xgen.mongot.index.version.IndexCapabilities;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.FieldPath;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.SortField;
@@ -102,6 +105,28 @@ public class LuceneSortFactory {
         String.format("%s is not indexed as sortable", sortField.field()));
   }
 
+  /**
+   * Determines whether a sort field needs a prepended $nullness field for correct null/missing
+   * ordering in index sort. Checks the index sort definition (not per-shard data) to ensure
+   * consistent expansion across all shards in a sharded cluster.
+   */
+  private static boolean needsNullnessField(
+      Optional<org.apache.lucene.search.Sort> indexSort, MongotSortField field) {
+    if (indexSort.isEmpty() || !(field.options() instanceof UserFieldSortOptions)) {
+      return false;
+    }
+    String nullnessFieldName = FieldName.getNullnessFieldName(field.field());
+    for (SortField sortField : indexSort.get().getSort()) {
+      if (nullnessFieldName.equals(sortField.getField())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private record ExpandedSortFields(
+      List<MongotSortField> fields, ImmutableSet<Long> nullnessFieldIndexes) {}
+
   @SuppressWarnings("checkstyle:MissingJavadocMethod")
   public org.apache.lucene.search.Sort createLuceneSort(
       SortSpec sortSpec,
@@ -111,9 +136,13 @@ public class LuceneSortFactory {
       Optional<org.apache.lucene.search.Sort> indexSort)
       throws InvalidQueryException {
 
+    ExpandedSortFields expandedSortFields =
+        expandWithNullnessFields(sortSpec, indexSort);
+    List<MongotSortField> expandedFields = expandedSortFields.fields();
+
     if (sequenceToken.isPresent()) {
       int tokenFieldCount = sequenceToken.get().fieldDoc().fields.length;
-      int sortFieldCount = sortSpec.getSortFields().size();
+      int sortFieldCount = expandedFields.size();
       if (tokenFieldCount != sortFieldCount) {
         throw new InvalidQueryException(
             String.format(
@@ -136,17 +165,24 @@ public class LuceneSortFactory {
                                     embeddedRoot))));
 
     Optional<FieldDoc> after = sequenceToken.map(SequenceToken::fieldDoc);
+
+    boolean hasIndexSort = indexSort.isPresent();
+
     SortField[] sortFields =
         Streams.mapWithIndex(
-                sortSpec.getSortFields().stream(),
+                expandedFields.stream(),
                 (field, idx) ->
-                    createLuceneSortField(
-                        field,
-                        fieldsToSortableTypesMapping
-                            .getFieldToSortableTypes(embeddedRoot)
-                            .get(field.field()),
-                        after.map(fieldDoc -> fieldDoc.fields[(int) idx]),
-                        embeddedRoot))
+                    expandedSortFields.nullnessFieldIndexes().contains(idx)
+                        ? createNullnessSortField(field)
+                        : createLuceneSortField(
+                            field,
+                            Optional.of(
+                                fieldsToSortableTypesMapping
+                                    .getFieldToSortableTypes(embeddedRoot)
+                                    .get(field.field())),
+                            after.map(fieldDoc -> fieldDoc.fields[(int) idx]),
+                            embeddedRoot,
+                            hasIndexSort))
             .map(
                 sortField ->
                     Explain.isEnabled()
@@ -166,19 +202,66 @@ public class LuceneSortFactory {
     return luceneSort;
   }
 
+  /**
+   * Expands the sort spec with $nullness MongotSortField entries for INT64/Date fields that need
+   * correct null/missing ordering in a sorted index. Each nullness entry is inserted immediately
+   * before its corresponding user sort field.
+   *
+   * <p>Expansion is skipped when the expanded sort would not align with the index sort, avoiding
+   * unnecessary {@link org.apache.lucene.search.Pruning#NONE} overhead on the nullness comparator.
+   */
+  private ExpandedSortFields expandWithNullnessFields(
+      SortSpec sortSpec,
+      Optional<org.apache.lucene.search.Sort> indexSort) {
+    var mongotFields = sortSpec.getSortFields();
+    if (indexSort.isEmpty()
+        || !IndexSortUtils.expandedSortAlignsWithIndexSort(
+            mongotFields, indexSort.get())) {
+      return new ExpandedSortFields(mongotFields, ImmutableSet.of());
+    }
+
+    List<MongotSortField> expanded = new ArrayList<>();
+    ImmutableSet.Builder<Long> nullnessFieldIndexes = ImmutableSet.builder();
+
+    for (MongotSortField field : mongotFields) {
+      if (needsNullnessField(indexSort, field)) {
+        FieldPath nullnessPath = FieldPath.newRoot(FieldName.getNullnessFieldName(field.field()));
+        nullnessFieldIndexes.add((long) expanded.size());
+        expanded.add(new MongotSortField(nullnessPath, field.options()));
+      }
+
+      expanded.add(field);
+    }
+
+    return new ExpandedSortFields(expanded, nullnessFieldIndexes.build());
+  }
+
+  /**
+   * Creates a $nullness query sort field that matches the corresponding field in the index sort.
+   * This enables {@link IndexSortUtils#canBenefitFromIndexSort} prefix matching for early
+   * termination and sort pruning optimizations.
+   */
+  public static SortField createNullnessSortField(MongotSortField mongotSortField) {
+    return new MqlNullnessSortField(mongotSortField);
+  }
+
   private SortField createLuceneSortField(
       MongotSortField mongotSortField,
-      ImmutableSet<FieldName.TypeField> typeFields,
+      Optional<ImmutableSet<FieldName.TypeField>> typeFields,
       Optional<Object> afterFieldValue,
-      Optional<FieldPath> embeddedRoot) {
+      Optional<FieldPath> embeddedRoot,
+      boolean indexSorted) {
+    ImmutableSet<FieldName.TypeField> rawTypeFields =
+        typeFields.orElseGet(ImmutableSet::of);
     return mongotSortField.options() instanceof MetaSortOptions metaOptions
         ? metaOptions.getMetaSort()
         : createOptimizedSortField(
                 mongotSortField,
-                typeFields,
+                rawTypeFields,
                 afterFieldValue,
                 embeddedRoot,
-                this.context.getIndexCapabilities())
+                this.context.getIndexCapabilities(),
+                indexSorted)
             .orElseGet(() -> new MqlMixedSort(mongotSortField, embeddedRoot));
   }
 
@@ -214,7 +297,8 @@ public class LuceneSortFactory {
       ImmutableSet<FieldName.TypeField> typeFields,
       Optional<Object> afterFieldValue,
       Optional<FieldPath> embeddedRoot,
-      IndexCapabilities indexCapabilities) {
+      IndexCapabilities indexCapabilities,
+      boolean indexSorted) {
     if (typeFields.size() != 1) {
       return Optional.empty();
     }
@@ -225,27 +309,36 @@ public class LuceneSortFactory {
         return afterFieldValue.isEmpty() || afterFieldValue.get() instanceof BsonString
             ? Optional.of(
                 MqlSortedSetSortField.stringSort(
-                    FieldName.TypeField.TOKEN, mongotSortField, true, embeddedRoot))
+                    FieldName.TypeField.TOKEN, mongotSortField, true, embeddedRoot, indexSorted))
             : Optional.empty();
       }
       case DATE_V2 -> {
         return afterFieldValue.isEmpty() || afterFieldValue.get() instanceof BsonDateTime
             ? Optional.of(
-                new MqlDateSort(FieldName.TypeField.DATE_V2, mongotSortField, true, embeddedRoot))
+                new MqlDateSort(
+                    FieldName.TypeField.DATE_V2, mongotSortField, true, embeddedRoot, indexSorted))
             : Optional.empty();
       }
       case NUMBER_DOUBLE_V2 -> {
         return afterFieldValue.isEmpty() || afterFieldValue.get() instanceof BsonDouble
             ? Optional.of(
                 new MqlDoubleSort(
-                    FieldName.TypeField.NUMBER_DOUBLE_V2, mongotSortField, true, embeddedRoot))
+                    FieldName.TypeField.NUMBER_DOUBLE_V2,
+                    mongotSortField,
+                    true,
+                    embeddedRoot,
+                    indexSorted))
             : Optional.empty();
       }
       case NUMBER_INT64_V2 -> {
         return afterFieldValue.isEmpty() || afterFieldValue.get() instanceof BsonInt64
             ? Optional.of(
                 new MqlLongSort(
-                    FieldName.TypeField.NUMBER_INT64_V2, mongotSortField, true, embeddedRoot))
+                    FieldName.TypeField.NUMBER_INT64_V2,
+                    mongotSortField,
+                    true,
+                    embeddedRoot,
+                    indexSorted))
             : Optional.empty();
       }
       case UUID -> {
@@ -253,24 +346,26 @@ public class LuceneSortFactory {
                 || (afterFieldValue.get() instanceof BsonBinary
                     && ((BsonBinary) afterFieldValue.get()).getType()
                         == BsonBinarySubType.UUID_STANDARD.getValue())
-            ? Optional.of(MqlSortedSetSortField.uuidSort(mongotSortField, embeddedRoot))
+            ? Optional.of(
+                MqlSortedSetSortField.uuidSort(mongotSortField, embeddedRoot, indexSorted))
             : Optional.empty();
       }
       case NULL -> {
         // MixedSort handles this case optimally
         return Optional.empty();
-        // MixedSort handles this case optimally
       }
       case OBJECT_ID -> {
         return indexCapabilities.supportsObjectIdAndBooleanDocValues()
                 && (afterFieldValue.isEmpty() || afterFieldValue.get() instanceof BsonObjectId)
-            ? Optional.of(MqlSortedSetSortField.objectIdSort(mongotSortField, embeddedRoot))
+            ? Optional.of(
+                MqlSortedSetSortField.objectIdSort(mongotSortField, embeddedRoot, indexSorted))
             : Optional.empty();
       }
       case BOOLEAN -> {
         return indexCapabilities.supportsObjectIdAndBooleanDocValues()
                 && (afterFieldValue.isEmpty() || afterFieldValue.get() instanceof BsonBoolean)
-            ? Optional.of(MqlSortedSetSortField.booleanSort(mongotSortField, embeddedRoot))
+            ? Optional.of(
+                MqlSortedSetSortField.booleanSort(mongotSortField, embeddedRoot, indexSorted))
             : Optional.empty();
       }
 
@@ -285,7 +380,8 @@ public class LuceneSortFactory {
                 FieldName.TypeField.SORTABLE_DATE_BETA_V1,
                 mongotSortField,
                 false,
-                Optional.empty()));
+                Optional.empty(),
+                false));
       }
       case SORTABLE_NUMBER_BETA_V1 -> {
         Check.isEmpty(embeddedRoot, "returnScope");
@@ -294,7 +390,8 @@ public class LuceneSortFactory {
                 FieldName.TypeField.SORTABLE_NUMBER_BETA_V1,
                 mongotSortField,
                 false,
-                Optional.empty()));
+                Optional.empty(),
+                false));
       }
       case SORTABLE_STRING_BETA_V1 -> {
         Check.isEmpty(embeddedRoot, "returnScope");
@@ -303,7 +400,8 @@ public class LuceneSortFactory {
                 FieldName.TypeField.SORTABLE_STRING_BETA_V1,
                 mongotSortField,
                 false,
-                Optional.empty()));
+                Optional.empty(),
+                false));
       }
       case AUTOCOMPLETE,
           DATE,

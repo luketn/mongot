@@ -44,7 +44,8 @@ class LuceneSearchManagerFactory {
   LuceneSearchManager<FacetCollectorQueryInfo> newFacetCollectorManager(
       Query query, Optional<Sort> luceneSort, Optional<SequenceToken> searchAfter) {
     return new MeteredLuceneSearchManager<>(
-        this.metricsUpdater, new LuceneFacetCollectorSearchManager(query, luceneSort, searchAfter));
+        this.metricsUpdater,
+        new LuceneFacetCollectorSearchManager(query, luceneSort, searchAfter));
   }
 
   LuceneSearchManager<QueryInfo> newOperatorManager(
@@ -60,7 +61,8 @@ class LuceneSearchManagerFactory {
 
     return new MeteredLuceneSearchManager<>(
         this.metricsUpdater,
-        new LuceneOperatorSearchManager(luceneQuery, count, luceneSort, searchAfter));
+        new LuceneOperatorSearchManager(
+            luceneQuery, count, luceneSort, searchAfter));
   }
 
   private LuceneSearchManager<QueryInfo> newCachingVectorQueryManager(

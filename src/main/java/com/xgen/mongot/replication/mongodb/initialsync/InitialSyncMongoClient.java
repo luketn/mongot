@@ -10,6 +10,7 @@ import com.xgen.mongot.util.mongodb.ChangeStreamAggregateCommand;
 import com.xgen.mongot.util.mongodb.CollectionScanAggregateCommand;
 import com.xgen.mongot.util.mongodb.CollectionScanFindCommand;
 import java.util.Optional;
+import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
 
 interface InitialSyncMongoClient {
@@ -32,6 +33,8 @@ interface InitialSyncMongoClient {
    * @throws InitialSyncException if unable to retrieve a valid optime.
    */
   BsonTimestamp getMaxValidMajorityReadOptime() throws InitialSyncException;
+
+  BsonDocument fsync();
 
   /**
    * Returns a ChangeStreamMongoClient to use. Note that this must be called once and the returned

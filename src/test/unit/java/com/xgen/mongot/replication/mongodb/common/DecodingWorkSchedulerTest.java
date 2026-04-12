@@ -15,6 +15,7 @@ import com.xgen.mongot.index.IndexMetricsUpdater.ReplicationMetricsUpdater;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.version.Generation;
 import com.xgen.mongot.index.version.GenerationId;
+import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.metrics.ServerStatusDataExtractor;
 import com.xgen.mongot.util.BsonUtils;
 import com.xgen.mongot.util.Enums;
@@ -512,10 +513,12 @@ public class DecodingWorkSchedulerTest {
   public void testMetricSanity() throws Exception {
     MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
-    DecodingWorkScheduler scheduler = new DecodingWorkScheduler(
-        2,
-        Executors.fixedSizeThreadPool("decoding", 2, meterRegistry),
-        meterRegistry);
+    DecodingWorkScheduler scheduler =
+        new DecodingWorkScheduler(
+            2,
+            CommonReplicationConfig.Type.DEFAULT,
+            Executors.fixedSizeThreadPool("decoding", 2, meterRegistry),
+            new MetricsFactory("decodingWorkScheduler", meterRegistry));
 
     List<RawBsonDocument> documents = IntStream.range(0, 5)
         .mapToObj(i -> BsonUtils.documentToRaw(new BsonDocument()))

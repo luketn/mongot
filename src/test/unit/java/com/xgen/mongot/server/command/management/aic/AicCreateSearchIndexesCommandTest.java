@@ -86,12 +86,17 @@ public class AicCreateSearchIndexesCommandTest {
             .build();
     ArgumentCaptor<SearchIndexDefinition> captor =
         ArgumentCaptor.forClass(SearchIndexDefinition.class);
+    ArgumentCaptor<BsonDocument> rawDefCaptor = ArgumentCaptor.forClass(BsonDocument.class);
     verify(mockAic)
-        .createIndex(eq(new AuthoritativeIndexKey(COLLECTION_UUID, INDEX_NAME)), captor.capture());
+        .createIndex(
+            eq(new AuthoritativeIndexKey(COLLECTION_UUID, INDEX_NAME)),
+            captor.capture(),
+            rawDefCaptor.capture());
     assertNotNull(captor.getValue());
     assertTrue(IndexMapper.areEquivalent(expected, captor.getValue()));
     assertEquals(0L, (long) captor.getValue().getDefinitionVersion().orElseThrow());
     assertTrue(captor.getValue().getDefinitionVersionCreatedAt().isPresent());
+    assertEquals(definition.indexes().getFirst().definitionBson(), rawDefCaptor.getValue());
   }
 
   @Test
@@ -129,7 +134,9 @@ public class AicCreateSearchIndexesCommandTest {
         ArgumentCaptor.forClass(VectorIndexDefinition.class);
     verify(mockAic)
         .createIndex(
-            eq(new AuthoritativeIndexKey(COLLECTION_UUID, VECTOR_INDEX_NAME)), captor.capture());
+            eq(new AuthoritativeIndexKey(COLLECTION_UUID, VECTOR_INDEX_NAME)),
+            captor.capture(),
+            any());
     assertNotNull(captor.getValue());
     assertTrue(IndexMapper.areEquivalent(expected, captor.getValue()));
     assertEquals(0L, (long) captor.getValue().getDefinitionVersion().orElseThrow());
@@ -139,7 +146,7 @@ public class AicCreateSearchIndexesCommandTest {
   @Test
   public void testDedupeExistingIndexes() throws MetadataServiceException {
     var mockAic = mock(AuthoritativeIndexCatalog.class);
-    when(mockAic.listIndexes(COLLECTION_UUID))
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID))
         .thenReturn(
             List.of(
                 SearchIndexDefinitionBuilder.builder()
@@ -165,14 +172,14 @@ public class AicCreateSearchIndexesCommandTest {
     assertEquals(1, indexesCreated.size());
     assertEquals(INDEX_NAME, indexesCreated.getFirst().asDocument().getString("name").getValue());
 
-    verify(mockAic, never()).createIndex(any(), any());
-    verify(mockAic, never()).updateIndex(any(), any());
+    verify(mockAic, never()).createIndex(any(), any(), any());
+    verify(mockAic, never()).updateIndex(any(), any(), any());
   }
 
   @Test
   public void testExistingIndexesDifferentDefinitionThrowsError() throws MetadataServiceException {
     var mockAic = mock(AuthoritativeIndexCatalog.class);
-    when(mockAic.listIndexes(COLLECTION_UUID))
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID))
         .thenReturn(
             List.of(
                 SearchIndexDefinitionBuilder.builder()
@@ -210,8 +217,8 @@ public class AicCreateSearchIndexesCommandTest {
             .startsWith("Index " + INDEX_NAME + " already exists"));
     assertFalse(response.containsKey("indexesCreated"));
 
-    verify(mockAic, never()).createIndex(any(), any());
-    verify(mockAic, never()).updateIndex(any(), any());
+    verify(mockAic, never()).createIndex(any(), any(), any());
+    verify(mockAic, never()).updateIndex(any(), any(), any());
   }
 
   @Test
@@ -229,14 +236,14 @@ public class AicCreateSearchIndexesCommandTest {
                     .mappings(DocumentFieldDefinitionBuilder.builder().dynamic(true).build())
                     .build()))
         .when(mockAic)
-        .listIndexes(COLLECTION_UUID);
+        .listIndexDefinitions(COLLECTION_UUID);
     doThrow(
             MetadataServiceException.createFailed(
                 new MongoWriteException(
                     new WriteError(11000, "duplicate key", new BsonDocument()),
                     new ServerAddress("localhost"))))
         .when(mockAic)
-        .createIndex(eq(new AuthoritativeIndexKey(COLLECTION_UUID, INDEX_NAME)), any());
+        .createIndex(eq(new AuthoritativeIndexKey(COLLECTION_UUID, INDEX_NAME)), any(), any());
 
     CreateSearchIndexesCommandDefinition definition =
         (CreateSearchIndexesCommandDefinition)
@@ -275,14 +282,14 @@ public class AicCreateSearchIndexesCommandTest {
                             .build())
                     .build()))
         .when(mockAic)
-        .listIndexes(COLLECTION_UUID);
+        .listIndexDefinitions(COLLECTION_UUID);
     doThrow(
             MetadataServiceException.createFailed(
                 new MongoWriteException(
                     new WriteError(11000, "duplicate key", new BsonDocument()),
                     new ServerAddress("localhost"))))
         .when(mockAic)
-        .createIndex(eq(new AuthoritativeIndexKey(COLLECTION_UUID, INDEX_NAME)), any());
+        .createIndex(eq(new AuthoritativeIndexKey(COLLECTION_UUID, INDEX_NAME)), any(), any());
 
     CreateSearchIndexesCommandDefinition definition =
         (CreateSearchIndexesCommandDefinition)
@@ -300,7 +307,105 @@ public class AicCreateSearchIndexesCommandTest {
   }
 
   @Test
-  public void missingAnalyzerFailsToCreate() throws BsonParseException {
+  public void testNonMetadataServiceExceptionDuringCreateIndexFails()
+      throws MetadataServiceException {
+    var mockAic = mock(AuthoritativeIndexCatalog.class);
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID)).thenReturn(List.of());
+
+    doThrow(new RuntimeException("Connection timeout to metadata service"))
+        .when(mockAic)
+        .createIndex(eq(new AuthoritativeIndexKey(COLLECTION_UUID, INDEX_NAME)), any(), any());
+
+    CreateSearchIndexesCommandDefinition definition =
+        (CreateSearchIndexesCommandDefinition)
+            ManageSearchIndexCommandDefinitionBuilder.createIndexes()
+                .withDynamicIndex()
+                .buildSearchIndexCommand();
+    var command =
+        new AicCreateSearchIndexesCommand(
+            mockAic, DATABASE_NAME, COLLECTION_UUID, COLLECTION_NAME, Optional.empty(), definition);
+    var response = command.run();
+
+    // Verify that the command fails with COMMAND_FAILED error
+    assertEquals(Errors.COMMAND_FAILED.code, response.getInt32("code").getValue());
+    assertEquals(Errors.COMMAND_FAILED.name, response.getString("codeName").getValue());
+    assertTrue(
+        response.getString("errmsg").getValue().contains("Connection timeout to metadata service"));
+    assertFalse(response.containsKey("indexesCreated"));
+  }
+
+  @Test
+  public void testNonDuplicateKeyMetadataServiceExceptionDuringCreateIndexFails()
+      throws MetadataServiceException {
+    var mockAic = mock(AuthoritativeIndexCatalog.class);
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID)).thenReturn(List.of());
+
+    // Simulate a non-duplicate-key write error (e.g., write concern error)
+    var failedException =
+        MetadataServiceException.createFailed(
+            new MongoWriteException(
+                new WriteError(50, "write concern error", new BsonDocument()),
+                new ServerAddress("localhost")));
+    doThrow(failedException)
+        .when(mockAic)
+        .createIndex(eq(new AuthoritativeIndexKey(COLLECTION_UUID, INDEX_NAME)), any(), any());
+
+    CreateSearchIndexesCommandDefinition definition =
+        (CreateSearchIndexesCommandDefinition)
+            ManageSearchIndexCommandDefinitionBuilder.createIndexes()
+                .withDynamicIndex()
+                .buildSearchIndexCommand();
+    var command =
+        new AicCreateSearchIndexesCommand(
+            mockAic, DATABASE_NAME, COLLECTION_UUID, COLLECTION_NAME, Optional.empty(), definition);
+    var response = command.run();
+
+    // Verify that the command fails with COMMAND_FAILED error
+    assertEquals(Errors.COMMAND_FAILED.code, response.getInt32("code").getValue());
+    assertEquals(Errors.COMMAND_FAILED.name, response.getString("codeName").getValue());
+    assertTrue(response.getString("errmsg").getValue().contains("write concern error"));
+    assertFalse(response.containsKey("indexesCreated"));
+  }
+
+  @Test
+  public void testPartialFailureWithMultipleIndexes() throws MetadataServiceException {
+    var mockAic = mock(AuthoritativeIndexCatalog.class);
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID)).thenReturn(List.of());
+
+    // Create a definition with two indexes
+    CreateSearchIndexesCommandDefinition definition =
+        (CreateSearchIndexesCommandDefinition)
+            ManageSearchIndexCommandDefinitionBuilder.createIndexes()
+                .withDynamicIndex() // First index with INDEX_NAME
+                .withVectorIndex() // Second index with VECTOR_INDEX_NAME
+                .buildSearchIndexCommand();
+
+    // First index succeeds, second index fails with transient error
+    var transientException =
+        MetadataServiceException.createTransient(new RuntimeException("Transient network error"));
+    doThrow(transientException)
+        .when(mockAic)
+        .createIndex(
+            eq(new AuthoritativeIndexKey(COLLECTION_UUID, VECTOR_INDEX_NAME)), any(), any());
+
+    var command =
+        new AicCreateSearchIndexesCommand(
+            mockAic, DATABASE_NAME, COLLECTION_UUID, COLLECTION_NAME, Optional.empty(), definition);
+    var response = command.run();
+
+    // Verify that the entire command fails (no partial success)
+    assertEquals(Errors.COMMAND_FAILED.code, response.getInt32("code").getValue());
+    assertEquals(Errors.COMMAND_FAILED.name, response.getString("codeName").getValue());
+    assertTrue(response.getString("errmsg").getValue().contains("Transient network error"));
+    assertFalse(response.containsKey("indexesCreated"));
+
+    // Verify that the first index was attempted to be created
+    verify(mockAic)
+        .createIndex(eq(new AuthoritativeIndexKey(COLLECTION_UUID, INDEX_NAME)), any(), any());
+  }
+
+  @Test
+  public void missingAnalyzerFailsToCreate() throws BsonParseException, MetadataServiceException {
     this.failsWithCommandFailed(
         "references non-existent analyzers: non-standard",
         bson(
@@ -316,10 +421,31 @@ public class AicCreateSearchIndexesCommandTest {
         """));
   }
 
+  @Test
+  public void mismatchedNestedRootFailsToCreate()
+      throws BsonParseException, MetadataServiceException {
+    this.failsWithCommandFailed(
+        "nestedRoot \"sections\" does not match any field path in the index definition",
+        bson(
+            """
+        {
+          "name": "bad-nested-root",
+          "type": "vectorSearch",
+          "definition": {
+            "fields": [
+              {"path": "topLevelVector", "type": "vector", "numDimensions": 128, 
+              "similarity": "cosine"}
+            ],
+            "nestedRoot": "sections"
+          }
+        }
+        """));
+  }
+
   private void failsWithCommandFailed(String expectedMessage, BsonDocument indexDefinition)
-      throws BsonParseException {
+      throws BsonParseException, MetadataServiceException {
     var mockAic = mock(AuthoritativeIndexCatalog.class);
-    when(mockAic.listIndexes(COLLECTION_UUID)).thenReturn(List.of());
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID)).thenReturn(List.of());
 
     NamedSearchIndex index;
     try (var parser = BsonDocumentParser.fromRoot(indexDefinition).build()) {
@@ -338,5 +464,19 @@ public class AicCreateSearchIndexesCommandTest {
     var response = command.run();
     assertEquals(Errors.COMMAND_FAILED.code, response.getInt32("code").getValue());
     assertEquals(expectedMessage, response.getString("errmsg").getValue());
+  }
+
+  @Test
+  public void maybeLoadShed_alwaysReturnsFalse() {
+    AuthoritativeIndexCatalog mockAic = mock(AuthoritativeIndexCatalog.class);
+    var definition =
+        (CreateSearchIndexesCommandDefinition)
+            ManageSearchIndexCommandDefinitionBuilder.createIndexes()
+                .withDynamicIndex()
+                .buildSearchIndexCommand();
+    var command =
+        new AicCreateSearchIndexesCommand(
+            mockAic, DATABASE_NAME, COLLECTION_UUID, COLLECTION_NAME, Optional.empty(), definition);
+    assertFalse(command.maybeLoadShed());
   }
 }

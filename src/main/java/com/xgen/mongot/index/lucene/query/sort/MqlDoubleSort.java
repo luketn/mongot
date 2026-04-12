@@ -10,7 +10,6 @@ import com.xgen.mongot.util.FieldPath;
 import java.util.Optional;
 import org.apache.lucene.search.FieldComparator;
 import org.apache.lucene.search.Pruning;
-import org.apache.lucene.search.SortedNumericSortField;
 import org.apache.lucene.search.comparators.LongComparator;
 
 /**
@@ -20,7 +19,7 @@ import org.apache.lucene.search.comparators.LongComparator;
  * LongPoints that preserve the MQL sort order. The encoding reserves Long.MIN_VALUE and
  * Long.MAX_VALUE, which we use here to encode nulls.
  */
-class MqlDoubleSort extends SortedNumericSortField {
+class MqlDoubleSort extends MqlSortedNumericSortField {
 
   /**
    * Map nulls to either MIN_VALUE or MAX_VALUE depending on `position`.
@@ -44,12 +43,14 @@ class MqlDoubleSort extends SortedNumericSortField {
       FieldName.TypeField fieldType,
       MongotSortField sortField,
       boolean enablePruning,
-      Optional<FieldPath> embeddedRoot) {
+      Optional<FieldPath> embeddedRoot,
+      boolean indexSorted) {
     super(
         fieldType.getLuceneFieldName(sortField.field(), embeddedRoot),
         Type.LONG, // Use LONG because we index doubles with custom encoding + LongPoint
         sortField.options().isReverse(),
-        sortField.options().selector().numericSelector);
+        sortField.options().selector().numericSelector,
+        indexSorted);
     this.enablePruning = enablePruning;
     this.nullEmptySortPosition =
         ((UserFieldSortOptions) sortField.options()).nullEmptySortPosition();

@@ -192,7 +192,7 @@ def mongot_java_e2e_test_suite(
         package_suffix_strip = "/e2e",
         deps = deps,
         resources = resources,
-        data = data,
+        data = data + ["//docker:default-mms-config.json"],
         exclude_files = exclude_files,
         sizes = sizes,
         timeouts = timeouts,
@@ -292,8 +292,10 @@ def _mongot_java_test_suite(
             kwargs["size"] = sizes[test_file]
         if test_file in timeouts:
             kwargs["timeout"] = timeouts[test_file]
-        if test_file in jvm_flags:
-            kwargs["jvm_flags"] = jvm_flags[test_file]
+
+        # Always include --enable-preview for FFM support; it can be removed when we upgrade to Java 22+.
+        file_jvm_flags = jvm_flags.get(test_file, []) + ["--enable-preview"]
+        kwargs["jvm_flags"] = file_jvm_flags
 
         test_tags = default_tags + tags.get(test_file, [])
 

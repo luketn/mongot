@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "vectorSearch/components/fields/filter.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Field type to use to index string, number, and boolean values for pre-filtering the data. To learn more, see [filter Type](https://dochub.mongodb.org/core/avs-vector-search-filter-type/)",
+      "description": "Field type to use to index string, number, and boolean values for pre-filtering the data. Use dot notation for embedded fields. ",
+      "const": "filter",
+      "$ref": "../fields.json#/definitions/typeErrorMessage"
+    },
+    "path": {
+      "suggestSortText": "1",
+      "type": "string",
+      "pattern": "^.*$",
+      "markdownDescription": "Path of the field to index for pre-filtering the data. Use dot notation for embedded fields.",
+      "errorMessage": "Field name does not meet MongoDB field naming restrictions. To learn more, see [Field Names](https://dochub.mongodb.org/core/mdb-field-names)."
+    }
+  },
+  "required": ["type", "path"],
+  "examples": [
+    {
+      "type": "filter",
+      "path": "<field-name>"
+    }
+  ],
+  "additionalProperties": false
+}

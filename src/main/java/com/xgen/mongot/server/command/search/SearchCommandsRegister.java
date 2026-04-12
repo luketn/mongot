@@ -3,11 +3,12 @@ package com.xgen.mongot.server.command.search;
 import com.google.common.base.Supplier;
 import com.xgen.mongot.catalog.IndexCatalog;
 import com.xgen.mongot.catalog.InitializedIndexCatalog;
-import com.xgen.mongot.catalogservice.AuthoritativeIndexCatalog;
+import com.xgen.mongot.catalogservice.MetadataService;
 import com.xgen.mongot.config.manager.CachedIndexInfoProvider;
 import com.xgen.mongot.cursor.MongotCursorManager;
 import com.xgen.mongot.embedding.providers.EmbeddingServiceManager;
 import com.xgen.mongot.featureflag.FeatureFlags;
+import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlagRegistry;
 import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.server.command.CommandFactoryMarker;
 import com.xgen.mongot.server.command.management.aic.AicManageSearchIndexCommandFactory;
@@ -33,7 +34,9 @@ public class SearchCommandsRegister {
       String mongotVersion,
       String mongotHostName,
       MongoDbServerInfoProvider mongoDbServerInfoProvider,
-      FeatureFlags featureFlags) {}
+      FeatureFlags featureFlags,
+      DynamicFeatureFlagRegistry dynamicFeatureFlagRegistry) {
+  }
 
   public enum RegistrationMode {
     SECURE {
@@ -75,12 +78,14 @@ public class SearchCommandsRegister {
             metadata,
             searchMetrics);
     var getMore = new GetMoreCommand.Factory(cursorManager, bsonSizeSoftLimit, searchMetrics);
-    var planShardedSearch = new PlanShardedSearchCommand.Factory();
+    var planShardedSearch = new PlanShardedSearchCommand.Factory(metadata);
     var killCursors = new KillCursorsCommand.Factory(cursorManager);
     var vectorSearch =
         new VectorSearchCommand.Factory(
+            cursorManager,
             indexCatalog,
             initializedIndexCatalog,
+            bsonSizeSoftLimit,
             embeddingServiceManagerSupplier,
             metadata,
             searchMetrics);
@@ -107,13 +112,13 @@ public class SearchCommandsRegister {
   public static void registerIndexManagementCommands(
       RegistrationMode registrationMode,
       CommandRegistry commandRegistry,
-      AuthoritativeIndexCatalog authoritativeIndexCatalog,
+      MetadataService metadataService,
       CachedIndexInfoProvider cachedIndexInfoProvider,
       boolean internalListAllIndexesForTesting) {
     var registrationCommand = registrationMode.getRegistrationCommand(commandRegistry);
     var indexManagement =
         new AicManageSearchIndexCommandFactory(
-            authoritativeIndexCatalog, cachedIndexInfoProvider, internalListAllIndexesForTesting);
+            metadataService, cachedIndexInfoProvider, internalListAllIndexesForTesting);
 
     registrationCommand.register(ManageSearchIndexCommandDefinition.NAME, indexManagement, false);
   }

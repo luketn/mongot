@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/mappings/fields/stringFacet.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Data type to use to index fields with string values for [faceting](https://dochub.mongodb.org/core/faceting-fts). You can run only facet queries against fields indexed as the `stringFacet` type. To perform a normal text search on the same field, you must also index the field as type `string`. To learn more about this data type, see [stringFacet Type](https://dochub.mongodb.org/core/string-facet-type-fts).",
+      "description": "Data type to use to index fields with string values for faceting.",
+      "const": "stringFacet",
+      "$ref": "../field.json#/definitions/typeErrorMessage"
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

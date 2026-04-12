@@ -24,6 +24,7 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.tests.index.BaseKnnVectorsFormatTestCase;
 import org.apache.lucene.util.Bits;
@@ -74,6 +75,71 @@ public class Mongot01042HnswBinaryQuantizedVectorsFormatTest extends BaseKnnVect
     float[] v = randomPositiveNegativeVector(dim);
     VectorUtil.l2normalize(v);
     return v;
+  }
+
+  // Copied from Lucene's BaseKnnVectorsFormatTestCase to fix flaky test failure CLOUDP-391552.
+  // Lucene's testSearchWithVisitedLimit() assumes the relation will always be returned as
+  // GREATER_THAN_OR_EQUAL_TO which may be true for their codecs but our valid codec can rarely
+  // cause the EQUAL_TO relation to be returned. So, here we copy the test function and tweak
+  // the asserts to be more tolerant. Note that Lucene's add() is also copied into this file as
+  // add2() because add() is private when it could have been protected.
+  @Override
+  public void testSearchWithVisitedLimit() throws Exception {
+    IndexWriterConfig iwc = newIndexWriterConfig();
+    String fieldName = "field";
+
+    try (Directory dir = newDirectory();
+        IndexWriter iw = new IndexWriter(dir, iwc)) {
+      int numDoc = 300;
+      int dimension = 10;
+      for (int i = 0; i < numDoc; i++) {
+        float[] value;
+        if (random().nextInt(7) != 3) {
+          value = randomNormalizedVector(dimension);
+        } else {
+          value = null;
+        }
+        add2(iw, fieldName, i, value, VectorSimilarityFunction.EUCLIDEAN);
+      }
+      iw.forceMerge(1);
+
+      for (int i = 0; i < 30; i++) {
+        int idToDelete = random().nextInt(numDoc);
+        iw.deleteDocuments(new Term("id", Integer.toString(idToDelete)));
+      }
+
+      try (IndexReader reader = DirectoryReader.open(iw)) {
+        for (LeafReaderContext ctx : reader.leaves()) {
+          Bits liveDocs = ctx.reader().getLiveDocs();
+          FloatVectorValues vectorValues = ctx.reader().getFloatVectorValues(fieldName);
+          if (vectorValues == null) {
+            continue;
+          }
+
+          @Var int k = 5 + random().nextInt(45);
+          @Var int visitedLimit = k + random().nextInt(5);
+          TopDocs results =
+              ctx.reader()
+                  .searchNearestVectors(
+                      fieldName, randomNormalizedVector(dimension), k, liveDocs, visitedLimit);
+          if (results.totalHits.relation == TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO) {
+            assertEquals(visitedLimit, results.totalHits.value);
+          } else {
+            assertEquals(TotalHits.Relation.EQUAL_TO, results.totalHits.relation);
+            assertTrue(results.totalHits.value <= visitedLimit);
+          }
+
+          k = vectorValues.size();
+          visitedLimit = k + 30;
+          TopDocs secondResults =
+              ctx.reader()
+                  .searchNearestVectors(
+                      fieldName, randomNormalizedVector(dimension), k, liveDocs, visitedLimit);
+          assertEquals(TotalHits.Relation.EQUAL_TO, secondResults.totalHits.relation);
+          assertTrue(secondResults.totalHits.value <= visitedLimit);
+        }
+      }
+    }
   }
 
   // Copied from Lucene's BaseKnnVectorsFormatTestCase testRandomWithUpdatesAndGraph().

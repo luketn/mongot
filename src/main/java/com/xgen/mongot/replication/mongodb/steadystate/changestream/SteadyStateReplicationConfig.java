@@ -1,5 +1,6 @@
 package com.xgen.mongot.replication.mongodb.steadystate.changestream;
 
+import com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig;
 import com.xgen.mongot.util.Check;
 import java.util.List;
 import java.util.Optional;
@@ -15,6 +16,7 @@ public class SteadyStateReplicationConfig {
   private final List<String> excludedChangestreamFields;
   private final boolean matchCollectionUuidForUpdateLookup;
   private final boolean enableSplitLargeChangeStreamEvents;
+  private final CommonReplicationConfig.Type replicationType;
 
   private SteadyStateReplicationConfig(
       int numConcurrentChangeStreams,
@@ -25,7 +27,8 @@ public class SteadyStateReplicationConfig {
       Optional<Integer> embeddingGetMoreBatchSize,
       List<String> excludedChangestreamFields,
       boolean matchCollectionUuidForUpdateLookup,
-      boolean enableSplitLargeChangeStreamEvents) {
+      boolean enableSplitLargeChangeStreamEvents,
+      CommonReplicationConfig.Type replicationType) {
     this.numConcurrentChangeStreams = numConcurrentChangeStreams;
     this.changeStreamQueryMaxTimeMs = changeStreamQueryMaxTimeMs;
     this.changeStreamCursorMaxTimeSec = changeStreamCursorMaxTimeSec;
@@ -35,6 +38,7 @@ public class SteadyStateReplicationConfig {
     this.excludedChangestreamFields = excludedChangestreamFields;
     this.matchCollectionUuidForUpdateLookup = matchCollectionUuidForUpdateLookup;
     this.enableSplitLargeChangeStreamEvents = enableSplitLargeChangeStreamEvents;
+    this.replicationType = replicationType;
   }
 
   public static SteadyStateReplicationConfig.Builder builder() {
@@ -77,6 +81,10 @@ public class SteadyStateReplicationConfig {
     return this.enableSplitLargeChangeStreamEvents;
   }
 
+  public CommonReplicationConfig.Type getReplicationType() {
+    return this.replicationType;
+  }
+
   public static class Builder {
     private Optional<Integer> numConcurrentChangeStreams;
     private Optional<Integer> changeStreamQueryMaxTimeMs;
@@ -87,6 +95,7 @@ public class SteadyStateReplicationConfig {
     private List<String> excludedChangestreamFields;
     private boolean matchCollectionUuidForUpdateLookup;
     private boolean enableSplitLargeChangeStreamEvents;
+    private CommonReplicationConfig.Type replicationType;
 
     public Builder() {
       this.numConcurrentChangeStreams = Optional.empty();
@@ -98,6 +107,7 @@ public class SteadyStateReplicationConfig {
       this.excludedChangestreamFields = List.of();
       this.matchCollectionUuidForUpdateLookup = false;
       this.enableSplitLargeChangeStreamEvents = false;
+      this.replicationType = CommonReplicationConfig.Type.DEFAULT;
     }
 
     public Builder setNumConcurrentChangeStreams(int value) {
@@ -146,6 +156,11 @@ public class SteadyStateReplicationConfig {
       return this;
     }
 
+    public Builder setReplicationType(CommonReplicationConfig.Type replicationType) {
+      this.replicationType = replicationType;
+      return this;
+    }
+
     public SteadyStateReplicationConfig build() {
       return new SteadyStateReplicationConfig(
           Check.isPresent(this.numConcurrentChangeStreams, "numConcurrentChangeStreams"),
@@ -156,7 +171,8 @@ public class SteadyStateReplicationConfig {
           this.embeddingGetMoreBatchSize,
           this.excludedChangestreamFields,
           this.matchCollectionUuidForUpdateLookup,
-          this.enableSplitLargeChangeStreamEvents);
+          this.enableSplitLargeChangeStreamEvents,
+          this.replicationType);
     }
   }
 }

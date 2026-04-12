@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter/nGram.json",
+  "type": "object",
+  "_description": "Token filter that tokenizes input into n-grams of configured sizes.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the `nGram` token filter type, which tokenizes input into n-grams of configured sizes.",
+      "description": "Label that identifies the nGram token filter type, which tokenizes input into n-grams of configured sizes.",
+      "const": "nGram",
+      "$ref": "../tokenFilter.json#/definitions/typePropertyOverrides"
+    },
+    "minGram": {
+      "suggestSortText": "1",
+      "type": "integer",
+      "markdownDescription": "Number that specifies the minimum length of generated n-grams. Value must be less than or equal to `maxGram`.",
+      "description": "Number that specifies the minimum length of generated n-grams.",
+      "minimum": 0
+    },
+    "maxGram": {
+      "suggestSortText": "2",
+      "type": "integer",
+      "markdownDescription": "Number that specifies the maximum length of generated n-grams. Value must be greater than or equal to `minGram`.",
+      "description": "Number that specifies the maximum length of generated n-grams.",
+      "minimum": 0
+    },
+    "termNotInBounds": {
+      "suggestSortText": "3",
+      "type": "string",
+      "markdownDescription": "String that specifies whether to `include` or `omit` tokens shorter than `minGram` or longer than `maxGram`.",
+      "description": "String that specifies whether to include or omit tokens shorter than minGram or longer than maxGram.",
+      "oneOf": [
+        {
+          "const": "include"
+        },
+        {
+          "const": "omit"
+        }
+      ],
+      "default": "omit"
+    }
+  },
+  "required": ["type", "minGram", "maxGram"],
+  "additionalProperties": false
+}

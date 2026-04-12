@@ -308,7 +308,8 @@ public class SchedulerQueueTest {
     ControlledPriorityBlockingQueue<IndexBatches<IndexingSchedulerBatch>> priorityQueue =
         ControlledPriorityBlockingQueue.paused();
     SchedulerQueue<IndexingSchedulerBatch> queue =
-        new SchedulerQueue<>(priorityQueue, this.metricsFactory);
+        new SchedulerQueue<>(
+            priorityQueue, CommonReplicationConfig.Type.DEFAULT, this.metricsFactory);
     GenerationId genId = new GenerationId(new ObjectId(), Generation.CURRENT);
     IndexingSchedulerBatch batch = schedulerBatch(genId, Optional.of(new ObjectId()));
     queue.add(batch);

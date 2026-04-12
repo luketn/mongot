@@ -5,6 +5,7 @@ import com.xgen.mongot.index.ExceededLimitsException;
 import com.xgen.mongot.index.FieldExceededLimitsException;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -20,6 +21,16 @@ import java.util.Optional;
 public interface DocumentIndexer {
 
   void indexDocumentEvent(DocumentEvent event) throws FieldExceededLimitsException;
+
+  /**
+   * Pre-processes a batch of document events before individual indexing. Delegates to the
+   * underlying writer's {@link com.xgen.mongot.index.IndexWriter#prepareBatch} to allow
+   * batch-optimized resolution of auxiliary data (e.g. custom vector engine IDs).
+   *
+   * @param events the batch of document events
+   * @return the (possibly mutated) events, ready for individual {@link #indexDocumentEvent} calls
+   */
+  List<DocumentEvent> prepareBatch(List<DocumentEvent> events);
 
   /**
    * Updates live commit user data, which will be persisted along with the indexed documents at

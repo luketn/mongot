@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/mappings/fields/autocomplete.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Data type to use to index string type fields for autocompletion, including any string fields inside arrays and embedded documents. You can use this field type only for [static mappings](https://dochub.mongodb.org/core/static-and-dynamic-mappings-fts). To learn more about this data type, see [autocomplete Type](https://dochub.mongodb.org/core/autocomplete-type-fts).",
+      "description": "Data type to use to index fields with string values for autocompletion.",
+      "const": "autocomplete",
+      "$ref": "../field.json#/definitions/typeErrorMessage"
+    },
+    "analyzer": {
+      "suggestSortText": "1",
+      "$ref": "../../common.json#/definitions/autoCompleteAnalyzers",
+      "markdownDescription": "Label that identifies the [analyzer](https://dochub.mongodb.org/core/analyzers-fts) to use with the autocomplete mapping. You can use any Atlas Search analyzer except the `lucene.kuromoji` [language analyzer](https://dochub.mongodb.org/core/language-fts) and the following [custom analyzer](https://dochub.mongodb.org/core/custom-fts) tokenizers and [token filters](https://dochub.mongodb.org/core/token-filters-fts):\n\n- ``ngram`` Tokenizer\n- ``edgeGram`` Tokenizer\n- `daitchMokotoffSoundex` Token Filter\n- `nGram` Token Filter\n- `edgeGram` Token Filter\n- `shingle` Token Filter",
+      "description": "Label that identifies the analyzer to use with the autocomplete mapping."
+    },
+    "minGrams": {
+      "suggestSortText": "2",
+      "type": "integer",
+      "markdownDescription": "The minimum number of characters per indexed sequence. We recommend a value of `4`. Any value less than `4` can impact performance as the size of the index can become very large. We recommend the default value of `2` for `edgeGram` only.",
+      "description": "Minimum number of characters to index per sequence.",
+      "default": 2
+    },
+    "maxGrams": {
+      "suggestSortText": "3",
+      "type": "integer",
+      "markdownDescription": "Maximum number of characters per indexed sequence. Atlas Search limits the character length of indexed tokens based on this value.",
+      "description": "Maximum number of characters to index per sequence.",
+      "default": 15
+    },
+    "tokenization": {
+      "suggestSortText": "4",
+      "type": "string",
+      "markdownDescription": "[Tokenization strategy](https://dochub.mongodb.org/core/tokenizers-fts) to use when indexing the field for autocompletion. \nValues include:\n- `edgeGram` - create indexable tokens, referred to as grams, from variable-length character sequences starting at the left side of the words as delimited by the analyzer used with this autocomplete mapping.\n- `rightEdgeGram` - create indexable tokens, referred to as grams, from variable-length character sequences starting at the right side of the words as delimited by the analyzer used with this autocomplete mapping.\n- `nGram` - create indexable tokens, referred to as grams, by sliding a variable-length character window over a word. Atlas Search creates more tokens for `nGram` than `edgeGram` or `rightEdgeGram`. Therefore, `nGram` takes more space and time to index the field. `nGram` is better suited for querying languages with long, compound words or languages that don't use spaces.\n\nAtlas Search applies `edgeGram`, `rightEdgeGram`, and `nGram` at the letter-level.",
+      "description": "Tokenization strategy to use when indexing the field for autocompletion",
+      "oneOf": [
+        {
+          "const": "edgeGram"
+        },
+        {
+          "const": "rightEdgeGram"
+        },
+        {
+          "const": "nGram"
+        }
+      ],
+      "default": "edgeGram"
+    },
+    "foldDiacritics": {
+      "suggestSortText": "5",
+      "type": "boolean",
+      "markdownDescription": "Boolean flag that indicates whether to include or remove diacritics from the indexed text. \nValues include:\n\n- `true` - ignore diacritic marks in the index and query text. Returns results with and without diacritic marks. For example, a search for `cafè` returns results with the characters `cafè` and `cafe`.\n- `false` - include diacritic marks in the index and query text. Returns only results that match the strings with or without diacritics in the query. For example, a search for `cafè` returns results only with the characters `cafè`. A search for `cafe` returns results only with the characters `cafe`.",
+      "description": "Boolean flag that indicates whether to include or remove diacritics from the indexed text.",
+      "default": true
+    },
+    "similarity": {
+      "suggestSortText": "6",
+      "$ref": "./stringComponents/similarity.json"
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

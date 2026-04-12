@@ -1,38 +1,52 @@
 package com.xgen.mongot.embedding.providers.clients;
 
-import static com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig.ErrorHandlingConfig;
+import static com.xgen.mongot.embedding.providers.clients.VoyageClient.VOYAGE_API_FLEX_TIER;
 import static com.xgen.mongot.util.bson.FloatVector.OriginalType.NATIVE;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import com.google.errorprone.annotations.Var;
 import com.xgen.mongot.embedding.EmbeddingRequestContext;
 import com.xgen.mongot.embedding.VectorOrError;
 import com.xgen.mongot.embedding.exceptions.EmbeddingProviderTransientException;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingModelConfig;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig;
+import com.xgen.mongot.embedding.providers.congestion.AimdCongestionControl;
+import com.xgen.mongot.embedding.providers.congestion.DynamicSemaphore;
 import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.util.bson.Vector;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.http.HttpClient;
+import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
-import org.bson.types.ObjectId;
+import javax.net.ssl.SSLHandshakeException;
+import org.bson.BsonDocument;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
 public class VoyageClientTest {
   private static EmbeddingRequestContext dummyContext() {
-    return new EmbeddingRequestContext("testdb", new ObjectId(), UUID.randomUUID());
+    return new EmbeddingRequestContext("testdb", "testIndex", "testCollection");
   }
 
   private static HttpClient createMockHttpClient() throws Exception {
@@ -48,6 +62,7 @@ public class VoyageClientTest {
     doReturn(mockResponse)
         .when(mockClient)
         .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    doReturn(true).when(mockClient).awaitTermination(any(Duration.class));
     return mockClient;
   }
 
@@ -74,6 +89,8 @@ public class VoyageClientTest {
         Optional.empty(),
         Optional.empty(),
         true,
+        Optional.empty(),
+        false,
         Optional.empty());
   }
 
@@ -94,6 +111,8 @@ public class VoyageClientTest {
         Optional.empty(),
         Optional.of(perTenantCredentials),
         false,
+        Optional.empty(),
+        false,
         Optional.empty());
   }
 
@@ -109,6 +128,13 @@ public class VoyageClientTest {
   /** Helper to create and inject a VoyageClient with mocked HTTP client. */
   private static VoyageClient createMockedVoyageClient(
       EmbeddingServiceConfig.EmbeddingConfig config, HttpClient mockClient) {
+    return createMockedVoyageClient(config, mockClient, false);
+  }
+
+  private static VoyageClient createMockedVoyageClient(
+      EmbeddingServiceConfig.EmbeddingConfig config,
+      HttpClient mockClient,
+      boolean attachBillingMetadata) {
     EmbeddingModelConfig modelConfig =
         EmbeddingModelConfig.create(
             "voyage-3-large", EmbeddingServiceConfig.EmbeddingProvider.VOYAGE, config);
@@ -119,12 +145,15 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             modelConfig.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            attachBillingMetadata,
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
     return voyageClient;
   }
 
-  private static final ErrorHandlingConfig RETRY_CONFIG = new ErrorHandlingConfig(3, 10L, 10L, 0.1);
+  private static final EmbeddingServiceConfig.ErrorHandlingConfig RETRY_CONFIG =
+      new EmbeddingServiceConfig.ErrorHandlingConfig(3, 10L, 10L, 0.1);
   private static final MetricsFactory METRICS_FACTORY =
       new MetricsFactory("test", new SimpleMeterRegistry());
   private static final EmbeddingModelConfig VOYAGE_3_LARGE =
@@ -146,6 +175,8 @@ public class VoyageClientTest {
               Optional.empty(),
               Optional.empty(),
               true,
+              Optional.empty(),
+              false,
               Optional.empty()));
 
   @Test
@@ -178,7 +209,9 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             VOYAGE_3_LARGE.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false,
+            false);
 
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
 
@@ -210,7 +243,9 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             VOYAGE_3_LARGE.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false,
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
     EmbeddingProviderTransientException ex =
         assertThrows(
@@ -246,7 +281,9 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             VOYAGE_3_LARGE.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false,
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
 
     assertEquals(
@@ -284,7 +321,9 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             VOYAGE_3_LARGE.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false,
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
 
     assertEquals(
@@ -318,7 +357,9 @@ public class VoyageClientTest {
                 Optional.empty(),
                 Optional.empty(),
                 true,
-                Optional.of(customEndpoint)));
+                Optional.of(customEndpoint),
+                false,
+                Optional.empty()));
 
     HttpClient mockClient = mock(HttpClient.class);
     HttpResponse<String> mockResponse = mock(HttpResponse.class);
@@ -342,7 +383,9 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             customConfig.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false,
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
 
     voyageClient.embed(List.of("test"), dummyContext());
@@ -377,7 +420,9 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             VOYAGE_3_LARGE.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false,
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
 
     voyageClient.embed(List.of("test"), dummyContext());
@@ -413,7 +458,9 @@ public class VoyageClientTest {
             EmbeddingServiceConfig.ServiceTier.QUERY,
             VOYAGE_3_LARGE.query(),
             METRICS_FACTORY,
-            Optional.empty());
+            Optional.empty(),
+            false,
+            false);
     VoyageClient.injectVoyageClient(voyageClient, mockClient);
 
     // Update config with new endpoint
@@ -437,7 +484,9 @@ public class VoyageClientTest {
                 Optional.empty(),
                 Optional.empty(),
                 true,
-                Optional.of(newEndpoint)));
+                Optional.of(newEndpoint),
+                false,
+                Optional.empty()));
 
     voyageClient.updateConfig(updatedConfig.query());
     voyageClient.embed(List.of("test"), dummyContext());
@@ -455,9 +504,8 @@ public class VoyageClientTest {
     HttpClient mockClient = createMockHttpClient();
     VoyageClient voyageClient = createMockedVoyageClient(config, mockClient);
 
-    // For a dedicated cluster, tenant ID should be ignored
     EmbeddingRequestContext dedicatedContext =
-        new EmbeddingRequestContext("tenant123_mydb", new ObjectId(), UUID.randomUUID());
+        new EmbeddingRequestContext("tenant123_mydb", "testIndex", "testCollection");
 
     voyageClient.embed(List.of("test"), dedicatedContext);
 
@@ -479,9 +527,8 @@ public class VoyageClientTest {
     HttpClient mockClient = createMockHttpClient();
     VoyageClient voyageClient = createMockedVoyageClient(config, mockClient);
 
-    // For MTM, tenant ID should be extracted from database name
     EmbeddingRequestContext mtmContext =
-        new EmbeddingRequestContext("tenant1_mydb", new ObjectId(), UUID.randomUUID());
+        new EmbeddingRequestContext("tenant1_mydb", "testIndex", "testCollection");
 
     voyageClient.embed(List.of("test"), mtmContext);
 
@@ -506,7 +553,7 @@ public class VoyageClientTest {
 
     // Request with tenant2 (which has no credentials)
     EmbeddingRequestContext unknownTenantContext =
-        new EmbeddingRequestContext("tenant2_mydb", new ObjectId(), UUID.randomUUID());
+        new EmbeddingRequestContext("tenant2_mydb", "testIndex", "testCollection");
 
     EmbeddingProviderTransientException ex =
         assertThrows(
@@ -525,7 +572,7 @@ public class VoyageClientTest {
     VoyageClient voyageClient = createMockedVoyageClient(config, mockClient);
 
     EmbeddingRequestContext context =
-        new EmbeddingRequestContext("tenant123_mydb", new ObjectId(), UUID.randomUUID());
+        new EmbeddingRequestContext("tenant123_mydb", "testIndex", "testCollection");
 
     // Should successfully extract tenant ID and embed
     voyageClient.embed(List.of("test"), context);
@@ -539,7 +586,7 @@ public class VoyageClientTest {
 
     // Database looks like MTM format, but dedicated cluster ignores it
     EmbeddingRequestContext context =
-        new EmbeddingRequestContext("tenant123_mydb", new ObjectId(), UUID.randomUUID());
+        new EmbeddingRequestContext("tenant123_mydb", "testIndex", "testCollection");
 
     voyageClient.embed(List.of("test"), context);
 
@@ -560,7 +607,7 @@ public class VoyageClientTest {
         createMockedVoyageClient(config, mock(HttpClient.class)); // No need for response
 
     EmbeddingRequestContext context =
-        new EmbeddingRequestContext("mydb", new ObjectId(), UUID.randomUUID());
+        new EmbeddingRequestContext("mydb", "testIndex", "testCollection");
 
     EmbeddingProviderTransientException ex =
         assertThrows(
@@ -571,5 +618,578 @@ public class VoyageClientTest {
         "Unable to extract tenant ID from database name for MTM cluster. "
             + "Database name must be in format 'tenantId_dbName'.",
         ex.getMessage());
+  }
+
+  @Test
+  public void collectionScanTier_includesServiceTierFlex() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+    doReturn(200).when(mockResponse).statusCode();
+    doReturn(
+            "{\"object\":\"list\",\"data\":[{\"object\":\"embedding\","
+                + "\"embedding\":\"AKBEPACgSbw=\",\"index\":0}],\"model\":\"voyage-3-large\","
+                + "\"usage\":{\"total_tokens\":1}}")
+        .when(mockResponse)
+        .body();
+    doReturn(mockResponse)
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.COLLECTION_SCAN,
+            VOYAGE_3_LARGE.collectionScan(),
+            METRICS_FACTORY,
+            Optional.empty(),
+            false,
+            true);
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    voyageClient.embed(List.of("test"), dummyContext());
+
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    String requestBody = extractRequestBody(requestCaptor.getValue());
+    assertTrue(
+        "Request body should contain service_tier for COLLECTION_SCAN tier",
+        requestBody.contains("\"service_tier\""));
+    assertTrue(
+        "service_tier should be 'flex' for COLLECTION_SCAN tier",
+        requestBody.contains("\"" + VOYAGE_API_FLEX_TIER + "\""));
+  }
+
+  @Test
+  public void queryAndChangeStreamTiers_doNotIncludeServiceTier() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+    doReturn(200).when(mockResponse).statusCode();
+    doReturn(
+            "{\"object\":\"list\",\"data\":[{\"object\":\"embedding\","
+                + "\"embedding\":\"AKBEPACgSbw=\",\"index\":0}],\"model\":\"voyage-3-large\","
+                + "\"usage\":{\"total_tokens\":1}}")
+        .when(mockResponse)
+        .body();
+    doReturn(mockResponse)
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+    // Test QUERY tier
+    VoyageClient queryClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.QUERY,
+            VOYAGE_3_LARGE.query(),
+            METRICS_FACTORY,
+            Optional.empty(),
+            false,
+            false);
+    VoyageClient.injectVoyageClient(queryClient, mockClient);
+
+    queryClient.embed(List.of("test"), dummyContext());
+
+    @Var ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    @Var String requestBody = extractRequestBody(requestCaptor.getValue());
+    assertFalse(
+        "Request body should NOT contain service_tier for QUERY tier",
+        requestBody.contains("service_tier"));
+
+    // Test CHANGE_STREAM tier
+    VoyageClient changeStreamClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.CHANGE_STREAM,
+            VOYAGE_3_LARGE.changeStream(),
+            METRICS_FACTORY,
+            Optional.empty(),
+            false,
+            false);
+    VoyageClient.injectVoyageClient(changeStreamClient, mockClient);
+
+    changeStreamClient.embed(List.of("test"), dummyContext());
+
+    requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient, org.mockito.Mockito.times(2))
+        .send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    requestBody = extractRequestBody(requestCaptor.getValue());
+    assertFalse(
+        "Request body should NOT contain service_tier for CHANGE_STREAM tier",
+        requestBody.contains("service_tier"));
+  }
+
+  private static String extractRequestBody(HttpRequest request) {
+    return request
+        .bodyPublisher()
+        .map(
+            publisher -> {
+              java.util.concurrent.CompletableFuture<String> future =
+                  new java.util.concurrent.CompletableFuture<>();
+              List<java.nio.ByteBuffer> buffers =
+                  java.util.Collections.synchronizedList(new ArrayList<>());
+              publisher.subscribe(
+                  new java.util.concurrent.Flow.Subscriber<java.nio.ByteBuffer>() {
+                    @Override
+                    public void onSubscribe(java.util.concurrent.Flow.Subscription subscription) {
+                      subscription.request(Long.MAX_VALUE);
+                    }
+
+                    @Override
+                    public void onNext(java.nio.ByteBuffer item) {
+                      buffers.add(item);
+                    }
+
+                    @Override
+                    public void onError(Throwable throwable) {
+                      future.completeExceptionally(throwable);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                      java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                      for (java.nio.ByteBuffer buf : buffers) {
+                        byte[] bytes = new byte[buf.remaining()];
+                        buf.get(bytes);
+                        out.writeBytes(bytes);
+                      }
+                      future.complete(out.toString(java.nio.charset.StandardCharsets.UTF_8));
+                    }
+                  });
+              return future.join();
+            })
+        .orElse("");
+  }
+
+  @Test
+  public void testEmbed_includesBillingMetadata() throws Exception {
+    EmbeddingServiceConfig.EmbeddingConfig config = createDedicatedClusterConfig("test-token");
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient, true);
+
+    EmbeddingRequestContext context =
+        new EmbeddingRequestContext("myDb", "myIndex", "myCollection");
+    voyageClient.embed(List.of("test"), context);
+
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    String body = extractRequestBody(requestCaptor.getValue());
+    BsonDocument doc = BsonDocument.parse(body);
+    assertTrue(doc.containsKey("metadata"));
+    BsonDocument metadata = doc.getDocument("metadata");
+    assertEquals("myCollection", metadata.getString("collectionName").getValue());
+    assertEquals("myDb", metadata.getString("database").getValue());
+    assertEquals("myIndex", metadata.getString("indexName").getValue());
+  }
+
+  @Test
+  public void testEmbed_includesDefaultOutputDimensionInRequest() throws Exception {
+    EmbeddingServiceConfig.EmbeddingConfig config = createDedicatedClusterConfig("test-token");
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient, false);
+
+    int expectedOutputDimension = 1024;
+    String expectedOutputDtype = "float";
+    EmbeddingRequestContext context =
+        new EmbeddingRequestContext("myDb", "myIndex", "myCollection");
+    voyageClient.embed(List.of("test"), context);
+
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    String body = extractRequestBody(requestCaptor.getValue());
+    BsonDocument doc = BsonDocument.parse(body);
+    assertTrue(doc.containsKey("output_dimension"));
+    assertEquals(expectedOutputDimension, doc.get("output_dimension").asNumber().intValue());
+    assertTrue(doc.containsKey("output_dtype"));
+    assertEquals(expectedOutputDtype, doc.getString("output_dtype").getValue());
+  }
+
+  @Test
+  public void testEmbed_noBillingMetadataWhenDisabled() throws Exception {
+    EmbeddingServiceConfig.EmbeddingConfig config = createDedicatedClusterConfig("test-token");
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient, false);
+
+    EmbeddingRequestContext context =
+        new EmbeddingRequestContext("myDb", "myIndex", "myCollection");
+    voyageClient.embed(List.of("test"), context);
+
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    String body = extractRequestBody(requestCaptor.getValue());
+    BsonDocument doc = BsonDocument.parse(body);
+    assertFalse(doc.containsKey("metadata"));
+  }
+
+  @Test
+  public void testEmbed_billingMetadataHasDeterministicKeyOrdering() throws Exception {
+    EmbeddingServiceConfig.EmbeddingConfig config = createDedicatedClusterConfig("test-token");
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient, true);
+
+    EmbeddingRequestContext context =
+        new EmbeddingRequestContext("myDb", "myIndex", "myCollection");
+    voyageClient.embed(List.of("test"), context);
+
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    String body = extractRequestBody(requestCaptor.getValue());
+    BsonDocument doc = BsonDocument.parse(body);
+    BsonDocument metadata = doc.getDocument("metadata");
+    List<String> keys = new ArrayList<>(metadata.keySet());
+    assertEquals(List.of("database", "collectionName", "indexName"), keys);
+  }
+
+  @Test
+  public void testEmbed_billingMetadataTruncatesLongIndexName() throws Exception {
+    EmbeddingServiceConfig.EmbeddingConfig config = createDedicatedClusterConfig("test-token");
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient = createMockedVoyageClient(config, mockClient, true);
+
+    String longName = "a".repeat(257);
+    EmbeddingRequestContext context =
+        new EmbeddingRequestContext("db", longName, "coll");
+    voyageClient.embed(List.of("test"), context);
+
+    ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
+    verify(mockClient).send(requestCaptor.capture(), any(HttpResponse.BodyHandler.class));
+
+    String body = extractRequestBody(requestCaptor.getValue());
+    BsonDocument doc = BsonDocument.parse(body);
+    BsonDocument metadata = doc.getDocument("metadata");
+    assertEquals(256, metadata.getString("indexName").getValue().length());
+  }
+
+  @Test
+  public void embed_withCongestionSemaphore_incrementsSuccessCounter() throws Exception {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    MetricsFactory metricsFactory = new MetricsFactory("test", registry);
+
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.COLLECTION_SCAN,
+            VOYAGE_3_LARGE.collectionScan(),
+            metricsFactory,
+            Optional.empty(),
+            false,
+            true);
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    AimdCongestionControl aimd = new AimdCongestionControl();
+    DynamicSemaphore semaphore = new DynamicSemaphore(aimd);
+    voyageClient.setCongestionSemaphore(semaphore);
+
+    voyageClient.embed(List.of("test"), dummyContext());
+
+    assertEquals(1.0, registry.find("test.aimdSuccessfulRequests").counter().count(), 1E-7);
+    assertEquals(0.0, registry.find("test.aimdCongestionEvents").counter().count(), 1E-7);
+  }
+
+  @Test
+  public void embed_withCongestionSemaphore_incrementsCongestionCounterOn429() throws Exception {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    MetricsFactory metricsFactory = new MetricsFactory("test", registry);
+
+    HttpClient mockClient = mock(HttpClient.class);
+    HttpResponse<String> mockResponse = mock(HttpResponse.class);
+    doReturn(429).when(mockResponse).statusCode();
+    doReturn("Rate limit exceeded").when(mockResponse).body();
+    doReturn(mockResponse)
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.COLLECTION_SCAN,
+            VOYAGE_3_LARGE.collectionScan(),
+            metricsFactory,
+            Optional.empty(),
+            false,
+            true);
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    AimdCongestionControl aimd = new AimdCongestionControl();
+    DynamicSemaphore semaphore = new DynamicSemaphore(aimd);
+    voyageClient.setCongestionSemaphore(semaphore);
+
+    assertThrows(
+        EmbeddingProviderTransientException.class,
+        () -> voyageClient.embed(List.of("test"), dummyContext()));
+
+    assertEquals(0.0, registry.find("test.aimdSuccessfulRequests").counter().count(), 1E-7);
+    assertEquals(1.0, registry.find("test.aimdCongestionEvents").counter().count(), 1E-7);
+  }
+
+  @Test
+  public void embed_withoutCongestionSemaphore_worksNormally() throws Exception {
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.COLLECTION_SCAN,
+            VOYAGE_3_LARGE.collectionScan(),
+            METRICS_FACTORY,
+            Optional.empty(),
+            false,
+            true);
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    List<VectorOrError> result = voyageClient.embed(List.of("test"), dummyContext());
+    assertEquals(1, result.size());
+    assertTrue(result.getFirst().vector.isPresent());
+  }
+
+  @Test
+  public void embed_withCongestionSemaphore_handlesIoErrorAsNonAck() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    doThrow(new IOException("network error"))
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    MetricsFactory metricsFactory = new MetricsFactory("test", registry);
+
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.COLLECTION_SCAN,
+            VOYAGE_3_LARGE.collectionScan(),
+            metricsFactory,
+            Optional.empty(),
+            false,
+            true);
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    AimdCongestionControl aimd = new AimdCongestionControl();
+    DynamicSemaphore semaphore = new DynamicSemaphore(aimd);
+    voyageClient.setCongestionSemaphore(semaphore);
+
+    assertThrows(
+        EmbeddingProviderTransientException.class,
+        () -> voyageClient.embed(List.of("test"), dummyContext()));
+
+    // IO errors should not increment either counter (isAck = null)
+    assertEquals(0.0, registry.find("test.aimdSuccessfulRequests").counter().count(), 1E-7);
+    assertEquals(0.0, registry.find("test.aimdCongestionEvents").counter().count(), 1E-7);
+    assertEquals(0, semaphore.getUsedPermits());
+  }
+
+  @Test
+  public void embed_withCongestionSemaphore_handlesEmptyInputWithoutSignaling() throws Exception {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    MetricsFactory metricsFactory = new MetricsFactory("test", registry);
+
+    // No need to mock HTTP client since we won't make any HTTP calls
+    HttpClient mockClient = mock(HttpClient.class);
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.COLLECTION_SCAN,
+            VOYAGE_3_LARGE.collectionScan(),
+            metricsFactory,
+            Optional.empty(),
+            false,
+            true);
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    AimdCongestionControl aimd = new AimdCongestionControl();
+    DynamicSemaphore semaphore = new DynamicSemaphore(aimd);
+    voyageClient.setCongestionSemaphore(semaphore);
+
+    double initialCwnd = aimd.getCwnd();
+
+    // Call with all empty strings
+    List<VectorOrError> result = voyageClient.embed(List.of("", "", ""), dummyContext());
+
+    // Should return empty input errors
+    assertEquals(3, result.size());
+    assertEquals(VectorOrError.EMPTY_INPUT_ERROR, result.get(0));
+    assertEquals(VectorOrError.EMPTY_INPUT_ERROR, result.get(1));
+    assertEquals(VectorOrError.EMPTY_INPUT_ERROR, result.get(2));
+
+    // Semaphore should be properly released
+    assertEquals(0, semaphore.getUsedPermits());
+
+    // No counters should be incremented (isAck = null for early return)
+    assertEquals(0.0, registry.find("test.aimdSuccessfulRequests").counter().count(), 1E-7);
+    assertEquals(0.0, registry.find("test.aimdCongestionEvents").counter().count(), 1E-7);
+
+    // Window should not change
+    assertEquals(initialCwnd, aimd.getCwnd(), 1e-7);
+  }
+
+  @Test
+  public void embed_withUseFlexTierFalse_ignoresCongestionSemaphore() throws Exception {
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    MetricsFactory metricsFactory = new MetricsFactory("test", registry);
+
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient =
+        new VoyageClient(
+            VOYAGE_3_LARGE,
+            EmbeddingServiceConfig.ServiceTier.COLLECTION_SCAN,
+            VOYAGE_3_LARGE.collectionScan(),
+            metricsFactory,
+            Optional.empty(),
+            false,
+            false); // useFlexTier = false: congestion control should not run
+    VoyageClient.injectVoyageClient(voyageClient, mockClient);
+
+    AimdCongestionControl aimd = new AimdCongestionControl();
+    DynamicSemaphore semaphore = new DynamicSemaphore(aimd);
+    voyageClient.setCongestionSemaphore(semaphore);
+
+    List<VectorOrError> result = voyageClient.embed(List.of("test"), dummyContext());
+
+    assertEquals(1, result.size());
+    assertTrue(result.getFirst().vector.isPresent());
+    // Congestion control is disabled when useFlexTier is false: no acquire, no counters
+    assertEquals(0, semaphore.getUsedPermits());
+    assertEquals(0.0, registry.find("test.aimdSuccessfulRequests").counter().count(), 1E-7);
+    assertEquals(0.0, registry.find("test.aimdCongestionEvents").counter().count(), 1E-7);
+  }
+
+  @Test
+  public void renewHttpClientIfStale_beforeInterval_keepsInjectedClient() throws Exception {
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient =
+        createMockedVoyageClient(createDedicatedClusterConfig("token"), mockClient);
+    voyageClient.renewHttpClientIfStaleForTesting();
+    Field httpClientField = VoyageClient.class.getDeclaredField("voyageHttpClient");
+    httpClientField.setAccessible(true);
+    assertSame(mockClient, httpClientField.get(voyageClient));
+    verify(mockClient, never()).shutdown();
+  }
+
+  @Test
+  public void renewHttpClientIfStale_afterTenMinuteInterval_replacesHttpClient() throws Exception {
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient =
+        createMockedVoyageClient(createDedicatedClusterConfig("token"), mockClient);
+    Field epochField = VoyageClient.class.getDeclaredField("voyageHttpClientCreatedEpochMs");
+    epochField.setAccessible(true);
+    epochField.set(
+        voyageClient, System.currentTimeMillis() - Duration.ofMinutes(11).toMillis());
+    voyageClient.renewHttpClientIfStaleForTesting();
+    Field httpClientField = VoyageClient.class.getDeclaredField("voyageHttpClient");
+    httpClientField.setAccessible(true);
+    assertNotSame(mockClient, httpClientField.get(voyageClient));
+    verify(mockClient, timeout(1000)).shutdown();
+  }
+
+  @Test
+  public void renewHttpClientAfterConnectionFailure_skipsWhenCulpritNoLongerCurrent()
+      throws Exception {
+    HttpClient mockClient = createMockHttpClient();
+    VoyageClient voyageClient =
+        createMockedVoyageClient(createDedicatedClusterConfig("token"), mockClient);
+    Field epochField = VoyageClient.class.getDeclaredField("voyageHttpClientCreatedEpochMs");
+    epochField.setAccessible(true);
+    epochField.set(
+        voyageClient, System.currentTimeMillis() - Duration.ofMinutes(11).toMillis());
+    voyageClient.renewHttpClientIfStaleForTesting();
+    verify(mockClient, timeout(1000)).shutdown();
+    voyageClient.renewHttpClientAfterConnectionFailureForTesting(
+        new SSLHandshakeException("stale culprit"), mockClient);
+    verify(mockClient, times(1)).shutdown();
+  }
+
+  @Test
+  public void embed_sslHandshakeException_renewsHttpClientBeforeRethrow() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    doThrow(new SSLHandshakeException("PKIX path validation failed"))
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    doReturn(true).when(mockClient).awaitTermination(any(Duration.class));
+    VoyageClient voyageClient =
+        createMockedVoyageClient(createDedicatedClusterConfig("token"), mockClient);
+    assertThrows(
+        EmbeddingProviderTransientException.class,
+        () -> voyageClient.embed(List.of("hi"), dummyContext()));
+    Field httpClientField = VoyageClient.class.getDeclaredField("voyageHttpClient");
+    httpClientField.setAccessible(true);
+    assertNotSame(mockClient, httpClientField.get(voyageClient));
+    verify(mockClient, timeout(1000)).shutdown();
+  }
+
+  @Test
+  public void embed_ioExceptionWithSslCause_renewsHttpClient() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    doThrow(new IOException("wrapper", new SSLHandshakeException("cert")))
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    doReturn(true).when(mockClient).awaitTermination(any(Duration.class));
+    VoyageClient voyageClient =
+        createMockedVoyageClient(createDedicatedClusterConfig("token"), mockClient);
+    assertThrows(
+        EmbeddingProviderTransientException.class,
+        () -> voyageClient.embed(List.of("hi"), dummyContext()));
+    Field httpClientField = VoyageClient.class.getDeclaredField("voyageHttpClient");
+    httpClientField.setAccessible(true);
+    assertNotSame(mockClient, httpClientField.get(voyageClient));
+    verify(mockClient, timeout(1000)).shutdown();
+  }
+
+  @Test
+  public void embed_connectionResetMessage_renewsHttpClient() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    doThrow(new IOException("Connection reset"))
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    doReturn(true).when(mockClient).awaitTermination(any(Duration.class));
+    VoyageClient voyageClient =
+        createMockedVoyageClient(createDedicatedClusterConfig("token"), mockClient);
+    assertThrows(
+        EmbeddingProviderTransientException.class,
+        () -> voyageClient.embed(List.of("hi"), dummyContext()));
+    Field httpClientField = VoyageClient.class.getDeclaredField("voyageHttpClient");
+    httpClientField.setAccessible(true);
+    assertNotSame(mockClient, httpClientField.get(voyageClient));
+    verify(mockClient, timeout(1000)).shutdown();
+  }
+
+  @Test
+  public void embed_genericIoException_doesNotRenewHttpClient() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    doThrow(new IOException("downstream parse error"))
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    doReturn(true).when(mockClient).awaitTermination(any(Duration.class));
+    VoyageClient voyageClient =
+        createMockedVoyageClient(createDedicatedClusterConfig("token"), mockClient);
+    assertThrows(
+        EmbeddingProviderTransientException.class,
+        () -> voyageClient.embed(List.of("hi"), dummyContext()));
+    Field httpClientField = VoyageClient.class.getDeclaredField("voyageHttpClient");
+    httpClientField.setAccessible(true);
+    assertSame(mockClient, httpClientField.get(voyageClient));
+    verify(mockClient, never()).shutdown();
+  }
+
+  @Test
+  public void embed_httpConnectTimeout_renewsHttpClient() throws Exception {
+    HttpClient mockClient = mock(HttpClient.class);
+    doThrow(new HttpConnectTimeoutException("connect timed out"))
+        .when(mockClient)
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    doReturn(true).when(mockClient).awaitTermination(any(Duration.class));
+    VoyageClient voyageClient =
+        createMockedVoyageClient(createDedicatedClusterConfig("token"), mockClient);
+    assertThrows(
+        EmbeddingProviderTransientException.class,
+        () -> voyageClient.embed(List.of("hi"), dummyContext()));
+    Field httpClientField = VoyageClient.class.getDeclaredField("voyageHttpClient");
+    httpClientField.setAccessible(true);
+    assertNotSame(mockClient, httpClientField.get(voyageClient));
+    verify(mockClient, timeout(1000)).shutdown();
   }
 }

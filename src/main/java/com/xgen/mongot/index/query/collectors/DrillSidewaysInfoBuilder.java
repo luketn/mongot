@@ -384,11 +384,21 @@ public class DrillSidewaysInfoBuilder {
             () -> addToPreFilter(wrappedOuter, state, CompoundClauseType.MUST));
       }
     } else {
-      // Outermost recursive case: propagate nested state values
-      state.preFilterFilterClauses = nestedState.preFilterFilterClauses;
-      state.preFilterMustClauses = nestedState.preFilterMustClauses;
-      state.preFilterMustNotClauses = nestedState.preFilterMustNotClauses;
-      state.preFilterShouldClauses = nestedState.preFilterShouldClauses;
+      // Outermost recursive case. Only replace with single nested preFilter when we have nested
+      // embedding (outer -> inner EmbeddedDocumentOperator -> ...); then we preserve both levels.
+      // For single embedding (outer -> compound only), copy the nested state's clause lists.
+      if (nestedOperator instanceof EmbeddedDocumentOperator && nestedPreFilter.isPresent()) {
+        state.preFilterFilterClauses = new ArrayList<>();
+        state.preFilterFilterClauses.add(nestedPreFilter.get());
+        state.preFilterMustClauses = new ArrayList<>();
+        state.preFilterMustNotClauses = new ArrayList<>();
+        state.preFilterShouldClauses = new ArrayList<>();
+      } else {
+        state.preFilterFilterClauses = nestedState.preFilterFilterClauses;
+        state.preFilterMustClauses = nestedState.preFilterMustClauses;
+        state.preFilterMustNotClauses = nestedState.preFilterMustNotClauses;
+        state.preFilterShouldClauses = nestedState.preFilterShouldClauses;
+      }
     }
 
     // Propagate facet exclusions from nested state to parent state
@@ -420,6 +430,7 @@ public class DrillSidewaysInfoBuilder {
       BuildState state,
       Operator nestedOperator) {
     // Iterate over the nested state's operators mapped by facet name.
+    facetLoop:
     for (Map.Entry<String, List<Operator>> entry : nestedState.operatorsByFacet.entrySet()) {
       String facetName = entry.getKey();
       List<Operator> operators = entry.getValue();
@@ -451,8 +462,23 @@ public class DrillSidewaysInfoBuilder {
               .add(wrappedEmbedded);
         }
         case EmbeddedDocumentOperator embeddedDocumentOperator -> {
-          // Recursively process the nested EmbeddedDocumentOperator.
-          processEmbeddedOperator(nestedState, embeddedDocumentOperator, Optional.empty());
+          // nestedState was already populated when the caller ran traverseOperator(nestedOperator,
+          // nestedState, ...), so we only need to propagate to parent (do not call
+          // processEmbeddedOperator again — that would mutate during iteration and duplicate).
+          for (Map.Entry<String, List<Operator>> nestedFacetEntry :
+              nestedState.operatorsByFacet.entrySet()) {
+            String nestedFacetName = nestedFacetEntry.getKey();
+            for (Operator nestedOperatorForFacet : nestedFacetEntry.getValue()) {
+              EmbeddedDocumentOperator wrappedEmbedded =
+                  new EmbeddedDocumentOperator(
+                      embedded.score(), embedded.path(), nestedOperatorForFacet);
+              state
+                  .operatorsByFacet
+                  .computeIfAbsent(nestedFacetName, k -> new ArrayList<>())
+                  .add(wrappedEmbedded);
+            }
+          }
+          break facetLoop;
         }
         case RangeOperator rangeOperator ->
             processLeafOperatorForEmbeddedDoc(rangeOperator, embedded.path(), facetName, state);
@@ -610,12 +636,15 @@ public class DrillSidewaysInfoBuilder {
   private static Optional<String> extractFacetNameFromOperator(Operator operator) {
     return switch (operator) {
       case EqualsOperator equalsOperator -> Optional.of(equalsOperator.path().toString());
-      case InOperator inOperator -> Optional.of(inOperator.paths().toString());
+      case InOperator inOperator ->
+          inOperator.paths().stream()
+              .map(FieldPath::toString)
+              .findFirst();
       case RangeOperator rangeOperator ->
           rangeOperator.paths().stream()
               .map(FieldPath::toString)
-              .findFirst(); // Retrieve first path only for simplicity
-      default -> Optional.empty(); // Unsupported operator types return empty
+              .findFirst();
+      default -> Optional.empty();
     };
   }
 
@@ -794,12 +823,22 @@ public class DrillSidewaysInfoBuilder {
 
     // Wrap in an EmbeddedDocumentOperator if embeddedPath is present
     if (state.getEmbeddedPath().isPresent()) {
-      // If embeddedPath is present, then know to wrap the prefilter in an EmbeddedDocumentOperator.
+      // If the only content is a single EmbeddedDocumentOperator (nested embedding), use directly
+      // so the result is embeddedDoc(outer, embeddedDoc(inner, ...)) not
+      // embeddedDoc(outer, compound([embeddedDoc(inner, ...)])).
+      @Var Operator innerOperator = compoundOperator;
+      if (state.preFilterFilterClauses.size() == 1
+          && state.preFilterMustClauses.isEmpty()
+          && state.preFilterMustNotClauses.isEmpty()
+          && state.preFilterShouldClauses.isEmpty()
+          && state.preFilterFilterClauses.get(0) instanceof EmbeddedDocumentOperator embedded) {
+        innerOperator = embedded;
+      }
       return Optional.of(
           new EmbeddedDocumentOperator(
               state.getEmbeddedScore().orElse(Score.defaultScore()),
               state.getEmbeddedPath().get(),
-              compoundOperator));
+              innerOperator));
     }
 
     // Otherwise, return the CompoundOperator as-is

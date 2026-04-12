@@ -17,6 +17,7 @@ import java.util.Optional;
 public record EmbeddingModelConfig(
     String name,
     EmbeddingProvider provider,
+    boolean useFlexTier,
     ConsolidatedWorkloadParams query,
     ConsolidatedWorkloadParams changeStream,
     ConsolidatedWorkloadParams collectionScan) {
@@ -25,12 +26,14 @@ public record EmbeddingModelConfig(
     return new EmbeddingModelConfig(
         model,
         provider,
+        config.useFlexTier,
         consolidateWorkloadParams(
             config.getQueryParams(),
             config.getModelConfigBase(),
             config.getErrorHandlingConfigBase(),
             config.getCredentialsBase(),
             config.getProviderEndpoint(),
+            config.rpsPerProvider,
             config.getQueryParams().flatMap(params -> params.tenantCredentials),
             config.tenantCredentials,
             config.isDedicatedCluster),
@@ -40,6 +43,7 @@ public record EmbeddingModelConfig(
             config.getErrorHandlingConfigBase(),
             config.getCredentialsBase(),
             config.getProviderEndpoint(),
+            config.rpsPerProvider,
             config.getChangeStreamParams().flatMap(params -> params.tenantCredentials),
             config.tenantCredentials,
             config.isDedicatedCluster),
@@ -49,6 +53,7 @@ public record EmbeddingModelConfig(
             config.getErrorHandlingConfigBase(),
             config.getCredentialsBase(),
             config.getProviderEndpoint(),
+            config.rpsPerProvider,
             config.getCollectionScanParams().flatMap(params -> params.tenantCredentials),
             config.tenantCredentials,
             config.isDedicatedCluster));
@@ -70,10 +75,12 @@ public record EmbeddingModelConfig(
       new EmbeddingModelConfig(
           "voyage-3-large",
           EmbeddingProvider.VOYAGE,
+          EmbeddingConfig.DEFAULT_USE_FLEX_TIER,
           new ConsolidatedWorkloadParams(
               DEFAULT_CONFIG,
               DEFAULT_ERROR_CONFIG,
               VOYAGE_CREDENTIALS,
+              Optional.empty(),
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),
@@ -85,11 +92,13 @@ public record EmbeddingModelConfig(
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),
+              Optional.empty(),
               true),
           new ConsolidatedWorkloadParams(
               DEFAULT_CONFIG,
               DEFAULT_ERROR_CONFIG,
               VOYAGE_CREDENTIALS,
+              Optional.empty(),
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),
@@ -115,6 +124,7 @@ public record EmbeddingModelConfig(
       ErrorHandlingConfig baseErrorHandlingConfig,
       EmbeddingCredentials baseCredentials,
       Optional<String> baseProviderEndpoint,
+      Optional<Integer> rpsPerProvider,
       Optional<EmbeddingCredentials> tenantCredentials,
       Optional<Map<String, TenantWorkloadCredentials>> perTenantCredentials,
       boolean isDedicatedCluster) {
@@ -176,6 +186,7 @@ public record EmbeddingModelConfig(
         consolidatedErrorHandlingConfig,
         consolidatedCredentials,
         baseProviderEndpoint,
+        rpsPerProvider,
         tenantCredentials,
         perTenantCredentials,
         isDedicatedCluster);
@@ -195,7 +206,13 @@ public record EmbeddingModelConfig(
             : baseModelConfig.batchSize,
         overrideModelConfig.batchTokenLimit.isPresent()
             ? overrideModelConfig.batchTokenLimit
-            : baseModelConfig.batchTokenLimit);
+            : baseModelConfig.batchTokenLimit,
+        overrideModelConfig.modality.isPresent()
+            ? overrideModelConfig.modality
+            : baseModelConfig.modality,
+        overrideModelConfig.quantization.isPresent()
+            ? overrideModelConfig.quantization
+            : baseModelConfig.quantization);
   }
 
   @Override
@@ -208,6 +225,7 @@ public record EmbeddingModelConfig(
     }
     return Objects.equals(this.name, other.name)
         && this.provider == other.provider
+        && this.useFlexTier == other.useFlexTier
         && Objects.equals(this.query, other.query)
         && Objects.equals(this.changeStream, other.changeStream)
         && Objects.equals(this.collectionScan, other.collectionScan);
@@ -216,7 +234,12 @@ public record EmbeddingModelConfig(
   @Override
   public int hashCode() {
     return Objects.hash(
-        this.name, this.provider, this.query, this.changeStream, this.collectionScan);
+        this.name,
+        this.provider,
+        this.useFlexTier,
+        this.query,
+        this.changeStream,
+        this.collectionScan);
   }
 
   public record ConsolidatedWorkloadParams(
@@ -224,6 +247,7 @@ public record EmbeddingModelConfig(
       EmbeddingServiceConfig.ErrorHandlingConfig errorHandlingConfig,
       EmbeddingCredentials credentials,
       Optional<String> providerEndpoint,
+      Optional<Integer> rpsPerProvider,
       // default/dedicated clustercredentials
       Optional<EmbeddingCredentials> tenantCredentials,
       Optional<Map<String, TenantWorkloadCredentials>> perTenantCredentials,
@@ -241,6 +265,7 @@ public record EmbeddingModelConfig(
           && Objects.equals(this.errorHandlingConfig, other.errorHandlingConfig)
           && Objects.equals(this.credentials, other.credentials)
           && Objects.equals(this.providerEndpoint.orElse(null), other.providerEndpoint.orElse(null))
+          && Objects.equals(this.rpsPerProvider, other.rpsPerProvider)
           && Objects.equals(
               this.tenantCredentials.orElse(null), other.tenantCredentials.orElse(null))
           && Objects.equals(

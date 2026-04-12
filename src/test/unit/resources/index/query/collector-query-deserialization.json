@@ -120,14 +120,14 @@
         "facet": {
           "operator": {
             "text": {
-              "path": "review",
+              "path": "my-scope.review",
               "query": "good"
             }
           },
           "facets": {
             "directorFacet": {
               "type": "string",
-              "path": "director"
+              "path": "my-scope.director"
             }
           }
         },

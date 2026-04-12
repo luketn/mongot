@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/mappings.json",
+  "markdownDescription": "Object that defines how Atlas Search indexes fields for this index. To learn more, see [Review Atlas Search Index Syntax](https://dochub.mongodb.org/core/index-definition-fts).",
+  "description": "Object that defines how Atlas Search indexes fields for this index.",
+  "type": "object",
+  "properties": {
+    "dynamic": {
+      "$ref": "dynamic.json",
+      "markdownDescription": "Boolean flag that indicates whether to recursively index all [dynamically indexable](https://dochub.mongodb.org/core/data-types-fts) fields. If you set this parameter to `false`, you must specify individual fields to index. If you omit this parameter, it defaults to `false`. To learn more, see [Static and Dynamic Mappings](https://dochub.mongodb.org/core/static-and-dynamic-mappings-fts).",
+      "description": "Boolean flag that indicates whether to recursively index all dynamically indexable fields."
+    },
+    "fields": {
+      "$ref": "mappings/fields.json",
+      "markdownDescription": "Field specifications for your Atlas Search index. If you omit or set the `dynamic` flag to `false`, you must specify this parameter. To learn more, see [Define Field Mappings](https://dochub.mongodb.org/core/field-mapping-definition-fts).",
+      "description": "Field specifications for your Atlas Search index."
+    }
+  },
+  "anyOf": [
+    {
+      "required": ["dynamic"]
+    },
+    {
+      "required": ["fields"]
+    }
+  ],
+  "if": {
+    "properties": {
+      "dynamic": {
+        "const": false
+      }
+    }
+  },
+  "then": {
+    "required": ["fields"],
+    "properties": {
+      "fields": {
+        "minProperties": 1
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,97 +1,81 @@
 package com.xgen.mongot.server.http;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.google.common.annotations.VisibleForTesting;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 import com.xgen.mongot.server.grpc.HealthManager;
 import com.xgen.mongot.util.Crash;
-import java.io.OutputStream;
+import com.xgen.mongot.util.concurrent.Executors;
+import com.xgen.mongot.util.concurrent.NamedExecutorService;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.net.BindException;
 import java.net.InetSocketAddress;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/** An HTTP server used by mongot community to accept healthcheck and readiness check probes. */
 public class HealthCheckServer {
   private static final Logger LOG = LoggerFactory.getLogger(HealthCheckServer.class);
-  protected static final String ENDPOINT_PATH = "/health";
 
+  private final NamedExecutorService healthCheckExecutor;
   private final HttpServer server;
-  private final HealthManager healthManager;
-  private static final Responses responses =
-      new Responses(
-          JsonNodeFactory.instance.objectNode().put("error", "BAD_REQUEST").toString(),
-          JsonNodeFactory.instance.objectNode().put("status", "SERVING").toString(),
-          JsonNodeFactory.instance.objectNode().put("status", "NOT_SERVING").toString());
+  private final Map<String, HttpHandler> requestHandlers;
 
-  private HealthCheckServer(HttpServer server, HealthManager healthManager) {
+  private HealthCheckServer(
+      HttpServer server, MeterRegistry meterRegistry, Map<String, HttpHandler> requestHandlers) {
     this.server = server;
-    this.healthManager = healthManager;
+    this.requestHandlers = requestHandlers;
+    this.healthCheckExecutor =
+        Executors.fixedSizeThreadScheduledExecutor("HealthCheckServer", 2, meterRegistry);
   }
 
-  public static HealthCheckServer create(InetSocketAddress address, HealthManager healthManager) {
+  public static HealthCheckServer create(
+      InetSocketAddress address,
+      MeterRegistry meterRegistry,
+      HealthManager healthManager,
+      ReadinessChecker readinessChecker) {
     return Crash.because("failed to start health check server")
         .ifThrows(
             () -> {
               try {
+                HttpRequestHelper helper = new HttpRequestHelper();
+                Map<String, HttpHandler> handlers =
+                    Map.of(
+                        "/health", new HealthCheckRequestHandler(helper, healthManager),
+                        "/ready", new ReadinessCheckRequestHandler(helper, readinessChecker));
+
                 HttpServer server = HttpServer.create(address, 0);
-                return new HealthCheckServer(server, healthManager);
+                return new HealthCheckServer(server, meterRegistry, handlers);
               } catch (BindException e) {
                 LOG.atError()
                     .addKeyValue("address", address)
                     .setCause(e)
-                    .log("Error creating health check server, Address already in use,"
-                        + " please configure a different address for health check server");
+                    .log(
+                        "Error creating health check server, Address already in use,"
+                            + " please configure a different address for health check server");
                 throw e;
               }
             });
   }
 
-  @SuppressWarnings("checkstyle:MissingJavadocMethod")
+  /** Starts up the health check server. */
   public void start() {
-    LOG.atInfo()
-        .addKeyValue("address", getAddress())
-        .log("Starting health check server...");
-    this.server.createContext(
-        ENDPOINT_PATH,
-        httpExchange -> {
-          httpExchange.getResponseHeaders().set("Content-Type", "application/json");
-          String response;
-          if ("GET".equals(httpExchange.getRequestMethod())) {
-            if (this.healthManager.isHealthy()) {
-              response = responses.servingResponse();
-              httpExchange.sendResponseHeaders(200, response.getBytes(UTF_8).length);
-            } else {
-              response = responses.notServingResponse();
-              httpExchange.sendResponseHeaders(503, response.getBytes(UTF_8).length);
-            }
-          } else {
-            response = responses.errorResponse();
-            httpExchange.sendResponseHeaders(400, response.getBytes(UTF_8).length);
-          }
-          try (OutputStream os = httpExchange.getResponseBody()) {
-            os.write(response.getBytes());
-          }
-        });
-    this.server.setExecutor(null);
+    LOG.atInfo().addKeyValue("address", getAddress()).log("Starting health check server...");
+    this.requestHandlers.forEach(this.server::createContext);
+    this.server.setExecutor(this.healthCheckExecutor);
     this.server.start();
   }
 
+  /** Shuts down the health check server and it's backing threadpool. */
   public void stop() {
     LOG.info("Shutting down health check server...");
-    Crash.because("failed to shut down health check server")
-        .ifThrows(
-            () -> {
-              this.server.stop(0);
-            });
+    Crash.because("failed to shut down health check server").ifThrows(() -> this.server.stop(0));
+    Executors.shutdownOrFail(this.healthCheckExecutor);
   }
 
   @VisibleForTesting
   public InetSocketAddress getAddress() {
     return this.server.getAddress();
   }
-
-  private record Responses(
-      String errorResponse, String servingResponse, String notServingResponse) {}
 }

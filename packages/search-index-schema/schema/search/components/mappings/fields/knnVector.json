@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/mappings/fields/knnVector.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Data type to use to index fields of type number array for vector search. To learn more, see [knnVector Type](https://www.mongodb.com/docs/atlas/atlas-search/field-types/knn-vector/).",
+      "description": "Data type to use to index fields of type number array for vector search.",
+      "const": "knnVector",
+      "$ref": "../field.json#/definitions/typeErrorMessage"
+    },
+    "dimensions": {
+      "suggestSortText": "1",
+      "type": "integer",
+      "markdownDescription": "Number of vector dimensions. Values may range from 1 to 2048.",
+      "description": "Number of vector dimensions. Values may range from 1 to 2048.",
+      "minimum": 1,
+      "maximum": 2048
+    },
+    "similarity": {
+      "suggestSortText": "2",
+      "type": "string",
+      "markdownDescription": "Vector similarity function to use to search for top K-nearest neighbors. \nValues include:\n- `euclidean` - measures the distance between ends of vectors allowing similarity measurements based on varying dimensions. See [Euclidean](https://en.wikipedia.org/wiki/Euclidean_distance) to learn more.\n- `cosine` - measures similarity based on the angle between vectors allowing for similarity measurements not scaled by magnitude. See [Cosine](https://en.wikipedia.org/wiki/Cosine_similarity) to learn more.\n- `dotProduct` - measures similarity based on both the angle between, and magnitude of vectors. See [Dot Product](https://en.wikipedia.org/wiki/Dot_product) to learn more.",
+      "description": "Vector similarity function to use to search for top K-nearest neighbors",
+      "enum": ["euclidean", "cosine", "dotProduct"]
+    }
+  },
+  "required": ["type", "dimensions", "similarity"],
+  "additionalProperties": false
+}

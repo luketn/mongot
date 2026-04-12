@@ -39,6 +39,7 @@ import org.apache.lucene.document.LongField;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.SortedDocValuesField;
+import org.apache.lucene.document.SortedNumericDocValuesField;
 import org.apache.lucene.document.SortedSetDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
@@ -59,6 +60,11 @@ import org.bson.types.ObjectId;
  * {@link AbstractDocumentWrapper} given field names and values.
  */
 public class IndexableFieldFactory {
+
+  /**
+   * Value in the nullness field for documents that have a value for the corresponding sort field.  
+   */
+  static final long NULLNESS_FIELD_PRESENT = 0L;
 
   private static final FluentLogger FLOGGER = FluentLogger.forEnclosingClass();
 
@@ -134,6 +140,20 @@ public class IndexableFieldFactory {
     if (includeDocValue) {
       document.put(new SortedDocValuesField(FieldName.MetaField.ID.getLuceneFieldName(), value));
     }
+  }
+
+  /**
+   * Adds an IndexableField for the customVectorEngine id to the root Lucene document for a BSON
+   * document we're indexing.
+   *
+   * @param document - the document wrapper to add the document id field to
+   * @param customVectorEngineId - custom vector engine id
+   */
+  static void addCustomVectorEngineIdField(
+      AbstractDocumentWrapper document, long customVectorEngineId) {
+    String fieldName = FieldName.MetaField.CUSTOM_VECTOR_ENGINE_ID.getLuceneFieldName();
+    document.put(new LongPoint(fieldName, customVectorEngineId));
+    document.put(new NumericDocValuesField(fieldName, customVectorEngineId));
   }
 
   static void addEmbeddedPathField(AbstractDocumentWrapper document) {
@@ -346,7 +366,8 @@ public class IndexableFieldFactory {
 
   static void addTokenField(
       AbstractDocumentWrapper document, FieldPath path, String analyzedString) {
-    String luceneFieldName = FieldName.TypeField.TOKEN.getLuceneFieldName(path, Optional.empty());
+    String luceneFieldName =
+        FieldName.TypeField.TOKEN.getLuceneFieldName(path, document.getEmbeddedRoot());
     addSortableStringField(document, luceneFieldName, new BytesRef(analyzedString));
   }
 
@@ -398,6 +419,18 @@ public class IndexableFieldFactory {
     String luceneFieldName =
         FieldName.TypeField.DATE_V2.getLuceneFieldName(path, document.getEmbeddedRoot());
     addSortableDateField(document, luceneFieldName, value);
+  }
+
+  /**
+   * Adds a nullness indicator field for a sort field. This field is written with value {@link
+   * #NULLNESS_FIELD_PRESENT} for documents that have the corresponding sort field value. Documents
+   * missing the sort field will not have this nullness field, and the index sort's missing value
+   * setting will handle their ordering.
+   */
+  static void addNullnessField(AbstractDocumentWrapper document, FieldPath path) {
+    String luceneFieldName =
+        FieldName.getNullnessFieldName(path);
+    document.put(new SortedNumericDocValuesField(luceneFieldName, NULLNESS_FIELD_PRESENT));
   }
 
   private static void addSortableDateField(

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/mappings/fields/geo.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Data type to use to index fields with [GeoJSON](https://dochub.mongodb.org/core/geojson-type-fts) objects, which includes geographic points and shape coordinates. To learn more about this data type, see [geo Type](https://dochub.mongodb.org/core/geo-type-fts).",
+      "description": "Data type to use to index fields with geographic points and shape coordinates.",
+      "const": "geo",
+      "$ref": "../field.json#/definitions/typeErrorMessage"
+    },
+    "indexShapes": {
+      "suggestSortText": "1",
+      "type": "boolean",
+      "markdownDescription": "Boolean flag that indicates whether Atlas Search indexes both points and geographic shape coordinates, such as lines and polygons. If you set this parameter to `false`, Atlas Search indexes only points.",
+      "description": "Boolean flag that indicates whether Atlas Search indexes both geographic shape coordinates and points.",
+      "default": false
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

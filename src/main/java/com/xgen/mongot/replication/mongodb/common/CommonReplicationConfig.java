@@ -18,6 +18,16 @@ public abstract sealed class CommonReplicationConfig
       List<String> excludedChangestreamFields,
       boolean matchCollectionUuidForUpdateLookup) {}
 
+  public enum Type {
+    DEFAULT(""),
+    AUTO_EMBEDDING("autoEmbedding.");
+    public final String metricsNamespacePrefix;
+
+    Type(String metricsNamespacePrefix) {
+      this.metricsNamespacePrefix = metricsNamespacePrefix;
+    }
+  }
+
   /** Boolean field to pause replication for all indexes in initial sync. */
   final boolean pauseAllInitialSyncs;
 
@@ -93,4 +103,6 @@ public abstract sealed class CommonReplicationConfig
   public final List<String> getExcludedChangestreamFields() {
     return this.excludedChangestreamFields;
   }
+
+  public abstract Type getReplicationType();
 }

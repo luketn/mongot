@@ -77,6 +77,12 @@ public class MqlLongComparatorTest {
       double first, double second, NullEmptySortPosition nullEmptySortPosition) {
     Assume.assumeTrue(!Double.isNaN(first) && !Double.isNaN(second));
 
+    // -0.0 and 0.0 coalesce to the same value
+    Assume.assumeFalse(
+        Double.doubleToLongBits(first) != Double.doubleToLongBits(second)
+            && first == 0.0
+            && second == 0.0);
+
     long firstLong = LuceneDoubleConversionUtils.toMqlSortableLong(first);
     long secondLong = LuceneDoubleConversionUtils.toMqlSortableLong(second);
     int result = MqlLongComparator.mqlLongCompare(firstLong, secondLong, nullEmptySortPosition);

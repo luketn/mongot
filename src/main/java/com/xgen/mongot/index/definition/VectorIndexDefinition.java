@@ -66,10 +66,14 @@ public final class VectorIndexDefinition implements IndexDefinition {
   private final Optional<Instant> definitionVersionCreatedAt;
   private final Optional<StoredSourceDefinition> storedSource;
   private final boolean isAutoEmbeddingIndex;
+  private final boolean isCustomVectorEngineIndex;
   private final int parsedAutoEmbeddingFeatureVersion;
   private final ImmutableMap<FieldPath, String> modelNamePerPath;
 
   private final VectorIndexFieldMapping mappings;
+  private final Optional<ObjectId> indexIdAtCreationTime;
+  private final Optional<Long> autoEmbeddingDefinitionVersion;
+  private final Optional<Long> materializedViewNameFormatVersion;
 
   /** Constructs a new VectorIndexDefinition for a MongoDB Atlas Search vector index. */
   public VectorIndexDefinition(
@@ -85,7 +89,10 @@ public final class VectorIndexDefinition implements IndexDefinition {
       Optional<Long> definitionVersion,
       Optional<Instant> definitionVersionCreatedAt,
       Optional<StoredSourceDefinition> storedSource,
-      Optional<FieldPath> nestedRoot) {
+      Optional<FieldPath> nestedRoot,
+      Optional<ObjectId> indexIdAtCreationTime,
+      Optional<Long> autoEmbeddingDefinitionVersion,
+      Optional<Long> materializedViewNameFormatVersion) {
     this.indexId = indexId;
     this.name = name;
     this.database = database;
@@ -101,6 +108,10 @@ public final class VectorIndexDefinition implements IndexDefinition {
     this.storedSource = storedSource;
     this.mappings = VectorIndexFieldMapping.create(fields, nestedRoot);
     this.isAutoEmbeddingIndex = calculateIsAutoEmbeddingIndex(fields);
+    this.isCustomVectorEngineIndex =
+        fields.stream()
+            .filter(VectorIndexFieldDefinition::isVectorField)
+            .anyMatch(f -> f.asVectorField().specification().isCustomVectorEngine());
     this.parsedAutoEmbeddingFeatureVersion = calculateAutoEmbeddingFeatureVersion(fields);
     this.modelNamePerPath = calculateAutoEmbeddingModelName(fields);
 
@@ -109,6 +120,9 @@ public final class VectorIndexDefinition implements IndexDefinition {
             Check.checkArg(
                 !storedSourceDefinition.isAllIncluded(),
                 "storedSource true not allowed for vector indexes"));
+    this.indexIdAtCreationTime = indexIdAtCreationTime;
+    this.autoEmbeddingDefinitionVersion = autoEmbeddingDefinitionVersion;
+    this.materializedViewNameFormatVersion = materializedViewNameFormatVersion;
   }
 
   @Override
@@ -166,6 +180,15 @@ public final class VectorIndexDefinition implements IndexDefinition {
   }
 
   public Optional<FieldPath> getNestedRoot() {
+    return this.mappings.nestedRoot();
+  }
+
+  /**
+   * Returns the nestedRoot as originally specified in the index definition, bypassing {@link
+   * VectorIndexFieldMapping}. Used for validation in {@link
+   * com.xgen.atlas.config.provider.mms.ValidatedConfCallResponse}.
+   */
+  public Optional<FieldPath> getRawNestedRoot() {
     return this.nestedRoot;
   }
 
@@ -183,6 +206,7 @@ public final class VectorIndexDefinition implements IndexDefinition {
     return this.definitionVersion;
   }
 
+  @Override
   public Optional<Instant> getDefinitionVersionCreatedAt() {
     return this.definitionVersionCreatedAt;
   }
@@ -198,9 +222,28 @@ public final class VectorIndexDefinition implements IndexDefinition {
     return new VectorFieldDefinitionResolver(this, indexFormatVersion);
   }
 
+  public boolean isCustomVectorEngineIndex() {
+    return this.isCustomVectorEngineIndex;
+  }
+
   @Override
   public boolean isAutoEmbeddingIndex() {
     return this.isAutoEmbeddingIndex;
+  }
+
+  @Override
+  public Optional<ObjectId> getIndexIdAtCreationTime() {
+    return this.indexIdAtCreationTime;
+  }
+
+  @Override
+  public Optional<Long> getAutoEmbeddingDefinitionVersion() {
+    return this.autoEmbeddingDefinitionVersion;
+  }
+
+  @Override
+  public Optional<Long> getMaterializedViewNameFormatVersion() {
+    return this.materializedViewNameFormatVersion;
   }
 
   /**
@@ -213,11 +256,13 @@ public final class VectorIndexDefinition implements IndexDefinition {
    * requires auto-embedding if it is specified with type {@link
    * VectorIndexFieldDefinition.Type#TEXT} or {@link VectorIndexFieldDefinition.Type#AUTO_EMBED}.
    */
+  @Override
   public int getParsedAutoEmbeddingFeatureVersion() {
     return this.parsedAutoEmbeddingFeatureVersion;
   }
 
   /** Returns embedding model per FieldPath */
+  @Override
   public ImmutableMap<FieldPath, String> getModelNamePerPath() {
     return this.modelNamePerPath;
   }
@@ -243,7 +288,17 @@ public final class VectorIndexDefinition implements IndexDefinition {
                 IndexDefinition.Fields.DEFINITION_VERSION_CREATED_AT,
                 this.definitionVersionCreatedAt.map(DATE_FORMAT::format))
             .field(Fields.INDEX_FEATURE_VERSION, this.indexFeatureVersion)
-            .field(IndexDefinition.Fields.STORED_SOURCE, this.storedSource);
+            .field(IndexDefinition.Fields.STORED_SOURCE, this.storedSource)
+            .fieldOmitDefaultValue(
+                IndexDefinition.Fields.INDEX_ID_AT_CREATION_TIME,
+                this.indexIdAtCreationTime,
+                this.indexId)
+            .field(
+                IndexDefinition.Fields.AUTO_EMBEDDING_DEFINITION_VERSION,
+                this.autoEmbeddingDefinitionVersion)
+            .field(
+                IndexDefinition.Fields.MATERIALIZED_VIEW_NAME_FORMAT_VERSION,
+                this.materializedViewNameFormatVersion);
 
     return builder.build();
   }
@@ -295,7 +350,10 @@ public final class VectorIndexDefinition implements IndexDefinition {
         DateUtil.parseInstantFromString(
             parser, DATE_FORMAT, IndexDefinition.Fields.DEFINITION_VERSION_CREATED_AT),
         parser.getField(IndexDefinition.Fields.STORED_SOURCE).unwrap(),
-        parser.getField(Fields.NESTED_ROOT).unwrap());
+        parser.getField(Fields.NESTED_ROOT).unwrap(),
+        parser.getField(IndexDefinition.Fields.INDEX_ID_AT_CREATION_TIME).unwrap(),
+        parser.getField(IndexDefinition.Fields.AUTO_EMBEDDING_DEFINITION_VERSION).unwrap(),
+        parser.getField(IndexDefinition.Fields.MATERIALIZED_VIEW_NAME_FORMAT_VERSION).unwrap());
   }
 
   public VectorIndexDefinition withUpdatedViewDefinition(ViewDefinition updatedViewDefinition) {
@@ -312,7 +370,10 @@ public final class VectorIndexDefinition implements IndexDefinition {
         this.definitionVersion,
         this.definitionVersionCreatedAt,
         this.storedSource,
-        this.nestedRoot);
+        this.nestedRoot,
+        this.indexIdAtCreationTime,
+        this.autoEmbeddingDefinitionVersion,
+        this.materializedViewNameFormatVersion);
   }
 
   @Override
@@ -339,7 +400,13 @@ public final class VectorIndexDefinition implements IndexDefinition {
             this.definitionVersionCreatedAt.map(Instant::getEpochSecond),
             that.definitionVersionCreatedAt.map(Instant::getEpochSecond))
         && Objects.equal(this.storedSource, that.storedSource)
-        && Objects.equal(this.mappings, that.mappings);
+        && Objects.equal(this.mappings, that.mappings)
+        && Objects.equal(
+            this.indexIdAtCreationTime.orElse(this.indexId),
+            that.indexIdAtCreationTime.orElse(that.indexId))
+        && Objects.equal(this.autoEmbeddingDefinitionVersion, that.autoEmbeddingDefinitionVersion)
+        && Objects.equal(
+            this.materializedViewNameFormatVersion, that.materializedViewNameFormatVersion);
   }
 
   @Override
@@ -358,7 +425,10 @@ public final class VectorIndexDefinition implements IndexDefinition {
         this.definitionVersion,
         this.definitionVersionCreatedAt.map(Instant::getEpochSecond),
         this.storedSource,
-        this.mappings);
+        this.mappings,
+        this.indexIdAtCreationTime.orElse(this.indexId),
+        this.autoEmbeddingDefinitionVersion,
+        this.materializedViewNameFormatVersion);
   }
 
   @Override

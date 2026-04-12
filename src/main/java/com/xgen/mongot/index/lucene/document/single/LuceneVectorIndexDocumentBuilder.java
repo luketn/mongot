@@ -1,14 +1,13 @@
 package com.xgen.mongot.index.lucene.document.single;
 
-import com.google.common.collect.ImmutableMap;
 import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.VectorIndexFieldMapping;
 import com.xgen.mongot.index.ingestion.handlers.FieldValueHandler;
 import com.xgen.mongot.index.lucene.document.builder.DocumentBlockBuilder;
 import com.xgen.mongot.index.lucene.document.builder.DocumentBuilder;
+import com.xgen.mongot.index.lucene.document.context.IndexingPolicyBuilderContext;
 import com.xgen.mongot.index.version.IndexCapabilities;
 import com.xgen.mongot.util.FieldPath;
-import com.xgen.mongot.util.bson.Vector;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -34,25 +33,17 @@ public class LuceneVectorIndexDocumentBuilder implements DocumentBuilder, Docume
   final VectorIndexDocumentWrapper documentWrapper;
   VectorIndexFieldMapping mapping;
   final Optional<FieldPath> path;
-  final ImmutableMap<FieldPath, ImmutableMap<String, Vector>> autoEmbeddings;
+  final IndexingPolicyBuilderContext context;
 
   public LuceneVectorIndexDocumentBuilder(
       VectorIndexDocumentWrapper documentWrapper,
       VectorIndexFieldMapping mapping,
       Optional<FieldPath> path,
-      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> autoEmbeddings) {
+      IndexingPolicyBuilderContext context) {
     this.documentWrapper = documentWrapper;
     this.mapping = mapping;
     this.path = path;
-    this.autoEmbeddings = autoEmbeddings;
-  }
-
-  public static LuceneVectorIndexDocumentBuilder create(
-      VectorIndexDocumentWrapper documentWrapper,
-      VectorIndexFieldMapping mapping,
-      Optional<FieldPath> path,
-      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> autoEmbeddings) {
-    return new LuceneVectorIndexDocumentBuilder(documentWrapper, mapping, path, autoEmbeddings);
+    this.context = context;
   }
 
   /**
@@ -65,21 +56,25 @@ public class LuceneVectorIndexDocumentBuilder implements DocumentBuilder, Docume
       VectorIndexFieldMapping mapping,
       IndexCapabilities indexCapabilities,
       IndexMetricsUpdater.IndexingMetricsUpdater indexingMetricsUpdater,
-      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> autoEmbeddings) {
+      IndexingPolicyBuilderContext context) {
     return new LuceneVectorIndexDocumentBuilder(
-        VectorIndexDocumentWrapper.createRoot(id, indexCapabilities, indexingMetricsUpdater),
+        VectorIndexDocumentWrapper.createRoot(
+            id, indexCapabilities, indexingMetricsUpdater, context),
         mapping,
         Optional.empty(),
-        autoEmbeddings);
+        context);
   }
 
   @Override
   public Optional<FieldValueHandler> valueHandler(String leafPath) {
     FieldPath fullPath = childPath(leafPath);
+    if (this.context.fieldPathsToFilterOut().contains(fullPath)) {
+      return Optional.empty();
+    }
     return this.mapping.childPathExists(fullPath)
         ? Optional.of(
-            LuceneVectorIndexFieldValueHandler.create(
-                this.documentWrapper, this.mapping, fullPath, this.autoEmbeddings))
+            new LuceneVectorIndexFieldValueHandler(
+                this.documentWrapper, this.mapping, fullPath, this.context))
         : Optional.empty();
   }
 

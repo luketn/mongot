@@ -17,10 +17,12 @@ import com.xgen.mongot.cursor.batch.QueryCursorOptions;
 import com.xgen.mongot.cursor.serialization.MongotCursorBatch;
 import com.xgen.mongot.cursor.serialization.MongotCursorResult;
 import com.xgen.mongot.cursor.serialization.MongotIntermediateCursorBatch;
+import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlags;
 import com.xgen.mongot.index.DynamicFeatureFlagsMetricsRecorder;
 import com.xgen.mongot.index.IndexGeneration;
 import com.xgen.mongot.index.IndexUnavailableException;
 import com.xgen.mongot.index.InitializedIndex;
+import com.xgen.mongot.index.ReaderClosedException;
 import com.xgen.mongot.index.Variables;
 import com.xgen.mongot.index.lucene.explain.explainers.MetadataFeatureExplainer;
 import com.xgen.mongot.index.lucene.explain.tracing.Explain;
@@ -66,17 +68,7 @@ public class SearchCommand implements Command {
   private static final FluentLogger FLOGGER = FluentLogger.forEnclosingClass();
 
   private final MetricsFactory metricsFactory;
-  // Counter for total search commands received.
-  private final Counter searchCommandsTotalCount;
-  // Either the query has BSON parsing error, or doesn't conform to the query syntax (e.g. missing a
-  // required field, or having an unrecognized field).
-  private final Counter searchCommandInvalidQueries;
-  // Tracks instances where a RuntimeException wrapping an InvalidQueryException was caught and
-  // unwrapped.
-  private final Counter searchCommandUnwrappedExceptions;
-  // A query that is valid, but mongot internally hit an error when processing/executing this query.
-  private final Counter queriesAgainstView;
-  private final Counter queriesAgainstViewSourceCollection;
+  private final Metrics metrics;
   private final MongotCursorManager cursorManager;
   private final IndexCatalog indexCatalog;
   private final InitializedIndexCatalog initializedIndexCatalog;
@@ -87,21 +79,15 @@ public class SearchCommand implements Command {
   private @Var Optional<SearchEnvoyMetadata> searchEnvoyMetadata;
 
   SearchCommand(
-      MetricsFactory metricsFactory,
+      Metrics metrics,
       MongotCursorManager cursorManager,
       IndexCatalog indexCatalog,
       InitializedIndexCatalog initializedIndexCatalog,
       SearchCommandDefinition definition,
       SearchCommandsRegister.BootstrapperMetadata metadata,
       Bytes bsonSizeSoftLimit) {
-    this.metricsFactory = metricsFactory;
-    this.searchCommandsTotalCount = metricsFactory.counter("searchCommandTotalCount");
-    this.searchCommandInvalidQueries = metricsFactory.counter("searchCommandInvalidQueries");
-    this.searchCommandUnwrappedExceptions =
-        metricsFactory.counter("searchCommandWrappedInvalidQueryException");
-    this.queriesAgainstView = metricsFactory.counter("queriesAgainstView");
-    this.queriesAgainstViewSourceCollection =
-        metricsFactory.counter("queriesAgainstViewSourceCollection");
+    this.metricsFactory = metrics.metricsFactory;
+    this.metrics = metrics;
     this.cursorManager = cursorManager;
     this.indexCatalog = indexCatalog;
     this.initializedIndexCatalog = initializedIndexCatalog;
@@ -124,17 +110,17 @@ public class SearchCommand implements Command {
 
   @VisibleForTesting
   Counter getSearchCommandsTotalCount() {
-    return this.searchCommandsTotalCount;
+    return this.metrics.searchCommandsTotalCount;
   }
 
   @VisibleForTesting
   Counter getSearchCommandInvalidQueries() {
-    return this.searchCommandInvalidQueries;
+    return this.metrics.searchCommandInvalidQueries;
   }
 
   @VisibleForTesting
   Counter getSearchCommandUnwrappedExceptions() {
-    return this.searchCommandUnwrappedExceptions;
+    return this.metrics.searchCommandUnwrappedExceptions;
   }
 
   @Override
@@ -142,14 +128,19 @@ public class SearchCommand implements Command {
     LOG.atTrace().addKeyValue("command", SearchCommandDefinition.NAME).log("Received command");
 
     try (var guard = Tracing.simpleSpanGuard("SearchCommand.run", Tracing.TOGGLE_OFF)) {
-      this.searchCommandsTotalCount.increment();
+      this.metrics.searchCommandsTotalCount.increment();
       QueryOptimizationFlags queryOptimizationFlags =
           this.definition
               .optimizationFlags()
               .map(OptimizationFlagsDefinition::toQueryOptimizationFlags)
               .orElse(QueryOptimizationFlags.DEFAULT_OPTIONS);
+      boolean allow10k =
+          this.metadata
+              .dynamicFeatureFlagRegistry()
+              .evaluateClusterInvariant(DynamicFeatureFlags.ENABLE_10K_BUCKET_LIMIT);
       SearchQuery queryDefinition =
-          SearchQuery.fromBson(this.definition.queryDocument(), queryOptimizationFlags);
+          SearchQuery.fromBson(
+              this.definition.queryDocument(), queryOptimizationFlags, allow10k);
       Optional<InitializedIndex> index = getIndexFromCatalog(queryDefinition);
       QueryCursorOptions queryCursorOptions =
           this.definition
@@ -175,20 +166,29 @@ public class SearchCommand implements Command {
                     .getCachedMongoDbServerInfo()
                     .mongoDbVersion());
 
-        try (var cursorGuard =
-            new CursorGuard(this.createdCursorIds, this.cursorManager, populateCursorResult)) {
+        try (var cursorGuard = new CursorGuard(this.createdCursorIds, this.cursorManager)) {
+          BsonDocument batch;
           if (this.definition.intermediateVersion().isEmpty()) {
-            return getBatch(
-                queryDefinition, queryCursorOptions, queryOptimizationFlags, populateCursorResult);
+            batch =
+                getBatch(
+                    queryDefinition,
+                    queryCursorOptions,
+                    queryOptimizationFlags,
+                    populateCursorResult);
+          } else {
+            var protocolVersion = this.definition.intermediateVersion().get();
+            batch =
+                getIntermediateBatch(
+                    queryDefinition,
+                    protocolVersion,
+                    queryCursorOptions,
+                    queryOptimizationFlags,
+                    populateCursorResult);
           }
-
-          var protocolVersion = this.definition.intermediateVersion().get();
-          return getIntermediateBatch(
-              queryDefinition,
-              protocolVersion,
-              queryCursorOptions,
-              queryOptimizationFlags,
-              populateCursorResult);
+          if (populateCursorResult) {
+            cursorGuard.keepCursors();
+          }
+          return batch;
         }
       }
     } catch (BsonParseException | InvalidQueryException e) {
@@ -196,7 +196,7 @@ public class SearchCommand implements Command {
     } catch (Exception e) {
       // Unwrap RuntimeExceptions to check if they mask a user-facing InvalidQueryException.
       if (e instanceof RuntimeException && e.getCause() instanceof InvalidQueryException) {
-        this.searchCommandUnwrappedExceptions.increment();
+        this.metrics.searchCommandUnwrappedExceptions.increment();
         FLOGGER.atWarning().atMostEvery(1, TimeUnit.HOURS).withCause(e).log(
             "InvalidQueryException wrapped in RuntimeException, "
                 + "throw InvalidQueryException directly");
@@ -236,7 +236,7 @@ public class SearchCommand implements Command {
 
   // Utility method to handle invalid query exceptions that are caught explicitly or wrapped.
   private BsonDocument handleInvalidQueryException(Exception e) {
-    this.searchCommandInvalidQueries.increment();
+    this.metrics.searchCommandInvalidQueries.increment();
     FLOGGER.atWarning().atMostEvery(1, TimeUnit.HOURS).withCause(e).log(
         "searchCommand query is invalid. queryDocument: %s", this.definition.queryDocument());
     return MessageUtils.createErrorBody(e);
@@ -267,7 +267,8 @@ public class SearchCommand implements Command {
           IndexUnavailableException,
           InvalidQueryException,
           IOException,
-          InterruptedException {
+          InterruptedException,
+          ReaderClosedException {
     Timer.Sample sample = Timer.start();
     SearchCursorInfo cursorInfo =
         this.cursorManager.newCursor(
@@ -279,23 +280,25 @@ public class SearchCommand implements Command {
             queryCursorOptions,
             queryOptimizationFlags,
             this.searchEnvoyMetadata);
-    this.createdCursorIds.add(cursorInfo.cursorId);
+
+    long cursorId = cursorInfo.cursorId;
+    this.createdCursorIds.add(cursorId);
 
     // Get the timer consumer first, as the cursor may be killed when the next batch is retrieved.
     QueryBatchTimerRecorder queryBatchTimerRecorder =
-        this.cursorManager.getIndexQueryBatchTimerRecorder(cursorInfo.cursorId);
+        this.cursorManager.getIndexQueryBatchTimerRecorder(cursorId);
 
     Optional<BsonValue> variables = Optional.of(new Variables(cursorInfo.metaResults).toRawBson());
     MongotCursorResultInfo cursorResultInfo =
         this.cursorManager.getNextBatch(
-            cursorInfo.cursorId,
+            cursorId,
             this.bsonSizeSoftLimit.subtract(
                 MongotCursorBatch.calculateEmptyBatchSize(variables, Optional.empty())),
             queryCursorOptions);
 
     Optional<MongotCursorResult> cursorResult =
         populateCursorResult
-            ? Optional.of(cursorResultInfo.toCursorResult(cursorInfo.cursorId, Optional.empty()))
+            ? Optional.of(cursorResultInfo.toCursorResult(cursorId, Optional.empty()))
             : Optional.empty();
 
     MongotCursorBatch batch =
@@ -409,9 +412,9 @@ public class SearchCommand implements Command {
 
     if (initializedIndex.getDefinition().getView().isPresent()) {
       if (this.definition.viewName().isPresent()) {
-        this.queriesAgainstView.increment(); // GA version
+        this.metrics.queriesAgainstView.increment(); // GA version
       } else {
-        this.queriesAgainstViewSourceCollection.increment(); // preview version
+        this.metrics.queriesAgainstViewSourceCollection.increment(); // preview version
       }
     }
 
@@ -471,7 +474,7 @@ public class SearchCommand implements Command {
     private final InitializedIndexCatalog initializedIndexCatalog;
     private final Bytes bsonSizeSoftLimit;
     private final SearchCommandsRegister.BootstrapperMetadata metadata;
-    private final MetricsFactory metricsFactory;
+    private final SearchCommand.Metrics metrics;
 
     public Factory(
         MongotCursorManager cursorManager,
@@ -485,7 +488,7 @@ public class SearchCommand implements Command {
       this.initializedIndexCatalog = initializedIndexCatalog;
       this.bsonSizeSoftLimit = bsonSizeSoftLimit;
       this.metadata = metadata;
-      this.metricsFactory = metricsFactory;
+      this.metrics = new SearchCommand.Metrics(metricsFactory);
     }
 
     @Override
@@ -493,7 +496,7 @@ public class SearchCommand implements Command {
       try (var parser = BsonDocumentParser.fromRoot(args).allowUnknownFields(true).build()) {
         SearchCommandDefinition definition = SearchCommandDefinition.fromBson(parser);
         return new SearchCommand(
-            this.metricsFactory,
+            this.metrics,
             this.cursorManager,
             this.indexCatalog,
             this.initializedIndexCatalog,
@@ -505,6 +508,34 @@ public class SearchCommand implements Command {
         // (called directly by opmsg)
         throw new IllegalArgumentException(e.getMessage());
       }
+    }
+  }
+
+  static class Metrics {
+    private final MetricsFactory metricsFactory;
+    // Counter for total search commands received.
+    private final Counter searchCommandsTotalCount;
+    // Either the query has BSON parsing error, or doesn't conform to the query syntax (e.g. missing
+    // a
+    // required field, or having an unrecognized field).
+    private final Counter searchCommandInvalidQueries;
+    // Tracks instances where a RuntimeException wrapping an InvalidQueryException was caught and
+    // unwrapped.
+    private final Counter searchCommandUnwrappedExceptions;
+    // A query that is valid, but mongot internally hit an error when processing/executing this
+    // query.
+    private final Counter queriesAgainstView;
+    private final Counter queriesAgainstViewSourceCollection;
+
+    Metrics(MetricsFactory metricsFactory) {
+      this.metricsFactory = metricsFactory;
+      this.searchCommandsTotalCount = metricsFactory.counter("searchCommandTotalCount");
+      this.searchCommandInvalidQueries = metricsFactory.counter("searchCommandInvalidQueries");
+      this.searchCommandUnwrappedExceptions =
+          metricsFactory.counter("searchCommandWrappedInvalidQueryException");
+      this.queriesAgainstView = metricsFactory.counter("queriesAgainstView");
+      this.queriesAgainstViewSourceCollection =
+          metricsFactory.counter("queriesAgainstViewSourceCollection");
     }
   }
 }

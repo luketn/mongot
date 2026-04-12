@@ -1,33 +1,38 @@
 package com.xgen.mongot.embedding.mongodb.leasing;
 
-import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata.VERSION_ZERO;
 import static com.xgen.mongot.embedding.mongodb.leasing.StatusResolutionUtils.getEffectiveMaterializedViewStatus;
 import static com.xgen.mongot.util.FutureUtils.COMPLETED_FUTURE;
+import static com.xgen.mongot.util.Uuids.NIL;
+import static com.xgen.mongot.util.mongodb.MongoDbDatabase.getCollectionInfo;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Var;
-import com.mongodb.ConnectionString;
 import com.mongodb.ErrorCategory;
 import com.mongodb.MongoWriteException;
 import com.mongodb.ReadConcern;
 import com.mongodb.ReadPreference;
-import com.mongodb.client.MongoClient;
+import com.mongodb.WriteConcern;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.result.UpdateResult;
 import com.mongodb.lang.Nullable;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
+import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
 import com.xgen.mongot.embedding.utils.MongoClientOperationExecutor;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexGeneration;
+import com.xgen.mongot.index.definition.IndexDefinition;
+import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
 import com.xgen.mongot.index.status.IndexStatus;
-import com.xgen.mongot.index.version.GenerationId;
+import com.xgen.mongot.index.version.MaterializedViewGenerationId;
 import com.xgen.mongot.metrics.MeterAndFtdcRegistry;
 import com.xgen.mongot.metrics.MetricsFactory;
-import com.xgen.mongot.util.mongodb.ConnectionStringUtil;
-import com.xgen.mongot.util.mongodb.MongoClientBuilder;
-import com.xgen.mongot.util.mongodb.SyncSourceConfig;
+import com.xgen.mongot.util.Check;
+import com.xgen.mongot.util.mongodb.serialization.MongoDbCollectionInfo;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -36,10 +41,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import org.bson.BsonDocument;
+import org.bson.BsonTimestamp;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 import org.slf4j.Logger;
@@ -60,58 +68,144 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(DynamicLeaderLeaseManager.class);
 
+  // TODO(CLOUDP-356242): make this configurable
   private static final String AUTO_EMBEDDING_INTERNAL_DATABASE_NAME = "__mdb_internal_search";
 
   private static final String METRICS_NAMESPACE = "embedding.leasing.stats";
 
-  private static final int MONGO_CLIENT_MAX_CONNECTIONS = 2;
-
   @VisibleForTesting static final String LEASE_COLLECTION_NAME = "auto_embedding_leases";
 
-  public static final long DEFAULT_INDEX_DEFINITION_VERSION = 0;
+  private static final long GIVE_UP_BLACKOUT_SECONDS = 60;
 
   private final MongoClientOperationExecutor operationExecutor;
   private final String hostname;
   // Mapping of lease keys to leases.
   private final Map<String, Lease> leases;
   // Tracks GenerationIds where this instance is the leader.
-  private final Set<GenerationId> leaderGenerationIds;
+  private final Set<MaterializedViewGenerationId> leaderGenerationIds;
   // Tracks GenerationIds where this instance is a follower.
-  private final Set<GenerationId> followerGenerationIds;
+  private final Set<MaterializedViewGenerationId> followerGenerationIds;
   // Maps GenerationId to its definition version (as String) for use in pollFollowerStatuses().
-  private final Map<GenerationId, String> generationIdToDefinitionVersion;
-  private final MongoCollection<BsonDocument> collection;
+  private final Map<MaterializedViewGenerationId, String> matViewGenerationIdToDefinitionVersion;
+  private final MaterializedViewCollectionMetadataCatalog mvMetadataCatalog;
+  private final String databaseName;
+  private final AutoEmbeddingMongoClient autoEmbeddingMongoClient;
+  // End of give-up blackout (epoch ms). While now < this, do not acquire leadership.
+  private final AtomicLong giveUpBlackoutEndTimeMs = new AtomicLong(0);
 
   public DynamicLeaderLeaseManager(
-      MongoClient mongoClient,
+      AutoEmbeddingMongoClient autoEmbeddingMongoClient,
       MetricsFactory metricsFactory,
       String hostname,
-      String databaseName) {
+      String databaseName,
+      MaterializedViewCollectionMetadataCatalog mvMetadataCatalog) {
     this.operationExecutor =
         new MongoClientOperationExecutor(metricsFactory, "leaseTableCollection");
     this.hostname = hostname;
+    this.mvMetadataCatalog = mvMetadataCatalog;
     this.leases = new ConcurrentHashMap<>();
     this.leaderGenerationIds = ConcurrentHashMap.newKeySet();
     this.followerGenerationIds = ConcurrentHashMap.newKeySet();
-    this.generationIdToDefinitionVersion = new ConcurrentHashMap<>();
-    this.collection =
-        mongoClient
-            .getDatabase(databaseName)
-            .getCollection(LEASE_COLLECTION_NAME, BsonDocument.class)
-            .withReadConcern(ReadConcern.LINEARIZABLE)
-            .withReadPreference(ReadPreference.primary());
-    initLeases();
+    this.matViewGenerationIdToDefinitionVersion = new ConcurrentHashMap<>();
+    this.databaseName = databaseName;
+    this.autoEmbeddingMongoClient = autoEmbeddingMongoClient;
   }
 
   public static DynamicLeaderLeaseManager create(
-      SyncSourceConfig syncSourceConfig,
+      AutoEmbeddingMongoClient autoEmbeddingMongoClient,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
-      String hostname) {
-    return new DynamicLeaderLeaseManager(
-        getMongoClient(syncSourceConfig, meterAndFtdcRegistry),
-        new MetricsFactory(METRICS_NAMESPACE, meterAndFtdcRegistry.meterRegistry()),
-        hostname,
-        AUTO_EMBEDDING_INTERNAL_DATABASE_NAME);
+      String hostname,
+      MaterializedViewCollectionMetadataCatalog mvMetadataCatalog,
+      LeaseManagerOpsCommands opsCommands) {
+    DynamicLeaderLeaseManager manager =
+        new DynamicLeaderLeaseManager(
+            autoEmbeddingMongoClient,
+            new MetricsFactory(METRICS_NAMESPACE, meterAndFtdcRegistry.meterRegistry()),
+            hostname,
+            AUTO_EMBEDDING_INTERNAL_DATABASE_NAME,
+            mvMetadataCatalog);
+    manager.opsGiveUpLease(opsCommands.opsGiveUpLease());
+    return manager;
+  }
+
+  /**
+   * Applies the ops give-up lease command if applicable (instance match, not expired). When
+   * leaseNames is non-empty, gives up those leases (best-effort) and sets a 60s blackout. When
+   * leaseNames is empty, only sets blackout (instance signals overloaded, step away from taking new
+   * leases).
+   */
+  void opsGiveUpLease(Optional<LeaseManagerOpsCommands.OpsGiveUpLeaseCommand> opsGiveUpLease) {
+    if (opsGiveUpLease.isEmpty()) {
+      return;
+    }
+    LeaseManagerOpsCommands.OpsGiveUpLeaseCommand cmd = opsGiveUpLease.get();
+    if (!cmd.instance().equals(this.hostname)) {
+      LOG.atDebug()
+          .addKeyValue("commandInstance", cmd.instance())
+          .addKeyValue("hostname", this.hostname)
+          .log("Ignoring ops give-up lease - instance mismatch");
+      return;
+    }
+    if (Instant.now().isAfter(cmd.expiresAt())) {
+      LOG.atDebug()
+          .addKeyValue("expiresAt", cmd.expiresAt())
+          .log("Ignoring ops give-up lease - expired");
+      return;
+    }
+    if (!cmd.leaseNames().isEmpty()) {
+      applyGiveUpLease(cmd.leaseNames());
+    }
+    long blackoutEnd = System.currentTimeMillis() + GIVE_UP_BLACKOUT_SECONDS * 1000;
+    this.giveUpBlackoutEndTimeMs.set(blackoutEnd);
+    LOG.atInfo()
+        .addKeyValue("leaseNames", cmd.leaseNames())
+        .addKeyValue("blackoutSeconds", GIVE_UP_BLACKOUT_SECONDS)
+        .log("Applied ops give-up lease and set blackout");
+  }
+
+  /**
+   * Gives up ownership of the specified leases: expires them in the database and clears local
+   * leader state. Only affects leases owned by this instance.
+   */
+  private void applyGiveUpLease(List<String> giveUpLeaseNames) {
+    for (String leaseKeyToGiveUp : giveUpLeaseNames) {
+      LOG.atInfo()
+          .addKeyValue("leaseKeyToGiveUp", leaseKeyToGiveUp)
+          .addKeyValue("hostname", this.hostname)
+          .log("Attempting to give up lease");
+      Lease lease = this.leases.get(leaseKeyToGiveUp);
+      if (lease == null || !this.hostname.equals(lease.leaseOwner())) {
+        LOG.atInfo()
+            .addKeyValue("leaseKeyToGiveUp", leaseKeyToGiveUp)
+            .addKeyValue("hostname", lease != null ? lease.leaseOwner() : "")
+            .addKeyValue("realHostname", this.hostname)
+            .log("Empty in-mem lease or we don't own it - not giving up");
+        continue;
+      }
+      Lease released = lease.withReleasedOwnership();
+      Bson filter =
+          createUpdateFilterForOwnedLease(
+              leaseKeyToGiveUp, lease.leaseVersion(), released.leaseVersion());
+      try {
+        UpdateResult result =
+            this.operationExecutor.execute(
+                "giveUpLease", () -> this.getCollection().replaceOne(filter, released.toBson()));
+        if (result.getModifiedCount() == 1) {
+          this.leases.put(leaseKeyToGiveUp, released);
+          LOG.atInfo()
+              .addKeyValue("leaseKeyToGiveUp", leaseKeyToGiveUp)
+              .addKeyValue("hostname", this.hostname)
+              .log("Gave up lease for rebalance");
+        } else {
+          LOG.atError()
+              .addKeyValue("leaseKeyToGiveUp", leaseKeyToGiveUp)
+              .addKeyValue("hostname", this.hostname)
+              .log("No lease document updated, rebalance failed");
+        }
+      } catch (Exception e) {
+        LOG.warn("Failed to give up lease for {}", leaseKeyToGiveUp, e);
+      }
+    }
   }
 
   /**
@@ -129,24 +223,69 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    *   "indexStatus": "READY"
    * }
    * }</pre>
-   *
-   * @throws RuntimeException if there is an error talking to the database.
    */
-  private void initLeases() {
+  public void syncLeasesFromMongod() {
     try {
       List<BsonDocument> rawLeases =
           this.operationExecutor.execute(
-              "getLeases", () -> this.collection.find().into(new ArrayList<>()));
+              "getLeases", () -> this.getCollection().find().into(new ArrayList<>()));
       for (BsonDocument rawLease : rawLeases) {
-        Lease lease = Lease.fromBson(rawLease);
-        this.leases.put(lease.id(), lease);
+        Lease lease = normalizeLeaseIfNeeded(Lease.fromBson(rawLease));
+        if (lease != null) {
+          this.leases.put(lease.id(), lease);
+        } else {
+          // TODO(CLOUDP-384971): clean up corrupted leases
+          LOG.atError()
+              .addKeyValue("leaseId", rawLease.getString("_id"))
+              .log("Corrupted lease found, skipping");
+        }
       }
       LOG.atInfo()
           .addKeyValue("leaseCount", rawLeases.size())
           .addKeyValue("hostname", this.hostname)
           .log("Initialized leases from database");
     } catch (Exception e) {
-      throw new RuntimeException("Failed to initialize leases from database.", e);
+      // initializeLease calls should populate in memory leases individually,
+      LOG.atError()
+          .setCause(e)
+          .addKeyValue("hostname", this.hostname)
+          .log("syncLeasesFromMongod fails, skipping syncLeases to avoid crash.");
+    }
+  }
+
+  // Normalizes lease by populating missing mat view UUID field, this won't change lease
+  // version since it's only meant for backward compatibility and lease state is unchanged.
+  @Nullable
+  private Lease normalizeLeaseIfNeeded(Lease lease) {
+    if (!lease.materializedViewCollectionMetadata().collectionUuid().equals(NIL)) {
+      // No need to normalize it by resolving mat view collection UUID.
+      return lease;
+    }
+    try {
+      return lease.withResolvedMatViewUuid(
+          Check.instanceOf(
+                  getCollectionInfo(
+                      Check.isPresent(
+                          this.autoEmbeddingMongoClient.getLeaseManagerMongoClient(),
+                          "leaseManagerMongoClient"),
+                      this.databaseName,
+                      lease.materializedViewCollectionMetadata().collectionName()),
+                  MongoDbCollectionInfo.Collection.class)
+              .info()
+              .uuid());
+    } catch (Exception | AssertionError e) {
+      LOG.atWarn()
+          .addKeyValue("leaseId", lease.id())
+          .addKeyValue("leaseOwner", lease.leaseOwner())
+          .addKeyValue(
+              "matViewCollectionName", lease.materializedViewCollectionMetadata().collectionName())
+          .setCause(e)
+          .log(
+              "Unable to normalize or validate lease, "
+                  + "could be caused by dangling lease or corrupted lease");
+      // TODO(CLOUDP-384971): We should have a way to clean up corrupted leases to avoid blocking
+      // Lease creation.
+      return null;
     }
   }
 
@@ -155,18 +294,19 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    *
    * <p>If we already own the lease for this index (e.g., during index definition update), the
    * generation is added as a leader. Otherwise, it starts as a follower and leadership is acquired
-   * via {@link #tryAcquireLeadership(GenerationId)}.
+   * via {@link #tryAcquireLeadership(MaterializedViewGenerationId)}.
    *
    * <p>If no lease exists in memory, an in-memory lease with empty owner is created. This lease
-   * will be persisted to the database when {@link #tryAcquireLeadership(GenerationId)} is called.
+   * will be persisted to the database when {@link
+   * #tryAcquireLeadership(MaterializedViewGenerationId)} is called.
    */
   @Override
-  public void add(IndexGeneration indexGeneration) {
-    GenerationId generationId = indexGeneration.getGenerationId();
-    String versionKey = getIndexDefinitionVersion(indexGeneration);
-    this.generationIdToDefinitionVersion.put(generationId, versionKey);
+  public void add(IndexGeneration indexGeneration, boolean skipInitialSync) {
+    MaterializedViewGenerationId generationId =
+        Check.instanceOf(indexGeneration.getGenerationId(), MaterializedViewGenerationId.class);
+    String versionKey = getIndexDefinitionVersion(indexGeneration.getDefinition());
+    this.matViewGenerationIdToDefinitionVersion.put(generationId, versionKey);
 
-    // TODO(CLOUDP-373389): add materializedViewMetadata that includes schemaFieldsMapping
     if (this.leases.containsKey(getLeaseKey(generationId))) {
       // Lease exists in memory - check if we own it.
       var lease = this.leases.get(getLeaseKey(generationId));
@@ -198,7 +338,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
         this.leases.put(
             getLeaseKey(generationId),
             lease.withNewIndexDefinitionVersion(
-                versionKey, indexGeneration.getIndex().getStatus()));
+                versionKey, indexGeneration.getIndex().getStatus(), skipInitialSync));
       }
     } else {
       // No lease in memory - create an in-memory lease with an empty owner.
@@ -208,58 +348,61 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
           .addKeyValue("generationId", generationId)
           .addKeyValue("hostname", this.hostname)
           .log("Starting as follower - no existing lease, creating in-memory placeholder");
+      // mvMetadataCatalog should already have metadata for this generationId at this point after
+      // CollectionResolver calls this.getMaterializedViewCollectionMetadata.
+      MaterializedViewCollectionMetadata materializedViewCollectionMetadata =
+          this.mvMetadataCatalog.getMetadata(generationId);
       Lease newLease =
           Lease.newLease(
-              indexGeneration.getDefinition().getIndexId().toHexString(),
+              getLeaseKey(generationId),
+              // This is source collection UUID
               indexGeneration.getDefinition().getCollectionUuid(),
               indexGeneration.getDefinition().getLastObservedCollectionName(),
               "", // Empty owner - no one owns this lease yet
               versionKey,
               indexGeneration.getIndex().getStatus(),
-              // TODO(CLOUDP-363914): Use MaterializedViewCollectionMetadata
-              // from MaterializedViewCollectionMetadataCatalog
-              new MaterializedViewCollectionMetadata(
-                  VERSION_ZERO,
-                  indexGeneration.getDefinition().getCollectionUuid(),
-                  indexGeneration.getDefinition().getLastObservedCollectionName()));
+              materializedViewCollectionMetadata);
       this.leases.put(getLeaseKey(generationId), newLease);
     }
   }
 
   @Override
-  public CompletableFuture<Void> drop(GenerationId generationId) {
-    boolean wasLeader = this.leaderGenerationIds.remove(generationId);
-    boolean wasFollower = this.followerGenerationIds.remove(generationId);
-    this.generationIdToDefinitionVersion.remove(generationId);
+  public void drop(MaterializedViewGenerationId generationId) {
+    this.leaderGenerationIds.remove(generationId);
+    this.followerGenerationIds.remove(generationId);
+    this.matViewGenerationIdToDefinitionVersion.remove(generationId);
+  }
+
+  @Override
+  public CompletableFuture<Void> dropLease(String leaseKey) {
 
     // Only delete the lease from the database if we own the lease.
     // Enforce ownership check in the filter to handle stale in-memory state.
-    Lease lease = this.leases.get(getLeaseKey(generationId));
+    Lease lease = this.leases.get(leaseKey);
     if (lease != null && this.hostname.equals(lease.leaseOwner())) {
       LOG.atInfo()
-          .addKeyValue("generationId", generationId)
+          .addKeyValue("leaseKey", leaseKey)
           .addKeyValue("hostname", this.hostname)
-          .addKeyValue("wasLeader", wasLeader)
           .log("Dropping index - deleting lease from database (we own it)");
       // Remove the lease from memory first, then delete it from DB.
       // This ensures we stop considering ourselves the leader immediately.
-      this.leases.remove(getLeaseKey(generationId));
+      this.leases.remove(leaseKey);
       return CompletableFuture.runAsync(
           () -> {
             try {
               var filter =
                   Filters.and(
-                      Filters.eq("_id", getLeaseKey(generationId)),
+                      Filters.eq("_id", leaseKey),
                       Filters.eq(Lease.Fields.LEASE_OWNER.getName(), this.hostname));
-              var deleteResult = this.collection.deleteOne(filter);
+              var deleteResult = this.getCollection().deleteOne(filter);
               if (deleteResult.getDeletedCount() > 0) {
                 LOG.atInfo()
-                    .addKeyValue("generationId", generationId)
+                    .addKeyValue("leaseKey", leaseKey)
                     .log("Successfully deleted lease from database");
               } else {
                 // This is expected if another instance took over before we deleted.
                 LOG.atInfo()
-                    .addKeyValue("generationId", generationId)
+                    .addKeyValue("leaseKey", leaseKey)
                     .log("Lease not deleted - ownership changed or lease already removed");
               }
             } catch (Exception e) {
@@ -267,7 +410,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
               LOG.warn(
                   "Failed to delete lease for {} from database. "
                       + "Lease will expire naturally if not deleted.",
-                  getLeaseKey(generationId),
+                  leaseKey,
                   e);
             }
           });
@@ -276,34 +419,49 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     // Follower path or no lease found - just clean up the in-memory state.
     if (lease != null) {
       LOG.atInfo()
-          .addKeyValue("generationId", generationId)
+          .addKeyValue("leaseKey", leaseKey)
           .addKeyValue("hostname", this.hostname)
           .addKeyValue("leaseOwner", lease.leaseOwner())
-          .addKeyValue("wasFollower", wasFollower)
           .log("Dropping index - not deleting lease from database (we don't own it)");
     } else {
       LOG.atInfo()
-          .addKeyValue("generationId", generationId)
+          .addKeyValue("leaseKey", leaseKey)
           .addKeyValue("hostname", this.hostname)
-          .addKeyValue("wasLeader", wasLeader)
-          .addKeyValue("wasFollower", wasFollower)
           .log("Dropping index - no lease found in memory");
     }
-    this.leases.remove(getLeaseKey(generationId));
+    this.leases.remove(leaseKey);
     return COMPLETED_FUTURE;
   }
 
   @Override
-  public boolean isLeader(GenerationId generationId) {
+  public boolean isLeader(MaterializedViewGenerationId generationId) {
     return this.leaderGenerationIds.contains(generationId);
   }
 
   @Override
-  public EncodedUserData getCommitInfo(GenerationId generationId) throws IOException {
+  public long getLeaseVersion(MaterializedViewGenerationId generationId) {
+    Lease lease = this.leases.get(getLeaseKey(generationId));
+    return lease != null ? lease.leaseVersion() : -1;
+  }
+
+  @Override
+  public EncodedUserData getCommitInfo(MaterializedViewGenerationId generationId)
+      throws IOException {
     // Leader can read from the in-memory state.
     if (isLeader(generationId)) {
-      ensureLeaseExists(generationId);
-      return EncodedUserData.fromString(this.leases.get(getLeaseKey(generationId)).commitInfo());
+      @Var String leaseKey = null;
+      try {
+        leaseKey = getLeaseKey(generationId);
+        ensureLeaseExists(leaseKey);
+        return EncodedUserData.fromString(this.leases.get(leaseKey).commitInfo());
+      } catch (IllegalStateException e) {
+        LOG.warn(
+            "Metadata removed for generation {} during getCommitInfo, removing from leaders",
+            generationId,
+            e);
+        cleanupAfterMetadataLoss(generationId, leaseKey);
+        return EncodedUserData.EMPTY;
+      }
     }
     // If follower, read from a database.
     try {
@@ -318,48 +476,76 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   }
 
   @Override
-  public void updateCommitInfo(GenerationId generationId, EncodedUserData encodedUserData)
+  public void updateCommitInfo(
+      MaterializedViewGenerationId generationId, EncodedUserData encodedUserData)
       throws MaterializedViewTransientException, MaterializedViewNonTransientException {
     // Only update the commit info in the database if leader.
     if (isLeader(generationId)) {
-      ensureLeaseExists(generationId);
-      Lease currentLease = this.leases.get(getLeaseKey(generationId));
-      Lease updatedLease = currentLease.withUpdatedCheckpoint(encodedUserData);
-      updateLeaseInDatabase(generationId, currentLease, updatedLease, encodedUserData);
+      @Var String leaseKey = null;
+      try {
+        leaseKey = getLeaseKey(generationId);
+        ensureLeaseExists(leaseKey);
+        Lease currentLease = this.leases.get(leaseKey);
+        Lease updatedLease = currentLease.withUpdatedCheckpoint(encodedUserData);
+        updateLeaseInDatabase(leaseKey, generationId, currentLease, updatedLease, encodedUserData);
+      } catch (IllegalStateException e) {
+        LOG.warn(
+            "Metadata removed for generation {} during updateCommitInfo, removing from leaders",
+            generationId,
+            e);
+        cleanupAfterMetadataLoss(generationId, leaseKey);
+      }
     }
   }
 
   @Override
   public void updateReplicationStatus(
-      GenerationId generationId, long indexDefinitionVersion, IndexStatus indexStatus)
+      MaterializedViewGenerationId generationId,
+      long indexDefinitionVersion,
+      IndexStatus indexStatus)
       throws MaterializedViewTransientException, MaterializedViewNonTransientException {
     // Only update the status in the database of leader.
     if (isLeader(generationId)) {
-      ensureLeaseExists(generationId);
-      Lease currentLease = this.leases.get(getLeaseKey(generationId));
-      Lease updatedLease = currentLease.withUpdatedStatus(indexStatus, indexDefinitionVersion);
-      updateLeaseInDatabase(
-          generationId,
-          currentLease,
-          updatedLease,
-          EncodedUserData.fromString(currentLease.commitInfo()));
+      @Var String leaseKey = null;
+      try {
+        leaseKey = getLeaseKey(generationId);
+        ensureLeaseExists(leaseKey);
+        Lease currentLease = this.leases.get(leaseKey);
+
+        BsonTimestamp oplogPosition = currentLease.extractHighWaterMark().orElse(null);
+        Lease updatedLease =
+            currentLease.withUpdatedStatus(indexStatus, indexDefinitionVersion, oplogPosition);
+        updateLeaseInDatabase(
+            leaseKey,
+            generationId,
+            currentLease,
+            updatedLease,
+            EncodedUserData.fromString(currentLease.commitInfo()));
+      } catch (IllegalStateException e) {
+        LOG.warn(
+            "Metadata removed for generation {} during updateReplicationStatus, "
+                + "removing from leaders",
+            generationId,
+            e);
+        cleanupAfterMetadataLoss(generationId, leaseKey);
+      }
     }
   }
 
   @Override
-  public Set<GenerationId> getLeaderGenerationIds() {
+  public Set<MaterializedViewGenerationId> getLeaderGenerationIds() {
     return Collections.unmodifiableSet(this.leaderGenerationIds);
   }
 
   @Override
-  public Set<GenerationId> getFollowerGenerationIds() {
+  public Set<MaterializedViewGenerationId> getFollowerGenerationIds() {
     return Collections.unmodifiableSet(this.followerGenerationIds);
   }
 
   @Override
   public LeaseManager.FollowerPollResult pollFollowerStatuses() {
-    Map<GenerationId, IndexStatus> statuses = new HashMap<>();
-    Set<GenerationId> acquirableLeases = new HashSet<>();
+    Map<MaterializedViewGenerationId, IndexStatus> statuses = new HashMap<>();
+    Set<MaterializedViewGenerationId> acquirableLeases = new HashSet<>();
 
     LOG.atDebug()
         .addKeyValue("followerCount", this.followerGenerationIds.size())
@@ -370,13 +556,26 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
       return new LeaseManager.FollowerPollResult(statuses, acquirableLeases);
     }
 
-    // Build a mapping from lease key to generation ID for efficient lookup after batch fetch.
-    Map<String, GenerationId> leaseKeyToGenerationId = new HashMap<>();
+    // Build a mapping from MaterializedViewGenerationID to LeaseKey for efficient lookup after
+    // batch fetch.
+    Map<MaterializedViewGenerationId, String> generationIdToLeaseKey = new HashMap<>();
     List<String> leaseKeys = new ArrayList<>();
-    for (GenerationId generationId : this.followerGenerationIds) {
-      String leaseKey = getLeaseKey(generationId);
-      leaseKeys.add(leaseKey);
-      leaseKeyToGenerationId.put(leaseKey, generationId);
+    Set<MaterializedViewGenerationId> removedDuringPoll = new HashSet<>();
+    for (MaterializedViewGenerationId generationId : new ArrayList<>(this.followerGenerationIds)) {
+      try {
+        String leaseKey = getLeaseKey(generationId);
+        leaseKeys.add(leaseKey);
+        generationIdToLeaseKey.put(generationId, leaseKey);
+      } catch (IllegalStateException e) {
+        LOG.warn(
+            "Metadata removed for follower generation {} during poll, removing", generationId, e);
+        cleanupAfterMetadataLoss(generationId, null);
+        removedDuringPoll.add(generationId);
+      }
+    }
+
+    if (leaseKeys.isEmpty()) {
+      return new LeaseManager.FollowerPollResult(statuses, acquirableLeases);
     }
 
     // Batch fetch all follower leases from the database.
@@ -385,7 +584,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
       List<BsonDocument> rawLeases =
           this.operationExecutor.execute(
               "getFollowerLeases",
-              () -> this.collection.find(Filters.in("_id", leaseKeys)).into(new ArrayList<>()));
+              () ->
+                  this.getCollection().find(Filters.in("_id", leaseKeys)).into(new ArrayList<>()));
       for (BsonDocument rawLease : rawLeases) {
         Lease lease = Lease.fromBson(rawLease);
         fetchedLeases.put(lease.id(), lease);
@@ -397,7 +597,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     } catch (Exception e) {
       LOG.warn("Failed to batch fetch follower leases, falling back to UNKNOWN status", e);
       // On failure, mark all followers as UNKNOWN.
-      for (GenerationId generationId : this.followerGenerationIds) {
+      for (MaterializedViewGenerationId generationId :
+          new ArrayList<>(this.followerGenerationIds)) {
         statuses.put(generationId, new IndexStatus(IndexStatus.StatusCode.UNKNOWN));
       }
       return new LeaseManager.FollowerPollResult(statuses, acquirableLeases);
@@ -405,14 +606,17 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
     // Process each follower generation ID.
     Instant now = Instant.now();
-    for (GenerationId generationId : this.followerGenerationIds) {
-      String versionKey = this.generationIdToDefinitionVersion.get(generationId);
+    for (MaterializedViewGenerationId generationId : new ArrayList<>(this.followerGenerationIds)) {
+      if (removedDuringPoll.contains(generationId)) {
+        continue;
+      }
+      String versionKey = this.matViewGenerationIdToDefinitionVersion.get(generationId);
       if (versionKey == null) {
         LOG.warn("No definition version found for generation ID {}", generationId);
         continue;
       }
 
-      String leaseKey = getLeaseKey(generationId);
+      String leaseKey = generationIdToLeaseKey.get(generationId);
       Lease lease = fetchedLeases.get(leaseKey);
 
       if (lease != null) {
@@ -449,7 +653,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
   /** Extracts the effective status from a lease for a given generation ID and version key. */
   private IndexStatus getStatusFromLease(
-      Lease lease, GenerationId generationId, String versionKey) {
+      Lease lease, MaterializedViewGenerationId generationId, String versionKey) {
     @Var
     Lease.IndexDefinitionVersionStatus requestedStatus =
         new Lease.IndexDefinitionVersionStatus(false, IndexStatus.StatusCode.UNKNOWN);
@@ -480,9 +684,21 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
           .addKeyValue("hostname", this.hostname)
           .log("Heartbeat - renewing leases for leader generations");
     }
-    for (GenerationId generationId : new ArrayList<>(this.leaderGenerationIds)) {
+    for (MaterializedViewGenerationId generationId : new ArrayList<>(this.leaderGenerationIds)) {
       renewLease(generationId);
     }
+  }
+
+  /**
+   * Used only when executing the give up lease ops command. Returns whether this instance is in the
+   * give-up lease blackout window. While true, this instance will not attempt to acquire leadership
+   * (e.g. after an ops give-up lease command for rebalancing).
+   *
+   * @return true if in blackout, false otherwise
+   */
+  @Override
+  public boolean isInLeaseAcquisitionBlackout() {
+    return System.currentTimeMillis() < this.giveUpBlackoutEndTimeMs.get();
   }
 
   /**
@@ -490,14 +706,19 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * MaterializedViewManager when it detects that a lease is acquirable (expired, owned by us, or
    * new).
    *
-   * <p>For new indexes (in-memory lease with empty owner), the lease is created via upsert. For
+   * <p>For new indexes (in-memory lease with empty owner by this::initializeLease) or other
    * existing leases, leadership is acquired using optimistic concurrency control.
    *
-   * @param generationId the generation ID to acquire leadership for
    * @return true if leadership was successfully acquired, false otherwise
    */
   @Override
-  public boolean tryAcquireLeadership(GenerationId generationId) {
+  public boolean tryAcquireLeadership(MaterializedViewGenerationId generationId) {
+    if (isInLeaseAcquisitionBlackout()) {
+      LOG.atDebug()
+          .addKeyValue("generationId", generationId)
+          .log("Skipping leadership acquisition - in give-up blackout");
+      return false;
+    }
     try {
       Lease inMemoryLease = this.leases.get(getLeaseKey(generationId));
       if (inMemoryLease == null) {
@@ -507,7 +728,6 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
       // Check if this is a new index (empty owner) or an acquirable existing lease.
       Instant now = Instant.now();
-      boolean isNewIndex = inMemoryLease.leaseOwner().isEmpty();
       boolean weOwnLease = this.hostname.equals(inMemoryLease.leaseOwner());
       boolean leaseExpired = now.isAfter(inMemoryLease.leaseExpiration());
 
@@ -517,16 +737,11 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
           .addKeyValue("leaseExpiration", inMemoryLease.leaseExpiration())
           .addKeyValue("now", now)
           .addKeyValue("hostname", this.hostname)
-          .addKeyValue("isNewIndex", isNewIndex)
           .addKeyValue("weOwnLease", weOwnLease)
           .addKeyValue("leaseExpired", leaseExpired)
           .log("Attempting to acquire leadership");
 
       Lease newLease = inMemoryLease.withRenewedOwnership(this.hostname);
-
-      if (isNewIndex) {
-        return createLeaseForNewIndex(generationId, newLease);
-      }
       if (weOwnLease || leaseExpired) {
         return acquireExistingLease(generationId, inMemoryLease, newLease);
       }
@@ -538,6 +753,72 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
       LOG.warn("Error attempting to acquire leadership for {}", generationId, e);
       return false;
     }
+  }
+
+  @Override
+  public Optional<BsonTimestamp> getSteadyAsOfOplogPosition(
+      MaterializedViewGenerationId generationId) {
+    try {
+      return Optional.ofNullable(this.leases.get(getLeaseKey(generationId)))
+          .flatMap(Lease::getSteadyAsOfOplogPosition);
+    } catch (IllegalStateException e) {
+      // Index was deleted concurrently - metadata is gone.
+      LOG.warn(
+          "Metadata removed for generation {} during getSteadyAsOfOplogPosition", generationId, e);
+      return Optional.empty();
+    }
+  }
+
+  @Override
+  public MaterializedViewCollectionMetadata initializeLease(
+      MaterializedViewIndexDefinitionGeneration indexDefinitionGeneration,
+      MaterializedViewCollectionMetadata proposedMetadata)
+      throws Exception {
+    @Var var existingLease = this.leases.get(proposedMetadata.collectionName());
+    if (existingLease == null) {
+      // Try to get lease from database and update in memory state.
+      existingLease = refreshLeaseFromDatabase(proposedMetadata.collectionName());
+    }
+    if (existingLease != null) {
+      // If another Mongot already created the initial lease before this mongot calls method
+      // syncLeasesFromMongod in the constructor, just reuse, no need to make another network call.
+      return existingLease.materializedViewCollectionMetadata();
+    }
+    // Fails to refresh from database, so we should be good to create a new entry in lease table.
+    Lease lease =
+        Lease.initialLease(
+            // Materialized View Collection Name from CollectionResolver
+            proposedMetadata.collectionName(),
+            // Source collection UUID
+            indexDefinitionGeneration.getIndexDefinition().getCollectionUuid(),
+            // Source collection name
+            indexDefinitionGeneration.getIndexDefinition().getLastObservedCollectionName(),
+            getIndexDefinitionVersion(indexDefinitionGeneration.getIndexDefinition()),
+            IndexStatus.unknown(),
+            proposedMetadata);
+    boolean success = createLeaseForNewIndex(lease);
+    if (success) {
+      LOG.atInfo()
+          .addKeyValue("generationId", indexDefinitionGeneration.getGenerationId())
+          .addKeyValue("hostname", this.hostname)
+          .addKeyValue("leaseExpiration", lease.leaseExpiration())
+          .log("Created new lease entry for new index");
+      return proposedMetadata;
+    } else {
+      Lease existing = this.leases.get(lease.id());
+      LOG.atInfo()
+          .addKeyValue("generationId", indexDefinitionGeneration.getGenerationId())
+          .addKeyValue("hostname", this.hostname)
+          .addKeyValue("winningOwner", existing.leaseOwner())
+          .log("Lost race to create lease - another instance won");
+      return existing.materializedViewCollectionMetadata();
+    }
+  }
+
+  // TEST ONLY.
+  @VisibleForTesting
+  Map<String, Lease> getLeases() {
+    return ImmutableMap.copyOf(this.leases);
   }
 
   /**
@@ -557,32 +838,28 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * }
    * }</pre>
    */
-  private boolean createLeaseForNewIndex(GenerationId generationId, Lease newLease)
-      throws Exception {
+  private boolean createLeaseForNewIndex(Lease newLease) throws Exception {
     try {
       this.operationExecutor.execute(
-          "createLease", () -> this.collection.insertOne(newLease.toBson()));
-      // Insert succeeded - we created the lease and are the leader.
-      this.leases.put(getLeaseKey(generationId), newLease);
-      this.followerGenerationIds.remove(generationId);
-      this.leaderGenerationIds.add(generationId);
-      LOG.atInfo()
-          .addKeyValue("generationId", generationId)
-          .addKeyValue("hostname", this.hostname)
-          .addKeyValue("leaseExpiration", newLease.leaseExpiration())
-          .log("Created new lease and acquired leadership for new index");
+          "createLease", () -> this.getCollection().insertOne(newLease.toBson()));
+      // Insert succeeded - we created the lease and synchronized in-memory lease state.
+      this.leases.put(newLease.id(), newLease);
+      // Don't add or remove generationId into this.followerGenerationIds or
+      // this.leaderGenerationIds, which may break MaterializedViewManager when it's refreshing
+      // status by looking up MaterializedViewCollectionMetadataCatalog.
       return true;
     } catch (MongoWriteException e) {
       if (e.getError().getCategory() == ErrorCategory.DUPLICATE_KEY) {
-        // Another instance created the lease first - refresh from DB and become follower.
-        refreshLeaseFromDatabase(generationId);
-        Lease existingLease = this.leases.get(getLeaseKey(generationId));
-        LOG.atInfo()
-            .addKeyValue("generationId", generationId)
-            .addKeyValue("hostname", this.hostname)
-            .addKeyValue(
-                "winningOwner", existingLease != null ? existingLease.leaseOwner() : "unknown")
-            .log("Lost race to create lease - another instance won");
+        // Another instance created the lease first - refresh from DB and synchronize it.
+        Lease existingLease = getLeaseFromDatabase(newLease.id());
+        if (existingLease == null) {
+          // TODO(CLOUDP-384971): We should have a way to clean up corrupted leases to avoid
+          // blocking Lease creation.
+          throw new IllegalStateException(
+              "Unable to create nor read existing lease in Lease table. "
+                  + "This could be caused by dangling corrupted lease");
+        }
+        this.leases.put(existingLease.id(), existingLease);
         return false;
       }
       throw e; // Re-throw non-duplicate-key errors
@@ -623,7 +900,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * }</pre>
    */
   private boolean acquireExistingLease(
-      GenerationId generationId, Lease currentLease, Lease newLease) throws Exception {
+      MaterializedViewGenerationId generationId, Lease currentLease, Lease newLease)
+      throws Exception {
     boolean isReclaimingOwnLease = this.hostname.equals(currentLease.leaseOwner());
 
     var filter =
@@ -632,7 +910,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
     var result =
         this.operationExecutor.execute(
-            "acquireLease", () -> this.collection.replaceOne(filter, newLease.toBson()));
+            "acquireLease", () -> this.getCollection().replaceOne(filter, newLease.toBson()));
 
     if (result.getMatchedCount() > 0) {
       this.leases.put(getLeaseKey(generationId), newLease);
@@ -681,7 +959,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * @param newLeaseVersion the new lease version after update
    */
   private Bson createAcquireLeaseFilter(
-      GenerationId generationId, long currentLeaseVersion, long newLeaseVersion) {
+      MaterializedViewGenerationId generationId, long currentLeaseVersion, long newLeaseVersion) {
     return Filters.and(
         Filters.eq("_id", getLeaseKey(generationId)),
         Filters.or(
@@ -712,14 +990,14 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * MaterializedViewWriter::commit, though this doesn't fully eliminate the race without using
    * transactions.
    *
-   * @param generationId the generation ID for the lease
+   * @param leaseKey the key and _id the lease
    * @param currentLeaseVersion the expected current lease version
    * @param newLeaseVersion the new lease version after update
    */
   private Bson createUpdateFilterForOwnedLease(
-      GenerationId generationId, long currentLeaseVersion, long newLeaseVersion) {
+      String leaseKey, long currentLeaseVersion, long newLeaseVersion) {
     return Filters.and(
-        Filters.eq("_id", getLeaseKey(generationId)),
+        Filters.eq("_id", leaseKey),
         Filters.eq(Lease.Fields.LEASE_OWNER.getName(), this.hostname),
         Filters.or(
             // Normal case: version matches expected
@@ -728,8 +1006,12 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
             Filters.eq(Lease.Fields.LEASE_VERSION.getName(), newLeaseVersion)));
   }
 
-  /** Refreshes the local lease copy from the database. */
-  private void refreshLeaseFromDatabase(GenerationId generationId) {
+  /**
+   * Refreshes the local lease copy from the database.
+   *
+   * <p>Note: Can only be called after mvMetadataCatalog is populated.
+   */
+  private void refreshLeaseFromDatabase(MaterializedViewGenerationId generationId) {
     try {
       Lease lease = getLeaseFromDatabase(generationId);
       if (lease != null) {
@@ -737,6 +1019,25 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
       }
     } catch (Exception e) {
       LOG.warn("Failed to refresh lease from database for {}", generationId, e);
+    }
+  }
+
+  /**
+   * Refreshes the local lease copy from the database.
+   *
+   * <p>Note: Can be called before mvMetadataCatalog is populated.
+   */
+  @Nullable
+  private Lease refreshLeaseFromDatabase(String leaseKey) {
+    try {
+      Lease lease = getLeaseFromDatabase(leaseKey);
+      if (lease != null) {
+        this.leases.put(leaseKey, lease);
+      }
+      return lease;
+    } catch (Exception e) {
+      LOG.warn("Failed to refresh lease from database for key: {}", leaseKey, e);
+      return null;
     }
   }
 
@@ -772,42 +1073,46 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * }
    * }</pre>
    */
-  private void renewLease(GenerationId generationId) {
-    Lease currentLease = this.leases.get(getLeaseKey(generationId));
-    if (currentLease == null) {
-      LOG.warn(
-          "No local lease found for leader generation {}, transitioning to follower", generationId);
-      becomeFollower(generationId);
-      return;
-    }
-
-    // If our in-memory lease has expired, we've lost the right to be leader.
-    // Another instance may have already taken over. Give up leadership.
-    Instant now = Instant.now();
-    if (now.isAfter(currentLease.leaseExpiration())) {
-      LOG.warn(
-          "In-memory lease expired for {}, transitioning to follower. " + "Expiration: {}, Now: {}",
-          generationId,
-          currentLease.leaseExpiration(),
-          now);
-      refreshLeaseFromDatabase(generationId);
-      becomeFollower(generationId);
-      return;
-    }
-
-    Lease renewedLease = currentLease.withRenewedOwnership(this.hostname);
-    var filter =
-        createUpdateFilterForOwnedLease(
-            generationId, currentLease.leaseVersion(), renewedLease.leaseVersion());
-
+  private void renewLease(MaterializedViewGenerationId generationId) {
+    @Var String leaseKey = null;
     try {
+      leaseKey = getLeaseKey(generationId);
+      Lease currentLease = this.leases.get(leaseKey);
+      if (currentLease == null) {
+        LOG.warn(
+            "No local lease found for leader generation {}, transitioning to follower",
+            generationId);
+        becomeFollower(generationId);
+        return;
+      }
+
+      // If our in-memory lease has expired, we've lost the right to be leader.
+      // Another instance may have already taken over. Give up leadership.
+      Instant now = Instant.now();
+      if (now.isAfter(currentLease.leaseExpiration())) {
+        LOG.warn(
+            "In-memory lease expired for {}, transitioning to follower. "
+                + "Expiration: {}, Now: {}",
+            generationId,
+            currentLease.leaseExpiration(),
+            now);
+        refreshLeaseFromDatabase(leaseKey);
+        becomeFollower(generationId);
+        return;
+      }
+
+      Lease renewedLease = currentLease.withRenewedOwnership(this.hostname);
+      var filter =
+          createUpdateFilterForOwnedLease(
+              leaseKey, currentLease.leaseVersion(), renewedLease.leaseVersion());
+
       var result =
           this.operationExecutor.execute(
-              "renewLease", () -> this.collection.replaceOne(filter, renewedLease.toBson()));
+              "renewLease", () -> this.getCollection().replaceOne(filter, renewedLease.toBson()));
 
       if (result.getMatchedCount() > 0) {
         // Successfully renewed.
-        this.leases.put(getLeaseKey(generationId), renewedLease);
+        this.leases.put(leaseKey, renewedLease);
         LOG.atInfo()
             .addKeyValue("generationId", generationId)
             .addKeyValue("newExpiration", renewedLease.leaseExpiration())
@@ -817,9 +1122,15 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
         // Lease was taken by another instance - lost leadership.
         LOG.warn(
             "Lease renewal failed for {} - lease was updated by another instance", generationId);
-        refreshLeaseFromDatabase(generationId);
+        refreshLeaseFromDatabase(leaseKey);
         becomeFollower(generationId);
       }
+    } catch (IllegalStateException e) {
+      LOG.warn(
+          "Metadata removed for generation {} during lease renewal, removing from leaders",
+          generationId,
+          e);
+      cleanupAfterMetadataLoss(generationId, leaseKey);
     } catch (Exception e) {
       // Transient error (network, etc.) - don't give up leadership yet.
       // Let the next heartbeat cycle retry. If the lease expires, we'll give up then.
@@ -828,35 +1139,62 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   }
 
   /** Transitions a generation ID from leader to follower state. */
-  private void becomeFollower(GenerationId generationId) {
+  private void becomeFollower(MaterializedViewGenerationId generationId) {
     this.leaderGenerationIds.remove(generationId);
     // Only add to follower if we're still managing this generation.
     // If the lease was removed by drop(), we must not re-add to followerGenerationIds.
     // This prevents a race condition where drop() removes the generation from both sets,
     // but a concurrent renewLease() or updateLeaseInDatabase() call re-adds it to follower.
-    if (this.leases.containsKey(getLeaseKey(generationId))) {
-      this.followerGenerationIds.add(generationId);
-      LOG.atInfo()
-          .addKeyValue("generationId", generationId)
-          .addKeyValue("hostname", this.hostname)
-          .log("Transitioned from leader to follower");
-    } else {
-      LOG.atInfo()
-          .addKeyValue("generationId", generationId)
-          .addKeyValue("hostname", this.hostname)
-          .log("Not transitioning to follower - lease was removed by drop()");
+    try {
+      if (this.leases.containsKey(getLeaseKey(generationId))) {
+        this.followerGenerationIds.add(generationId);
+        LOG.atInfo()
+            .addKeyValue("generationId", generationId)
+            .addKeyValue("hostname", this.hostname)
+            .log("Transitioned from leader to follower");
+      } else {
+        LOG.atInfo()
+            .addKeyValue("generationId", generationId)
+            .addKeyValue("hostname", this.hostname)
+            .log("Not transitioning to follower - lease was removed by drop()");
+      }
+    } catch (IllegalStateException e) {
+      // Index was deleted concurrently - metadata is gone. Don't add to followers.
+      LOG.warn(
+          "Metadata removed for generation {} during becomeFollower, skipping follower transition",
+          generationId,
+          e);
+      this.matViewGenerationIdToDefinitionVersion.remove(generationId);
     }
   }
 
-  private void ensureLeaseExists(GenerationId generationId) {
-    if (!this.leases.containsKey(getLeaseKey(generationId))) {
-      throw new IllegalStateException("Lease does not exist for " + getLeaseKey(generationId));
+  private void ensureLeaseExists(String leaseKey) {
+    if (!this.leases.containsKey(leaseKey)) {
+      throw new IllegalStateException("Lease does not exist for " + leaseKey);
     }
   }
 
-  @VisibleForTesting
-  static String getLeaseKey(GenerationId generationId) {
-    return generationId.indexId.toHexString();
+  /**
+   * Cleans up all per-generation state after metadata has been concurrently removed. Removes the
+   * generation from leader/follower tracking sets, definition version mapping, and optionally the
+   * in-memory lease cache.
+   *
+   * @param generationId the generation whose state should be purged
+   * @param leaseKey the resolved lease key, or {@code null} if it was not resolved before the
+   *     failure (e.g. {@code getLeaseKey} itself threw)
+   */
+  private void cleanupAfterMetadataLoss(
+      MaterializedViewGenerationId generationId, @Nullable String leaseKey) {
+    this.leaderGenerationIds.remove(generationId);
+    this.followerGenerationIds.remove(generationId);
+    this.matViewGenerationIdToDefinitionVersion.remove(generationId);
+    if (leaseKey != null) {
+      this.leases.remove(leaseKey);
+    }
+  }
+
+  private String getLeaseKey(MaterializedViewGenerationId generationId) {
+    return this.mvMetadataCatalog.getMetadata(generationId).collectionName();
   }
 
   /**
@@ -875,18 +1213,25 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * }
    * }</pre>
    *
+   * <p>Note: Can only be called after mvMetadataCatalog is populated.
+   *
    * @return the lease document, or null if not found
    */
   @Nullable
-  private Lease getLeaseFromDatabase(GenerationId generationId) throws Exception {
+  private Lease getLeaseFromDatabase(MaterializedViewGenerationId generationId) throws Exception {
+    return getLeaseFromDatabase(getLeaseKey(generationId));
+  }
+
+  @Nullable
+  private Lease getLeaseFromDatabase(String collectionName) throws Exception {
     BsonDocument rawLease =
         this.operationExecutor.execute(
             "getLease",
-            () -> this.collection.find(new Document("_id", getLeaseKey(generationId))).first());
+            () -> this.getCollection().find(new Document("_id", collectionName)).first());
     if (rawLease == null) {
       return null;
     }
-    return Lease.fromBson(rawLease);
+    return normalizeLeaseIfNeeded(Lease.fromBson(rawLease));
   }
 
   /**
@@ -921,7 +1266,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * }</pre>
    */
   private void updateLeaseInDatabase(
-      GenerationId generationId,
+      String leaseKey,
+      MaterializedViewGenerationId generationId,
       Lease currentLease,
       Lease updatedLease,
       EncodedUserData encodedUserData) {
@@ -929,7 +1275,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
       // Base filter checks ownership and version (normal or idempotent case).
       var baseFilter =
           createUpdateFilterForOwnedLease(
-              generationId, currentLease.leaseVersion(), updatedLease.leaseVersion());
+              leaseKey, currentLease.leaseVersion(), updatedLease.leaseVersion());
       // For the idempotent case, also verify commitInfo matches to confirm it was our write.
       var filter =
           Filters.and(
@@ -939,15 +1285,15 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
                   Filters.eq(Lease.Fields.COMMIT_INFO.getName(), encodedUserData.asString())));
       var result =
           this.operationExecutor.execute(
-              "updateLease", () -> this.collection.replaceOne(filter, updatedLease.toBson()));
+              "updateLease", () -> this.getCollection().replaceOne(filter, updatedLease.toBson()));
       if (result.getMatchedCount() == 0) {
         // OCC failure - we lost leadership (or lease was deleted during index drop).
         becomeFollower(generationId);
         LOG.warn(
             "Failed to update lease for {} - ownership/version mismatch or lease deleted.",
-            getLeaseKey(generationId));
+            leaseKey);
       } else {
-        this.leases.put(getLeaseKey(generationId), updatedLease);
+        this.leases.put(leaseKey, updatedLease);
       }
     } catch (Exception e) {
       // Transient error (e.g., network issue) - throw so caller can retry on next cycle.
@@ -955,85 +1301,24 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     }
   }
 
-  private static MongoClient getMongoClient(
-      SyncSourceConfig syncSourceConfig, MeterAndFtdcRegistry meterAndFtdcRegistry) {
-    // Use mongosUri if available (for sharded clusters), otherwise use mongodClusterUri (for
-    // replica sets). We use mongodClusterUri instead of mongodUri because mongodUri is a direct
-    // connection to a specific node (often a secondary), while mongodClusterUri contains all
-    // replica set members and allows the driver to route to the primary. This is required for
-    // LINEARIZABLE read concern and write operations.
-    var originalConnectionString =
-        syncSourceConfig.mongosUri.orElse(syncSourceConfig.mongodClusterUri);
-
-    // Replace directConnection=true with directConnection=false to enable topology discovery.
-    // MMS provides connection strings with directConnection=true which forces the driver to
-    // connect only to the specified host . For lease operations, we need to route to the primary,
-    // so we must enable topology discovery by setting directConnection=false.
-    // TODO(CLOUDP-360542): have mms return connection strings with directConnection=false.
-    var connectionString = disableDirectConnection(originalConnectionString);
-
-    LOG.atInfo()
-        .addKeyValue("hosts", connectionString.getHosts())
-        .addKeyValue("directConnection", connectionString.isDirectConnection())
-        .addKeyValue("replicaSet", connectionString.getRequiredReplicaSetName())
-        .log("Creating MongoClient for DynamicLeaderLeaseManager");
-    return MongoClientBuilder.buildNonReplicationWithDefaults(
-        connectionString,
-        "Dynamic Lease Manager mongo client",
-        MONGO_CLIENT_MAX_CONNECTIONS,
-        syncSourceConfig.sslContext,
-        meterAndFtdcRegistry.meterRegistry());
-  }
-
-  /**
-   * Disables direct connection in a connection string to enable topology discovery.
-   *
-   * <p>MMS provides connection strings with directConnection=true, which forces the MongoDB driver
-   * to connect only to the specified host. This prevents the driver from discovering the primary
-   * node in a replica set. For lease operations that require LINEARIZABLE read concern and writes,
-   * we need to route to the primary, so we replace directConnection=true with
-   * directConnection=false.
-   *
-   * <p>Note: We cannot simply remove directConnection because the MongoDB ConnectionString class is
-   * immutable and has no builder pattern. Replacing the value in the URI string is the most
-   * practical approach.
-   *
-   * <p>The MongoDB {@link ConnectionString} class is immutable and doesn't provide a builder
-   * pattern for modification. Since we only need to change the directConnection option, string
-   * replacement is the most practical approach.
-   *
-   * @param connectionString the original connection string
-   * @return a new connection string with directConnection=false, or the original if it wasn't true
-   */
-  private static ConnectionString disableDirectConnection(ConnectionString connectionString) {
-    if (!Boolean.TRUE.equals(connectionString.isDirectConnection())) {
-      // directConnection is not set or is false, no need to modify
-      return connectionString;
-    }
-
-    // Replace directConnection=true with directConnection=false
-    String originalUri = connectionString.getConnectionString();
-    // Replace directConnection=true with directConnection=false. This handles both cases:
-    // - ?directConnection=true (first/only option)
-    // - &directConnection=true (subsequent option)
-    String modifiedUri = originalUri.replaceAll("directConnection=true", "directConnection=false");
-
-    try {
-      return ConnectionStringUtil.fromString(modifiedUri);
-    } catch (ConnectionStringUtil.InvalidConnectionStringException e) {
-      LOG.atError()
-          .addKeyValue("originalUri", originalUri)
-          .addKeyValue("modifiedUri", modifiedUri)
-          .log("Failed to parse modified connection string, using original");
-      return connectionString;
-    }
-  }
-
-  private String getIndexDefinitionVersion(IndexGeneration indexGeneration) {
+  private String getIndexDefinitionVersion(IndexDefinition indexDefinition) {
     return String.valueOf(
-        indexGeneration
-            .getDefinition()
-            .getDefinitionVersion()
-            .orElse(DEFAULT_INDEX_DEFINITION_VERSION));
+        indexDefinition.getDefinitionVersion().orElse(DEFAULT_INDEX_DEFINITION_VERSION));
+  }
+
+  private MongoCollection<BsonDocument> getCollection() throws MaterializedViewTransientException {
+    try {
+      return Check.isPresent(
+              this.autoEmbeddingMongoClient.getLeaseManagerMongoClient(), "leaseManagerMongoClient")
+          .getDatabase(this.databaseName)
+          .getCollection(LEASE_COLLECTION_NAME, BsonDocument.class)
+          .withReadConcern(ReadConcern.LINEARIZABLE)
+          .withReadPreference(ReadPreference.primary())
+          .withWriteConcern(WriteConcern.MAJORITY);
+    } catch (AssertionError e) {
+      // Catches empty this.autoEmbeddingMongoClient.getLeaseManagerMongoClient() when sync source
+      // is missing.
+      throw new MaterializedViewTransientException(e);
+    }
   }
 }

@@ -298,6 +298,7 @@ public record IndexMetrics(
       double searchGetMoreCommandCount,
       SerializableTimer searchResultBatchLatencyStats,
       Optional<SerializableTimer> tokenFacetsStateRefreshLatency,
+      Optional<SerializableTimer> stringFacetsStateRefreshLatency,
       QueryFeaturesMetrics queryFeaturesMetrics)
       implements DocumentEncodable {
 
@@ -333,6 +334,14 @@ public record IndexMetrics(
               .disallowUnknownFields()
               .optional()
               .noDefault();
+
+      /** Time spent on refresh facets on string fields when index searcher refreshes */
+      private static final Field.Optional<SerializableTimer> STRING_FACET_STATE_REFRESH_LATENCY =
+          Field.builder("stringFacetsStateRefreshLatency")
+              .classField(SerializableTimer::fromBson)
+              .disallowUnknownFields()
+              .optional()
+              .noDefault();
     }
 
     static QueryingMetrics create(
@@ -342,6 +351,7 @@ public record IndexMetrics(
         Counter searchGetMoreCommandCounter,
         Timer searchResultBatchLatencyTimer,
         Timer tokenFacetsStateRefreshLatencyTimer,
+        Timer stringFacetsStateRefreshLatencyTimer,
         QueryFeaturesMetrics queryFeaturesMetrics) {
 
       return new QueryingMetrics(
@@ -351,6 +361,7 @@ public record IndexMetrics(
           searchGetMoreCommandCounter.count(),
           SerializableTimer.create(searchResultBatchLatencyTimer),
           Optional.of(SerializableTimer.create(tokenFacetsStateRefreshLatencyTimer)),
+          Optional.of(SerializableTimer.create(stringFacetsStateRefreshLatencyTimer)),
           queryFeaturesMetrics);
     }
 
@@ -364,6 +375,8 @@ public record IndexMetrics(
               .field(Fields.SEARCH_GET_MORE_COMMAND_COUNT, this.searchGetMoreCommandCount)
               .field(Fields.SEARCH_GET_RESULT_BATCH_LATENCY, this.searchResultBatchLatencyStats)
               .field(Fields.TOKEN_FACET_STATE_REFRESH_LATENCY, this.tokenFacetsStateRefreshLatency)
+              .field(Fields.STRING_FACET_STATE_REFRESH_LATENCY,
+                  this.stringFacetsStateRefreshLatency)
               .build();
 
       queryingStats.putAll(this.queryFeaturesMetrics.toBson());
@@ -379,6 +392,7 @@ public record IndexMetrics(
           parser.getField(Fields.SEARCH_GET_MORE_COMMAND_COUNT).unwrap(),
           parser.getField(Fields.SEARCH_GET_RESULT_BATCH_LATENCY).unwrap(),
           parser.getField(Fields.TOKEN_FACET_STATE_REFRESH_LATENCY).unwrap(),
+          parser.getField(Fields.STRING_FACET_STATE_REFRESH_LATENCY).unwrap(),
           QueryFeaturesMetrics.fromBson(parser));
     }
 
@@ -406,7 +420,9 @@ public record IndexMetrics(
         double explainCount,
         double sortCount,
         double trackingCount,
-        double returnScopeCount)
+        double returnScopeCount,
+        double facetDrillSidewaysOptimizableCount,
+        double facetDrillSidewaysGenericCount)
         implements DocumentEncodable {
 
       private static class Fields {
@@ -505,6 +521,18 @@ public record IndexMetrics(
                     .documentField()
                     .optional()
                     .withDefault(statsMapToBson(statsMapWithDefault(Operator.Type.class, 0.0)));
+
+        private static final Field.WithDefault<Double> FACET_DRILL_SIDEWAYS_OPTIMIZABLE_COUNT =
+            Field.builder("facetDrillSidewaysOptimizableCount")
+                .doubleField()
+                .optional()
+                .withDefault(0.0);
+
+        private static final Field.WithDefault<Double> FACET_DRILL_SIDEWAYS_GENERIC_COUNT =
+            Field.builder("facetDrillSidewaysGenericCount")
+                .doubleField()
+                .optional()
+                .withDefault(0.0);
       }
 
       static QueryFeaturesMetrics create(
@@ -531,7 +559,9 @@ public record IndexMetrics(
           Counter sortCounter,
           Counter trackingCounter,
           Counter requireSequenceTokensCounter,
-          Counter returnScopeCounter) {
+          Counter returnScopeCounter,
+          double facetDrillSidewaysOptimizableCount,
+          double facetDrillSidewaysGenericCount) {
         return new QueryFeaturesMetrics(
             getCurrentStatsFromCounters(Collector.Type.class, collectorTypeCounterMap),
             getCurrentStatsFromCounters(Operator.Type.class, operatorTypeCounterMap),
@@ -559,7 +589,9 @@ public record IndexMetrics(
             explainCounter.count(),
             sortCounter.count(),
             trackingCounter.count(),
-            returnScopeCounter.count());
+            returnScopeCounter.count(),
+            facetDrillSidewaysOptimizableCount,
+            facetDrillSidewaysGenericCount);
       }
 
       @Override
@@ -596,6 +628,9 @@ public record IndexMetrics(
             .field(
                 Fields.SEARCH_VECTOR_SEARCH_FILTER_OPERATOR_TYPE_COUNT,
                 statsMapToBson(this.searchVectorSearchFilterOperatorTypeCounterMap))
+            .field(Fields.FACET_DRILL_SIDEWAYS_OPTIMIZABLE_COUNT,
+                this.facetDrillSidewaysOptimizableCount)
+            .field(Fields.FACET_DRILL_SIDEWAYS_GENERIC_COUNT, this.facetDrillSidewaysGenericCount)
             .build();
       }
 
@@ -637,7 +672,9 @@ public record IndexMetrics(
             parser.getField(Fields.EXPLAIN_COUNT).unwrap(),
             parser.getField(Fields.SORT_COUNT).unwrap(),
             parser.getField(Fields.TRACKING_COUNT).unwrap(),
-            parser.getField(Fields.RETURNSCOPE_COUNT).unwrap());
+            parser.getField(Fields.RETURNSCOPE_COUNT).unwrap(),
+            parser.getField(Fields.FACET_DRILL_SIDEWAYS_OPTIMIZABLE_COUNT).unwrap(),
+            parser.getField(Fields.FACET_DRILL_SIDEWAYS_GENERIC_COUNT).unwrap());
       }
     }
   }

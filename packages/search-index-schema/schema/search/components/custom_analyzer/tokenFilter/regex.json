@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter/regex.json",
+  "type": "object",
+  "_description": "Token filter that applies a regular expression to each token and replaces matches with a specified string.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the `regex` token filter type, which applies a regular expression to each token and replaces matches with a specified string.",
+      "description": "Label that identifies the regex token filter type, which applies a regular expression to each token and replaces matches with a specified string.",
+      "const": "regex",
+      "$ref": "../tokenFilter.json#/definitions/typePropertyOverrides"
+    },
+    "pattern": {
+      "suggestSortText": "1",
+      "type": "string",
+      "markdownDescription": "Regular expression pattern to apply to each token.",
+      "description": "Regular expression pattern to apply to each token."
+    },
+    "replacement": {
+      "suggestSortText": "2",
+      "type": "string",
+      "markdownDescription": "Replacement string to substitute wherever a matching pattern occurs.",
+      "description": "Replacement string to substitute wherever a matching pattern occurs."
+    },
+    "matches": {
+      "suggestSortText": "3",
+      "type": "string",
+      "markdownDescription": "String that indicates whether to replace `all` matching patterns, or only the `first` matching pattern.",
+      "description": "String that indicates whether to replace `all` matching patterns, or only the `first` matching pattern.",
+      "enum": ["all", "first"]
+    }
+  },
+  "required": ["type", "pattern", "replacement", "matches"],
+  "additionalProperties": false
+}

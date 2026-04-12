@@ -1,6 +1,9 @@
 package com.xgen.mongot.replication.mongodb.common;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.xgen.mongot.embedding.AutoEmbeddingMemoryBudget;
+import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig;
+import com.xgen.mongot.embedding.providers.congestion.AimdCongestionControl.CongestionControlParams;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.Runtime;
 import com.xgen.mongot.util.bson.parser.BsonDocumentBuilder;
@@ -10,6 +13,7 @@ import com.xgen.mongot.util.bson.parser.Value;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.bson.BsonDocument;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -26,6 +30,18 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
   private static final int DEFAULT_CHANGE_STREAM_CURSOR_MAX_TIME_SEC =
       Math.toIntExact(Duration.ofMinutes(30).toSeconds());
   private static final int DEFAULT_REQUEST_RATE_LIMIT_BACKOFF_MS = 100;
+  private static final int DEFAULT_MAT_VIEW_WRITER_MAX_CONNECTIONS = 4;
+  private static final int MAX_MAT_VIEW_WRITER_MAX_CONNECTIONS = 16;
+  private static final long DEFAULT_MATERIALIZED_VIEW_NAME_FORMAT_VERSION = 1;
+
+  /**
+   * Default memory budget as a percentage of JVM heap. The global default is 100% (unbounded). The
+   * per-batch default is 50%, which limits peak memory from a single batch without restricting
+   * overall throughput. Setting either to 100% disables that budget entirely.
+   */
+  static final int DEFAULT_GLOBAL_MEMORY_BUDGET_HEAP_PERCENT = 100;
+
+  static final int DEFAULT_PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT = 50;
 
   /**
    * The number of steady state change streams that are allowed to have outstanding getMores issued
@@ -81,6 +97,69 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
    */
   public final int maxConcurrentEmbeddingInitialSyncs;
 
+  /** The maximum number of materialized view bulk write commits per second allowed on this node. */
+  public final Optional<Integer> mvWriteRateLimitRps;
+
+  /**
+   * AIMD congestion control parameters for flex-tier / embedding provider rate limiting (collection
+   * scan workloads). When empty, {@link AimdCongestionControl} defaults apply at runtime.
+   */
+  public final Optional<CongestionControlParams> congestionControl;
+
+  /**
+   * Service tiers for which Voyage flex tier is used (when deployment is Atlas). When empty, only
+   * {@link EmbeddingServiceConfig.ServiceTier#COLLECTION_SCAN} uses Voyage flex tier.
+   */
+  public final Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads;
+
+  /**
+   * The maximum number of connections to the materialized view
+   */
+  public final int matViewWriterMaxConnections;
+
+  /**
+   * Thread pool size for embedding provider work (e.g. {@link
+   * com.xgen.mongot.embedding.providers.EmbeddingServiceManager}). When not set in config,
+   * defaults to {@code max(1, runtime.getNumCpus())} at bootstrap (independent of Lucene indexing
+   * thread counts).
+   */
+  public final int numEmbeddingThreads;
+
+  /**
+   * Indicates the default Materialized View Collection name format version, used for collection
+   * resolver as a fallback if indexDefinition has no name format version.
+   */
+  public final long defaultMaterializedViewNameFormatVersion;
+
+  /**
+   * Backoff after errors that trigger a materialized-view resync (initial sync re-queue). When
+   * empty, materialized view replication uses {@link
+   * com.xgen.mongot.replication.mongodb.ReplicationIndexManager#DEFAULT_RESYNC_BACKOFF}.
+   */
+  public final Optional<Duration> resyncBackoff;
+
+  /**
+   * Backoff after transient steady-state replication errors. When empty, materialized view
+   * replication uses {@link
+   * com.xgen.mongot.replication.mongodb.ReplicationIndexManager#DEFAULT_TRANSIENT_BACKOFF}.
+   */
+  public final Optional<Duration> transientBackoff;
+
+  /**
+   * The global auto-embedding memory budget as a percentage of JVM max heap, shared across all
+   * auto-embedding indexes on this mongot. Setting this to 100 disables the budget (unbounded
+   * mode). Defaults to {@link #DEFAULT_GLOBAL_MEMORY_BUDGET_HEAP_PERCENT} (unbounded).
+   */
+  public final int globalMemoryBudgetHeapPercent;
+
+  /**
+   * The per-batch auto-embedding memory budget as a percentage of JVM max heap. Limits embedding
+   * memory held by a single materialized-view batch at a time; the batch is split into sub-batches
+   * that are flushed sequentially when this limit is active. Setting this to 100 disables the
+   * budget (unbounded mode). Defaults to {@link #DEFAULT_PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT}.
+   */
+  public final int perBatchMemoryBudgetHeapPercent;
+
   private AutoEmbeddingMaterializedViewConfig(
       boolean pauseAllInitialSyncs,
       List<ObjectId> pauseInitialSyncOnIndexIds,
@@ -95,8 +174,18 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       int requestRateLimitBackoffMs,
       int maxConcurrentEmbeddingInitialSyncs,
       int maxInFlightEmbeddingGetMores,
+      int matViewWriterMaxConnections,
+      int numEmbeddingThreads,
       Optional<Integer> embeddingGetMoreBatchSize,
-      Optional<Integer> materializedViewSchemaVersion) {
+      Optional<Integer> materializedViewSchemaVersion,
+      Optional<Integer> mvWriteRateLimitRps,
+      Optional<CongestionControlParams> congestionControl,
+      Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads,
+      Optional<Duration> resyncBackoff,
+      Optional<Duration> transientBackoff,
+      long defaultMaterializedViewNameFormatVersion,
+      int globalMemoryBudgetHeapPercent,
+      int perBatchMemoryBudgetHeapPercent) {
     super(
         pauseAllInitialSyncs,
         pauseInitialSyncOnIndexIds,
@@ -113,6 +202,16 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     this.embeddingGetMoreBatchSize = embeddingGetMoreBatchSize;
     this.requestRateLimitBackoffMs = requestRateLimitBackoffMs;
     this.materializedViewSchemaVersion = materializedViewSchemaVersion;
+    this.mvWriteRateLimitRps = mvWriteRateLimitRps;
+    this.congestionControl = congestionControl;
+    this.flexTierWorkloads = flexTierWorkloads;
+    this.matViewWriterMaxConnections = matViewWriterMaxConnections;
+    this.numEmbeddingThreads = numEmbeddingThreads;
+    this.resyncBackoff = resyncBackoff;
+    this.transientBackoff = transientBackoff;
+    this.defaultMaterializedViewNameFormatVersion = defaultMaterializedViewNameFormatVersion;
+    this.globalMemoryBudgetHeapPercent = globalMemoryBudgetHeapPercent;
+    this.perBatchMemoryBudgetHeapPercent = perBatchMemoryBudgetHeapPercent;
   }
 
   /**
@@ -129,8 +228,18 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Integer> optionalRequestRateLimitBackoffMs,
       Optional<Integer> optionalMaxConcurrentEmbeddingInitialSyncs,
       Optional<Integer> optionalMaxInFlightEmbeddingGetMores,
+      Optional<Integer> optionalMatViewWriterMaxConnections,
+      Optional<Integer> optionalNumEmbeddingThreads,
       Optional<Integer> embeddingGetMoreBatchSize,
-      Optional<Integer> materializedViewSchemaVersion) {
+      Optional<Integer> materializedViewSchemaVersion,
+      Optional<Integer> mvWriteRateLimitRps,
+      Optional<CongestionControlParams> congestionControl,
+      Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads,
+      Optional<Long> optionalResyncBackoffMs,
+      Optional<Long> optionalTransientBackoffMs,
+      Optional<Long> defaultMaterializedViewNameFormatVersion,
+      Optional<Integer> globalMemoryBudgetHeapPercent,
+      Optional<Integer> perBatchMemoryBudgetHeapPercent) {
     return create(
         Runtime.INSTANCE,
         globalReplicationConfig,
@@ -142,8 +251,18 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         optionalRequestRateLimitBackoffMs,
         optionalMaxConcurrentEmbeddingInitialSyncs,
         optionalMaxInFlightEmbeddingGetMores,
+        optionalMatViewWriterMaxConnections,
+        optionalNumEmbeddingThreads,
         embeddingGetMoreBatchSize,
-        materializedViewSchemaVersion);
+        materializedViewSchemaVersion,
+        mvWriteRateLimitRps,
+        congestionControl,
+        flexTierWorkloads,
+        optionalResyncBackoffMs,
+        optionalTransientBackoffMs,
+        defaultMaterializedViewNameFormatVersion,
+        globalMemoryBudgetHeapPercent,
+        perBatchMemoryBudgetHeapPercent);
   }
 
   /** Used for testing. The above create() method should be called instead. */
@@ -159,8 +278,18 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Integer> optionalRequestRateLimitBackoffMs,
       Optional<Integer> optionalMaxConcurrentEmbeddingInitialSyncs,
       Optional<Integer> optionalMaxInFlightEmbeddingGetMores,
+      Optional<Integer> optionalMatViewWriterMaxConnections,
+      Optional<Integer> optionalNumEmbeddingThreads,
       Optional<Integer> embeddingGetMoreBatchSize,
-      Optional<Integer> materializedViewSchemaVersion) {
+      Optional<Integer> materializedViewSchemaVersion,
+      Optional<Integer> mvWriteRateLimitRps,
+      Optional<CongestionControlParams> congestionControl,
+      Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads,
+      Optional<Long> optionalResyncBackoffMs,
+      Optional<Long> optionalTransientBackoffMs,
+      Optional<Long> optionalMaterializedViewNameFormatVersion,
+      Optional<Integer> optionalGlobalMemoryBudgetHeapPercent,
+      Optional<Integer> optionalPerBatchMemoryBudgetHeapPercent) {
 
     int maxConcurrentEmbeddingInitialSyncs =
         getMaxConcurrentEmbeddingInitialSyncsWithDefault(
@@ -191,12 +320,66 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
             optionalMaxInFlightEmbeddingGetMores, numConcurrentChangeStreams);
     Check.argIsPositive(maxInFlightEmbeddingGetMores, "maxInFlightEmbeddingGetMores");
 
+    int matViewWriterMaxConnections =
+        getMatViewWriterMaxConnectionsWithDefault(optionalMatViewWriterMaxConnections);
+    Check.argIsPositive(matViewWriterMaxConnections,
+        "matViewWriterMaxConnections");
+    Check.checkArg(
+        matViewWriterMaxConnections <= MAX_MAT_VIEW_WRITER_MAX_CONNECTIONS,
+        "matViewWriterMaxConnections must be at most %s, got %s",
+        MAX_MAT_VIEW_WRITER_MAX_CONNECTIONS,
+        matViewWriterMaxConnections);
+
+    int numEmbeddingThreads =
+        getNumEmbeddingThreadsWithDefault(runtime, optionalNumEmbeddingThreads);
+
     embeddingGetMoreBatchSize.ifPresent(
         value -> Check.argIsPositive(value, "embeddingGetMoreBatchSize"));
 
     int requestRateLimitBackoffMs =
         getRequestRateLimitBackoffMsWithDefault(optionalRequestRateLimitBackoffMs);
     Check.argIsPositive(requestRateLimitBackoffMs, "requestRateLimitBackoffMs");
+
+    mvWriteRateLimitRps.ifPresent(value -> Check.argIsPositive(value, "mvWriteRateLimitRps"));
+
+    congestionControl.ifPresent(
+        c -> {
+          Check.argIsPositive(c.initialCwnd(), "congestionControl.initialCwnd");
+          Check.argIsPositive(c.slowStartThreshold(), "congestionControl.slowStartThreshold");
+          Check.argIsPositive(c.linearIncrease(), "congestionControl.linearIncrease");
+          Check.argInInclusiveRange(
+              c.multiplicativeDecrease(),
+              0.0,
+              1.0,
+              "congestionControl.multiplicativeDecrease");
+          Check.argIsPositive(c.idleTimeoutMillis(), "congestionControl.idleTimeoutMillis");
+        });
+
+    long defaultMaterializedViewNameFormatVersion =
+        getMaterializedViewNameFormatVersionWithDefault(optionalMaterializedViewNameFormatVersion);
+
+    Optional<Duration> resyncBackoff =
+        optionalResyncBackoffMs.map(
+            ms -> {
+              Check.checkArg(ms > 0, "resyncBackoffMs must be positive, got %s", ms);
+              return Duration.ofMillis(ms);
+            });
+    Optional<Duration> transientBackoff =
+        optionalTransientBackoffMs.map(
+            ms -> {
+              Check.checkArg(ms > 0, "transientBackoffMs must be positive, got %s", ms);
+              return Duration.ofMillis(ms);
+            });
+    int globalMemoryBudgetHeapPercent =
+        getMemoryBudgetHeapPercentWithDefault(
+            optionalGlobalMemoryBudgetHeapPercent,
+            "globalMemoryBudgetHeapPercent",
+            DEFAULT_GLOBAL_MEMORY_BUDGET_HEAP_PERCENT);
+    int perBatchMemoryBudgetHeapPercent =
+        getMemoryBudgetHeapPercentWithDefault(
+            optionalPerBatchMemoryBudgetHeapPercent,
+            "perBatchMemoryBudgetHeapPercent",
+            DEFAULT_PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT);
 
     return new AutoEmbeddingMaterializedViewConfig(
         globalReplicationConfig.pauseAllInitialSyncs(),
@@ -212,8 +395,18 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         requestRateLimitBackoffMs,
         maxConcurrentEmbeddingInitialSyncs,
         maxInFlightEmbeddingGetMores,
+        matViewWriterMaxConnections,
+        numEmbeddingThreads,
         embeddingGetMoreBatchSize,
-        materializedViewSchemaVersion);
+        materializedViewSchemaVersion,
+        mvWriteRateLimitRps,
+        congestionControl,
+        flexTierWorkloads,
+        resyncBackoff,
+        transientBackoff,
+        defaultMaterializedViewNameFormatVersion,
+        globalMemoryBudgetHeapPercent,
+        perBatchMemoryBudgetHeapPercent);
   }
 
   /**
@@ -232,6 +425,16 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
         Optional.empty());
   }
 
@@ -241,6 +444,16 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     return create(
         runtime,
         defaultGlobalReplicationConfig(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
@@ -275,10 +488,35 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         .field(Fields.REQUEST_RATE_LIMIT_BACKOFF_MS, Optional.of(this.requestRateLimitBackoffMs))
         .field(
             Fields.MAX_CONCURRENT_EMBEDDING_INITIAL_SYNCS, this.maxConcurrentEmbeddingInitialSyncs)
+        .field(Fields.MAT_VIEW_WRITER_MAX_CONNECTIONS, this.matViewWriterMaxConnections)
+        .field(Fields.NUM_EMBEDDING_THREADS, this.numEmbeddingThreads)
         .field(Fields.MAX_IN_FLIGHT_EMBEDDING_GET_MORES, this.maxInFlightEmbeddingGetMores)
         .field(Fields.EMBEDDING_GET_MORE_BATCH_SIZE, this.embeddingGetMoreBatchSize)
         .field(Fields.MATERIALIZED_VIEW_SCHEMA_VERSION, this.materializedViewSchemaVersion)
+        .field(Fields.MV_WRITE_RATE_LIMIT_RPS, this.mvWriteRateLimitRps)
+        .field(Fields.CONGESTION_CONTROL, this.congestionControl)
+        .field(
+            Fields.FLEX_TIER_WORKLOADS,
+            this.flexTierWorkloads.map(AutoEmbeddingMaterializedViewConfig::sortedFlexTierList))
+        .field(Fields.RESYNC_BACKOFF_MS, this.resyncBackoff.map(Duration::toMillis))
+        .field(Fields.TRANSIENT_BACKOFF_MS, this.transientBackoff.map(Duration::toMillis))
+        .fieldOmitDefaultValue(
+            Fields.MATERIALIZED_VIEW_NAME_FORMAT_VERSION,
+            this.defaultMaterializedViewNameFormatVersion)
+        .fieldOmitDefaultValue(
+            Fields.GLOBAL_MEMORY_BUDGET_HEAP_PERCENT, this.globalMemoryBudgetHeapPercent)
+        .fieldOmitDefaultValue(
+            Fields.PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT, this.perBatchMemoryBudgetHeapPercent)
         .build();
+  }
+
+  /**
+   * Emits flex tiers in enum declaration order so BSON is stable across parse/serialize (unlike
+   * {@link List#copyOf(Set)} on a hash set).
+   */
+  private static List<EmbeddingServiceConfig.ServiceTier> sortedFlexTierList(
+      Set<EmbeddingServiceConfig.ServiceTier> tiers) {
+    return tiers.stream().sorted().toList();
   }
 
   @Override
@@ -317,6 +555,15 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     return this.requestRateLimitBackoffMs;
   }
 
+  @Override
+  public Type getReplicationType() {
+    return Type.AUTO_EMBEDDING;
+  }
+
+  public Optional<Integer> getMvWriteRateLimitRps() {
+    return this.mvWriteRateLimitRps;
+  }
+
   private static int getMaxConcurrentEmbeddingInitialSyncsWithDefault(
       Runtime runtime, Optional<Integer> optionalMaxConcurrentEmbeddingInitialSyncs) {
     return optionalMaxConcurrentEmbeddingInitialSyncs.orElseGet(
@@ -346,7 +593,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Runtime runtime, Optional<Integer> optionalNumIndexingThreads) {
     return optionalNumIndexingThreads.orElseGet(
         () -> {
-          int numIndexingThreads = Math.max(1, Math.floorDiv(runtime.getNumCpus(), 2));
+          int numIndexingThreads = Math.max(1, runtime.getNumCpus());
           LOG.info("numIndexingThreads not configured, defaulting to {}.", numIndexingThreads);
           return numIndexingThreads;
         });
@@ -387,6 +634,35 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         });
   }
 
+  private static int getMatViewWriterMaxConnectionsWithDefault(
+      Optional<Integer> optionalMatViewWriterMaxConnections) {
+    return optionalMatViewWriterMaxConnections.orElseGet(
+        () -> {
+          LOG.info(
+              "matViewWriterMaxConnections not configured, defaulting to {}.",
+              DEFAULT_MAT_VIEW_WRITER_MAX_CONNECTIONS);
+          return DEFAULT_MAT_VIEW_WRITER_MAX_CONNECTIONS;
+        });
+  }
+
+  private static int getNumEmbeddingThreadsWithDefault(
+      Runtime runtime, Optional<Integer> optionalNumEmbeddingThreads) {
+    optionalNumEmbeddingThreads.ifPresent(
+        n -> Check.argIsPositive(n, "numEmbeddingThreads"));
+    int numEmbeddingThreads =
+        optionalNumEmbeddingThreads.orElseGet(
+            () -> {
+              int derived = Math.max(1, runtime.getNumCpus());
+              LOG.info(
+                  "numEmbeddingThreads not configured, defaulting to {} (max(1, getNumCpus()))"
+                      + ".",
+                  derived);
+              return derived;
+            });
+    Check.argIsPositive(numEmbeddingThreads, "numEmbeddingThreads");
+    return numEmbeddingThreads;
+  }
+
   private static int getMaxInFlightEmbeddingGetMoresWithDefault(
       Optional<Integer> optionalMaxInFlightEmbeddingGetMores, int numConcurrentChangeStreams) {
     return optionalMaxInFlightEmbeddingGetMores.orElseGet(
@@ -402,6 +678,51 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
               DEFAULT_REQUEST_RATE_LIMIT_BACKOFF_MS);
           return DEFAULT_REQUEST_RATE_LIMIT_BACKOFF_MS;
         });
+  }
+
+  private static long getMaterializedViewNameFormatVersionWithDefault(
+      Optional<Long> optionalMaterializedViewNameFormatVersion) {
+    return optionalMaterializedViewNameFormatVersion.orElseGet(
+        () -> {
+          LOG.info(
+              "materializedViewNameFormatVersion not configured, defaulting to {}.",
+              DEFAULT_MATERIALIZED_VIEW_NAME_FORMAT_VERSION);
+          return DEFAULT_MATERIALIZED_VIEW_NAME_FORMAT_VERSION;
+        });
+  }
+
+  private static int getMemoryBudgetHeapPercentWithDefault(
+      Optional<Integer> optionalHeapPercent, String fieldName, int defaultValue) {
+    int heapPercent = optionalHeapPercent.orElse(defaultValue);
+    Check.checkArg(
+        heapPercent >= 1 && heapPercent <= 100,
+        "%s must be between 1 and 100 (inclusive), got %s",
+        fieldName,
+        heapPercent);
+    if (optionalHeapPercent.isEmpty()) {
+      LOG.info("{} not configured, defaulting to {}%.", fieldName, defaultValue);
+    }
+    return heapPercent;
+  }
+
+  /**
+   * Creates an {@link AutoEmbeddingMemoryBudget} from this config's global budget percent using the
+   * given runtime to determine max heap size.
+   */
+  public AutoEmbeddingMemoryBudget createGlobalMemoryBudget(Runtime runtime) {
+    return AutoEmbeddingMemoryBudget.fromHeapPercent(this.globalMemoryBudgetHeapPercent, runtime);
+  }
+
+  /**
+   * Returns the per-batch memory budget in bytes derived from the configured heap percent and the
+   * given runtime's max heap size. Returns {@link Long#MAX_VALUE} when the budget is set to 100%
+   * (unbounded).
+   */
+  public long getPerBatchMemoryBudgetBytes(Runtime runtime) {
+    if (this.perBatchMemoryBudgetHeapPercent >= 100) {
+      return Long.MAX_VALUE;
+    }
+    return runtime.getMaxHeapSize().toBytes() * this.perBatchMemoryBudgetHeapPercent / 100;
   }
 
   private static class Fields {
@@ -462,6 +783,12 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     private static final Field.Required<Integer> MAX_IN_FLIGHT_EMBEDDING_GET_MORES =
         Field.builder("maxInFlightEmbeddingGetMores").intField().mustBePositive().required();
 
+    private static final Field.Required<Integer> MAT_VIEW_WRITER_MAX_CONNECTIONS =
+        Field.builder("matViewWriterMaxConnections").intField().mustBePositive().required();
+
+    private static final Field.Required<Integer> NUM_EMBEDDING_THREADS =
+        Field.builder("numEmbeddingThreads").intField().mustBePositive().required();
+
     private static final Field.Optional<Integer> EMBEDDING_GET_MORE_BATCH_SIZE =
         Field.builder("embeddingGetMoreBatchSize")
             .intField()
@@ -475,5 +802,53 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
             .mustBeNonNegative()
             .optional()
             .noDefault();
+
+    private static final Field.Optional<Integer> MV_WRITE_RATE_LIMIT_RPS =
+        Field.builder("mvWriteRateLimitRps").intField().mustBePositive().optional().noDefault();
+
+    private static final Field.Optional<CongestionControlParams> CONGESTION_CONTROL =
+        Field.builder("congestionControl")
+            .classField(CongestionControlParams::fromBson)
+            .allowUnknownFields()
+            .optional()
+            .noDefault();
+
+    private static final Field.Optional<List<EmbeddingServiceConfig.ServiceTier>>
+        FLEX_TIER_WORKLOADS =
+            Field.builder("flexTierWorkloads")
+                .listOf(
+                    Value.builder()
+                        .enumValue(EmbeddingServiceConfig.ServiceTier.class)
+                        .asUpperUnderscore()
+                        .required())
+                .optional()
+                .noDefault();
+
+    private static final Field.WithDefault<Long> MATERIALIZED_VIEW_NAME_FORMAT_VERSION =
+        Field.builder("defaultMaterializedViewNameFormatVersion")
+            .longField()
+            .mustBeNonNegative()
+            .optional()
+            .withDefault(DEFAULT_MATERIALIZED_VIEW_NAME_FORMAT_VERSION);
+
+    private static final Field.Optional<Long> RESYNC_BACKOFF_MS =
+        Field.builder("resyncBackoffMs").longField().mustBePositive().optional().noDefault();
+
+    private static final Field.Optional<Long> TRANSIENT_BACKOFF_MS =
+        Field.builder("transientBackoffMs").longField().mustBePositive().optional().noDefault();
+
+    private static final Field.WithDefault<Integer> GLOBAL_MEMORY_BUDGET_HEAP_PERCENT =
+        Field.builder("globalMemoryBudgetHeapPercent")
+            .intField()
+            .mustBePositive()
+            .optional()
+            .withDefault(DEFAULT_GLOBAL_MEMORY_BUDGET_HEAP_PERCENT);
+
+    private static final Field.WithDefault<Integer> PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT =
+        Field.builder("perBatchMemoryBudgetHeapPercent")
+            .intField()
+            .mustBePositive()
+            .optional()
+            .withDefault(DEFAULT_PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT);
   }
 }

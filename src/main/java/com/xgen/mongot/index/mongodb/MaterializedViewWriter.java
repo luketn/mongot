@@ -1,19 +1,23 @@
 package com.xgen.mongot.index.mongodb;
 
-import static com.xgen.mongot.util.mongodb.MongoDbDatabase.getCollectionInfo;
+import static com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException.Reason.MONGO_CLIENT_NOT_AVAILABLE;
 
+import com.google.common.util.concurrent.RateLimiter;
+import com.google.errorprone.annotations.Var;
+import com.mongodb.ErrorCategory;
 import com.mongodb.MongoBulkWriteException;
 import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
 import com.mongodb.bulk.BulkWriteError;
-import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.DeleteOneModel;
+import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.ReplaceOneModel;
 import com.mongodb.client.model.ReplaceOptions;
 import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.WriteModel;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
+import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
 import com.xgen.mongot.embedding.utils.MongoClientOperationExecutor;
 import com.xgen.mongot.index.DocumentEvent;
@@ -25,14 +29,13 @@ import com.xgen.mongot.index.IndexWriter;
 import com.xgen.mongot.index.WriterClosedException;
 import com.xgen.mongot.index.version.MaterializedViewGenerationId;
 import com.xgen.mongot.metrics.MetricsFactory;
-import com.xgen.mongot.util.Check;
+import com.xgen.mongot.util.BsonUtils;
 import com.xgen.mongot.util.concurrent.LockGuard;
 import com.xgen.mongot.util.mongodb.Errors;
-import com.xgen.mongot.util.mongodb.MongoClientBuilder;
-import com.xgen.mongot.util.mongodb.SyncSourceConfig;
-import com.xgen.mongot.util.mongodb.serialization.MongoDbCollectionInfo;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,11 +44,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.bson.BsonDocument;
+import org.bson.BsonInt64;
 import org.bson.BsonMaximumSizeExceededException;
 import org.bson.RawBsonDocument;
+import org.bson.conversions.Bson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,9 +73,14 @@ public class MaterializedViewWriter implements IndexWriter {
   // TODO(CLOUDP-356242): make this configurable
   public static final String MV_DATABASE_NAME = "__mdb_internal_search";
 
+  // Nested under _autoEmbed to avoid collisions with user fields.
+  // Written as nested doc: {_autoEmbed: {_leaseVersion: N}}.
+  // Queried via dot notation: "_autoEmbed._leaseVersion".
+  static final String LEASE_VERSION_FIELD = "_autoEmbed._leaseVersion";
+  private static final String LEASE_VERSION_BSON_PARENT = "_autoEmbed";
+  private static final String LEASE_VERSION_BSON_KEY = "_leaseVersion";
   private static final int MAX_SUB_RETRY_ATTEMPTS = 3;
 
-  private final MongoClient mongoClient;
   private final MongoNamespace namespace;
   private final AtomicReference<ConcurrentLinkedQueue<WriteModel<RawBsonDocument>>>
       bulkOperationsRef;
@@ -77,10 +88,18 @@ public class MaterializedViewWriter implements IndexWriter {
   private final UUID collectionUuid;
   private final MaterializedViewGenerationId generationId;
   private final LeaseManager leaseManager;
+  private final Optional<RateLimiter> rateLimiter;
 
   // Metrics
   private final Counter payloadTooLargeErrors;
   private final Counter partialBulkWriteErrors;
+  private final Counter dropMaterializedViewCollectionErrors;
+  private final Counter materializedViewClientUnavailable;
+  private final Counter fencingRejections;
+  private final Counter mvWriteThrottleCount;
+  private final Timer mvWriteThrottleWaitTime;
+  private final DistributionSummary bulkWriteNumDocs;
+  private final DistributionSummary bulkWritePayloadSize;
 
   /**
    * A pair of read and write locks which are used to synchronize access to the materialized view
@@ -92,56 +111,48 @@ public class MaterializedViewWriter implements IndexWriter {
 
   private final ReentrantReadWriteLock.ReadLock shutdownAndCommitSharedLock;
 
+  private final AutoEmbeddingMongoClient autoEmbeddingMongoClient;
+
   /**
    * Whether the writer is closed. You need to hold the above-mentioned read lock to read the value
    * and the write lock to update the value.
    */
   private boolean closed;
 
+  /** Builds Materialized View Writer for an auto embedding index. */
   public MaterializedViewWriter(
-      MongoClient mongoClient,
+      AutoEmbeddingMongoClient autoEmbeddingMongoClient,
+      String databaseName,
       String matViewName,
       MaterializedViewGenerationId generationId,
       LeaseManager leaseManager,
-      MetricsFactory metricsFactory) {
-    this.mongoClient = mongoClient;
-    this.namespace = new MongoNamespace(MV_DATABASE_NAME, matViewName);
+      MetricsFactory metricsFactory,
+      UUID collectionUuid,
+      Optional<RateLimiter> rateLimiter) {
+    this.autoEmbeddingMongoClient = autoEmbeddingMongoClient;
+    this.namespace = new MongoNamespace(databaseName, matViewName);
     this.generationId = generationId;
     this.leaseManager = leaseManager;
     this.bulkOperationsRef = new AtomicReference<>(new ConcurrentLinkedQueue<>());
     this.payloadTooLargeErrors = metricsFactory.counter("payloadTooLargeErrors");
     this.partialBulkWriteErrors = metricsFactory.counter("partialBulkWriteErrors");
+    this.dropMaterializedViewCollectionErrors =
+        metricsFactory.counter("dropMaterializedViewCollectionErrors");
+    this.materializedViewClientUnavailable =
+        metricsFactory.counter("materializedViewClientUnavailable");
+    this.fencingRejections = metricsFactory.counter("fencingRejections");
+    this.mvWriteThrottleCount = metricsFactory.counter("mvWriteThrottleCount");
+    this.mvWriteThrottleWaitTime = metricsFactory.timer("mvWriteThrottleWaitTime");
+    this.bulkWriteNumDocs = metricsFactory.summary("bulkWriteNumDocs");
+    this.bulkWritePayloadSize = metricsFactory.summary("bulkWritePayloadSize");
     this.operationExecutor =
         new MongoClientOperationExecutor(metricsFactory, "materializedViewCollection");
-    this.collectionUuid = createCollectionIfNeededAndGetUuid();
+    this.collectionUuid = collectionUuid;
+    this.rateLimiter = rateLimiter;
     ReentrantReadWriteLock shutdownLock = new ReentrantReadWriteLock(true);
     this.shutdownAndCommitExclusiveLock = shutdownLock.writeLock();
     this.shutdownAndCommitSharedLock = shutdownLock.readLock();
     this.closed = false;
-  }
-
-  private UUID createCollectionIfNeededAndGetUuid() {
-    boolean collectionExists =
-        this.mongoClient
-            .getDatabase(this.namespace.getDatabaseName())
-            .listCollectionNames()
-            .into(new ArrayList<>())
-            .contains(this.namespace.getCollectionName());
-    if (!collectionExists) {
-      this.mongoClient
-          .getDatabase(this.namespace.getDatabaseName())
-          .createCollection(this.namespace.getCollectionName());
-    }
-    try {
-      MongoDbCollectionInfo collectionInfo =
-          getCollectionInfo(
-              this.mongoClient,
-              this.namespace.getDatabaseName(),
-              this.namespace.getCollectionName());
-      return Check.instanceOf(collectionInfo, MongoDbCollectionInfo.Collection.class).info().uuid();
-    } catch (Exception e) {
-      throw new MaterializedViewNonTransientException(e);
-    }
   }
 
   @Override
@@ -150,11 +161,12 @@ public class MaterializedViewWriter implements IndexWriter {
       ensureOpen("updateIndex");
       var bulkOperations = this.bulkOperationsRef.get();
       switch (event.getEventType()) {
-        case INSERT -> bulkOperations.add(
-            new ReplaceOneModel<>(
-                new BsonDocument("_id", event.getDocumentId()),
-                event.getDocument().get(), // only returns empty when event is a delete
-                new ReplaceOptions().upsert(true)));
+        case INSERT ->
+            bulkOperations.add(
+                new ReplaceOneModel<>(
+                    new BsonDocument("_id", event.getDocumentId()),
+                    event.getDocument().get(), // only returns empty when event is a delete
+                    new ReplaceOptions().upsert(true)));
         case UPDATE -> {
           // For filter-only updates, use $set to update only the filter fields.
           // This preserves existing embeddings in the materialized view document.
@@ -171,8 +183,9 @@ public class MaterializedViewWriter implements IndexWriter {
                     new ReplaceOptions().upsert(true)));
           }
         }
-        case DELETE -> bulkOperations.add(
-            new DeleteOneModel<>(new BsonDocument("_id", event.getDocumentId())));
+        case DELETE ->
+            bulkOperations.add(
+                new DeleteOneModel<>(new BsonDocument("_id", event.getDocumentId())));
       }
     }
   }
@@ -185,12 +198,34 @@ public class MaterializedViewWriter implements IndexWriter {
       bulkOperations = this.bulkOperationsRef.getAndSet(new ConcurrentLinkedQueue<>());
     }
     if (!bulkOperations.isEmpty()) {
+      // Throttle MV writes if ratelimiter is configured. acquire() blocks until
+      // a permit is available, smoothing write bursts.
+      this.rateLimiter.ifPresent(
+          limiter -> {
+            double waitSeconds = limiter.acquire();
+            if (waitSeconds > 0) {
+              this.mvWriteThrottleCount.increment();
+              this.mvWriteThrottleWaitTime.record(
+                  (long) (waitSeconds * 1000), TimeUnit.MILLISECONDS);
+            }
+          });
+
       // TODO(CLOUDP-360778): if commit throws an exception, we currently crash the JVM (see
       // PeriodicIndexCommitter::crashWithException). We will likely need to implement our own
       // periodic committer or not have a periodic committer at all since we call commit from the
       // indexing work scheduler directly.
       try {
-        bulkWrite(bulkOperations.stream().toList(), 0);
+        long leaseVersion = this.leaseManager.getLeaseVersion(this.generationId);
+        if (leaseVersion <= 0) {
+          throw new MaterializedViewNonTransientException(
+              "Cannot write to MV without a valid lease (leaseVersion=" + leaseVersion + ")");
+        }
+        // Apply fencing once here, then pass already-fenced documents to bulkWrite.
+        // This ensures retry paths (partial failure, payload split) use the same fenced
+        // documents without re-fencing, and error indices align directly.
+        List<WriteModel<RawBsonDocument>> fencedOps =
+            addFencingToWriteModels(bulkOperations.stream().toList(), leaseVersion);
+        bulkWrite(fencedOps, 0);
       } catch (MaterializedViewNonTransientException e) {
         throw e;
       } catch (Exception e) {
@@ -251,8 +286,8 @@ public class MaterializedViewWriter implements IndexWriter {
     return this.collectionUuid;
   }
 
-  public MongoClient getMongoClient() {
-    return this.mongoClient;
+  public AutoEmbeddingMongoClient getMongoClient() {
+    return this.autoEmbeddingMongoClient;
   }
 
   public MongoNamespace getNamespace() {
@@ -267,70 +302,71 @@ public class MaterializedViewWriter implements IndexWriter {
    */
   public CompletableFuture<Void> dropMaterializedViewCollection() {
     this.close();
+    var mongoClientOpt = this.autoEmbeddingMongoClient.getMaterializedViewWriterMongoClient();
+    if (mongoClientOpt.isEmpty()) {
+      this.dropMaterializedViewCollectionErrors.increment();
+      // This won't crash Mongot when IndexAction::dropIndex triggers it.
+      return CompletableFuture.failedFuture(
+          new MaterializedViewTransientException(
+              "Materialized view writer client is not available at this time.",
+              MONGO_CLIENT_NOT_AVAILABLE));
+    }
     return CompletableFuture.runAsync(
-        () -> {
-          this.mongoClient
-              .getDatabase(this.namespace.getDatabaseName())
-              .getCollection(this.namespace.getCollectionName(), RawBsonDocument.class)
-              .drop();
-        });
+        () ->
+            mongoClientOpt
+                .get()
+                .getDatabase(this.namespace.getDatabaseName())
+                .getCollection(this.namespace.getCollectionName(), RawBsonDocument.class)
+                .drop());
   }
 
   public static class Factory implements Closeable {
-    // TODO(CLOUDP-360606): make it configurable. Use 2 for now, as we follows the formula used in
-    // MongoDbReplicationManager::getSyncMongoClient but without counting connections for synonym,
-    // sessionRefresh and changeStreamModeSelection as this client is for stateless writing only, we
-    // will adjust it later.
-    private static final int DEFAULT_MAX_CONNECTIONS = 2;
-    private final MongoClient materializedViewMongoClient;
+    private final AutoEmbeddingMongoClient autoEmbeddingMongoClient;
     private final MetricsFactory metricsFactory;
+    private final Optional<RateLimiter> rateLimiter;
 
-    public Factory(SyncSourceConfig syncSourceConfig, MeterRegistry meterRegistry) {
+    public Factory(AutoEmbeddingMongoClient autoEmbeddingMongoClient, MeterRegistry meterRegistry,
+        Optional<Integer> mvWriteRateLimitRps) {
       // TODO(CLOUDP-360542): Investigate whether we need to change this when primary mongod node is
       // not discoverable in original seedAddresses
-      this.materializedViewMongoClient =
-          createMaterializedViewMongoClient(syncSourceConfig, meterRegistry);
+      this.autoEmbeddingMongoClient = autoEmbeddingMongoClient;
       this.metricsFactory = new MetricsFactory("materializedViewWriter", meterRegistry);
+      this.rateLimiter =
+          mvWriteRateLimitRps.map(
+              rps -> {
+                LOG.info("MV write rate limiter configured at {} RPS", rps);
+                return RateLimiter.create(rps);
+              });
     }
 
     public MaterializedViewWriter create(
         String matViewColName,
         MaterializedViewGenerationId generationId,
-        LeaseManager leaseManager) {
+        LeaseManager leaseManager,
+        UUID collectionUuid) {
       return new MaterializedViewWriter(
-          this.materializedViewMongoClient,
+          this.autoEmbeddingMongoClient,
+          MV_DATABASE_NAME,
           matViewColName,
           generationId,
           leaseManager,
-          this.metricsFactory);
+          this.metricsFactory,
+          collectionUuid,
+          this.rateLimiter);
     }
 
     @Override
     public void close() {
       // Close materializedViewMongoClient in factory as this materializedViewMongoClient is shared.
-      this.materializedViewMongoClient.close();
-    }
-
-    private MongoClient createMaterializedViewMongoClient(
-        SyncSourceConfig syncSourceConfig, MeterRegistry meterRegistry) {
-      // Use mongosUri if available, otherwise fall back to mongodUri. This allows the MongoDB
-      // driver
-      // to automatically discover replica set topology and route writes to the primary, avoiding
-      // NotWritablePrimary errors after failovers.
-      var connectionString = syncSourceConfig.mongosUri.orElse(syncSourceConfig.mongodUri);
-      return MongoClientBuilder.buildNonReplicationWithDefaults(
-          connectionString,
-          "AutoEmbedding Materialized View Writer",
-          DEFAULT_MAX_CONNECTIONS,
-          syncSourceConfig.sslContext,
-          meterRegistry);
+      this.autoEmbeddingMongoClient.close();
     }
   }
 
   /**
-   * Write a batch of documents to the materialized view.
+   * Write a batch of documents to the materialized view. Documents are expected to already have
+   * fencing applied via {@link #addFencingToWriteModels} before being passed here.
    *
-   * @param documents list of documents to write
+   * @param documents list of (already fenced) documents to write
    * @param subRetryAttempt number of times we have attempted to retry a partial batch
    * @throws Exception throws a non-transient exception in case of a known non-retryable error like
    *     a document being too large. Otherwise throws a transient exception.
@@ -339,19 +375,62 @@ public class MaterializedViewWriter implements IndexWriter {
       throws Exception {
     // limit to avoid unbounded recursive calls
     if (subRetryAttempt >= MAX_SUB_RETRY_ATTEMPTS) {
-      throw new MaterializedViewNonTransientException(
-          "Failed to write to materialized view due to too many sub-retry attempts");
+      throw new MaterializedViewTransientException(
+          "Failed to write to materialized view due to too many sub-retry attempts,"
+              + " will retry the whole batch.");
     }
+    var mongoClientOpt = this.autoEmbeddingMongoClient.getMaterializedViewWriterMongoClient();
+    if (mongoClientOpt.isEmpty()) {
+      // This shouldn't happen since we block replication when sync source is missing in
+      // IndexActions
+      this.materializedViewClientUnavailable.increment();
+      throw new MaterializedViewTransientException(
+          "Materialized view writer client is not available at this time."
+              + " Will retry the whole batch.",
+          MONGO_CLIENT_NOT_AVAILABLE);
+    }
+    // Record bulk write metrics - this metric is at an attempt level, so it is possible to
+    // double count when retrying. This is ok for now as we are mainly using these metrics to
+    // detect general trends and not for precise accounting.
+    this.bulkWriteNumDocs.record(documents.size());
+    this.bulkWritePayloadSize.record(calculatePayloadSize(documents));
+    // MV writes use the default write concern (w:1) rather than w:majority. This is safe because
+    // commit() calls updateCommitInfo() after bulkWrite(), and updateCommitInfo() uses w:majority
+    // on the lease collection. Since both write to the same mongod primary, MV writes precede the
+    // checkpoint in the oplog. MongoDB secondaries apply oplog entries in order, so w:majority on
+    // the checkpoint implicitly guarantees all preceding MV writes are also majority-replicated.
+    // If the checkpoint write fails (e.g., primary crash before it completes), the checkpoint does
+    // not advance, and the next leader re-processes the batch.
     try {
       this.operationExecutor.execute(
           "materializedViewBulkWrite",
           () -> {
-            this.mongoClient
+            mongoClientOpt
+                .get()
                 .getDatabase(this.namespace.getDatabaseName())
                 .getCollection(this.namespace.getCollectionName(), RawBsonDocument.class)
+                // Ordered writes: preserves operation order for same-_id correctness
+                // (e.g., insert then delete on the same doc within one batch).
                 .bulkWrite(documents);
           });
     } catch (MongoBulkWriteException e) {
+      // With ordered writes, the batch stops at the first error.
+      // Check if the error is a fencing rejection (DuplicateKey from a fenced upsert).
+      // DuplicateKey occurs when the fencing filter doesn't match (existing doc has a higher
+      // _autoEmbed._leaseVersion) and the upsert attempts an insert that conflicts on _id.
+      // This means we're a zombie leader — fail the entire batch immediately.
+      boolean hasFencingRejection =
+          e.getWriteErrors().stream()
+              .anyMatch(err -> err.getCategory() == ErrorCategory.DUPLICATE_KEY);
+      if (hasFencingRejection) {
+        this.fencingRejections.increment();
+        LOG.warn(
+            "Fencing rejection detected — this instance is a stale leader. "
+                + "A document in the MV has a higher _autoEmbed._leaseVersion. Failing batch.");
+        throw new MaterializedViewNonTransientException(
+            "MV write rejected by fencing: a newer leader has written to this document");
+      }
+      // Not a fencing rejection — retry the failed + unattempted operations.
       this.partialBulkWriteErrors.increment();
       var failedOperations = filterFailedOperations(documents, e.getWriteErrors());
       LOG.warn(
@@ -384,6 +463,89 @@ public class MaterializedViewWriter implements IndexWriter {
   }
 
   /**
+   * Adds per-document fencing to write models so that stale leaders cannot overwrite documents
+   * written by a newer leader with a higher leaseVersion.
+   *
+   * <p>All write model types receive a fencing filter that rejects the operation when the existing
+   * document already has a higher leaseVersion. In addition, {@link ReplaceOneModel} embeds the
+   * leaseVersion in the replacement document, and {@link UpdateOneModel} adds it via {@code $set}.
+   * {@link DeleteOneModel} gets only the filter — without it a zombie could delete a doc written by
+   * the new leader, then reinsert stale data via a subsequent upsert.
+   *
+   * @param documents the original write models
+   * @param leaseVersion the current lease version to embed as a fencing token
+   * @return a new list of write models with fencing applied
+   */
+  static List<WriteModel<RawBsonDocument>> addFencingToWriteModels(
+      List<WriteModel<RawBsonDocument>> documents, long leaseVersion) {
+    // Skip fencing for static leaders (sentinel value) to avoid poisoning MV documents
+    // with Long.MAX_VALUE, which would block any future dynamic leader writes.
+    if (leaseVersion == Long.MAX_VALUE) {
+      return documents;
+    }
+    // Fencing condition: only write if existing doc has leaseVersion <= ours, or no field yet.
+    Bson fencingCondition =
+        Filters.or(
+            Filters.lte(LEASE_VERSION_FIELD, leaseVersion),
+            Filters.exists(LEASE_VERSION_FIELD, false));
+
+    List<WriteModel<RawBsonDocument>> fenced = new ArrayList<>(documents.size());
+    for (WriteModel<RawBsonDocument> writeModel : documents) {
+      if (writeModel instanceof ReplaceOneModel<RawBsonDocument> replaceModel) {
+        // Embed leaseVersion as a nested document {_autoEmbed: {_leaseVersion: N}}.
+        // RawBsonDocument is immutable, so decode into a mutable BsonDocument copy first.
+        // TODO(CLOUDP-392847): Revisit efficiency — keep documents as BsonDocument in the queue
+        // and defer RawBsonDocument encoding to after fencing is applied.
+        // Note: doc.put("_autoEmbed._leaseVersion", ...) would create a literal dotted key,
+        // but Filters/queries interpret dots as nested paths — so we must write as nested doc.
+        BsonDocument doc = new BsonDocument();
+        doc.putAll(replaceModel.getReplacement().toBsonDocument());
+        BsonDocument autoEmbedDoc;
+        if (doc.containsKey(LEASE_VERSION_BSON_PARENT)
+            && doc.get(LEASE_VERSION_BSON_PARENT).isDocument()) {
+          autoEmbedDoc = doc.getDocument(LEASE_VERSION_BSON_PARENT);
+        } else {
+          autoEmbedDoc = new BsonDocument();
+        }
+        autoEmbedDoc.put(LEASE_VERSION_BSON_KEY, new BsonInt64(leaseVersion));
+        doc.put(LEASE_VERSION_BSON_PARENT, autoEmbedDoc);
+
+        fenced.add(
+            new ReplaceOneModel<>(
+                Filters.and(replaceModel.getFilter(), fencingCondition),
+                BsonUtils.documentToRaw(doc),
+                replaceModel.getReplaceOptions()));
+      } else if (writeModel instanceof UpdateOneModel<RawBsonDocument> updateModel) {
+        // Add $set for leaseVersion to the update. Clone to avoid modifying the original.
+        // getUpdate() is null when the agg pipeline constructor is used; skip fencing the
+        // update body in that case (the fencing filter on the query still protects the write).
+        BsonDocument updateDoc = new BsonDocument();
+        if (updateModel.getUpdate() != null) {
+          updateDoc.putAll(updateModel.getUpdate().toBsonDocument());
+        }
+        BsonDocument setDoc = new BsonDocument();
+        if (updateDoc.containsKey("$set")) {
+          setDoc.putAll(updateDoc.getDocument("$set"));
+        }
+        setDoc.put(LEASE_VERSION_FIELD, new BsonInt64(leaseVersion));
+        updateDoc.put("$set", setDoc);
+
+        fenced.add(
+            new UpdateOneModel<>(
+                Filters.and(updateModel.getFilter(), fencingCondition),
+                updateDoc,
+                updateModel.getOptions()));
+      } else if (writeModel instanceof DeleteOneModel<RawBsonDocument> deleteModel) {
+        fenced.add(
+            new DeleteOneModel<>(Filters.and(deleteModel.getFilter(), fencingCondition)));
+      } else {
+        fenced.add(writeModel);
+      }
+    }
+    return fenced;
+  }
+
+  /**
    * Returns true if the write failed due to the bulk payload exceeding 16 MiB.
    *
    * @param ex the exception thrown by the client
@@ -399,14 +561,20 @@ public class MaterializedViewWriter implements IndexWriter {
   /**
    * Filter failed operations using BulkWriteError and identify operations to retry.
    *
+   * <p>With ordered bulk writes, MongoDB stops at the first error. {@code getWriteErrors()} only
+   * contains the operations that actually errored — operations after the error were never attempted
+   * and are not reported. This method includes both the errored operations and the unattempted
+   * operations (those at indices after the highest error index) in the retry list.
+   *
    * @param bulkOperations The original list of bulk write operations
    * @param writeErrors BulkWriteErrors returned from MongoBulkWriteException
-   * @return A filtered list containing only the failed operations
+   * @return A list containing the failed operations and any unattempted operations
    */
   private static List<WriteModel<RawBsonDocument>> filterFailedOperations(
       List<WriteModel<RawBsonDocument>> bulkOperations, List<BulkWriteError> writeErrors) {
     List<WriteModel<RawBsonDocument>> retryOperations = new ArrayList<>();
 
+    @Var int maxErrorIndex = -1;
     for (BulkWriteError error : writeErrors) {
       if (!Errors.RETRYABLE_ERROR_CODES.contains(error.getCode())) {
         // Since we cannot skip any document events, we need to fail the entire batch if we
@@ -417,9 +585,37 @@ public class MaterializedViewWriter implements IndexWriter {
       }
       int failedIndex = error.getIndex();
       retryOperations.add(bulkOperations.get(failedIndex));
+      maxErrorIndex = Math.max(maxErrorIndex, failedIndex);
+    }
+
+    // With ordered writes, operations after the last error were never attempted.
+    // Include them in the retry list so they are not silently lost.
+    for (int i = maxErrorIndex + 1; i < bulkOperations.size(); i++) {
+      retryOperations.add(bulkOperations.get(i));
     }
 
     return retryOperations;
+  }
+
+  /**
+   * Calculate the total payload size of all documents in the bulk write operation.
+   *
+   * @param documents list of write models to calculate size for
+   * @return total size in bytes
+   */
+  private static long calculatePayloadSize(List<WriteModel<RawBsonDocument>> documents) {
+    @Var long totalSize = 0;
+    for (WriteModel<RawBsonDocument> writeModel : documents) {
+      if (writeModel instanceof ReplaceOneModel<RawBsonDocument> replaceModel) {
+        totalSize += replaceModel.getReplacement().getByteBuffer().remaining();
+      }
+      // UpdateOneModel is only used for filter-field-only updates (a small $set of a few fields),
+      // so its payload is negligible relative to full-document ReplaceOneModel payloads which carry
+      // embeddings. Measuring it would require serializing a BsonDocument on the hot path, so it
+      // is intentionally excluded here.
+      // DeleteOneModel doesn't have a document payload to measure.
+    }
+    return totalSize;
   }
 
   private void ensureOpen(String methodName) {
@@ -427,5 +623,11 @@ public class MaterializedViewWriter implements IndexWriter {
       String message = String.format("Cannot call %s() after to close()", methodName);
       throw new IndexClosedException(message);
     }
+  }
+
+  @Override
+  public void cancelMerges() throws IOException {
+    // No-op: MaterializedViewWriter writes to MongoDB, not Lucene, so there are no merges to cancel
+    LOG.debug("cancelMerges() called on MaterializedViewWriter - no action needed");
   }
 }

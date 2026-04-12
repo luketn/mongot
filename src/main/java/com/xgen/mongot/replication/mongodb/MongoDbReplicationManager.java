@@ -1,5 +1,6 @@
 package com.xgen.mongot.replication.mongodb;
 
+import static com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig.Type.DEFAULT;
 import static com.xgen.mongot.util.Check.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -21,6 +22,7 @@ import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.monitor.Gate;
 import com.xgen.mongot.replication.ReplicationManager;
 import com.xgen.mongot.replication.mongodb.common.ClientSessionRecord;
+import com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig;
 import com.xgen.mongot.replication.mongodb.common.DecodingWorkScheduler;
 import com.xgen.mongot.replication.mongodb.common.DefaultDocumentIndexer;
 import com.xgen.mongot.replication.mongodb.common.DefaultSessionRefresher;
@@ -40,6 +42,7 @@ import com.xgen.mongot.util.concurrent.Executors;
 import com.xgen.mongot.util.concurrent.NamedExecutorService;
 import com.xgen.mongot.util.concurrent.NamedScheduledExecutorService;
 import com.xgen.mongot.util.mongodb.BatchMongoClient;
+import com.xgen.mongot.util.mongodb.ConnectionInfo;
 import com.xgen.mongot.util.mongodb.MongoClientBuilder;
 import com.xgen.mongot.util.mongodb.SyncSourceConfig;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -145,8 +148,8 @@ public class MongoDbReplicationManager implements ReplicationManager {
   /** A flag indicating whether natural order scan is enabled for initial sync */
   private final boolean enableNaturalOrderScan;
 
-  @VisibleForTesting
-  MongoDbReplicationManager(
+  /** private constructor - Use static factory methods to construct instances. */
+  private MongoDbReplicationManager(
       NamedExecutorService lifecycleExecutor,
       IndexingWorkSchedulerFactory indexingWorkSchedulerFactory,
       MongotCursorManager cursorManager,
@@ -193,9 +196,63 @@ public class MongoDbReplicationManager implements ReplicationManager {
     this.enableNaturalOrderScan = enableNaturalOrderScan;
     this.shutdown = false;
     this.metricsFactory = new MetricsFactory("replication.mongodb", meterRegistry);
-    createStateGauges(this, this.metricsFactory);
     this.managerUp = this.metricsFactory.numGauge("manager", Tags.of("type", "normal"));
     this.managerUp.incrementAndGet();
+  }
+
+  @VisibleForTesting
+  static MongoDbReplicationManager create(
+      NamedExecutorService lifecycleExecutor,
+      IndexingWorkSchedulerFactory indexingWorkSchedulerFactory,
+      MongotCursorManager cursorManager,
+      Map<String, ClientSessionRecord> clientSessionRecordMap,
+      Optional<SyncSourceConfig> syncSourceConfig,
+      FeatureFlags featureFlags,
+      InitialSyncQueue initialSyncQueue,
+      SteadyStateManager steadyStateManager,
+      SynonymManager synonymManager,
+      BatchMongoClient syncBatchMongoClient,
+      DecodingWorkScheduler decodingWorkScheduler,
+      Optional<MongoClient> synonymsSyncClient,
+      Optional<? extends SessionRefresher> synonymsSessionRefresher,
+      ReplicationIndexManagerFactory replicationIndexManagerFactory,
+      MeterRegistry meterRegistry,
+      Map<GenerationId, ReplicationIndexManager> indexManagers,
+      NamedScheduledExecutorService commitExecutor,
+      ReplicationOptimeUpdater replicationOptimeUpdater,
+      InitializedIndexCatalog initializedIndexCatalog,
+      Duration commitInterval,
+      Duration requestRateLimitBackoffDuration,
+      boolean enableNaturalOrderScan) {
+    MongoDbReplicationManager manager =
+        new MongoDbReplicationManager(
+            lifecycleExecutor,
+            indexingWorkSchedulerFactory,
+            cursorManager,
+            clientSessionRecordMap,
+            syncSourceConfig,
+            featureFlags,
+            initialSyncQueue,
+            steadyStateManager,
+            synonymManager,
+            syncBatchMongoClient,
+            decodingWorkScheduler,
+            synonymsSyncClient,
+            synonymsSessionRefresher,
+            replicationIndexManagerFactory,
+            meterRegistry,
+            indexManagers,
+            commitExecutor,
+            replicationOptimeUpdater,
+            initializedIndexCatalog,
+            commitInterval,
+            requestRateLimitBackoffDuration,
+            enableNaturalOrderScan);
+
+    // Register gauges after construction is complete
+    createStateGauges(manager, manager.metricsFactory);
+
+    return manager;
   }
 
   /** Creates a new MongoDbReplicationManager. */
@@ -250,6 +307,7 @@ public class MongoDbReplicationManager implements ReplicationManager {
         getClientSessionRecords(
             syncSourceConfig.get(),
             getSyncMaxConnections(syncSourceConfig.get(), replicationConfig),
+            DEFAULT,
             meterRegistry,
             sessionRefreshExecutor,
             syncSourceHost);
@@ -262,17 +320,21 @@ public class MongoDbReplicationManager implements ReplicationManager {
             .get()
             .mongosUri
             .map(
-                connectionString ->
+                syncSource ->
                     getSynonymsMongoClient(
-                        connectionString,
-                        syncSourceConfig.get().sslContext,
+                        syncSource.uri(),
+                        syncSource.sslContext(),
                         replicationConfig.numConcurrentSynonymSyncs,
                         meterRegistry));
 
     var synonymsSessionRefresher =
         synonymsMongoClient.map(
             client ->
-                DefaultSessionRefresher.create(meterRegistry, sessionRefreshExecutor, client));
+                DefaultSessionRefresher.create(
+                    new MetricsFactory("replication.synonyms.sessionRefresher", meterRegistry),
+                    DEFAULT,
+                    sessionRefreshExecutor,
+                    client));
 
     var initialSyncQueue =
         InitialSyncQueue.create(
@@ -283,7 +345,8 @@ public class MongoDbReplicationManager implements ReplicationManager {
             replicationConfig,
             initialSyncConfig,
             dataPath,
-            initialSyncGate);
+            initialSyncGate,
+            Optional.empty());
 
     SteadyStateReplicationConfig steadyStateReplicationConfig =
         getSteadyStateReplicationConfig(replicationConfig);
@@ -318,7 +381,7 @@ public class MongoDbReplicationManager implements ReplicationManager {
             replicationOptimeUpdaterInterval,
             meterRegistry);
 
-    return new MongoDbReplicationManager(
+    return MongoDbReplicationManager.create(
         lifecycleExecutor,
         indexingWorkSchedulerFactory,
         cursorManager,
@@ -366,7 +429,10 @@ public class MongoDbReplicationManager implements ReplicationManager {
 
     var syncBatchMongoClient =
         getSyncBatchMongoClient(
-            syncSourceConfig.get(), replicationConfig.numConcurrentChangeStreams, meterRegistry);
+            syncSourceConfig.get(),
+            replicationConfig.numConcurrentChangeStreams,
+            DEFAULT.metricsNamespacePrefix,
+            meterRegistry);
 
     return create(
         dataPath,
@@ -435,12 +501,12 @@ public class MongoDbReplicationManager implements ReplicationManager {
   }
 
   public static com.mongodb.client.MongoClient getSyncMongoClient(
-      SyncSourceConfig syncSourceConfig,
+      ConnectionInfo syncSource,
+      String metricsNamespacePrefix,
       MeterRegistry meterRegistry,
-      ConnectionString uri,
       int maxConnections) {
-    return MongoClientBuilder.builder(uri, meterRegistry)
-        .sslContext(syncSourceConfig.sslContext)
+    return MongoClientBuilder.builder(syncSource.uri(), metricsNamespacePrefix, meterRegistry)
+        .sslContext(syncSource.sslContext())
         .description("initial sync and session refresh")
         .maxConnections(maxConnections)
         .buildSyncClient();
@@ -450,17 +516,21 @@ public class MongoDbReplicationManager implements ReplicationManager {
   public static Map<String, ClientSessionRecord> getClientSessionRecords(
       SyncSourceConfig syncSourceConfig,
       int maxConnections,
+      CommonReplicationConfig.Type type,
       MeterRegistry meterRegistry,
       NamedScheduledExecutorService sessionRefreshExecutor,
       String syncSourceHost) {
     LOG.atInfo().addKeyValue("defaultHost", syncSourceHost).log("start constructing mongoClients");
 
+    var sessionRefresherMetricsFactory =
+        new MetricsFactory("replication.sessionRefresher", meterRegistry);
     // make sure syncClient and session refresher connecting mongodUri is included
     var syncMongoClient =
         getSyncMongoClient(
-            syncSourceConfig, meterRegistry, syncSourceConfig.mongodUri, maxConnections);
+            syncSourceConfig.mongodUri, type.metricsNamespacePrefix, meterRegistry, maxConnections);
     var sessionRefresher =
-        DefaultSessionRefresher.create(meterRegistry, sessionRefreshExecutor, syncMongoClient);
+        DefaultSessionRefresher.create(
+            sessionRefresherMetricsFactory, type, sessionRefreshExecutor, syncMongoClient);
     Map<String, ClientSessionRecord> clientSessionHostMap = new HashMap<>();
     clientSessionHostMap.put(
         syncSourceHost, new ClientSessionRecord(syncMongoClient, sessionRefresher));
@@ -469,14 +539,14 @@ public class MongoDbReplicationManager implements ReplicationManager {
     syncSourceConfig.mongodUris.ifPresent(
         uris ->
             uris.forEach(
-                (host, connectionString) -> {
+                (host, syncSource) -> {
                   if (!clientSessionHostMap.containsKey(host)) {
                     var client =
                         getSyncMongoClient(
-                            syncSourceConfig, meterRegistry, connectionString, maxConnections);
+                            syncSource, type.metricsNamespacePrefix, meterRegistry, maxConnections);
                     var refresher =
                         DefaultSessionRefresher.create(
-                            meterRegistry, sessionRefreshExecutor, client);
+                            sessionRefresherMetricsFactory, type, sessionRefreshExecutor, client);
                     clientSessionHostMap.put(host, new ClientSessionRecord(client, refresher));
                   }
                 }));
@@ -510,7 +580,7 @@ public class MongoDbReplicationManager implements ReplicationManager {
     if (hostName.isEmpty()) {
       // There should only be one host from mongodUri for Atlas that's using a direct connection for
       // initial sync
-      String host = syncSourceConfig.mongodUri.getHosts().getFirst();
+      String host = syncSourceConfig.mongodUri.uri().getHosts().getFirst();
       // return the host name excluding port.
       return host.split(":")[0];
     }
@@ -533,9 +603,11 @@ public class MongoDbReplicationManager implements ReplicationManager {
   public static BatchMongoClient getSyncBatchMongoClient(
       SyncSourceConfig syncSourceConfig,
       int numConcurrentChangeStreams,
+      String metricsNamespacePrefix,
       MeterRegistry meterRegistry) {
-    return MongoClientBuilder.builder(syncSourceConfig.mongodClusterUri, meterRegistry)
-        .sslContext(syncSourceConfig.sslContext)
+    return MongoClientBuilder.builder(
+            syncSourceConfig.mongodClusterReaderUri.uri(), metricsNamespacePrefix, meterRegistry)
+        .sslContext(syncSourceConfig.mongodClusterReaderUri.sslContext())
         .description("steady state sync")
         .maxConnections(numConcurrentChangeStreams)
         .buildSyncBatchClient();

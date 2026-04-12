@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/typeSets.json",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "types": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "markdownDescription": "Data type settings to use for dynamic mapping of specific field types during indexing.",
+              "enum": [
+                "autocomplete",
+                "boolean",
+                "date",
+                "geo",
+                "number",
+                "objectId",
+                "string",
+                "token",
+                "uuid"
+              ],
+              "markdownEnumDescriptions": [
+                "Data type to use to index string type fields for autocompletion, including any string fields inside arrays and embedded documents. You can use this field type only for [static mappings](https://dochub.mongodb.org/core/static-and-dynamic-mappings-fts). To learn more about this data type, see [autocomplete Type](https://dochub.mongodb.org/core/autocomplete-type-fts).",
+                "Data type to use to index fields with `true` and `false` values. To learn more about this data type, see [boolean Type](https://dochub.mongodb.org/core/boolean-type-fts).",
+                "Data type to use to index fields with date values, including date fields inside arrays and embedded documents. To learn more about this data type, see [date Type](https://dochub.mongodb.org/core/date-type-fts).",
+                "Data type to use to index fields with [GeoJSON](https://dochub.mongodb.org/core/geojson-type-fts) objects, which includes geographic points and shape coordinates. To learn more about this data type, see [geo Type](https://dochub.mongodb.org/core/geo-type-fts).",
+                "Data type to use to index fields with numeric values of type `int32`, `int64`, and `double`. To learn more about this data type, see [number Type](https://dochub.mongodb.org/core/number-type-fts).",
+                "Data type to use to index fields with [ObjectId](https://dochub.mongodb.org/core/objectid-bson-fts) values, including ObjectId fields inside arrays and embedded documents. To learn more about this data type, see [objectId Type](https://dochub.mongodb.org/core/objectid-type-fts).",
+                "Data type to use to index fields with string values. To learn more about this data type, see [string Type](https://dochub.mongodb.org/core/string-type-fts).",
+                "Data type to use to index fields of type `string` for sorting or filtering search results with equals, in or range. To learn more about this data type, see [token Type](https://dochub.mongodb.org/core/token-type-fts).",
+                "Data type to use to index fields with `uuid` values, including UUID fields inside arrays and embedded documents. To learn more about this data type, see [uuid Type](https://dochub.mongodb.org/core/uuid-type-fts)."
+              ]
+            }
+          },
+          "required": ["type"],
+          "oneOf": [
+            {
+              "$ref": "mappings/fields/autocomplete.json"
+            },
+            {
+              "$ref": "mappings/fields/boolean.json"
+            },
+            {
+              "$ref": "mappings/fields/date.json"
+            },
+            {
+              "$ref": "mappings/fields/geo.json"
+            },
+            {
+              "$ref": "mappings/fields/number.json"
+            },
+            {
+              "$ref": "mappings/fields/objectId.json"
+            },
+            {
+              "$ref": "mappings/fields/string.json"
+            },
+            {
+              "$ref": "mappings/fields/token.json"
+            },
+            {
+              "$ref": "mappings/fields/uuid.json"
+            }
+          ],
+          "definitions": {
+            "typeErrorMessage": {
+              "errorMessage": "Unsupported typeSet type.",
+              "$comment": "The custom error message defined above is a global override for all consuming schema."
+            }
+          }
+        }
+      }
+    }
+  }
+}

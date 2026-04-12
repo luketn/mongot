@@ -6,7 +6,8 @@ load("@contrib_rules_jvm//:setup.bzl", "contrib_rules_jvm_setup")
 load("@io_grpc_grpc_java//:repositories.bzl", "IO_GRPC_GRPC_JAVA_ARTIFACTS")
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 load("//bazel/java:dep_utils.bzl", "append_version", "as_neverlink", "as_test_only")
-load("//bazel/java:search_query_deps.bzl", "SEARCH_QUERY_DEPS")
+load("//bazel/java:netty_tcnative.bzl", "netty_tcnative_deps")
+load("//bazel/java:search_query_deps.bzl", "LUCENE_FORK_ARTIFACTS", "LUCENE_FORK_OVERRIDE_TARGETS", "SEARCH_QUERY_DEPS")
 load("//bazel/java:systems_deps.bzl", "SYSTEMS_DEPS")
 
 GUAVA_VERSION = "33.5.0-jre"
@@ -17,7 +18,7 @@ GUAVA_ARTIFACTS = append_version(
     ],
 )
 
-JACKSON_VERSION = "2.19.2"
+JACKSON_VERSION = "2.18.6"
 JACKSON_ARTIFACTS = (
     append_version(
         JACKSON_VERSION,
@@ -85,6 +86,7 @@ TEST_ONLY_ARTIFACTS = (
         ],
     ) +
     [
+        "io.projectreactor:reactor-test:3.7.8",
         "com.googlecode.junit-toolbox:junit-toolbox:2.4",
         "org.hamcrest:hamcrest-library:3.0",
         "org.hamcrest:hamcrest-core:3.0",
@@ -158,6 +160,7 @@ MISC_ARTIFACTS = [
     # TODO(CLOUDP-196746): Remove okio dependency when GRPC upgrades okio > 3.4.0
     "com.squareup.okio:okio:3.10.2",
     "com.google.auto.service:auto-service:1.1.1",
+    "org.roaringbitmap:RoaringBitmap:1.6.13",
 ]
 
 PINNED_TRANSITIVE_ARTIFACTS = [
@@ -171,6 +174,8 @@ PINNED_TRANSITIVE_ARTIFACTS = [
     "io.grpc:grpc-netty-shaded:1.75.0",
     # Force gson version to 2.13.2 to address CVE-2025-53864
     "com.google.code.gson:gson:2.13.2",
+    # Force plexus-utils version to 4.0.3 to address CVE-2025-67030
+    "org.codehaus.plexus:plexus-utils:4.0.3",
 ]
 
 def java_deps():
@@ -181,6 +186,16 @@ def java_deps():
     contrib_rules_jvm_setup()
     contrib_rules_jvm_gazelle_setup()
 
+    # Lucene fork artifacts (lucene-core, lucene-backward-codecs) are resolved from our CDN
+    # in a separate install and override the upstream versions in the main install below.
+    maven_install(
+        name = "lucene_fork",
+        artifacts = LUCENE_FORK_ARTIFACTS,
+        repositories = ["https://downloads.mongodb.com/lucene-mongot/maven"],
+        fetch_sources = True,
+        maven_install_json = "//bazel/java:lucene_fork_pin_info.json",
+    )
+
     maven_install(
         artifacts = _mongot_java_artifacts(),
         repositories = ["https://repo1.maven.org/maven2"],
@@ -190,11 +205,14 @@ def java_deps():
         duplicate_version_warning = "error",
         # Use the versions we've pinned if a conflict is detected.
         version_conflict_policy = "pinned",
+        # Redirect lucene-core and lucene-backward-codecs to the fork JARs from @lucene_fork.
+        override_targets = LUCENE_FORK_OVERRIDE_TARGETS,
         excluded_artifacts = _mongot_java_excluded_artifacts(),
     )
 
     _adoptium_jdk()
     _test_deps()
+    netty_tcnative_deps()
 
 def _adoptium_jdk():
     _adoptium_jdk_linux_x86_64()

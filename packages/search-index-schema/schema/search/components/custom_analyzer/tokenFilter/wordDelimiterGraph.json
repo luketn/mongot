@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter/wordDelimiterGraph.json",
+  "type": "object",
+  "_description": "Token filter that splits tokens into sub-tokens based on configured rules.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the `wordDelimiterGraph` token filter type, which splits tokens into sub-tokens based on configured rules.",
+      "description": "Label that identifies the wordDelimiterGraph token filter type, which splits tokens into sub-tokens based on configured rules.",
+      "const": "wordDelimiterGraph",
+      "$ref": "../tokenFilter.json#/definitions/typePropertyOverrides"
+    },
+    "delimiterOptions": {
+      "suggestSortText": "1",
+      "type": "object",
+      "markdownDescription": "Object that contains the rules that determine how to split words into sub-words.",
+      "description": "Object that contains the rules that determine how to split words into sub-words.",
+      "properties": {
+        "generateWordParts": {
+          "suggestSortText": "0",
+          "type": "boolean",
+          "markdownDescription": "Flag that indicates whether to split tokens based on sub-words. For example, if `true`, this option splits `PowerShot` into `Power` and `Shot`.",
+          "description": "Flag that indicates whether to split tokens based on sub-words.",
+          "default": true
+        },
+        "generateNumberParts": {
+          "suggestSortText": "1",
+          "type": "boolean",
+          "markdownDescription": "Flag that indicates whether to split tokens based on sub-numbers. For example, if `true`, this option splits `100-2` into `100` and `2`.",
+          "description": "Flag that indicates whether to split tokens based on sub-numbers.",
+          "default": true
+        },
+        "concatenateWords": {
+          "suggestSortText": "2",
+          "type": "boolean",
+          "markdownDescription": "Flag that indicates whether to concatenate runs of sub-words. For example, if `true`, this option concatenates `wi-fi` into `wifi`. If `true`, apply the `flattenGraph` token filter after this option to make the token stream suitable for indexing.",
+          "description": "Flag that indicates whether to concatenate runs of sub-words.",
+          "default": false
+        },
+        "concatenateNumbers": {
+          "suggestSortText": "3",
+          "type": "boolean",
+          "markdownDescription": "Flag that indicates whether to concatenate runs of sub-numbers. For example, if `true`, this option concatenates `100-2` into `1002`. If `true`, apply the `flattenGraph` token filter after this option to make the token stream suitable for indexing.",
+          "description": "Flag that indicates whether to concatenate runs of sub-numbers.",
+          "default": false
+        },
+        "concatenateAll": {
+          "suggestSortText": "4",
+          "type": "boolean",
+          "markdownDescription": "Flag that indicates whether to concatenate runs. For example, if `true`, this option concatenates `wi-fi-100-2` into `wifi1002`. If `true`, apply the `flattenGraph` token filter after this option to make the token stream suitable for indexing.",
+          "description": "Flag that indicates whether to concatenate runs.",
+          "default": false
+        },
+        "preserveOriginal": {
+          "suggestSortText": "5",
+          "type": "boolean",
+          "markdownDescription": "Flag that indicates whether to generate tokens of the original words. If `true`, apply the `flattenGraph` token filter after this option to make the token stream suitable for indexing.",
+          "description": "Flag that indicates whether to generate tokens of the original words.",
+          "default": true
+        },
+        "splitOnCaseChange": {
+          "suggestSortText": "6",
+          "type": "boolean",
+          "markdownDescription": "Flag that indicates whether to split tokens based on letter-case transitions. For example, if `true`, this option splits `camelCase` into `camel` and `Case`.",
+          "description": "Flag that indicates whether to split tokens based on letter-case transitions.",
+          "default": true
+        },
+        "splitOnNumerics": {
+          "suggestSortText": "7",
+          "type": "boolean",
+          "markdownDescription": "Flag that indicates whether to split tokens based on letter-number transitions. For example, if `true`, this option splits `g2g` into `g`, `2`, and `g`.",
+          "description": "Flag that indicates whether to split tokens based on letter-number transitions.",
+          "default": true
+        },
+        "stemEnglishPossessive": {
+          "suggestSortText": "8",
+          "type": "boolean",
+          "markdownDescription": "Flag that indicates whether to remove trailing possessives from each sub-word. For example, if `true`, this option changes `who's` into `who'`.",
+          "description": "Flag that indicates whether to remove trailing possessives from each sub-word.",
+          "default": true
+        },
+        "ignoreKeywords": {
+          "suggestSortText": "9",
+          "type": "boolean",
+          "markdownDescription": "Flag that indicates whether to skip tokens with the `keyword` attribute set to `true`",
+          "description": "Flag that indicates whether to skip tokens with the `keyword` attribute set to `true`",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "protectedWords": {
+      "suggestSortText": "2",
+      "type": "object",
+      "description": "Object that contains options for protected words.",
+      "properties": {
+        "words": {
+          "suggestSortText": "0",
+          "type": "array",
+          "markdownDescription": "List that contains the tokens to protect from delimination. If you specify `protectedWords`, you must specify this option.",
+          "description": "List that contains the tokens to protect from delimination.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ignoreCase": {
+          "suggestSortText": "1",
+          "type": "boolean",
+          "markdownDescription": "Flag that indicates whether to ignore letter case sensitivity for protected words.",
+          "description": "Flag that indicates whether to ignore letter case sensitivity for protected words.",
+          "default": true
+        }
+      },
+      "required": ["words"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

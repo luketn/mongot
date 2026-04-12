@@ -13,7 +13,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.errorprone.annotations.Var;
-import com.mongodb.ConnectionString;
 import com.mongodb.MongoNamespace;
 import com.xgen.mongot.catalog.IndexCatalog;
 import com.xgen.mongot.catalog.InitializedIndexCatalog;
@@ -24,7 +23,7 @@ import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexGeneration;
 import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.IndexWriter;
-import com.xgen.mongot.index.InitializedIndex;
+import com.xgen.mongot.index.InitializedSearchIndex;
 import com.xgen.mongot.index.ReplicationOpTimeInfo;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.status.StaleStatusReason;
@@ -35,6 +34,7 @@ import com.xgen.mongot.replication.mongodb.common.IndexCommitUserData;
 import com.xgen.mongot.replication.mongodb.common.IndexStateInfo;
 import com.xgen.mongot.replication.mongodb.common.StaleStateInfo;
 import com.xgen.mongot.util.Condition;
+import com.xgen.mongot.util.mongodb.ConnectionStringUtil;
 import com.xgen.mongot.util.mongodb.SyncSourceConfig;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -165,13 +165,13 @@ public class MongoDbNoOpReplicationManagerTest {
 
   private static class Mocks {
     final MongotCursorManager cursorManager;
-    final InitializedIndex initializedIndex;
+    final InitializedSearchIndex initializedIndex;
     final MongoDbNoOpReplicationManager manager;
 
     private Mocks(
         MongotCursorManager cursorManager,
         InitializedIndexCatalog initializedIndexCatalog,
-        InitializedIndex index,
+        InitializedSearchIndex index,
         FeatureFlags featureFlags) {
       this.cursorManager = cursorManager;
       this.initializedIndex = index;
@@ -179,9 +179,10 @@ public class MongoDbNoOpReplicationManagerTest {
           MongoDbNoOpReplicationManager.create(
               Optional.of(
                   new SyncSourceConfig(
-                      new ConnectionString("mongodb://newString"),
+                      ConnectionStringUtil.toConnectionInfoUnchecked("mongodb://newString"),
+                      ConnectionStringUtil.toConnectionInfoUnchecked("mongodb://newString"),
                       Optional.empty(),
-                      new ConnectionString("mongodb://newString"))),
+                      Optional.empty())),
               cursorManager,
               mock(IndexCatalog.class),
               initializedIndexCatalog,
@@ -195,7 +196,7 @@ public class MongoDbNoOpReplicationManagerTest {
 
     static Mocks create(FeatureFlags featureFlags) {
       InitializedIndexCatalog initializedIndexCatalog = mock(InitializedIndexCatalog.class);
-      InitializedIndex initializedIndex = mock(InitializedIndex.class);
+      InitializedSearchIndex initializedIndex = mock(InitializedSearchIndex.class);
       IndexWriter indexWriter = mock(IndexWriter.class);
       when(indexWriter.getCommitUserData()).thenReturn(EncodedUserData.EMPTY);
       when(initializedIndex.getWriter()).thenReturn(indexWriter);

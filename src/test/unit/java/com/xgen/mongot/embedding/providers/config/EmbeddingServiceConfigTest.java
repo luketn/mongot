@@ -27,8 +27,8 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      EmbeddingServiceConfigTest.TestDeserialization.class,
-      EmbeddingServiceConfigTest.TestSerialization.class
+      EmbeddingServiceConfigTest.DeserializationTest.class,
+      EmbeddingServiceConfigTest.SerializationTest.class
     })
 public class EmbeddingServiceConfigTest {
   static final ModelConfig MODEL_CONFIG =
@@ -43,7 +43,7 @@ public class EmbeddingServiceConfigTest {
       new VoyageEmbeddingCredentials("token123", "2024-10-15T22:32:20.925Z");
 
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
     private static final String SUITE_NAME = "embedding-service-config-deserialization";
     private static final BsonDeserializationTestSuite<EmbeddingServiceConfig> TEST_SUITE =
         fromDocument(
@@ -53,7 +53,7 @@ public class EmbeddingServiceConfigTest {
 
     private final TestSpecWrapper<EmbeddingServiceConfig> testSpec;
 
-    public TestDeserialization(TestSpecWrapper<EmbeddingServiceConfig> testSpec) {
+    public DeserializationTest(TestSpecWrapper<EmbeddingServiceConfig> testSpec) {
       this.testSpec = testSpec;
     }
 
@@ -61,7 +61,10 @@ public class EmbeddingServiceConfigTest {
     @Parameterized.Parameters(name = "{0}")
     public static Iterable<TestSpecWrapper<EmbeddingServiceConfig>> data() {
       return TEST_SUITE.withExamples(
-          fullConfig(), configsWithOptionalFields(), configWithDedicatedClusterFalse());
+          fullConfig(),
+          configsWithOptionalFields(),
+          configWithDedicatedClusterFalse(),
+          configWithUseFlexTierFalse());
     }
 
     @Test
@@ -100,6 +103,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3-large",
+              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
               new EmbeddingConfig(
                   Optional.of("us-east-1"),
                   MODEL_CONFIG,
@@ -127,6 +131,8 @@ public class EmbeddingServiceConfigTest {
                           Optional.empty())),
                   Optional.of(tenantCredsMap),
                   true,
+                  Optional.empty(),
+                  true,
                   Optional.empty())));
     }
 
@@ -137,6 +143,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3.5-lite",
+              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
               new EmbeddingConfig(
                   Optional.empty(),
                   MODEL_CONFIG,
@@ -145,6 +152,8 @@ public class EmbeddingServiceConfigTest {
                   Optional.empty(),
                   Optional.empty(),
                   Optional.empty(),
+                  Optional.empty(),
+                  true,
                   Optional.empty(),
                   true,
                   Optional.empty())));
@@ -157,6 +166,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3.5",
+              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
               new EmbeddingConfig(
                   Optional.empty(),
                   MODEL_CONFIG,
@@ -167,19 +177,44 @@ public class EmbeddingServiceConfigTest {
                   Optional.empty(),
                   Optional.empty(),
                   false,
+                  Optional.empty(),
+                  true,
+                  Optional.empty())));
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<EmbeddingServiceConfig>
+        configWithUseFlexTierFalse() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "voyage-3.5 with useFlexTier false",
+          new EmbeddingServiceConfig(
+              VOYAGE,
+              "voyage-3.5",
+              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+              new EmbeddingConfig(
+                  Optional.empty(),
+                  MODEL_CONFIG,
+                  ERROR_HANDLING_CONFIG,
+                  CREDENTIALS,
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  true,
+                  Optional.empty(),
+                  false,
                   Optional.empty())));
     }
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
     private static final String SUITE_NAME = "embedding-service-config-serialization";
     private static final BsonSerializationTestSuite<EmbeddingServiceConfig> TEST_SUITE =
         fromEncodable("src/test/unit/resources/embedding/providers/config", SUITE_NAME);
 
     private final BsonSerializationTestSuite.TestSpec<EmbeddingServiceConfig> testSpec;
 
-    public TestSerialization(BsonSerializationTestSuite.TestSpec<EmbeddingServiceConfig> testSpec) {
+    public SerializationTest(BsonSerializationTestSuite.TestSpec<EmbeddingServiceConfig> testSpec) {
       this.testSpec = testSpec;
     }
 
@@ -187,7 +222,11 @@ public class EmbeddingServiceConfigTest {
     @Parameterized.Parameters(name = "{0}")
     public static Iterable<BsonSerializationTestSuite.TestSpec<EmbeddingServiceConfig>> data() {
       return List.of(
-          sanitizedConfig(), fullConfig(), defaultConfig(), configWithDedicatedClusterFalse());
+          sanitizedConfig(),
+          fullConfig(),
+          defaultConfig(),
+          configWithDedicatedClusterFalse(),
+          configWithUseFlexTierFalse());
     }
 
     @Test
@@ -225,6 +264,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
                   VOYAGE,
                   "voyage-3-large",
+                  EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
                   new EmbeddingConfig(
                       Optional.of("us-east-1"),
                       MODEL_CONFIG,
@@ -252,6 +292,8 @@ public class EmbeddingServiceConfigTest {
                               Optional.empty())),
                       Optional.of(tenantCredsMap),
                       true,
+                      Optional.empty(),
+                      true,
                       Optional.empty()))
               .copySanitized("xxx-sanitized-xxx"));
     }
@@ -262,6 +304,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3.5-lite",
+              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
               new EmbeddingConfig(
                   Optional.empty(),
                   MODEL_CONFIG,
@@ -287,6 +330,8 @@ public class EmbeddingServiceConfigTest {
                           Optional.empty())),
                   Optional.empty(),
                   true,
+                  Optional.empty(),
+                  true,
                   Optional.empty())));
     }
 
@@ -296,6 +341,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3.5",
+              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
               new EmbeddingConfig(
                   Optional.empty(),
                   MODEL_CONFIG,
@@ -304,6 +350,8 @@ public class EmbeddingServiceConfigTest {
                   Optional.empty(),
                   Optional.empty(),
                   Optional.empty(),
+                  Optional.empty(),
+                  true,
                   Optional.empty(),
                   true,
                   Optional.empty())));
@@ -316,6 +364,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3.5",
+              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
               new EmbeddingConfig(
                   Optional.empty(),
                   MODEL_CONFIG,
@@ -324,6 +373,31 @@ public class EmbeddingServiceConfigTest {
                   Optional.empty(),
                   Optional.empty(),
                   Optional.empty(),
+                  Optional.empty(),
+                  false,
+                  Optional.empty(),
+                  true,
+                  Optional.empty())));
+    }
+
+    private static BsonSerializationTestSuite.TestSpec<EmbeddingServiceConfig>
+        configWithUseFlexTierFalse() {
+      return BsonSerializationTestSuite.TestSpec.create(
+          "voyage-3.5 with useFlexTier false",
+          new EmbeddingServiceConfig(
+              VOYAGE,
+              "voyage-3.5",
+              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+              new EmbeddingConfig(
+                  Optional.empty(),
+                  MODEL_CONFIG,
+                  ERROR_HANDLING_CONFIG,
+                  CREDENTIALS,
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  true,
                   Optional.empty(),
                   false,
                   Optional.empty())));

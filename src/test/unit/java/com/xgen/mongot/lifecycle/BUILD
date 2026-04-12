@@ -24,6 +24,7 @@ java_test_suite(
         "//src/main/java/com/xgen/mongot/monitor",
         "//src/main/java/com/xgen/mongot/replication",
         "//src/main/java/com/xgen/mongot/replication/mongodb",
+        "//src/main/java/com/xgen/mongot/replication/mongodb/autoembedding",
         "//src/main/java/com/xgen/mongot/util",
         "//src/main/java/com/xgen/mongot/util/concurrent",
         "//src/main/java/com/xgen/mongot/util/mongodb",
@@ -36,6 +37,5 @@ java_test_suite(
         "@maven//:junit_junit",
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_mongodb_bson",
-        "@maven//:org_mongodb_mongodb_driver_core",
     ],
 )

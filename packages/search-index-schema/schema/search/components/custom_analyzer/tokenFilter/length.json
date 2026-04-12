@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter/length.json",
+  "type": "object",
+  "_description": "Token filter that removes tokens that don't match the minimum and maximum length that you specify.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the `length` token filter type, which removes tokens that don't match the minimum and maximum length that you specify.",
+      "description": "Label that identifies the length token filter type, which removes tokens that don't match the minimum and maximum length that you specify.",
+      "const": "length",
+      "$ref": "../tokenFilter.json#/definitions/typePropertyOverrides"
+    },
+    "min": {
+      "suggestSortText": "1",
+      "type": "integer",
+      "markdownDescription": "Number that specifies the minimum length of a token. Value must be less than or equal to `max`.",
+      "description": "Number that specifies the minimum length of a token.",
+      "minimum": 0,
+      "default": 0
+    },
+    "max": {
+      "suggestSortText": "2",
+      "type": "integer",
+      "markdownDescription": "Number that specifies the maximum length of a token. Value must be greater than or equal to `min`.",
+      "description": "Number that specifies the maximum length of a token.",
+      "minimum": 0,
+      "default": 255
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

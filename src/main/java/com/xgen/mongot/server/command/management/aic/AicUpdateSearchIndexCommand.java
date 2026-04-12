@@ -67,6 +67,11 @@ public class AicUpdateSearchIndexCommand implements Command {
   }
 
   @Override
+  public boolean maybeLoadShed() {
+    return false;
+  }
+
+  @Override
   public BsonDocument run() {
     // This should be validated by command deserialization, but do a sanity check here.
     Check.exactlyOneOf(
@@ -80,29 +85,29 @@ public class AicUpdateSearchIndexCommand implements Command {
         .addKeyValue("indexId", this.definition.id())
         .log("Received command");
 
-    Optional<String> viewName = this.view.map(UserViewDefinition::name);
-    Optional<ObjectId> indexId = this.definition.id();
-    Optional<String> indexName = this.definition.name();
-    Optional<IndexDefinition> matchingIndex =
-        this.authoritativeIndexCatalog.listIndexes(this.collectionUuid).stream()
-            .filter(
-                index ->
-                    indexName.map(index.getName()::equals).orElse(true)
-                        && indexId.map(index.getIndexId()::equals).orElse(true))
-            .findAny();
-
-    if (matchingIndex.isEmpty()) {
-      String idType = this.definition.name().isPresent() ? "name" : "id";
-      Object idValue =
-          this.definition.name().map(Object.class::cast).or(this.definition::id).orElseThrow();
-      return MessageUtils.createError(
-          Errors.INDEX_NOT_FOUND,
-          String.format(
-              "No index with %s %s exists in namespace %s.%s",
-              idType, idValue, this.db, viewName.orElse(this.collectionName)));
-    }
-
     try {
+      Optional<String> viewName = this.view.map(UserViewDefinition::name);
+      Optional<ObjectId> indexId = this.definition.id();
+      Optional<String> indexName = this.definition.name();
+      Optional<IndexDefinition> matchingIndex =
+          this.authoritativeIndexCatalog.listIndexDefinitions(this.collectionUuid).stream()
+              .filter(
+                  index ->
+                      indexName.map(index.getName()::equals).orElse(true)
+                          && indexId.map(index.getIndexId()::equals).orElse(true))
+              .findAny();
+
+      if (matchingIndex.isEmpty()) {
+        String idType = this.definition.name().isPresent() ? "name" : "id";
+        Object idValue =
+            this.definition.name().map(Object.class::cast).or(this.definition::id).orElseThrow();
+        return MessageUtils.createError(
+            Errors.INDEX_NOT_FOUND,
+            String.format(
+                "No index with %s %s exists in namespace %s.%s",
+                idType, idValue, this.db, viewName.orElse(this.collectionName)));
+      }
+
       IndexDefinition oldIndex = matchingIndex.get();
       IndexDefinition newIndex =
           IndexMapper.toInternal(
@@ -122,10 +127,10 @@ public class AicUpdateSearchIndexCommand implements Command {
             Errors.INVALID_INDEX_SPECIFICATION_OPTION, "An index's type cannot be changed");
       }
 
-      var allIndexes = this.authoritativeIndexCatalog.listIndexes();
+      List<IndexDefinition> allIndexes = this.authoritativeIndexCatalog.listIndexDefinitions();
       var searchList = new ArrayList<SearchIndexDefinition>();
       var vectorList = new ArrayList<VectorIndexDefinition>();
-      this.authoritativeIndexCatalog.listIndexes().stream()
+      this.authoritativeIndexCatalog.listIndexDefinitions().stream()
           .filter(definition -> !definition.getIndexId().equals(oldIndex.getIndexId()))
           .forEach(
               definition -> {
@@ -144,21 +149,34 @@ public class AicUpdateSearchIndexCommand implements Command {
         AnalyzerInvariants.validate(searchList, List.of());
         AnalyzerInvariants.validateFieldAnalyzerReferences(searchIndex, Set.of(), Set.of());
       }
+      if (newIndex instanceof VectorIndexDefinition vectorIndex) {
+        Invariants.validateVectorNestedRootReferences(List.of(vectorIndex));
+      }
 
       // Validate auto-embedding index update restrictions
       if (oldIndex instanceof VectorIndexDefinition oldVector
           && newIndex instanceof VectorIndexDefinition newVector) {
-        // Block conversions between regular vector and auto-embedding indexes
         AutoEmbeddingIndexValidator.validateNoAutoEmbeddingTypeConversion(oldVector, newVector);
-
-        // If both are auto-embedding, validate that auto-embedding fields are not modified
         if (oldVector.isAutoEmbeddingIndex() && newVector.isAutoEmbeddingIndex()) {
           AutoEmbeddingIndexValidator.validateNoAutoEmbeddingFieldChanges(oldVector, newVector);
         }
+      } else if (oldIndex instanceof SearchIndexDefinition oldSearch
+          && newIndex instanceof SearchIndexDefinition newSearch) {
+        if (oldSearch.isAutoEmbeddingIndex() && newSearch.isAutoEmbeddingIndex()) {
+          AutoEmbeddingIndexValidator.validateNoAutoEmbeddingFieldChanges(oldSearch, newSearch);
+        }
+      } else {
+        throw new IllegalStateException(
+            "Cannot compare index definitions of different types: "
+                + oldIndex.getClass().getSimpleName()
+                + " vs "
+                + newIndex.getClass().getSimpleName());
       }
 
       this.authoritativeIndexCatalog.updateIndex(
-          new AuthoritativeIndexKey(this.collectionUuid, newIndex.getName()), newIndex);
+          new AuthoritativeIndexKey(this.collectionUuid, newIndex.getName()),
+          newIndex,
+          this.definition.definitionBson());
     } catch (MetadataServiceException e) {
       return MessageUtils.createError(Errors.COMMAND_FAILED, e.getMessage());
     } catch (Exception e) {

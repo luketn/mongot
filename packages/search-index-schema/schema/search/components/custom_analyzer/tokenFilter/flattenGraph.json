@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter/flattenGraph.json",
+  "type": "object",
+  "_description": "Token filter that transforms a token filter graph, such as the token filter graph that the wordDelimiterGraph token filter produces, into a flat form suitable for indexing.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the `flattenGraph` token filter type, which transforms a token filter graph, such as the token filter graph that the `wordDelimiterGraph` token filter produces, into a flat form suitable for indexing.",
+      "description": "Label that identifies the flattenGraph token filter type, which transforms a token filter graph, such as the token filter graph that the wordDelimiterGraph token filter produces, into a flat form suitable for indexing.",
+      "const": "flattenGraph",
+      "$ref": "../tokenFilter.json#/definitions/typePropertyOverrides"
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

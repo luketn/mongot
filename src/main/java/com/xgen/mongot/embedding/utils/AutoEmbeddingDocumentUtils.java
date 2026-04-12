@@ -1,13 +1,18 @@
 package com.xgen.mongot.embedding.utils;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata.MaterializedViewSchemaMetadata;
 import static com.xgen.mongot.embedding.utils.AutoEmbeddingIndexDefinitionUtils.getHashFieldPath;
 import static com.xgen.mongot.embedding.utils.AutoEmbeddingIndexDefinitionUtils.getMatViewFieldPath;
 
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
+import com.google.common.hash.Hashing;
 import com.google.errorprone.annotations.Var;
 import com.mongodb.client.model.changestream.UpdateDescription;
 import com.xgen.mongot.index.DocumentEvent;
+import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFieldDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFieldMapping;
 import com.xgen.mongot.index.ingestion.BsonDocumentProcessor;
@@ -16,14 +21,20 @@ import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.bson.BsonVectorParser;
 import com.xgen.mongot.util.bson.Vector;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.AbstractMap;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import org.apache.commons.collections4.map.CompositeMap;
+import org.bson.BsonArray;
 import org.bson.BsonDocument;
+import org.bson.BsonString;
 import org.bson.BsonValue;
 import org.bson.RawBsonDocument;
 import org.slf4j.Logger;
@@ -31,6 +42,7 @@ import org.slf4j.LoggerFactory;
 
 public class AutoEmbeddingDocumentUtils {
 
+  public static final String HASH_FIELD_SUFFIX = "_hash";
   private static final Logger LOG = LoggerFactory.getLogger(AutoEmbeddingDocumentUtils.class);
 
   /**
@@ -87,29 +99,68 @@ public class AutoEmbeddingDocumentUtils {
   }
 
   /**
-   * Constructs a new document, replaces given string fields by looking up fieldPath,
-   * string-to-vector mappings in the embeddingsPerField map, skips the string field if string value
-   * is not found in embeddingsPerField map. It only replaces fields defined in
-   * VectorTextFieldDefinition, keeps all other fields unchanged. Also computes and inserts SHA-256
-   * hashes of the original text values for each embedded field.
+   * Constructs a new document by cloning filter fields and stored source fields from original
+   * document, skips auto embedding fields which will be added separately.
    */
   public static DocumentEvent buildMaterializedViewDocumentEvent(
       DocumentEvent rawDocumentEvent,
+      VectorIndexDefinition vectorIndexDefinition,
+      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> embeddingsPerField,
+      MaterializedViewSchemaMetadata schemaMetadata)
+      throws IOException {
+    return buildMaterializedViewDocumentEvent(
+        rawDocumentEvent, vectorIndexDefinition.getMappings(), embeddingsPerField, schemaMetadata);
+  }
+
+  private static DocumentEvent buildMaterializedViewDocumentEvent(
+      DocumentEvent rawDocumentEvent,
       VectorIndexFieldMapping fieldMapping,
-      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> embeddingsPerField)
+      ImmutableMap<FieldPath, ImmutableMap<String, Vector>> embeddingsPerField,
+      MaterializedViewSchemaMetadata schemaMetadata)
       throws IOException {
     if (rawDocumentEvent.getDocument().isEmpty()) {
       return rawDocumentEvent;
     }
-    BsonDocument bsonDoc = new BsonDocument();
-    ReplaceStringsDocumentHandler handler =
-        ReplaceStringsDocumentHandler.create(
+    Map<FieldPath, Map<String, Vector>> consolidatedEmbeddingMap = new HashMap<>();
+    for (FieldPath fieldPath :
+        Sets.union(embeddingsPerField.keySet(), rawDocumentEvent.getAutoEmbeddings().keySet())) {
+      var newEmbeddings = embeddingsPerField.getOrDefault(fieldPath, ImmutableMap.of());
+      var oldEmbeddings =
+          rawDocumentEvent
+              .getAutoEmbeddings()
+              .getOrDefault(fieldPath, ImmutableMap.of())
+              .entrySet()
+              .stream()
+              .filter(entry -> !newEmbeddings.containsKey(entry.getKey()))
+              .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+      if (newEmbeddings.isEmpty() && oldEmbeddings.isEmpty()) {
+        continue;
+      }
+      consolidatedEmbeddingMap.put(fieldPath, new CompositeMap<>(newEmbeddings, oldEmbeddings));
+    }
+
+    ImmutableMap<FieldPath, BsonValue> collectedEmbeddingsPerMatViewPath =
+        buildEmbeddingsPerMatViewPath(
+            rawDocumentEvent.getDocument().get(),
             fieldMapping,
-            Optional.empty(),
-            bsonDoc,
-            embeddingsPerField,
-            rawDocumentEvent.getAutoEmbeddings());
+            consolidatedEmbeddingMap,
+            schemaMetadata);
+
+    BsonDocument bsonDoc = new BsonDocument();
+    var filteredMapping =
+        VectorIndexFieldMapping.create(
+            fieldMapping.fieldMap().values().stream()
+                .filter(field -> field.getType() == VectorIndexFieldDefinition.Type.FILTER)
+                .toList(),
+            fieldMapping.nestedRoot());
+    MaterializedViewDocumentHandler handler =
+        MaterializedViewDocumentHandler.create(filteredMapping, Optional.empty(), bsonDoc);
     BsonDocumentProcessor.process(rawDocumentEvent.getDocument().get(), handler);
+
+    for (var embeddingOrHashEntry : collectedEmbeddingsPerMatViewPath.entrySet()) {
+      addBsonValueToBsonDocument(
+          bsonDoc, embeddingOrHashEntry.getKey(), embeddingOrHashEntry.getValue());
+    }
 
     return DocumentEvent.createFromDocumentEvent(
         rawDocumentEvent, new RawBsonDocument(bsonDoc, BsonUtils.BSON_DOCUMENT_CODEC));
@@ -184,23 +235,17 @@ public class AutoEmbeddingDocumentUtils {
           if (sourceDocValues.containsKey(sourceFieldPath)) {
             var stringValuesWithHashes =
                 sourceDocValues.get(sourceFieldPath).stream()
-                    .filter(BsonValue::isString)
+                    .filter(
+                        bsonVal -> bsonVal.isString() && !bsonVal.asString().getValue().isEmpty())
                     .collect(
-                        Collectors.toMap(
+                        ImmutableListMultimap.toImmutableListMultimap(
                             key -> key.asString().getValue(),
-                            value ->
-                                ReplaceStringsFieldValueHandler.computeTextHash(
-                                    value.asString().getValue()),
-                            (a, b) -> a));
-
-            // Count non-empty strings in source
-            long nonEmptySourceCount =
-                stringValuesWithHashes.keySet().stream().filter(s -> !s.isEmpty()).count();
+                            value -> computeTextHash(value.asString().getValue())));
 
             // Empty strings are not embedded, so skip checking the field if all values are empty.
             // The scenario where we have an array field and some values in the array are empty is
             // handled separately later below.
-            if (stringValuesWithHashes.keySet().stream().allMatch(String::isEmpty)) {
+            if (stringValuesWithHashes.isEmpty()) {
               // Case where mat view has embeddings for this field, but source doc has an empty
               // string value.
               if (matViewValues.containsKey(matViewFieldPath)) {
@@ -215,24 +260,15 @@ public class AutoEmbeddingDocumentUtils {
                       .toList();
               var matViewVectors =
                   matViewValues.get(matViewFieldPath).stream().map(BsonValue::asBinary).toList();
-              for (var stringHashEntry : stringValuesWithHashes.entrySet()) {
-                // This is the case where we have an array field and some values are empty.
-                if (stringHashEntry.getKey().isEmpty()) {
-                  continue;
-                }
-                var index = matViewHashes.indexOf(stringHashEntry.getValue());
-                if (index == -1) {
-                  needsReIndexing = true;
-                } else {
-                  reusableEmbeddingsForFieldBuilder.put(
-                      stringHashEntry.getKey(), BsonVectorParser.parse(matViewVectors.get(index)));
-                }
-              }
-
-              // Check if the number of non-empty strings in source matches the number of
-              // embeddings.
-              if (nonEmptySourceCount != matViewVectors.size()) {
+              // TODO(CLOUDP-384026): Support multiple embeddings per field.
+              // No need to check the rest as we don't support multiple embeddings per field yet.
+              var stringHashEntry = stringValuesWithHashes.entries().stream().iterator().next();
+              var index = matViewHashes.indexOf(stringHashEntry.getValue());
+              if (index == -1) {
                 needsReIndexing = true;
+              } else {
+                reusableEmbeddingsForFieldBuilder.put(
+                    stringHashEntry.getKey(), BsonVectorParser.parse(matViewVectors.get(index)));
               }
             } else {
               needsReIndexing = true;
@@ -334,6 +370,7 @@ public class AutoEmbeddingDocumentUtils {
     return false;
   }
 
+  // TODO(CLOUDP-363302): Supports stored source.
   /**
    * Extracts filter field values from the full document to build a $set document for partial
    * updates. Only includes fields that are defined as FILTER in the index definition.
@@ -359,5 +396,96 @@ public class AutoEmbeddingDocumentUtils {
           "Failed to extract filter field values, falling back to full document processing", e);
       return new BsonDocument();
     }
+  }
+
+  /**
+   * Computes a SHA-256 hash of the given text value and returns it as a hex string.
+   *
+   * @param text The text to hash
+   * @return The SHA-256 hash as a hex string
+   */
+  public static String computeTextHash(String text) {
+    return Hashing.sha256().hashString(text, StandardCharsets.UTF_8).toString();
+  }
+
+  static void addBsonValueToBsonDocument(
+      BsonDocument bsonDoc, FieldPath path, BsonValue bsonValue) {
+    @Var BsonDocument currentDoc = bsonDoc;
+    for (String parent :
+        path.getParent().map(FieldPath::getSegments).orElse(Collections.emptyList())) {
+      var childBsonValue = currentDoc.get(parent);
+      if (childBsonValue == null) {
+        currentDoc.put(parent, new BsonDocument());
+        currentDoc = currentDoc.getDocument(parent);
+      } else if (childBsonValue.isDocument()) {
+        currentDoc = childBsonValue.asDocument();
+      } else if (childBsonValue.isArray()) {
+        BsonArray childBsonArray = childBsonValue.asArray();
+        currentDoc = new BsonDocument();
+        childBsonArray.add(currentDoc);
+      } else {
+        // Neither BsonDocument nor BsonArray, we need to convert this leaf node to a BsonArray.
+        // This could happen when input document is {a: ["textToEmbed1", {b:"textToEmbed2"}]} and we
+        // have both autoEmbed fields on "a" and "a.b"
+        BsonArray childBsonArray = new BsonArray();
+        currentDoc.put(parent, childBsonArray);
+        childBsonArray.add(childBsonValue);
+        currentDoc = new BsonDocument();
+        childBsonArray.add(currentDoc);
+      }
+    }
+    currentDoc.put(path.getLeaf(), bsonValue);
+  }
+
+  private static ImmutableMap<FieldPath, BsonValue> buildEmbeddingsPerMatViewPath(
+      RawBsonDocument rawBsonDocument,
+      VectorIndexFieldMapping mappings,
+      Map<FieldPath, Map<String, Vector>> consolidatedEmbeddingMap,
+      MaterializedViewSchemaMetadata schemaMetadata)
+      throws IOException {
+    CollectFieldValueDocumentHandler collectTextValuesHandler =
+        CollectFieldValueDocumentHandler.create(
+            mappings,
+            Optional.empty(),
+            fieldDef ->
+                fieldDef.getType() == VectorIndexFieldDefinition.Type.AUTO_EMBED
+                    && consolidatedEmbeddingMap.containsKey(fieldDef.getPath()),
+            true);
+    BsonDocumentProcessor.process(rawBsonDocument, collectTextValuesHandler);
+
+    // We don't support multiple vectors on the sample FieldPath yet, only embeds the first
+    // vector text at this time.
+    return collectTextValuesHandler.getCollectedValues().entrySet().stream()
+        .map(
+            entry ->
+                new AbstractMap.SimpleEntry<>(
+                    entry.getKey(),
+                    entry.getValue().stream()
+                        .filter(
+                            bsonVal ->
+                                bsonVal.isString() && !bsonVal.asString().getValue().isEmpty())
+                        .findFirst()
+                        .map(bsonVal -> bsonVal.asString().getValue())))
+        .filter(
+            entry ->
+                entry.getValue().isPresent()
+                    && consolidatedEmbeddingMap
+                        .get(entry.getKey())
+                        .containsKey(entry.getValue().get()))
+        .flatMap(
+            entry ->
+                Stream.of(
+                    new AbstractMap.SimpleEntry<>(
+                        getMatViewFieldPath(
+                            entry.getKey(), schemaMetadata.autoEmbeddingFieldsMapping()),
+                        BsonVectorParser.encode(
+                            consolidatedEmbeddingMap
+                                .get(entry.getKey())
+                                .get(entry.getValue().get()))),
+                    new AbstractMap.SimpleEntry<>(
+                        getHashFieldPath(
+                            entry.getKey(), schemaMetadata.materializedViewSchemaVersion()),
+                        new BsonString(computeTextHash(entry.getValue().get())))))
+        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }

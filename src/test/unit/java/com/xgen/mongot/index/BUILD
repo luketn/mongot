@@ -21,6 +21,7 @@ mongot_java_unit_test_suite(
         "//src/main/java/com/xgen/mongot/index/status",
         "//src/main/java/com/xgen/mongot/index/version",
         "//src/main/java/com/xgen/mongot/metrics",
+        "//src/main/java/com/xgen/mongot/replication/mongodb/common",
         "//src/main/java/com/xgen/mongot/util",
         "//src/main/java/com/xgen/mongot/util/bson",
         "//src/main/java/com/xgen/mongot/util/bson/parser",

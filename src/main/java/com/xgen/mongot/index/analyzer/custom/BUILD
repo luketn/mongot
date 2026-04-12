@@ -8,6 +8,7 @@ java_library(
         "DaitchMokotoffSoundexTokenFilterDefinition.java",
         "EdgeGramTokenFilterDefinition.java",
         "EdgeGramTokenizerDefinition.java",
+        "EnglishMinimalStemmingTokenFilterDefinition.java",
         "EnglishPossessiveTokenFilterDefinition.java",
         "FlattenGraphTokenFilterDefinition.java",
         "HtmlStripCharFilterDefinition.java",

@@ -120,6 +120,54 @@
           "totalReplicated": 0
         }
       ]
+    },
+    {
+      "failedInserts": [],
+      "totalInCollection": [
+        {}
+      ],
+      "totalInSearchIndex": [
+        {
+          "totalInSearchIndex": 0
+        }
+      ],
+      "totalReplicated": [
+        {
+          "totalReplicated": 0
+        }
+      ]
+    },
+    {
+      "failedInserts": [],
+      "totalInCollection": [
+        {
+          "totalInCollection": 1
+        }
+      ],
+      "totalInSearchIndex": [
+        {}
+      ],
+      "totalReplicated": [
+        {
+          "totalReplicated": 0
+        }
+      ]
+    },
+    {
+      "failedInserts": [],
+      "totalInCollection": [
+        {
+          "totalInCollection": 1
+        }
+      ],
+      "totalInSearchIndex": [
+        {
+          "totalInSearchIndex": 0
+        }
+      ],
+      "totalReplicated": [
+        {}
+      ]
     }
   ],
   "invalid": [
@@ -144,54 +192,6 @@
         {
           "totalReplicated": 0
         }
-      ]
-    },
-    {
-      "failedInserts": [],
-      "totalInCollection": [
-        {}
-      ],
-      "totalInSearchIndex": [
-        {
-          "totalInSearchIndex": 0
-        }
-      ],
-      "totalReplicated": [
-        {
-          "totalReplicated": 0
-        }
-      ]
-    },
-    {
-      "failedInserts": [],
-      "totalInCollection": [
-        {
-          "totalInCollection": 1
-        }
-      ],
-      "totalInSearchIndex": [
-        {}
-      ],
-      "totalReplicated": [
-        {
-          "totalReplicated": 0
-        }
-      ]
-    },
-    {
-      "failedInserts": [],
-      "totalInCollection": [
-        {
-          "totalInCollection": 1
-        }
-      ],
-      "totalInSearchIndex": [
-        {
-          "totalInSearchIndex": 0
-        }
-      ],
-      "totalReplicated": [
-        {}
       ]
     }
   ]

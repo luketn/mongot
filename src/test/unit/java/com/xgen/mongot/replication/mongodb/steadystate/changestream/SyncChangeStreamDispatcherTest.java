@@ -15,6 +15,8 @@ import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
 import com.xgen.mongot.index.definition.VectorIndexDefinition;
 import com.xgen.mongot.replication.mongodb.common.ChangeStreamMongoClient;
 import com.xgen.mongot.replication.mongodb.common.ChangeStreamResumeInfo;
+import com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig;
+import com.xgen.mongot.replication.mongodb.common.DecodingWorkScheduler;
 import com.xgen.mongot.replication.mongodb.common.IndexingWorkScheduler;
 import com.xgen.mongot.replication.mongodb.common.SteadyStateException;
 import com.xgen.mongot.util.Condition;
@@ -54,7 +56,7 @@ public class SyncChangeStreamDispatcherTest {
     AtomicReference<ChangeStreamResumeInfo> resumeInfoReference = new AtomicReference<>();
     ChangeStreamIndexManager indexManager =
         spy(
-            DecodingExecutorChangeStreamIndexManager.createDefault(
+            DecodingExecutorChangeStreamIndexManager.createWithDecodingScheduler(
                 embeddingDefinition,
                 mock(IndexingWorkScheduler.class),
                 mockDocumentIndexer(),
@@ -62,7 +64,8 @@ public class SyncChangeStreamDispatcherTest {
                 resumeInfoReference::set,
                 IGNORE_METRICS,
                 new CompletableFuture<>(),
-                embeddingGeneration.getGenerationId()));
+                embeddingGeneration.getGenerationId(),
+                DecodingWorkScheduler.create(2, new SimpleMeterRegistry())));
     // Simulate index manager shutdown.
     when(indexManager.isShutdown()).thenReturn(true);
 
@@ -72,7 +75,8 @@ public class SyncChangeStreamDispatcherTest {
             new SimpleMeterRegistry(),
             mongoClientFactory,
             Executors.fixedSizeThreadScheduledExecutor("executor", 1, new SimpleMeterRegistry()),
-            Optional.of(1));
+            Optional.of(1),
+            CommonReplicationConfig.Type.DEFAULT);
 
     syncDispatcher.add(
         embeddingDefinition,

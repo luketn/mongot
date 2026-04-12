@@ -24,6 +24,7 @@ java_library(
         "CollectionScanMongoClient.java",
         "CollectionStatsMongoClient.java",
         "CommonReplicationConfig.java",
+        "CustomVectorEngineIndexingWorkScheduler.java",
         "DecodingSchedulerBatch.java",
         "DecodingWorkScheduler.java",
         "DefaultChangeStreamMongoClient.java",
@@ -71,6 +72,7 @@ java_library(
     ],
     visibility = ["//visibility:public"],
     exports = [
+        "//src/main/java/com/xgen/mongot/embedding",
         "//src/main/java/com/xgen/mongot/embedding/providers/configs",
         "//src/main/java/com/xgen/mongot/index",
         "//src/main/java/com/xgen/mongot/index/definition",
@@ -85,9 +87,11 @@ java_library(
         "//bazel/java:netty-tcnative",  # keep: native netty
         "//src/main/java/com/xgen/mongot/catalog",
         "//src/main/java/com/xgen/mongot/embedding",
+        "//src/main/java/com/xgen/mongot/embedding/config",
         "//src/main/java/com/xgen/mongot/embedding/exceptions",
         "//src/main/java/com/xgen/mongot/embedding/providers",
         "//src/main/java/com/xgen/mongot/embedding/providers/configs",
+        "//src/main/java/com/xgen/mongot/embedding/providers/congestion",
         "//src/main/java/com/xgen/mongot/embedding/utils",
         "//src/main/java/com/xgen/mongot/index",
         "//src/main/java/com/xgen/mongot/index/definition",

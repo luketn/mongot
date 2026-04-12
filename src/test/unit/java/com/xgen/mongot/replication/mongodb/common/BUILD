@@ -3,13 +3,16 @@ load("//bazel/java:test.bzl", "java_test_suite")
 java_test_suite(
     name = "common",
     srcs = [
+        "AutoEmbeddingIndexingStrategyTest.java",
         "AutoEmbeddingMaterializedViewConfigTest.java",
         "ChangeStreamAggregateCommandFactoryTest.java",
         "ChangeStreamAggregateOperationFactoryTest.java",
+        "ChangeStreamDocumentUtilsFilterOnlyUpdateTest.java",
         "ChangeStreamDocumentUtilsTest.java",
         "ChangeStreamMongoCursorClientTest.java",
         "ChangeStreamResumeInfoTest.java",
         "ChangeStreamsTest.java",
+        "CustomVectorEngineIndexingWorkSchedulerTest.java",
         "DecodingWorkSchedulerTest.java",
         "DefaultChangeStreamMongoClientTest.java",
         "DefaultDocumentIndexerTest.java",
@@ -34,6 +37,8 @@ java_test_suite(
     data = ["//src/test/unit/resources/replication/mongodb/common:srcs"],
     tags = ["unit"],
     deps = [
+        "//src/main/java/com/xgen/mongot/embedding",
+        "//src/main/java/com/xgen/mongot/embedding/config",
         "//src/main/java/com/xgen/mongot/embedding/exceptions",
         "//src/main/java/com/xgen/mongot/embedding/providers",
         "//src/main/java/com/xgen/mongot/embedding/providers/configs",

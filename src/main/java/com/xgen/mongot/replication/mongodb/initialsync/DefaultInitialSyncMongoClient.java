@@ -18,10 +18,12 @@ import com.xgen.mongot.replication.mongodb.common.SessionRefresher;
 import com.xgen.mongot.util.mongodb.ChangeStreamAggregateCommand;
 import com.xgen.mongot.util.mongodb.CollectionScanAggregateCommand;
 import com.xgen.mongot.util.mongodb.CollectionScanFindCommand;
+import com.xgen.mongot.util.mongodb.MongoDbFsync;
 import com.xgen.mongot.util.mongodb.MongoDbReplSetStatus;
 import com.xgen.mongot.util.mongodb.serialization.MongoDbInvalidReplStatusFormatException;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Optional;
+import org.bson.BsonDocument;
 import org.bson.BsonTimestamp;
 
 /**
@@ -94,6 +96,11 @@ class DefaultInitialSyncMongoClient implements InitialSyncMongoClient {
           }
         },
         InitialSyncException.Phase.MAIN);
+  }
+
+  @Override
+  public BsonDocument fsync() {
+    return MongoDbFsync.fsync(this.mongoClient);
   }
 
   @Override

@@ -2,6 +2,7 @@ package com.xgen.mongot.embedding.providers.configs;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.Hashing;
+import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.bson.parser.BsonDocumentBuilder;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
 import com.xgen.mongot.util.bson.parser.DocumentEncodable;
@@ -19,6 +20,8 @@ import java.util.UUID;
 import org.bson.BsonDocument;
 
 public class EmbeddingServiceConfig implements DocumentEncodable {
+  public static final int DEFAULT_RPS_PER_PROVIDER = 30;
+  public static final int MAX_RPS_PER_PROVIDER = 100;
   public static final ErrorHandlingConfig DEFAULT_ERROR_HANDLING_CONFIG =
       new ErrorHandlingConfig(50, 200L, 10000L, 0.1 /* 10% jitter */);
 
@@ -39,12 +42,20 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
 
     static final Field.WithDefault<List<String>> COMPATIBLE_MODELS =
         Field.builder("compatibleModels").stringField().asList().optional().withDefault(List.of());
+
+    static final Field.WithDefault<Integer> RPS_PER_PROVIDER =
+        Field.builder("rpsPerProvider")
+            .intField()
+            .mustBePositive()
+            .optional()
+            .withDefault(DEFAULT_RPS_PER_PROVIDER);
   }
 
   public static EmbeddingServiceConfig fromBson(DocumentParser parser) throws BsonParseException {
     return new EmbeddingServiceConfig(
         parser.getField(Fields.EMBEDDING_PROVIDER).unwrap(),
         parser.getField(Fields.MODEL_NAME).unwrap(),
+        parser.getField(Fields.RPS_PER_PROVIDER).unwrap(),
         parser.getField(Fields.EMBEDDING_CONFIG).unwrap(),
         Set.copyOf(parser.getField(Fields.COMPATIBLE_MODELS).unwrap()));
   }
@@ -60,6 +71,8 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
    */
   public final Set<String> compatibleModels;
 
+  public final Integer rpsPerProvider;
+
   @Override
   public BsonDocument toBson() {
     // Only include compatibleModels if non-empty
@@ -67,6 +80,7 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
         BsonDocumentBuilder.builder()
             .field(Fields.EMBEDDING_PROVIDER, this.embeddingProvider)
             .field(Fields.MODEL_NAME, this.modelName)
+            .field(Fields.RPS_PER_PROVIDER, this.rpsPerProvider)
             .field(Fields.EMBEDDING_CONFIG, this.embeddingConfig);
     return this.compatibleModels.isEmpty()
         ? builder.build()
@@ -74,18 +88,28 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
   }
 
   public EmbeddingServiceConfig(
-      EmbeddingProvider embeddingProvider, String modelName, EmbeddingConfig embeddingConfig) {
-    this(embeddingProvider, modelName, embeddingConfig, Set.of());
+      EmbeddingProvider embeddingProvider,
+      String modelName,
+      Integer rpsPerProvider,
+      EmbeddingConfig embeddingConfig) {
+    this(embeddingProvider, modelName, rpsPerProvider, embeddingConfig, Set.of());
   }
 
   public EmbeddingServiceConfig(
       EmbeddingProvider embeddingProvider,
       String modelName,
+      Integer rpsPerProvider,
       EmbeddingConfig embeddingConfig,
       Set<String> compatibleModels) {
+    Check.checkArg(
+        rpsPerProvider <= MAX_RPS_PER_PROVIDER,
+        "rpsPerProvider must be at most %s, got %s",
+        MAX_RPS_PER_PROVIDER,
+        rpsPerProvider);
     this.embeddingProvider = embeddingProvider;
     this.modelName = modelName;
     this.embeddingConfig = embeddingConfig;
+    this.rpsPerProvider = rpsPerProvider;
     this.compatibleModels = compatibleModels;
   }
 
@@ -197,11 +221,18 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
     return new EmbeddingServiceConfig(
         this.embeddingProvider,
         this.modelName,
+        this.rpsPerProvider,
         this.embeddingConfig.copySanitized(sanitizedPlaceholder),
         this.compatibleModels);
   }
 
   public static class EmbeddingConfig implements DocumentEncodable {
+    /**
+     * Default for {@link #useFlexTier} when absent from BSON or when using the constructor without
+     * an explicit {@code useFlexTier} argument.
+     */
+    public static final boolean DEFAULT_USE_FLEX_TIER = true;
+
     public static class Fields {
       static final Field.Optional<String> REGION =
           Field.builder("region").stringField().optional().noDefault();
@@ -251,6 +282,10 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
           Field.builder("isDedicatedCluster").booleanField().optional().withDefault(true);
       static final Field.Optional<String> PROVIDER_ENDPOINT =
           Field.builder("providerEndpoint").stringField().optional().noDefault();
+      static final Field.WithDefault<Boolean> USE_FLEX_TIER =
+          Field.builder("useFlexTier").booleanField().optional().withDefault(DEFAULT_USE_FLEX_TIER);
+      static final Field.Optional<Integer> RPS_PER_PROVIDER =
+          Field.builder("rpsPerProvider").intField().mustBePositive().optional().noDefault();
     }
 
     public static EmbeddingConfig fromBson(DocumentParser parser) throws BsonParseException {
@@ -264,7 +299,9 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
           parser.getField(Fields.CHANGE_STREAM_PARAMS).unwrap(),
           parser.getField(Fields.TENANT_CREDENTIALS).unwrap(),
           parser.getField(Fields.IS_DEDICATED_CLUSTER).unwrap(),
-          parser.getField(Fields.PROVIDER_ENDPOINT).unwrap());
+          parser.getField(Fields.PROVIDER_ENDPOINT).unwrap(),
+          parser.getField(Fields.USE_FLEX_TIER).unwrap(),
+          parser.getField(Fields.RPS_PER_PROVIDER).unwrap());
     }
 
     @Override
@@ -280,6 +317,8 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
           .field(Fields.TENANT_CREDENTIALS, this.tenantCredentials)
           .field(Fields.IS_DEDICATED_CLUSTER, this.isDedicatedCluster)
           .field(Fields.PROVIDER_ENDPOINT, this.providerEndpoint)
+          .fieldOmitDefaultValue(Fields.USE_FLEX_TIER, this.useFlexTier)
+          .field(Fields.RPS_PER_PROVIDER, this.rpsPerProvider)
           .build();
     }
 
@@ -294,6 +333,15 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
     public final Boolean isDedicatedCluster;
     public final Optional<String> providerEndpoint;
 
+    /**
+     * When true ({@link #DEFAULT_USE_FLEX_TIER}), Voyage flex tier may be used on Atlas for
+     * workloads in the deployment flex-tier set. When false, flex tier is never used for this
+     * model.
+     */
+    public final boolean useFlexTier;
+
+    public final Optional<Integer> rpsPerProvider;
+
     public EmbeddingConfig(
         Optional<String> region,
         ModelConfig modelConfig,
@@ -305,6 +353,34 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
         Optional<Map<String, TenantWorkloadCredentials>> tenantCredentials,
         Boolean isDedicatedCluster,
         Optional<String> providerEndpoint) {
+      this(
+          region,
+          modelConfig,
+          errorHandlingConfig,
+          credentials,
+          queryParams,
+          collectionScanParams,
+          changeStreamParams,
+          tenantCredentials,
+          isDedicatedCluster,
+          providerEndpoint,
+          DEFAULT_USE_FLEX_TIER,
+          Optional.empty());
+    }
+
+    public EmbeddingConfig(
+        Optional<String> region,
+        ModelConfig modelConfig,
+        ErrorHandlingConfig errorHandlingConfig,
+        EmbeddingCredentials credentials,
+        Optional<WorkloadParams> queryParams,
+        Optional<WorkloadParams> collectionScanParams,
+        Optional<WorkloadParams> changeStreamParams,
+        Optional<Map<String, TenantWorkloadCredentials>> tenantCredentials,
+        Boolean isDedicatedCluster,
+        Optional<String> providerEndpoint,
+        boolean useFlexTier,
+        Optional<Integer> rpsPerProvider) {
       this.region = region;
       this.modelConfigBase = modelConfig;
       this.errorHandlingConfigBase = errorHandlingConfig;
@@ -315,6 +391,8 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
       this.tenantCredentials = tenantCredentials;
       this.isDedicatedCluster = isDedicatedCluster;
       this.providerEndpoint = providerEndpoint;
+      this.useFlexTier = useFlexTier;
+      this.rpsPerProvider = rpsPerProvider;
     }
 
     public ModelConfig getModelConfigBase() {
@@ -370,7 +448,8 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
           && Objects.equals(
               this.tenantCredentials.orElse(null), that.tenantCredentials.orElse(null))
           && Objects.equals(this.isDedicatedCluster, that.isDedicatedCluster)
-          && Objects.equals(this.providerEndpoint.orElse(null), that.providerEndpoint.orElse(null));
+          && Objects.equals(this.providerEndpoint.orElse(null), that.providerEndpoint.orElse(null))
+          && this.useFlexTier == that.useFlexTier;
     }
 
     @Override
@@ -385,7 +464,8 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
           this.changeStreamParams.orElse(null),
           this.tenantCredentials.orElse(null),
           this.isDedicatedCluster,
-          this.providerEndpoint.orElse(null));
+          this.providerEndpoint.orElse(null),
+          this.useFlexTier);
     }
 
     /**
@@ -416,7 +496,9 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
                 return sanitizedMap;
               }),
           this.isDedicatedCluster,
-          this.providerEndpoint);
+          this.providerEndpoint,
+          this.useFlexTier,
+          this.rpsPerProvider);
     }
   }
 
@@ -435,16 +517,36 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
     public final Optional<Integer> batchTokenLimit;
     public final Optional<Integer> outputDimensions;
     public final Optional<TruncationOption> truncation;
+    public final Optional<String> modality;
+    public final Optional<VoyageModelVectorParams.Quantization> quantization;
 
     public VoyageModelConfig(
         Optional<Integer> outputDimensions,
         Optional<TruncationOption> truncation,
         Optional<Integer> batchSize,
         Optional<Integer> batchTokenLimit) {
+      this(
+          outputDimensions,
+          truncation,
+          batchSize,
+          batchTokenLimit,
+          Optional.empty(),
+          Optional.empty());
+    }
+
+    public VoyageModelConfig(
+        Optional<Integer> outputDimensions,
+        Optional<TruncationOption> truncation,
+        Optional<Integer> batchSize,
+        Optional<Integer> batchTokenLimit,
+        Optional<String> modality,
+        Optional<VoyageModelVectorParams.Quantization> quantization) {
       this.outputDimensions = outputDimensions;
       this.truncation = truncation;
       this.batchSize = batchSize;
       this.batchTokenLimit = batchTokenLimit;
+      this.modality = modality;
+      this.quantization = quantization;
     }
 
     @Override
@@ -474,6 +576,8 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
           .field(Fields.BATCH_TOKEN_LIMIT, this.batchTokenLimit)
           .field(Fields.OUTPUT_DIMENSIONS, this.outputDimensions)
           .field(Fields.TRUNCATION, this.truncation)
+          .field(Fields.MODALITY, this.modality)
+          .field(Fields.QUANTIZATION, this.quantization)
           .build();
     }
 
@@ -482,7 +586,9 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
           parser.getField(Fields.OUTPUT_DIMENSIONS).unwrap(),
           parser.getField(Fields.TRUNCATION).unwrap(),
           parser.getField(Fields.BATCH_SIZE).unwrap(),
-          parser.getField(Fields.BATCH_TOKEN_LIMIT).unwrap());
+          parser.getField(Fields.BATCH_TOKEN_LIMIT).unwrap(),
+          parser.getField(Fields.MODALITY).unwrap(),
+          parser.getField(Fields.QUANTIZATION).unwrap());
     }
 
     public static class Fields {
@@ -496,6 +602,15 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
           Field.builder("truncation")
               .enumField(TruncationOption.class)
               .asUpperUnderscore()
+              .optional()
+              .noDefault();
+      static final Field.Optional<String> MODALITY =
+          Field.builder("modality").stringField().optional().noDefault();
+      static final Field.Optional<VoyageModelVectorParams.Quantization> QUANTIZATION =
+          Field.builder("quantization")
+              .classField(
+                  VoyageModelVectorParams::parseQuantizationFromModelConfigWire,
+                  VoyageModelVectorParams.QUANTIZATION_MODEL_CONFIG_WIRE_ENCODER)
               .optional()
               .noDefault();
     }
@@ -512,7 +627,9 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
       return Objects.equals(this.batchSize.orElse(null), that.batchSize.orElse(null))
           && Objects.equals(this.batchTokenLimit.orElse(null), that.batchTokenLimit.orElse(null))
           && Objects.equals(this.outputDimensions.orElse(null), that.outputDimensions.orElse(null))
-          && Objects.equals(this.truncation.orElse(null), that.truncation.orElse(null));
+          && Objects.equals(this.truncation.orElse(null), that.truncation.orElse(null))
+          && Objects.equals(this.modality.orElse(null), that.modality.orElse(null))
+          && Objects.equals(this.quantization.orElse(null), that.quantization.orElse(null));
     }
 
     @Override
@@ -521,7 +638,9 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
           this.batchSize.orElse(null),
           this.batchTokenLimit.orElse(null),
           this.outputDimensions.orElse(null),
-          this.truncation.orElse(null));
+          this.truncation.orElse(null),
+          this.modality.orElse(null),
+          this.quantization.orElse(null));
     }
   }
 

@@ -5,6 +5,7 @@ import static com.xgen.mongot.util.bson.FloatVector.OriginalType.NATIVE;
 
 import com.xgen.mongot.featureflag.FeatureFlags;
 import com.xgen.mongot.index.IndexMetricsUpdater;
+import com.xgen.mongot.index.definition.VectorAutoEmbedFieldDefinition;
 import com.xgen.mongot.index.definition.VectorIndexFilterFieldDefinition;
 import com.xgen.mongot.index.definition.VectorQuantization;
 import com.xgen.mongot.index.definition.VectorSimilarity;
@@ -32,6 +33,8 @@ import com.xgen.testing.mongot.index.query.operators.mql.ValueBuilder;
 import com.xgen.testing.mongot.mock.index.SearchIndex;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.apache.lucene.document.SortedSetDocValuesField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
@@ -146,6 +149,7 @@ public class LuceneVectorQueryFactoryDistributorTest {
     MongotKnnFloatQuery luceneQuery =
         new MongotKnnFloatQuery(
             metrics,
+            FeatureFlags.getDefault(),
             "$type:knnVector/foo.vector",
             new float[] {1, 2, 3},
             20,
@@ -357,5 +361,131 @@ public class LuceneVectorQueryFactoryDistributorTest {
       Assert.assertEquals("VectorQuery should be wrapped", expected, result);
       Assert.assertEquals("Queries should be equal", expected, result);
     }
+  }
+
+  @Test
+  public void testApproximateVectorQueryWithAutoEmbeddingFieldsMapping()
+      throws IOException, InvalidQueryException {
+    // This test verifies that when autoEmbeddingFieldsMapping is provided,
+    // the Lucene query uses the internal mapped path instead of the user-provided path.
+    //
+    // Scenario:
+    // - User query has vectorPath = "title"
+    // - autoEmbeddingFieldsMapping = {"title" → "_autoEmbed.title"}
+    // - Expected Lucene query should use "$type:knnVector/_autoEmbed.title"
+
+    FieldPath userPath = FieldPath.parse("title");
+    FieldPath internalPath = FieldPath.parse("_autoEmbed.title");
+
+    // User's original query (before materialization)
+    var userQuery =
+        VectorQueryBuilder.builder()
+            .index("test")
+            .criteria(
+                ApproximateVectorQueryCriteriaBuilder.builder()
+                    .path(userPath) // User provides "title"
+                    .numCandidates(20)
+                    .limit(10)
+                    .queryVector(Vector.fromFloats(new float[1024], NATIVE))
+                    .build())
+            .build();
+
+    // Expected Lucene query should use the internal path
+    MongotKnnFloatQuery expected =
+        new MongotKnnFloatQuery(
+            metrics,
+            "$type:knnVector/_autoEmbed.title", // Internal path, not "title"
+            new float[1024],
+            20);
+
+    // Materialized view index definition (what's actually indexed)
+    new LuceneVectorTranslation(
+            List.of(
+                new VectorAutoEmbedFieldDefinition(
+                    "voyage-3-large",
+                    "text",
+                    internalPath, // Internal path where vectors are stored
+                    VectorSimilarity.EUCLIDEAN,
+                    VectorQuantization.NONE,
+                    Optional.empty())),
+            FeatureFlags.getDefault(),
+            Map.of(userPath, internalPath))
+        .assertTranslatedTo(
+            userQuery, // Mapping: "title" → "_autoEmbed.title"
+            expected);
+  }
+
+  @Test
+  public void testApproximateVectorQueryWithAutoEmbeddingFieldsMappingAndFilter()
+      throws IOException, InvalidQueryException, BsonParseException {
+    // This test verifies that autoEmbeddingFieldsMapping correctly maps the vector path
+    // while leaving the filter path unchanged.
+    //
+    // Scenario:
+    // - User query: vectorPath = "title", filter on "title"
+    // - autoEmbeddingFieldsMapping = {"title" → "_autoEmbed.title"}
+    // - Expected: vector query uses "_autoEmbed.title", filter uses "title"
+
+    FieldPath userPath = FieldPath.parse("title");
+    FieldPath internalVectorPath = FieldPath.parse("_autoEmbed.title");
+
+    // User's original query
+    var userQuery =
+        VectorQueryBuilder.builder()
+            .index("test")
+            .criteria(
+                ApproximateVectorQueryCriteriaBuilder.builder()
+                    .path(userPath) // User provides "title"
+                    .numCandidates(20)
+                    .limit(10)
+                    .queryVector(Vector.fromFloats(new float[1024], NATIVE))
+                    .filter(
+                        new VectorSearchFilter.ClauseFilter(
+                            ClauseBuilder.simpleClause()
+                                .path(userPath) // Filter also on "title"
+                                .addOperator(
+                                    MqlFilterOperatorBuilder.eq()
+                                        .value(ValueBuilder.string("laptop")))
+                                .build()))
+                    .build())
+            .build();
+
+    // Expected Lucene query
+    MongotKnnFloatQuery expected =
+        new MongotKnnFloatQuery(
+            metrics,
+            FeatureFlags.getDefault(),
+            "$type:knnVector/_autoEmbed.title", // Vector uses internal path
+            new float[1024],
+            20,
+            new BooleanQuery.Builder()
+                .add(
+                    new IndexOrDocValuesQuery(
+                        new ConstantScoreQuery(
+                            new TermQuery(
+                                new Term(
+                                    "$type:token/title", // Filter uses user path
+                                    new BytesRef("laptop")))),
+                        SortedSetDocValuesField.newSlowExactQuery(
+                            "$type:token/title", new BytesRef("laptop"))),
+                    BooleanClause.Occur.MUST)
+                .build());
+
+    // Materialized view index definition
+    new LuceneVectorTranslation(
+            List.of(
+                new VectorAutoEmbedFieldDefinition(
+                    "voyage-3-large",
+                    "text",
+                    internalVectorPath, // Internal vector path
+                    VectorSimilarity.EUCLIDEAN,
+                    VectorQuantization.NONE,
+                        Optional.empty()),
+                VectorIndexFilterFieldDefinition.create(userPath)),
+            FeatureFlags.getDefault(),
+            Map.of(userPath, internalVectorPath)) // Filter field at user path
+        .assertTranslatedTo(
+            userQuery, // Mapping: "title" → "_autoEmbed.title"
+            expected);
   }
 }

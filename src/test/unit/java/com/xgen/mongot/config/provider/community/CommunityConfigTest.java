@@ -3,6 +3,8 @@ package com.xgen.mongot.config.provider.community;
 import static com.xgen.testing.BsonDeserializationTestSuite.fromDocument;
 import static com.xgen.testing.BsonSerializationTestSuite.fromEncodable;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.net.HostAndPort;
 import com.xgen.mongot.config.provider.community.ServerConfig.GrpcServerConfig;
@@ -26,14 +28,14 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses(
     value = {
-      CommunityConfigTest.TestDeserialization.class,
-      CommunityConfigTest.TestSerialization.class,
+      CommunityConfigTest.DeserializationTest.class,
+      CommunityConfigTest.SerializationTest.class,
       CommunityConfigTest.CommunityConfigTestClass.class,
     })
 public class CommunityConfigTest {
 
   @RunWith(Parameterized.class)
-  public static class TestDeserialization {
+  public static class DeserializationTest {
     private static final String SUITE_NAME = "communityConfigDeserialization";
     private static final BsonDeserializationTestSuite<CommunityConfig> TEST_SUITE =
         fromDocument(
@@ -43,7 +45,7 @@ public class CommunityConfigTest {
 
     private final BsonDeserializationTestSuite.TestSpecWrapper<CommunityConfig> testSpec;
 
-    public TestDeserialization(
+    public DeserializationTest(
         BsonDeserializationTestSuite.TestSpecWrapper<CommunityConfig> testSpec) {
       this.testSpec = testSpec;
     }
@@ -54,11 +56,13 @@ public class CommunityConfigTest {
       return TEST_SUITE.withExamples(
           simple(),
           full(),
+          replicaSetX509(),
           withDefaultLogVerbosity(),
           grpcDisabledTls(),
           grpcTls(),
           grpcMtls(),
           withEmbeddingEndpointOverride(),
+          withEmbeddingMvWriteRateLimitRps(),
           ftdcOverrides());
     }
 
@@ -74,11 +78,12 @@ public class CommunityConfigTest {
               new SyncSourceConfig(
                   new ReplicaSetConfig(
                       List.of(HostAndPort.fromParts("mongod", 27017)),
-                      "user",
-                      Path.of("/etc/mongot/replicaSet.passwd"),
+                      Optional.of("user"),
+                      Optional.of(Path.of("/etc/mongot/replicaSet.passwd")),
                       Databases.ADMIN,
                       false,
-                      MongoReadPreferenceName.SECONDARY_PREFERRED),
+                      MongoReadPreferenceName.SECONDARY_PREFERRED,
+                      Optional.empty()),
                   Optional.empty(),
                   Optional.empty()),
               new StorageConfig(Path.of("data/mongot")),
@@ -91,6 +96,23 @@ public class CommunityConfigTest {
               Optional.empty()));
     }
 
+    private static BsonDeserializationTestSuite.ValidSpec<CommunityConfig> replicaSetX509() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "replicaSet x509",
+          (CommunityConfig config) -> {
+            var replicaSet = config.syncSourceConfig().replicaSet();
+            assertNotNull("replicaSet x509 should be present", replicaSet.x509());
+            assertTrue("replicaSet should use x509 auth", replicaSet.x509().isPresent());
+            assertEquals(
+                Path.of("/etc/mongot/tls/client-combined.pem"),
+                replicaSet.x509().get().tlsCertificateKeyFile());
+            assertEquals(
+                Optional.empty(), replicaSet.x509().get().tlsCertificateKeyFilePasswordFile());
+            assertEquals("admin", replicaSet.authSource());
+            assertTrue(replicaSet.tls());
+          });
+    }
+
     private static BsonDeserializationTestSuite.ValidSpec<CommunityConfig> full() {
       return BsonDeserializationTestSuite.TestSpec.valid(
           "full",
@@ -100,21 +122,23 @@ public class CommunityConfigTest {
                       List.of(
                           HostAndPort.fromParts("mongod1", 27017),
                           HostAndPort.fromParts("mongod2", 27017)),
-                      "user",
-                      Path.of("/etc/mongot/replicaSet.passwd"),
+                      Optional.of("user"),
+                      Optional.of(Path.of("/etc/mongot/replicaSet.passwd")),
                       Databases.LOCAL,
                       true,
-                      MongoReadPreferenceName.PRIMARY_PREFERRED),
+                      MongoReadPreferenceName.PRIMARY_PREFERRED,
+                      Optional.empty()),
                   Optional.of(
                       new RouterConfig(
                           List.of(
                               HostAndPort.fromParts("mongos1", 27017),
                               HostAndPort.fromParts("mongos2", 27017)),
-                          "user",
-                          Path.of("/etc/mongot/router.passwd"),
+                          Optional.of("user"),
+                          Optional.of(Path.of("/etc/mongot/router.passwd")),
                           Databases.LOCAL,
                           false,
-                          MongoReadPreferenceName.PRIMARY_PREFERRED)),
+                          MongoReadPreferenceName.PRIMARY_PREFERRED,
+                          Optional.empty())),
                   Optional.of(Path.of("/etc/mongot/ca.pem"))),
               new StorageConfig(Path.of("data/mongot")),
               new ServerConfig(
@@ -141,11 +165,12 @@ public class CommunityConfigTest {
               new SyncSourceConfig(
                   new ReplicaSetConfig(
                       List.of(HostAndPort.fromParts("mongod", 27017)),
-                      "user",
-                      Path.of("/etc/mongot/replicaSet.passwd"),
+                      Optional.of("user"),
+                      Optional.of(Path.of("/etc/mongot/replicaSet.passwd")),
                       Databases.ADMIN,
                       false,
-                      MongoReadPreferenceName.SECONDARY_PREFERRED),
+                      MongoReadPreferenceName.SECONDARY_PREFERRED,
+                      Optional.empty()),
                   Optional.empty(),
                   Optional.empty()),
               new StorageConfig(Path.of("data/mongot")),
@@ -165,11 +190,12 @@ public class CommunityConfigTest {
               new SyncSourceConfig(
                   new ReplicaSetConfig(
                       List.of(HostAndPort.fromParts("mongod", 27017)),
-                      "user",
-                      Path.of("/etc/mongot/replicaSet.passwd"),
+                      Optional.of("user"),
+                      Optional.of(Path.of("/etc/mongot/replicaSet.passwd")),
                       Databases.ADMIN,
                       false,
-                      MongoReadPreferenceName.SECONDARY_PREFERRED),
+                      MongoReadPreferenceName.SECONDARY_PREFERRED,
+                      Optional.empty()),
                   Optional.empty(),
                   Optional.empty()),
               new StorageConfig(Path.of("data/mongot")),
@@ -193,11 +219,12 @@ public class CommunityConfigTest {
               new SyncSourceConfig(
                   new ReplicaSetConfig(
                       List.of(HostAndPort.fromParts("mongod", 27017)),
-                      "user",
-                      Path.of("/etc/mongot/replicaSet.passwd"),
+                      Optional.of("user"),
+                      Optional.of(Path.of("/etc/mongot/replicaSet.passwd")),
                       Databases.ADMIN,
                       false,
-                      MongoReadPreferenceName.SECONDARY_PREFERRED),
+                      MongoReadPreferenceName.SECONDARY_PREFERRED,
+                      Optional.empty()),
                   Optional.empty(),
                   Optional.empty()),
               new StorageConfig(Path.of("data/mongot")),
@@ -224,11 +251,12 @@ public class CommunityConfigTest {
               new SyncSourceConfig(
                   new ReplicaSetConfig(
                       List.of(HostAndPort.fromParts("mongod", 27017)),
-                      "user",
-                      Path.of("/etc/mongot/replicaSet.passwd"),
+                      Optional.of("user"),
+                      Optional.of(Path.of("/etc/mongot/replicaSet.passwd")),
                       Databases.ADMIN,
                       false,
-                      MongoReadPreferenceName.SECONDARY_PREFERRED),
+                      MongoReadPreferenceName.SECONDARY_PREFERRED,
+                      Optional.empty()),
                   Optional.empty(),
                   Optional.empty()),
               new StorageConfig(Path.of("data/mongot")),
@@ -256,11 +284,12 @@ public class CommunityConfigTest {
               new SyncSourceConfig(
                   new ReplicaSetConfig(
                       List.of(HostAndPort.fromParts("mongod", 27017)),
-                      "user",
-                      Path.of("/etc/mongot/replicaSet.passwd"),
+                      Optional.of("user"),
+                      Optional.of(Path.of("/etc/mongot/replicaSet.passwd")),
                       Databases.ADMIN,
                       false,
-                      MongoReadPreferenceName.SECONDARY_PREFERRED),
+                      MongoReadPreferenceName.SECONDARY_PREFERRED,
+                      Optional.empty()),
                   Optional.empty(),
                   Optional.empty()),
               new StorageConfig(Path.of("data/mongot")),
@@ -275,7 +304,40 @@ public class CommunityConfigTest {
                       Optional.of("https://custom-api.example.com/v1/embeddings"),
                       Optional.empty(),
                       Optional.empty(),
+                      Optional.empty(),
                       false))));
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<CommunityConfig>
+        withEmbeddingMvWriteRateLimitRps() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "with embedding mv write rate limit rps",
+          new CommunityConfig(
+              new SyncSourceConfig(
+                  new ReplicaSetConfig(
+                      List.of(HostAndPort.fromParts("mongod", 27017)),
+                      Optional.of("user"),
+                      Optional.of(Path.of("/etc/mongot/replicaSet.passwd")),
+                      Databases.ADMIN,
+                      false,
+                      MongoReadPreferenceName.SECONDARY_PREFERRED,
+                      Optional.empty()),
+                  Optional.empty(),
+                  Optional.empty()),
+              new StorageConfig(Path.of("data/mongot")),
+              new ServerConfig(
+                  new GrpcServerConfig("localhost:27028", Optional.empty()), Optional.empty()),
+              FtdcCommunityConfig.getDefault(),
+              Optional.of(new MetricsConfig(true, "localhost:9946")),
+              Optional.of(new HealthCheckConfig("localhost:8080")),
+              Optional.of(new LoggingConfig("DEBUG", Optional.of("/var/log/mongot"))),
+              Optional.of(
+                  new EmbeddingConfig(
+                      Optional.empty(),
+                      Optional.empty(),
+                      Optional.empty(),
+                      Optional.of(50),
+                      true))));
     }
 
     private static BsonDeserializationTestSuite.ValidSpec<CommunityConfig> ftdcOverrides() {
@@ -285,11 +347,12 @@ public class CommunityConfigTest {
               new SyncSourceConfig(
                   new ReplicaSetConfig(
                       List.of(HostAndPort.fromParts("mongod", 27017)),
-                      "user",
-                      Path.of("/etc/mongot/replicaSet.passwd"),
+                      Optional.of("user"),
+                      Optional.of(Path.of("/etc/mongot/replicaSet.passwd")),
                       Databases.ADMIN,
                       false,
-                      MongoReadPreferenceName.SECONDARY_PREFERRED),
+                      MongoReadPreferenceName.SECONDARY_PREFERRED,
+                      Optional.empty()),
                   Optional.empty(),
                   Optional.empty()),
               new StorageConfig(Path.of("data/mongot")),
@@ -304,14 +367,14 @@ public class CommunityConfigTest {
   }
 
   @RunWith(Parameterized.class)
-  public static class TestSerialization {
+  public static class SerializationTest {
     private static final String SUITE_NAME = "communityConfigSerialization";
     private static final BsonSerializationTestSuite<CommunityConfig> TEST_SUITE =
         fromEncodable("src/test/unit/resources/config/provider/community", SUITE_NAME);
 
     private final BsonSerializationTestSuite.TestSpec<CommunityConfig> testSpec;
 
-    public TestSerialization(BsonSerializationTestSuite.TestSpec<CommunityConfig> testSpec) {
+    public SerializationTest(BsonSerializationTestSuite.TestSpec<CommunityConfig> testSpec) {
       this.testSpec = testSpec;
     }
 
@@ -333,11 +396,12 @@ public class CommunityConfigTest {
               new SyncSourceConfig(
                   new ReplicaSetConfig(
                       List.of(HostAndPort.fromParts("mongod", 27017)),
-                      "user",
-                      Path.of("/etc/mongot/replicaSet.passwd"),
+                      Optional.of("user"),
+                      Optional.of(Path.of("/etc/mongot/replicaSet.passwd")),
                       Databases.ADMIN,
                       false,
-                      MongoReadPreferenceName.SECONDARY_PREFERRED),
+                      MongoReadPreferenceName.SECONDARY_PREFERRED,
+                      Optional.empty()),
                   Optional.empty(),
                   Optional.empty()),
               new StorageConfig(Path.of("data/mongot")),
@@ -373,19 +437,21 @@ public class CommunityConfigTest {
                       List.of(
                           HostAndPort.fromParts("mongod1", 27017),
                           HostAndPort.fromParts("mongod2", 27017)),
-                      "user",
-                      Path.of("replicaSet.passwd"),
+                      Optional.of("user"),
+                      Optional.of(Path.of("replicaSet.passwd")),
                       Databases.ADMIN,
                       true,
-                      MongoReadPreferenceName.PRIMARY_PREFERRED),
+                      MongoReadPreferenceName.PRIMARY_PREFERRED,
+                      Optional.empty()),
                   Optional.of(
                       new RouterConfig(
                           List.of(HostAndPort.fromParts("mongos", 27017)),
-                          "user",
-                          Path.of("router.passwd"),
+                          Optional.of("user"),
+                          Optional.of(Path.of("router.passwd")),
                           Databases.ADMIN,
                           false,
-                          MongoReadPreferenceName.PRIMARY)),
+                          MongoReadPreferenceName.PRIMARY,
+                          Optional.empty())),
                   Optional.of(Path.of("/etc/mongot/ca.pem"))),
               new StorageConfig(Path.of("data/mongot")),
               new ServerConfig(
@@ -404,6 +470,31 @@ public class CommunityConfigTest {
               Optional.empty());
 
       assertEquals(expected, result);
+    }
+
+    @Test
+    public void readFromFile_withX509_replicaSetHasX509Config()
+        throws IOException, BsonParseException {
+      Path configPath =
+          Path.of("src/test/unit/resources/config/provider/community/communityConfigX509.yaml");
+      CommunityConfig result = CommunityConfig.readFromFile(configPath);
+
+      var replicaSet = result.syncSourceConfig().replicaSet();
+      assertTrue("replicaSet should use x509", replicaSet.x509().isPresent());
+      assertEquals(
+          Path.of("/etc/mongot/tls/client-combined.pem"),
+          replicaSet.x509().get().tlsCertificateKeyFile());
+      assertTrue(
+          "tlsCertificateKeyFilePasswordFile should be present",
+          replicaSet.x509().get().tlsCertificateKeyFilePasswordFile().isPresent());
+      assertEquals(
+          Path.of("/etc/mongot/secrets/cert-key-pass"),
+          replicaSet.x509().get().tlsCertificateKeyFilePasswordFile().get());
+      assertEquals("admin", replicaSet.authSource());
+      assertTrue(replicaSet.tls());
+      assertEquals(MongoReadPreferenceName.PRIMARY_PREFERRED, replicaSet.readPreference());
+      assertTrue("caFile should be present", result.syncSourceConfig().caFile().isPresent());
+      assertEquals(Path.of("/etc/mongot/tls/ca.pem"), result.syncSourceConfig().caFile().get());
     }
   }
 }

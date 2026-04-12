@@ -29,11 +29,13 @@ import com.xgen.mongot.cursor.SearchCursorInfo;
 import com.xgen.mongot.cursor.serialization.MongotCursorBatch;
 import com.xgen.mongot.cursor.serialization.MongotCursorResult;
 import com.xgen.mongot.featureflag.FeatureFlags;
+import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlagRegistry;
 import com.xgen.mongot.index.CountResult;
 import com.xgen.mongot.index.IndexGeneration;
 import com.xgen.mongot.index.IndexMetricValuesSupplier;
 import com.xgen.mongot.index.IndexMetricsUpdater;
-import com.xgen.mongot.index.InitializedIndex;
+import com.xgen.mongot.index.InitializedSearchIndex;
+import com.xgen.mongot.index.InitializedVectorIndex;
 import com.xgen.mongot.index.MetaResults;
 import com.xgen.mongot.index.definition.IndexDefinitionGeneration;
 import com.xgen.mongot.index.lucene.explain.information.LuceneQuerySpecification;
@@ -41,16 +43,19 @@ import com.xgen.mongot.index.lucene.explain.information.MetadataExplainInformati
 import com.xgen.mongot.index.lucene.explain.information.SearchExplainInformation;
 import com.xgen.mongot.index.lucene.explain.information.SearchExplainInformationBuilder;
 import com.xgen.mongot.index.lucene.explain.tracing.Explain;
+import com.xgen.mongot.index.query.Query;
 import com.xgen.mongot.index.query.operators.VectorSearchFilter;
 import com.xgen.mongot.index.query.operators.mql.Clause;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.metrics.MeterAndFtdcRegistry;
 import com.xgen.mongot.metrics.PerIndexMetricsFactory;
+import com.xgen.mongot.server.command.Command;
 import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.bson.Vector;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
 import com.xgen.mongot.util.mongodb.MongoDbServerInfo;
 import com.xgen.mongot.util.mongodb.MongoDbVersion;
+import com.xgen.testing.mongot.index.definition.SearchIndexDefinitionBuilder;
 import com.xgen.testing.mongot.index.definition.VectorIndexDefinitionBuilder;
 import com.xgen.testing.mongot.index.lucene.explain.information.DefaultQueryBuilder;
 import com.xgen.testing.mongot.index.lucene.explain.information.QueryExplainInformationBuilder;
@@ -92,7 +97,11 @@ public class DeprecatedVectorSearchCommandTest {
   private static final FieldPath PATH = FieldPath.parse("testPath");
   private static final SearchCommandsRegister.BootstrapperMetadata BOOTSTRAPPER_METADATA =
       new SearchCommandsRegister.BootstrapperMetadata(
-          "testVersion", "localhost", () -> MongoDbServerInfo.EMPTY, FeatureFlags.getDefault());
+          "testVersion",
+          "localhost",
+          () -> MongoDbServerInfo.EMPTY,
+          FeatureFlags.getDefault(),
+          DynamicFeatureFlagRegistry.empty());
   private static final String RSID = "atlas-xyz";
 
   private static final double COUNTER_TOL = 1e-5;
@@ -307,7 +316,8 @@ public class DeprecatedVectorSearchCommandTest {
                 "local",
                 "localhost",
                 () -> new MongoDbServerInfo(Optional.of(mdbVersion), Optional.of(RSID)),
-                FeatureFlags.getDefault()));
+                FeatureFlags.getDefault(),
+                DynamicFeatureFlagRegistry.empty()));
 
     try (var unused =
         FakeExplain.setup(
@@ -421,7 +431,11 @@ public class DeprecatedVectorSearchCommandTest {
             getInitializedIndexCatalog(),
             mock(VectorSearchCommand.Factory.class),
             new SearchCommandsRegister.BootstrapperMetadata(
-                "1.0", "foo", () -> MongoDbServerInfo.EMPTY, FeatureFlags.getDefault()));
+                "1.0",
+                "foo",
+                () -> MongoDbServerInfo.EMPTY,
+                FeatureFlags.getDefault(),
+                DynamicFeatureFlagRegistry.empty()));
 
     try (var unused =
         Explain.setup(
@@ -450,6 +464,9 @@ public class DeprecatedVectorSearchCommandTest {
         .thenReturn(Optional.of(indexGeneration));
     InitializedIndexCatalog initializedIndexCatalog = getInitializedIndexCatalog();
     var anotherCommandFactory = mock(VectorSearchCommand.Factory.class);
+    var delegatedCommand = mock(Command.class);
+    var delegatedResponse = new BsonDocument("ok", new BsonInt32(1));
+    var delegatedCursorIds = List.of(123L, 456L);
     var definition =
         VectorSearchCommandDefinitionBuilder.builder()
             .db(DATABASE_NAME)
@@ -468,6 +485,9 @@ public class DeprecatedVectorSearchCommandTest {
                             .build())
                     .build())
             .build();
+    when(anotherCommandFactory.create(definition)).thenReturn(delegatedCommand);
+    when(delegatedCommand.run()).thenReturn(delegatedResponse);
+    when(delegatedCommand.getCreatedCursorIds()).thenReturn(delegatedCursorIds);
 
     DeprecatedVectorSearchCommand command =
         new DeprecatedVectorSearchCommand(
@@ -488,12 +508,72 @@ public class DeprecatedVectorSearchCommandTest {
     Assert.assertEquals(
         0, queryingMetricsUpdater.getVectorSearchQueriesOverSearchIndexes().count(), COUNTER_TOL);
 
-    command.run();
+    BsonDocument result = command.run();
 
     Assert.assertEquals(
         0, queryingMetricsUpdater.getVectorSearchQueriesOverSearchIndexes().count(), COUNTER_TOL);
-
+    Assert.assertEquals(delegatedResponse, result);
+    Assert.assertEquals(delegatedCursorIds, command.getCreatedCursorIds());
     Mockito.verify(anotherCommandFactory).create(definition);
+    Mockito.verify(delegatedCommand).run();
+  }
+
+  @Test
+  public void testQueryAgainstVectorIndexReturnsErrorIfCreatedCursorIdsAreNotEmpty()
+      throws Exception {
+    var catalog = Mockito.mock(IndexCatalog.class);
+    IndexGeneration indexGeneration = mockVectorIndexGeneration();
+    when(catalog.getIndex(DATABASE_NAME, COLLECTION_UUID, Optional.empty(), INDEX_NAME))
+        .thenReturn(Optional.of(indexGeneration));
+    InitializedIndexCatalog initializedIndexCatalog = getInitializedIndexCatalog();
+    var anotherCommandFactory = mock(VectorSearchCommand.Factory.class);
+    var delegatedCommand = mock(Command.class);
+    var delegatedResponse = new BsonDocument("ok", new BsonInt32(1));
+    var definition =
+        VectorSearchCommandDefinitionBuilder.builder()
+            .db(DATABASE_NAME)
+            .collectionName(COLLECTION_NAME)
+            .collectionUuid(COLLECTION_UUID)
+            .vectorSearchQuery(
+                VectorQueryBuilder.builder()
+                    .index(INDEX_NAME)
+                    .criteria(
+                        ApproximateVectorQueryCriteriaBuilder.builder()
+                            .limit(LIMIT)
+                            .numCandidates(NUM_CANDIDATES)
+                            .queryVector(QUERY_VECTOR)
+                            .path(PATH)
+                            .filter(getFilter())
+                            .build())
+                    .build())
+            .build();
+    when(anotherCommandFactory.create(definition)).thenReturn(delegatedCommand);
+    when(delegatedCommand.run()).thenReturn(delegatedResponse);
+
+    DeprecatedVectorSearchCommand command =
+        new DeprecatedVectorSearchCommand(
+            getCursorManager(),
+            definition,
+            CursorConfig.DEFAULT_BSON_SIZE_SOFT_LIMIT,
+            catalog,
+            initializedIndexCatalog,
+            anotherCommandFactory,
+            BOOTSTRAPPER_METADATA);
+
+    var createdCursorIdsField =
+        DeprecatedVectorSearchCommand.class.getDeclaredField("createdCursorIds");
+    createdCursorIdsField.setAccessible(true);
+    @SuppressWarnings("unchecked")
+    var createdCursorIds = (List<Long>) createdCursorIdsField.get(command);
+    createdCursorIds.add(999L);
+
+    BsonDocument result = command.run();
+
+    Assert.assertEquals(0, result.getInt32("ok").getValue());
+    Assert.assertEquals(
+        "Expected createdCursorIds to be empty before "
+            + "delegating to VectorSearchCommand, found [999]",
+        result.getString("errmsg").getValue());
   }
 
   @Test
@@ -501,10 +581,9 @@ public class DeprecatedVectorSearchCommandTest {
     var catalog = Mockito.mock(IndexCatalog.class);
     var initializedIndexCatalog = Mockito.mock(InitializedIndexCatalog.class);
     IndexGeneration indexGeneration = mockVectorIndexGeneration();
-    var initializedIndex = Mockito.mock(InitializedIndex.class);
-    // Set the index type to SEARCH (not VECTOR) so it doesn't delegate to VectorSearchCommand
+    var initializedIndex = Mockito.mock(InitializedSearchIndex.class);
     when(initializedIndex.getType()).thenReturn(IndexDefinitionGeneration.Type.SEARCH);
-    when(initializedIndex.getDefinition()).thenReturn(indexGeneration.getDefinition());
+    when(initializedIndex.getDefinition()).thenReturn(SearchIndexDefinitionBuilder.VALID_INDEX);
     var meterAndFtdcRegistry = MeterAndFtdcRegistry.createWithSimpleRegistries();
     PerIndexMetricsFactory metricsFactory =
         new PerIndexMetricsFactory(
@@ -575,8 +654,7 @@ public class DeprecatedVectorSearchCommandTest {
     // Set status to STEADY so throwIfUnavailableForQuerying() won't throw
     mockVectorIndex.setStatus(IndexStatus.steady());
 
-    IndexGeneration indexGeneration =
-        new IndexGeneration(mockVectorIndex, definitionGeneration);
+    IndexGeneration indexGeneration = new IndexGeneration(mockVectorIndex, definitionGeneration);
 
     when(catalog.getIndex(DATABASE_NAME, COLLECTION_UUID, Optional.empty(), INDEX_NAME))
         .thenReturn(Optional.of(indexGeneration));
@@ -646,7 +724,7 @@ public class DeprecatedVectorSearchCommandTest {
     MongotCursorBatch batch = mockMongotCursorBatchForVectorSearch();
 
     // Only return a cursor batch for the correct cursor id.
-    when(cursorManager.newCursor(any(), any(), any(), any(), any(), any(), any(), any()))
+    when(cursorManager.newCursor(any(), any(), any(), any(), any(Query.class), any(), any(), any()))
         .then(
             invocation ->
                 new SearchCursorInfo(
@@ -675,7 +753,7 @@ public class DeprecatedVectorSearchCommandTest {
   /** Creates a MongotCursorManager that throws an IOException when getting the batch. */
   private MongotCursorManager getIoExceptionCursorManager() throws Exception {
     MongotCursorManager cursorManager = mock(MongotCursorManager.class);
-    when(cursorManager.newCursor(any(), any(), any(), any(), any(), any(), any(), any()))
+    when(cursorManager.newCursor(any(), any(), any(), any(), any(Query.class), any(), any(), any()))
         .thenReturn(
             new SearchCursorInfo(
                 MOCK_SEARCH_CURSOR_ID, new MetaResults(CountResult.lowerBoundCount(1000))));
@@ -692,7 +770,7 @@ public class DeprecatedVectorSearchCommandTest {
   }
 
   private InitializedIndexCatalog getInitializedIndexCatalog() {
-    var index = Mockito.mock(InitializedIndex.class);
+    var index = Mockito.mock(InitializedVectorIndex.class);
     var meterAndFtdcRegistry = MeterAndFtdcRegistry.createWithSimpleRegistries();
     PerIndexMetricsFactory metricsFactory =
         new PerIndexMetricsFactory(

@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
-# Bazelisk hook to retry external repository fetches on transient network failures.
+# Bazelisk hook for CI-only prefetch with retries.
 #
-# GitHub release URLs have no SLA and can return 502/503/504 errors sporadically.
-# Vanilla Bazel only retries on specific exceptions (SocketException, ContentLengthMismatchException),
-# but 502 errors throw generic IOException which it does NOT retry.
+# This hook runs `bazel fetch` with retries before build/test/run/coverage commands
+# in CI environments to reduce flakiness from transient network errors.
 #
-# This wrapper runs `bazel fetch` with retries before the actual command to work around
-# this limitation until we switch to a custom Bazel binary with broader retry logic.
-#
-# TEMPORARY WORKAROUND: This script is a stopgap until we migrate to a custom 8.x-mongo
-# Bazel binary that has proper retry logic for all IOException types.
+# Note: The custom Bazel 8.2.1-mongo binary (see .bazelversion) has built-in retry
+# logic for IOException during dependency downloads. This prefetch adds a defense-in-depth
+# layer for CI reliability but is not strictly required.
 #
 # Reference:
-# - MongoDB Bazel fork retry patch: https://github.com/mongodb-forks/bazel/commit/07a4bcb854c686c7a691d0b5b9ec93a3eedbadc3
-# - MMS tools/bazel: https://github.com/10gen/mms/pull/155324
+# - MongoDB Bazel fork: https://github.com/mongodb-forks/bazel/tree/release-8.2.1-mongo
+# - Retry patch: https://github.com/mongodb-forks/bazel/commit/07a4bcb854c686c7a691d0b5b9ec93a3eedbadc3
 
 set -eu
 

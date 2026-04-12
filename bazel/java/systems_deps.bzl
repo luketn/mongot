@@ -1,4 +1,5 @@
 load("//bazel/java:dep_utils.bzl", "append_version")
+load("//bazel/java:netty_tcnative.bzl", "NETTY_TCNATIVE_MAVEN_ARTIFACTS")
 
 _AWS_SDK_VERSION = "2.22.9"
 _AWS_SDK_ARTIFACTS = (
@@ -47,10 +48,7 @@ _GCP = [
 
 _NETTY_VERSION = "4.1.130.Final"
 
-# Note that matching tcnative version for Netty 4.1.130.Final is 2.0.74.Final.
-# However, the linux-aarch_64-fedora artifact has been removed for that version,
-# hence using 2.0.71.Final.
-_NETTY_TCNATIVE_VERSION = "2.0.71.Final"
+# Netty core artifacts
 _NETTY_ARTIFACTS = (
     append_version(
         _NETTY_VERSION,
@@ -64,12 +62,7 @@ _NETTY_ARTIFACTS = (
             "io.netty:netty-transport-native-kqueue:jar:osx-x86_64",
             "io.netty:netty-transport-native-kqueue:jar:osx-aarch_64",
         ],
-    ) + append_version(_NETTY_TCNATIVE_VERSION, [
-        "io.netty:netty-tcnative-boringssl-static",
-        "io.netty:netty-tcnative-classes",
-        "io.netty:netty-tcnative:jar:linux-aarch_64-fedora",
-        "io.netty:netty-tcnative:jar:linux-x86_64-fedora",
-    ])
+    ) + NETTY_TCNATIVE_MAVEN_ARTIFACTS
 )
 
 MONGO_DRIVER_VERSION = "4.11.5"

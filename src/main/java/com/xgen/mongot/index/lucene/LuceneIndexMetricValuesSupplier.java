@@ -4,6 +4,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.xgen.mongot.index.IndexMetricValuesSupplier;
 import com.xgen.mongot.index.IndexReader;
 import com.xgen.mongot.index.WriterClosedException;
+import com.xgen.mongot.index.lucene.backing.IndexBackingStrategy;
+import com.xgen.mongot.index.lucene.writer.LuceneIndexWriter;
+import com.xgen.mongot.index.lucene.writer.MultiLuceneIndexWriter;
+import com.xgen.mongot.index.lucene.writer.SingleLuceneIndexWriter;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.status.IndexStatus.StatusCode;
 import com.xgen.mongot.metrics.CachedGauge;
@@ -35,22 +39,33 @@ public abstract class LuceneIndexMetricValuesSupplier implements IndexMetricValu
    * Cached index size in bytes, updated during async metrics collection. This allows the query hot
    * path to read the index size without triggering expensive directory walks.
    */
-  private final AtomicLong cachedIndexSize = new AtomicLong(0);
+  private final AtomicLong cachedIndexSize;
 
-  /** Create LuceneIndexMetricValuesSupplier */
-  public LuceneIndexMetricValuesSupplier(
+  /**
+   * Private constructor - does not register gauges. Subclasses should use static factory methods to
+   * construct instances and register gauges after construction is complete.
+   */
+  protected LuceneIndexMetricValuesSupplier(
       Supplier<IndexStatus> indexStatusSupplier,
       IndexBackingStrategy indexBackingStrategy,
       IndexReader indexReader,
-      LuceneIndexWriter luceneIndexWriter,
-      PerIndexMetricsFactory metricsFactory,
-      int indexFeatureVersion,
-      boolean isIndexFeatureVersionFourEnabled) {
+      LuceneIndexWriter luceneIndexWriter) {
     this.indexStatusSupplier = indexStatusSupplier;
     this.indexBackingStrategy = indexBackingStrategy;
     this.indexReader = indexReader;
     this.indexWriter = luceneIndexWriter;
     this.metricsFactories = new ArrayList<>();
+    this.cachedIndexSize = new AtomicLong(indexBackingStrategy.getDiskStats().totalFileByteSize());
+  }
+
+  /**
+   * Registers common gauges for all Lucene index types. Should be called by subclass static factory
+   * methods after construction is complete to avoid this-escape.
+   */
+  protected final void registerCommonGauges(
+      PerIndexMetricsFactory metricsFactory,
+      int indexFeatureVersion,
+      boolean isIndexFeatureVersionFourEnabled) {
     Tags indexFeatureVersionTag =
         isIndexFeatureVersionFourEnabled
             ? Tags.of("indexFeatureVersion", String.valueOf(indexFeatureVersion))
@@ -63,14 +78,12 @@ public abstract class LuceneIndexMetricValuesSupplier implements IndexMetricValu
     // This allows the query hot path to read index size in O(1) time.
     metricsFactory.perIndexObjectValueGauge(
         MetricNames.INDEX_SIZE_BYTES,
-        this,
-        CachedGauge.of(
-            supplier -> {
-              long size = supplier.computeIndexSize();
-              supplier.cachedIndexSize.set(size);
-              return size;
-            },
-            Duration.ofMinutes(1)),
+        this.indexBackingStrategy,
+        strategy -> {
+          long size = strategy.getDiskStats().totalFileByteSize();
+          this.cachedIndexSize.set(size);
+          return size;
+        },
         getNumPartitionTag().and(indexFeatureVersionTag));
     metricsFactory.perIndexObjectValueGauge(
         MetricNames.REQUIRED_MEMORY,
@@ -79,19 +92,18 @@ public abstract class LuceneIndexMetricValuesSupplier implements IndexMetricValu
         getNumPartitionTag().and(indexFeatureVersionTag));
     metricsFactory.perIndexObjectValueGauge(
         MetricNames.LARGEST_INDEX_FILE_SIZE_BYTES,
-        this,
-        CachedGauge.of(
-            LuceneIndexMetricValuesSupplier::getLargestIndexFileSize, Duration.ofMinutes(1)),
+        this.indexBackingStrategy,
+        strategy -> strategy.getDiskStats().largestFileByteSize(),
         getNumPartitionTag().and(indexFeatureVersionTag));
     metricsFactory.perIndexObjectValueGauge(
         MetricNames.NUMBER_OF_FILES_IN_INDEX,
-        this,
-        CachedGauge.of(LuceneIndexMetricValuesSupplier::getNumFilesInIndex, Duration.ofMinutes(1)),
+        this.indexBackingStrategy,
+        strategy -> strategy.getDiskStats().numFiles(),
         getNumPartitionTag().and(indexFeatureVersionTag));
     metricsFactory.perIndexObjectValueGauge(
         MetricNames.NUM_LUCENE_FIELDS,
         this,
-        LuceneIndexMetricValuesSupplier::getNumFields,
+        CachedGauge.of(LuceneIndexMetricValuesSupplier::getNumFields, Duration.ofMinutes(1)),
         getNumPartitionTag().and(indexFeatureVersionTag));
     metricsFactory.perIndexObjectValueGauge(
         MetricNames.NUM_LUCENE_DOCS,
@@ -130,9 +142,9 @@ public abstract class LuceneIndexMetricValuesSupplier implements IndexMetricValu
         indexPartitionMetricsFactory.perIndexObjectValueGauge(
             MetricNames.NUM_LUCENE_FIELDS,
             indexPartitionWriter,
-            indexWriter ->
-                FunctionalUtils.getOrDefaultIfThrows(
-                    indexWriter::getNumFields, WriterClosedException.class, 0),
+                indexWriter ->
+                    FunctionalUtils.getOrDefaultIfThrows(
+                        indexWriter::getNumFields, WriterClosedException.class, 0),
             getIndexPartitionTags(indexPartitionId).and(indexFeatureVersionTag));
         indexPartitionMetricsFactory.perIndexObjectValueGauge(
             MetricNames.NUM_LUCENE_DOCS,
@@ -161,32 +173,19 @@ public abstract class LuceneIndexMetricValuesSupplier implements IndexMetricValu
         indexPartitionMetricsFactory.perIndexObjectValueGauge(
             MetricNames.REQUIRED_MEMORY,
             indexPartitionWriter,
-            indexWriter ->
-                FunctionalUtils.getOrDefaultIfThrows(
-                    this.indexReader::getRequiredMemoryForVectorData, Exception.class, 0L),
+            CachedGauge.of(
+                indexWriter ->
+                    FunctionalUtils.getOrDefaultIfThrows(
+                        this.indexReader::getRequiredMemoryForVectorData, Exception.class, 0L),
+                Duration.ofMinutes(1)),
             getIndexPartitionTags(indexPartitionId).and(indexFeatureVersionTag));
       }
     }
   }
 
   @Override
-  public long computeIndexSize() {
-    return this.indexBackingStrategy.getIndexSize();
-  }
-
-  @Override
   public long getCachedIndexSize() {
     return this.cachedIndexSize.get();
-  }
-
-  @Override
-  public long getLargestIndexFileSize() {
-    return this.indexBackingStrategy.getLargestIndexFileSize();
-  }
-
-  @Override
-  public long getNumFilesInIndex() {
-    return this.indexBackingStrategy.getNumFilesInIndex();
   }
 
   @Override

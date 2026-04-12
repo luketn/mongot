@@ -2,14 +2,14 @@ package com.xgen.mongot.index.mongodb;
 
 import com.google.common.base.Suppliers;
 import com.mongodb.MongoNamespace;
-import com.mongodb.client.MongoClient;
+import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
 import com.xgen.mongot.index.DocCounts;
 import com.xgen.mongot.index.IndexMetricValuesSupplier;
 import com.xgen.mongot.index.lucene.field.FieldName;
 import com.xgen.mongot.index.status.IndexStatus;
+import com.xgen.mongot.util.Check;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.bson.Document;
 import org.slf4j.Logger;
@@ -28,7 +28,7 @@ public class MaterializedViewMetricValuesSupplier implements IndexMetricValuesSu
   private static final Duration CACHE_DURATION = Duration.ofMinutes(1);
 
   private final Supplier<IndexStatus> indexStatusSupplier;
-  private final MongoClient mongoClient;
+  private final AutoEmbeddingMongoClient autoEmbeddingMongoClient;
   private final MongoNamespace namespace;
   private final Supplier<CollectionStats> cachedStatsSupplier;
   private volatile CollectionStats lastKnownGoodStats = new CollectionStats(0, 0);
@@ -37,47 +37,27 @@ public class MaterializedViewMetricValuesSupplier implements IndexMetricValuesSu
    * Creates a MaterializedViewMetricValuesSupplier.
    *
    * @param indexStatusSupplier supplier for the current index status
-   * @param mongoClient MongoDB client for querying collection stats
+   * @param autoEmbeddingMongoClient MongoDB client for querying collection stats
    * @param namespace the namespace (database.collection) of the materialized view
    */
   public MaterializedViewMetricValuesSupplier(
       Supplier<IndexStatus> indexStatusSupplier,
-      MongoClient mongoClient,
+      AutoEmbeddingMongoClient autoEmbeddingMongoClient,
       MongoNamespace namespace) {
     this.indexStatusSupplier = indexStatusSupplier;
-    this.mongoClient = mongoClient;
+    this.autoEmbeddingMongoClient = autoEmbeddingMongoClient;
     this.namespace = namespace;
     this.cachedStatsSupplier =
-        Suppliers.memoizeWithExpiration(
-            this::fetchCollectionStats, CACHE_DURATION.toMillis(), TimeUnit.MILLISECONDS);
-  }
-
-  @Override
-  public long computeIndexSize() {
-    return this.cachedStatsSupplier.get().storageSize;
+        Suppliers.memoizeWithExpiration(this::fetchCollectionStats, CACHE_DURATION);
   }
 
   @Override
   public long getCachedIndexSize() {
-    // For materialized views, computeIndexSize() is already cached via
-    // Suppliers.memoizeWithExpiration, so it's safe to call on hot paths.
-    return computeIndexSize();
-  }
-
-  @Override
-  public long getLargestIndexFileSize() {
-    // Not applicable for MongoDB collections - this is a Lucene-specific metric
-    return 0;
+    return this.lastKnownGoodStats.storageSize();
   }
 
   @Override
   public int getNumFields() {
-    // Not applicable for MongoDB collections - this is a Lucene-specific metric
-    return 0;
-  }
-
-  @Override
-  public long getNumFilesInIndex() {
     // Not applicable for MongoDB collections - this is a Lucene-specific metric
     return 0;
   }
@@ -113,8 +93,14 @@ public class MaterializedViewMetricValuesSupplier implements IndexMetricValuesSu
   /** Fetches collection stats from MongoDB using the collStats command */
   private CollectionStats fetchCollectionStats() {
     try {
+      // It's Ok to have some transient error when syncsource is missing or being updated, which may
+      // cause some client be closed earlier.
+      var mongoClient =
+          Check.isPresent(
+              this.autoEmbeddingMongoClient.getMaterializedViewResolverMongoClient(),
+              "materializedViewCollectionMongoClient");
       Document stats =
-          this.mongoClient
+          mongoClient
               .getDatabase(this.namespace.getDatabaseName())
               .runCommand(new Document("collStats", this.namespace.getCollectionName()));
       long storageSize =
@@ -122,7 +108,7 @@ public class MaterializedViewMetricValuesSupplier implements IndexMetricValuesSu
       long docCount = stats.containsKey("count") ? stats.get("count", Number.class).longValue() : 0;
       this.lastKnownGoodStats = new CollectionStats(storageSize, docCount);
       return this.lastKnownGoodStats;
-    } catch (Exception e) {
+    } catch (Exception | AssertionError e) {
       LOG.warn(
           "Failed to get collection stats for {}, returning last known value", this.namespace, e);
       return this.lastKnownGoodStats;

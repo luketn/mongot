@@ -41,6 +41,7 @@ public class IndexCommitUserDataTest {
           Optional.empty(),
           Optional.empty(),
           Optional.empty(),
+          Optional.empty(),
           Optional.empty());
 
   private static final IndexCommitUserData USER_DATA_WITH_CHANGE_STREAM_RESUME_INFO =
@@ -103,6 +104,7 @@ public class IndexCommitUserDataTest {
           withInitialSyncResume(),
           withNaturalOrderInitialSyncResume(),
           withStaleInfo(),
+          withStaleInfoUnknownFields(),
           withIndexStateInfo());
     }
 
@@ -147,6 +149,12 @@ public class IndexCommitUserDataTest {
     private static BsonDeserializationTestSuite.ValidSpec<IndexCommitUserData> withStaleInfo() {
       return BsonDeserializationTestSuite.TestSpec.valid(
           "with stale info", USER_DATA_WITH_STALE_INFO);
+    }
+
+    private static BsonDeserializationTestSuite.ValidSpec<IndexCommitUserData>
+        withStaleInfoUnknownFields() {
+      return BsonDeserializationTestSuite.TestSpec.valid(
+          "with stale info with unknown fields", USER_DATA_WITH_STALE_INFO);
     }
 
     private static BsonDeserializationTestSuite.ValidSpec<IndexCommitUserData>

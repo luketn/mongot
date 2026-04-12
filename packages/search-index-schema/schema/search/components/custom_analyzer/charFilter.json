@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/charFilter.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string",
+      "markdownDescription": "Label that identifies the [character filter](https://www.mongodb.com/docs/atlas/atlas-search/analyzers/character-filters/) type.",
+      "enum": ["htmlStrip", "icuNormalize", "mapping", "persian"],
+      "markdownEnumDescriptions": [
+        "Character filter that strips out HTML elements.",
+        "Character filter that normalizes text with the [ICU](http://site.icu-project.org/) Normalizer based on Lucene's [ICUNormalizer2CharFilter](https://lucene.apache.org/core/8_3_0/analyzers-icu/org/apache/lucene/analysis/icu/ICUNormalizer2CharFilter.html).",
+        "Character filter that applies the normalization mappings that you specify to characters based on Lucene's [MappingCharFilter](https://lucene.apache.org/core/8_0_0/analyzers-common/org/apache/lucene/analysis/charfilter/MappingCharFilter.html).",
+        "Character filter that replaces instances of [zero-width non-joiner](https://en.wikipedia.org/wiki/Zero-width_non-joiner) with the space character based on Lucene's [PersianCharFilter](https://lucene.apache.org/core/8_0_0/analyzers-common/org/apache/lucene/analysis/fa/PersianCharFilter.html)"
+      ]
+    }
+  },
+  "required": ["type"],
+  "oneOf": [
+    {
+      "$ref": "charFilter/icuNormalize.json"
+    },
+    {
+      "$ref": "charFilter/htmlStrip.json"
+    },
+    {
+      "$ref": "charFilter/mapping.json"
+    },
+    {
+      "$ref": "charFilter/persian.json"
+    }
+  ],
+  "definitions": {
+    "typePropertyOverrides": {
+      "errorMessage": "Unsupported character filter type.",
+      "$comment": "The custom error message defined above is a global override for all consuming schema."
+    }
+  }
+}

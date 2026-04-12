@@ -413,6 +413,34 @@ public class DrillSidewaysInfoBuilderTest {
     assertThat(state.operatorsByFacet).doesNotContainKey("prices");
   }
 
+  /**
+   * Regression test for extractFacetNameFromOperator with InOperator (CLOUDP-321297).
+   * The path lookup must use the first path's string form, not paths().toString().
+   */
+  @Test
+  public void processLeafOperator_InOperator_affectsFacet_addsToOperatorsByFacet() {
+    List<Long> values = Arrays.asList(1L, 2L);
+    InOperator operator =
+        OperatorBuilder.in().path("color").longs(values).build();
+
+    FieldPath embeddedPath = FieldPath.parse("a.b.c").withNewRoot("document");
+
+    Map<String, List<String>> pathToFacetNames = Map.of("color", List.of("colors"));
+    DrillSidewaysInfoBuilder.BuildState state =
+        new DrillSidewaysInfoBuilder.BuildState(pathToFacetNames);
+
+    processLeafOperatorForEmbeddedDoc(operator, embeddedPath, "colors", state);
+
+    assertThat(state.operatorsByFacet).containsKey("colors");
+    assertThat(state.operatorsByFacet.get("colors")).hasSize(1);
+    assertThat(state.operatorsByFacet.get("colors").get(0))
+        .isInstanceOf(EmbeddedDocumentOperator.class);
+    EmbeddedDocumentOperator wrappedOperator =
+        (EmbeddedDocumentOperator) state.operatorsByFacet.get("colors").get(0);
+    assertThat(wrappedOperator.operator()).isEqualTo(operator);
+    assertThat(wrappedOperator.path()).isEqualTo(embeddedPath);
+  }
+
   @Test
   public void traverseOperator_shouldClauseWithDoesNotAffect_genericWithEarlyExit() {
     // Set up a CompoundOperator with doesNotAffect defined
@@ -971,6 +999,21 @@ public class DrillSidewaysInfoBuilderTest {
     assertThat(state.operatorsByFacet.containsKey("sizes")).isTrue();
     assertThat(state.operatorsByFacet.get("colors")).containsExactly(operator);
     assertThat(state.operatorsByFacet.get("sizes")).containsExactly(operator);
+  }
+
+  @Test
+  public void addLeafOperatorToOperatorMap_InOperator_pathMappedToFacet_addsToOperatorsByFacet() {
+    List<Long> values = Arrays.asList(1L, 2L);
+    Operator operator = OperatorBuilder.in().path("color").longs(values).build();
+
+    Map<String, List<String>> pathToFacetName = Map.of("color", List.of("colors"));
+    DrillSidewaysInfoBuilder.BuildState state =
+        new DrillSidewaysInfoBuilder.BuildState(pathToFacetName);
+
+    addLeafOperatorToOperatorMap(operator, state);
+
+    assertThat(state.operatorsByFacet).containsKey("colors");
+    assertThat(state.operatorsByFacet.get("colors")).containsExactly(operator);
   }
 
   @Test
@@ -3585,6 +3628,63 @@ public class DrillSidewaysInfoBuilderTest {
     // Validate the content
     for (NonNullValue expectedValue : values) {
       assertThat(actualValues).contains(expectedValue);
+    }
+  }
+
+  @Test
+  public void buildFacetOperators_directNestedEmbeddedDocs_propagatesFacetOperatorsAndPreFilter()
+      throws Exception {
+    // Nested embedded docs (outer -> outer.inner -> compound with doesNotAffect): facet operators
+    // must be propagated to the parent state and the preFilter must preserve both embedding levels.
+    FacetCollector collector =
+        parseFacetCollector(
+            """
+        {
+          "operator": {
+            "embeddedDocument": {"path": "outer", "operator":
+                {"embeddedDocument": {"path": "outer.inner", "operator":
+                    {"compound": {"filter": [
+                        {"exists":  {"path": "outer.inner.notes"}},
+                        {"equals":  {"path": "outer.inner.x", "value": "val",
+                                     "doesNotAffect": "xFacet"}}
+                    ]}}
+                }}
+            }
+          },
+          "facets": {
+            "xFacet": {"type": "string", "path": "outer.inner.x"}
+          }
+        }""");
+
+    DrillSidewaysInfo info = collector.drillSidewaysInfo().get();
+
+    assertThat(info.optimizationStatus())
+        .isEqualTo(DrillSidewaysInfo.QueryOptimizationStatus.OPTIMIZABLE);
+    assertThat(info.facetOperators()).containsKey("xFacet");
+    assertThat(info.facetOperators().get("xFacet")).isPresent();
+    Operator facetOp = info.facetOperators().get("xFacet").get();
+    assertThat(facetOp).isInstanceOf(EmbeddedDocumentOperator.class);
+    EmbeddedDocumentOperator facetEmbedded = (EmbeddedDocumentOperator) facetOp;
+    assertThat(facetEmbedded.path().toString()).isEqualTo("outer");
+
+    // PreFilter must be wrapped at both levels: embeddedDoc("outer", embeddedDoc("outer.inner",
+    // compound(filter:[exists]))).
+    assertThat(info.preFilter()).isPresent();
+    Operator preFilter = info.preFilter().get();
+    assertThat(preFilter).isInstanceOf(EmbeddedDocumentOperator.class);
+    EmbeddedDocumentOperator outerWrap = (EmbeddedDocumentOperator) preFilter;
+    assertThat(outerWrap.path().toString()).isEqualTo("outer");
+    assertThat(outerWrap.operator()).isInstanceOf(EmbeddedDocumentOperator.class);
+    EmbeddedDocumentOperator innerWrap = (EmbeddedDocumentOperator) outerWrap.operator();
+    assertThat(innerWrap.path().toString()).isEqualTo("outer.inner");
+  }
+
+  private static FacetCollector parseFacetCollector(String json) throws Exception {
+    try (var parser =
+        com.xgen.mongot.util.bson.parser.BsonDocumentParser.fromRoot(
+                org.bson.BsonDocument.parse(json))
+            .build()) {
+      return FacetCollector.fromBson(parser);
     }
   }
 

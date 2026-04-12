@@ -20,6 +20,7 @@ public abstract class TokenFilterDefinition
     ASCII_FOLDING,
     DAITCH_MOKOTOFF_SOUNDEX,
     EDGE_GRAM,
+    ENGLISH_MINIMAL_STEMMING,
     ENGLISH_POSSESSIVE,
     FLATTEN_GRAPH,
     ICU_FOLDING,
@@ -69,6 +70,7 @@ public abstract class TokenFilterDefinition
       case ASCII_FOLDING -> AsciiFoldingTokenFilterDefinition.fromBson(parser);
       case DAITCH_MOKOTOFF_SOUNDEX -> DaitchMokotoffSoundexTokenFilterDefinition.fromBson(parser);
       case EDGE_GRAM -> EdgeGramTokenFilterDefinition.fromBson(parser);
+      case ENGLISH_MINIMAL_STEMMING -> new EnglishMinimalStemmingTokenFilterDefinition();
       case ENGLISH_POSSESSIVE -> new EnglishPossessiveTokenFilterDefinition();
       case FLATTEN_GRAPH -> new FlattenGraphTokenFilterDefinition();
       case ICU_FOLDING -> new IcuFoldingTokenFilterDefinition();
@@ -106,6 +108,12 @@ public abstract class TokenFilterDefinition
   public EdgeGramTokenFilterDefinition asEdgeGramTokenFilterDefinition() {
     Check.expectedType(Type.EDGE_GRAM, this.getType());
     return (EdgeGramTokenFilterDefinition) this;
+  }
+
+  public EnglishMinimalStemmingTokenFilterDefinition
+      asEnglishMinimalStemmingTokenFilterDefinition() {
+    Check.expectedType(Type.ENGLISH_MINIMAL_STEMMING, this.getType());
+    return (EnglishMinimalStemmingTokenFilterDefinition) this;
   }
 
   public EnglishPossessiveTokenFilterDefinition asEnglishPossessiveTokenFilterDefinition() {

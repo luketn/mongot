@@ -37,7 +37,9 @@ class LuceneFacetCollectorSearchManager
   }
 
   public LuceneFacetCollectorSearchManager(
-      Query luceneQuery, Optional<Sort> luceneSort, Optional<SequenceToken> searchAfter) {
+      Query luceneQuery,
+      Optional<Sort> luceneSort,
+      Optional<SequenceToken> searchAfter) {
     super(luceneQuery, luceneSort, searchAfter);
   }
 

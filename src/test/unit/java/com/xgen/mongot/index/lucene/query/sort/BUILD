@@ -8,6 +8,7 @@ java_test_suite(
         "MqlBooleanSortTest.java",
         "MqlDoubleSortTest.java",
         "MqlLongSortTest.java",
+        "MqlNullnessSortFieldTest.java",
         "MqlObjectIdSortTest.java",
         "MqlStringSortTest.java",
         "MqlUuidSortTest.java",

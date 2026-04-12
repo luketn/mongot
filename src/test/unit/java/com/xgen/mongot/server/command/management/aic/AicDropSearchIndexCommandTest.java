@@ -6,6 +6,7 @@ import static com.xgen.testing.mongot.server.command.management.definition.Manag
 import static com.xgen.testing.mongot.server.command.management.definition.ManageSearchIndexCommandDefinitionBuilder.INDEX_NAME;
 import static com.xgen.testing.mongot.server.command.management.definition.ManageSearchIndexCommandDefinitionBuilder.VIEW;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -32,7 +33,7 @@ public class AicDropSearchIndexCommandTest {
 
     // Return an existing search index.
     var indexId = new ObjectId();
-    when(mockAic.listIndexes(COLLECTION_UUID))
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID))
         .thenReturn(
             List.of(
                 SearchIndexDefinitionBuilder.builder()
@@ -70,7 +71,7 @@ public class AicDropSearchIndexCommandTest {
 
     // Return an existing search index.
     var indexId = new ObjectId();
-    when(mockAic.listIndexes(COLLECTION_UUID))
+    when(mockAic.listIndexDefinitions(COLLECTION_UUID))
         .thenReturn(
             List.of(
                 SearchIndexDefinitionBuilder.builder()
@@ -105,7 +106,7 @@ public class AicDropSearchIndexCommandTest {
   @Test
   public void testDropMissingSearchIndex() throws MetadataServiceException {
     var mockAic = mock(AuthoritativeIndexCatalog.class);
-    when(mockAic.listIndexes(any())).thenReturn(List.of());
+    when(mockAic.listIndexDefinitions(any())).thenReturn(List.of());
 
     var definition =
         (DropSearchIndexCommandDefinition)
@@ -125,5 +126,20 @@ public class AicDropSearchIndexCommandTest {
 
     assertEquals(0, response.getInt32("ok").getValue());
     verify(mockAic, never()).deleteIndex(any());
+  }
+
+  @Test
+  public void maybeLoadShed_alwaysReturnsFalse() {
+    var mockAic = mock(AuthoritativeIndexCatalog.class);
+    var definition =
+        (DropSearchIndexCommandDefinition)
+            ManageSearchIndexCommandDefinitionBuilder.dropIndex()
+                .withIndexName(INDEX_NAME)
+                .buildSearchIndexCommand();
+    var command =
+        new AicDropSearchIndexCommand(
+            mockAic, DATABASE_NAME, COLLECTION_UUID, COLLECTION_NAME,
+            Optional.of(VIEW), definition);
+    assertFalse(command.maybeLoadShed());
   }
 }

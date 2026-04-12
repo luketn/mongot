@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/custom_analyzer/tokenFilter/porterStemming.json",
+  "type": "object",
+  "_description": "Token filter that uses the porter stemming algorithm to remove the common morphological and inflectional suffixes from words in English. It expects lowercase text and doesn't work as expected for uppercase text.",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Label that identifies the `porterStemming` token filter type, which uses the porter stemming algorithm to remove the common morphological and inflectional suffixes from words in English.",
+      "description": "Label that identifies the porterStemming token filter type, which uses the porter stemming algorithm to remove the common morphological and inflectional suffixes from words in English.",
+      "const": "porterStemming",
+      "$ref": "../tokenFilter.json#/definitions/typePropertyOverrides"
+    }
+  },
+  "required": ["type"],
+  "additionalProperties": false
+}

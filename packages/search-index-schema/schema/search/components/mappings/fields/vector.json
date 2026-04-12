@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "search/components/mappings/fields/vector.json",
+  "type": "object",
+  "properties": {
+    "type": {
+      "suggestSortText": "0",
+      "type": "string",
+      "markdownDescription": "Data type to use to index fields of type number array for vector search. To learn more, see [vector Type](https://www.mongodb.com/docs/atlas/atlas-search/field-types/vector-type/).",
+      "description": "Data type to use to index fields of type number array for vector search.",
+      "const": "vector",
+      "$ref": "../field.json#/definitions/typeErrorMessage"
+    },
+    "numDimensions": {
+      "suggestSortText": "1",
+      "type": "integer",
+      "markdownDescription": "Number of vector dimensions. Values may range from 1 to 8192. Value must be divisible by 8 if using `binary` quantization.",
+      "description": "Number of vector dimensions. Values may range from 1 to 8192. Value must be divisible by 8 if using binary quantization.",
+      "minimum": 1,
+      "maximum": 8192
+    },
+    "similarity": {
+      "suggestSortText": "2",
+      "type": "string",
+      "markdownDescription": "Vector similarity function to use to measure distance between vectors. \nYou can specify one of the following values:\n- `euclidean` - measures the distance between ends of vectors allowing similarity measurements based on varying dimensions. See [Euclidean](https://en.wikipedia.org/wiki/Euclidean_distance) to learn more.\n- `cosine` - measures similarity based on the angle between vectors allowing for similarity measurements not scaled by magnitude. See [Cosine](https://en.wikipedia.org/wiki/Cosine_similarity) to learn more.\n- `dotProduct` - measures similarity based on both the angle between, and magnitude of vectors. See [Dot Product](https://en.wikipedia.org/wiki/Dot_product) to learn more.",
+      "description": "Vector similarity function to use to measure distance between vectors.",
+      "enum": ["euclidean", "cosine", "dotProduct"]
+    },
+    "quantization": {
+      "suggestSortText": "3",
+      "type": "string",
+      "markdownDescription": "Type of automatic vector quantization for your vectors. Use this setting only if your embeddings are float or double vectors.\nYou can specify one of the following values:\n- `none` - Indicates no automatic quantization for the vector embeddings. Use this setting if you have pre-quantized vectors for ingestion. If omitted, this is the default value.\n- `scalar` - Indicates scalar quantization, which transforms values to 1 byte integers.\n- `binary` - Indicates binary quantization, which transforms values to a single bit. To use this value, `numDimensions` must be a multiple of 8. If precision is critical, select `none` or `scalar` instead of `binary`.",
+      "description": "Type of automatic vector quantization for your vectors.",
+      "enum": ["none", "scalar", "binary"]
+    },
+    "hnswOptions": {
+      "suggestSortText": "4",
+      "type": "object",
+      "markdownDescription": "Parameters to use for [Hierarchical Navigable Small Worlds](https://arxiv.org/abs/1603.09320) graph construction. If omitted, uses the default values for the maxEdges and numEdgeCandidates parameters. IMPORTANT: This is available as a Preview feature. Modifying the default values might negatively impact your MongoDB Search index and queries.",
+      "description": "Parameters to use for Hierarchical Navigable Small Worlds graph construction.",
+      "properties": {
+        "maxEdges": {
+          "type": "integer",
+          "markdownDescription": "Maximum number of edges (or connections) that a node can have in the [Hierarchical Navigable Small Worlds](https://arxiv.org/abs/1603.09320) graph. Value can be between 16 and 64, both inclusive. If omitted, defaults to 16. For example, for a value of 16, each node can have a maximum of sixteen outgoing edges at each layer of the Hierarchical Navigable Small Worlds graph. A higher number improves recall (accuracy of search results) because the graph is better connected. However, this also increases query and indexing time by increasing the number of neighbors to evaluate per graph node, and requires more memory to store the additional nodes for each connection in the Hierarchical Navigable Small Worlds graph.",
+          "description": "Maximum number of edges (or connections) that a node can have in the Hierarchical Navigable Small Worlds graph.",
+          "minimum": 16,
+          "maximum": 64
+        },
+        "numEdgeCandidates": {
+          "type": "integer",
+          "markdownDescription": "Analogous to `numCandidates` at query-time, this parameter controls the maximum number of nodes to evaluate to find the closest neighbors to connect to a new node. Value can be between 100 and 3200, both inclusive. If omitted, defaults to 100. A higher number provides a graph with high-quality connections, which can improve search quality (recall), but it can also increase query latency.",
+          "description": "Analogous to numCandidates at query-time, this parameter controls the maximum number of nodes to evaluate to find the closest neighbors to connect to a new node.",
+          "minimum": 100,
+          "maximum": 3200
+        }
+      }
+    }
+  },
+  "required": ["type", "numDimensions", "similarity"],
+  "additionalProperties": false
+}

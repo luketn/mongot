@@ -36,16 +36,16 @@ public class LuceneDoubleConversionUtils {
 
   /**
    * Converts a double into a long in a way that preserves sort order and considers NaN <
-   * NEGATIVE_INFINITY. Distinct NaN bit patterns are not preserved.
+   * NEGATIVE_INFINITY. Distinct NaN bit patterns are not preserved. -0.0 is coalesced to +0.0 so
+   * that both map to the same sortable long.
    */
   public static long toMqlSortableLong(double value) {
     if (Double.isNaN(value)) {
       return NAN_SENTINEL;
     }
 
-    // See the comment in MqlDoubleComparator::getValueForDoc on why we use Lucene's
-    // doubleToSortableLong() instead of our toLong().
-    return NumericUtils.doubleToSortableLong(value);
+    // IEEE 754 standard arithmetic guarantees that -0.0 + (+0.0) = +0.0
+    return NumericUtils.doubleToSortableLong(value + 0.0);
   }
 
   public static long toMqlIndexedLong(long value) {

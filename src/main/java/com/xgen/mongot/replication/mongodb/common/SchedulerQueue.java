@@ -7,6 +7,7 @@ import com.google.common.base.Stopwatch;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.mongot.metrics.MetricsFactory;
+import io.micrometer.core.instrument.Tags;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -121,17 +122,26 @@ public class SchedulerQueue<T extends SchedulerQueue.SchedulerBatch> {
   private final AtomicLong queuedBatchesTotal;
   private final AtomicLong queuedEventsTotal;
 
+  SchedulerQueue(CommonReplicationConfig.Type type, MetricsFactory metricsFactory) {
+    this(new PriorityBlockingQueue<>(), type, metricsFactory);
+  }
+
   SchedulerQueue(MetricsFactory metricsFactory) {
-    this(new PriorityBlockingQueue<>(), metricsFactory);
+    this(new PriorityBlockingQueue<>(), CommonReplicationConfig.Type.DEFAULT, metricsFactory);
   }
 
   @VisibleForTesting
-  SchedulerQueue(PriorityBlockingQueue<IndexBatches<T>> batchQueue, MetricsFactory metricsFactory) {
+  SchedulerQueue(
+      PriorityBlockingQueue<IndexBatches<T>> batchQueue,
+      CommonReplicationConfig.Type type,
+      MetricsFactory metricsFactory) {
     this.batchQueue = batchQueue;
     this.indexBatchesMap = new HashMap<>();
     this.inFlightBatchesMap = new HashMap<>();
-    this.queuedBatchesTotal = metricsFactory.numGauge("queuedBatchesTotal");
-    this.queuedEventsTotal = metricsFactory.numGauge("queuedEventsTotal");
+    this.queuedBatchesTotal =
+        metricsFactory.numGauge("queuedBatchesTotal", Tags.of("replicationType", type.name()));
+    this.queuedEventsTotal =
+        metricsFactory.numGauge("queuedEventsTotal", Tags.of("replicationType", type.name()));
     this.failedIndexingAttempts = new WeakHashMap<>();
   }
 

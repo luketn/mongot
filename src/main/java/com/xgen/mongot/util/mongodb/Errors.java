@@ -53,6 +53,11 @@ public class Errors {
   public static final Error INGRESS_REQUEST_RATE_LIMIT_EXCEEDED =
       new Error(462, "IngressRequestRateLimitExceeded");
 
+  // Reserved for future load-shedding specific rejection code.
+  // Keep unused for now until mongo-side code is finalized and rolled out.
+  public static final Error SEARCH_REQUEST_REJECTED_DUE_TO_OVERLOAD =
+      new Error(489, "SearchRequestRejectedDueToOverload");
+
   public static final Error BSON_OBJECT_TOO_LARGE = new Error(10334, "BSONObjectTooLarge");
 
   public static final Error IDL_UNKNOWN_FIELD = new Error(40415, "IDLUnknownField");
@@ -61,10 +66,11 @@ public class Errors {
   public static final Error INITIAL_SYNC_ID_MISMATCH = new Error(8132701, "InitialSyncIdMismatch");
   public static final Error NO_QUERY_EXECUTION_PLANS = new Error(291, "NoQueryExecutionPlans");
 
+  // “489” is reserved for future load-shedding specific rejection code.
   public static final Set<Integer> RETRYABLE_ERROR_CODES =
       Set.of(
-          6, 7, 63, 89, 91, 133, 150, 189, 234, 262, 462, 9001, 10107, 11600, 11602, 13388, 13435,
-          13436);
+          6, 7, 63, 89, 91, 133, 150, 189, 234, 262, 462, 489, 9001, 10107, 11600, 11602, 13388,
+          13435, 13436);
 
   public static final Set<Integer> NON_INVALIDATING_ERROR_CODES =
       Set.of(

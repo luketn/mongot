@@ -1,5 +1,9 @@
 package com.xgen.mongot.index.autoembedding;
 
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
+import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
+import com.xgen.mongot.embedding.mongodb.MaterializedViewCollectionResolver;
+import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
 import com.xgen.mongot.featureflag.Feature;
 import com.xgen.mongot.featureflag.FeatureFlags;
@@ -18,6 +22,7 @@ import com.xgen.mongot.metrics.PerIndexMetricsFactory;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.mongodb.SyncSourceConfig;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,18 +39,26 @@ public class MaterializedViewIndexFactory implements IndexFactory {
   private final FeatureFlags featureFlags;
   private final MaterializedViewWriter.Factory materializedViewWriterFactory;
   private final LeaseManager leaseManager;
+  private final MaterializedViewCollectionResolver collectionResolver;
+  private final AutoEmbeddingMongoClient autoEmbeddingMongoClient;
 
   public MaterializedViewIndexFactory(
-      SyncSourceConfig syncSourceConfig,
+      AutoEmbeddingMongoClient autoEmbeddingMongoClient,
       FeatureFlags featureFlags,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
-      LeaseManager leaseManager) {
+      LeaseManager leaseManager,
+      MaterializedViewCollectionResolver collectionResolver,
+      Optional<Integer> mvWriteRateLimitRps,
+      int matViewWriterMaxConnections) {
     this.meterAndFtdcRegistry = meterAndFtdcRegistry;
     this.metricsFactory = new MetricsFactory(NAMESPACE, meterAndFtdcRegistry.meterRegistry());
     this.featureFlags = featureFlags;
     this.materializedViewWriterFactory =
-        new MaterializedViewWriter.Factory(syncSourceConfig, meterAndFtdcRegistry.meterRegistry());
+        new MaterializedViewWriter.Factory(
+            autoEmbeddingMongoClient, meterAndFtdcRegistry.meterRegistry(), mvWriteRateLimitRps);
     this.leaseManager = leaseManager;
+    this.collectionResolver = collectionResolver;
+    this.autoEmbeddingMongoClient = autoEmbeddingMongoClient;
   }
 
   /** Must be called after all associated indexes are closed. */
@@ -59,17 +72,22 @@ public class MaterializedViewIndexFactory implements IndexFactory {
   @Override
   public InitializedMaterializedViewIndex getIndex(
       IndexDefinitionGeneration indexDefinitionGeneration)
-      throws InvalidAnalyzerDefinitionException, IOException {
+      throws InvalidAnalyzerDefinitionException, IOException, MaterializedViewTransientException {
     Check.expectedType(
         IndexDefinitionGeneration.Type.AUTO_EMBEDDING, indexDefinitionGeneration.getType());
     MaterializedViewIndexDefinitionGeneration matViewIndexDefinitionGeneration =
         indexDefinitionGeneration.asMaterializedView();
+    // May throw MaterializedViewTransientException which will be retried by the caller.
+    MaterializedViewCollectionMetadata collectionMetadata =
+        this.collectionResolver.getOrCreateMaterializedViewForIndex(
+            matViewIndexDefinitionGeneration);
 
     MaterializedViewWriter writer =
         this.materializedViewWriterFactory.create(
-            matViewIndexDefinitionGeneration.getIndexDefinition().getIndexId().toHexString(),
+            collectionMetadata.collectionName(),
             matViewIndexDefinitionGeneration.getGenerationId(),
-            this.leaseManager);
+            this.leaseManager,
+            collectionMetadata.collectionUuid());
 
     // Shared status reference for supplier and index
     AtomicReference<IndexStatus> statusRef = new AtomicReference<>(IndexStatus.unknown());
@@ -80,13 +98,18 @@ public class MaterializedViewIndexFactory implements IndexFactory {
             statusRef::get, writer.getMongoClient(), writer.getNamespace());
 
     // Avoid metrics collision with Lucene index by setting different NAMESPACE.
+    // Use the collection name (lease key, indexIdHex-hash-version) as indexId_logString so that 
+    // metrics align with lease id and the tag is easier to use when debugging.
+    // TODO(CLOUDP-353553): Handle search index version - getIndexDefinition() now returns
+    //  IndexDefinition which may be a SearchIndexDefinition.
     var indexMetricsUpdaterBuilder =
         new IndexMetricsUpdater.Builder(
             matViewIndexDefinitionGeneration.getIndexDefinition(),
             new PerIndexMetricsFactory(
                 NAMESPACE,
                 this.meterAndFtdcRegistry,
-                matViewIndexDefinitionGeneration.getGenerationId()),
+                matViewIndexDefinitionGeneration.getGenerationId().uniqueString(),
+                collectionMetadata.collectionName()),
             this.featureFlags.isEnabled(Feature.INDEX_FEATURE_VERSION_FOUR));
 
     return new InitializedMaterializedViewIndex(
@@ -94,12 +117,17 @@ public class MaterializedViewIndexFactory implements IndexFactory {
         writer,
         indexMetricsUpdaterBuilder.build(metricValuesSupplier),
         statusRef,
-        this.leaseManager);
+        this.leaseManager,
+        collectionMetadata.schemaMetadata());
   }
 
   @Override
   public InitializedMaterializedViewIndex getInitializedIndex(
       Index index, IndexDefinitionGeneration definitionGeneration) throws IOException {
     return Check.instanceOf(index, InitializedMaterializedViewIndex.class);
+  }
+
+  public void updateSyncSource(SyncSourceConfig syncSourceConfig) {
+    this.autoEmbeddingMongoClient.updateSyncSource(syncSourceConfig);
   }
 }

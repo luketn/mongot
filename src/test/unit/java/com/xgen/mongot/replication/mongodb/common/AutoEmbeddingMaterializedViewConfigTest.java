@@ -2,6 +2,8 @@ package com.xgen.mongot.replication.mongodb.common;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 import com.xgen.mongot.util.Runtime;
@@ -10,6 +12,7 @@ import com.xgen.testing.util.MockRuntimeBuilder;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import org.bson.BsonDocument;
 import org.bson.types.ObjectId;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -68,8 +71,18 @@ public class AutoEmbeddingMaterializedViewConfigTest {
               Optional.of(6),
               Optional.of(7),
               Optional.of(8),
+              Optional.of(10),
+              Optional.of(8),
               Optional.of(9),
-              Optional.of(2)));
+              Optional.of(2),
+              Optional.of(42),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.of(30_000L),
+              Optional.of(45_000L),
+              Optional.of(1L),
+              Optional.of(75),
+              Optional.of(60)));
     }
 
     @Test
@@ -101,8 +114,8 @@ public class AutoEmbeddingMaterializedViewConfigTest {
       // numConcurrentChangeStreams = numCpus * 2 = 16
       assertEquals(16, config.numConcurrentChangeStreams);
 
-      // numIndexingThreads = Math.max(1, Math.floorDiv(numCpus, 2)) = Math.max(1, 4) = 4
-      assertEquals(4, config.numIndexingThreads);
+      // numIndexingThreads = Math.max(1, numCpus) = Math.max(1, 8) = 8
+      assertEquals(8, config.numIndexingThreads);
 
       // numChangeStreamDecodingThreads = Math.max(1, Math.floorDiv(numCpus, 2)) = Math.max(1, 4) =
       // 4
@@ -117,9 +130,188 @@ public class AutoEmbeddingMaterializedViewConfigTest {
       assertEquals(1800, config.changeStreamCursorMaxTimeSec);
       assertEquals(100, config.requestRateLimitBackoffMs);
 
+      // Test matViewWriterMaxConnections default
+      assertEquals(4, config.matViewWriterMaxConnections);
+
       // Test Optional fields that should be empty by default
       assertEquals(Optional.empty(), config.embeddingGetMoreBatchSize);
       assertEquals(Optional.empty(), config.materializedViewSchemaVersion);
+      assertEquals(Optional.empty(), config.mvWriteRateLimitRps);
+      assertEquals(Optional.empty(), config.congestionControl);
+      assertEquals(Optional.empty(), config.flexTierWorkloads);
+      assertEquals(Optional.empty(), config.resyncBackoff);
+      assertEquals(Optional.empty(), config.transientBackoff);
+
+      assertEquals(numCpus, config.numEmbeddingThreads);
+
+      // Memory budget defaults
+      assertEquals(
+          AutoEmbeddingMaterializedViewConfig.DEFAULT_GLOBAL_MEMORY_BUDGET_HEAP_PERCENT,
+          config.globalMemoryBudgetHeapPercent);
+      assertEquals(
+          AutoEmbeddingMaterializedViewConfig.DEFAULT_PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT,
+          config.perBatchMemoryBudgetHeapPercent);
+    }
+
+    @Test
+    public void testMvWriteRateLimitRps_defaultCustomAndValidation() {
+      AutoEmbeddingMaterializedViewConfig defaultConfig =
+          AutoEmbeddingMaterializedViewConfig.getDefault();
+      assertEquals(Optional.empty(), defaultConfig.getMvWriteRateLimitRps());
+
+      AutoEmbeddingMaterializedViewConfig customConfig =
+          AutoEmbeddingMaterializedViewConfig.create(
+              CommonReplicationConfig.defaultGlobalReplicationConfig(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.of(50),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty());
+      assertEquals(Optional.of(50), customConfig.getMvWriteRateLimitRps());
+
+      assertThrows(
+          IllegalArgumentException.class,
+          () ->
+              AutoEmbeddingMaterializedViewConfig.create(
+                  CommonReplicationConfig.defaultGlobalReplicationConfig(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.of(-1),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty()));
+    }
+
+    @Test
+    public void testToBson_withAndWithoutMvWriteRateLimitRps() {
+      AutoEmbeddingMaterializedViewConfig configWith =
+          AutoEmbeddingMaterializedViewConfig.create(
+              CommonReplicationConfig.defaultGlobalReplicationConfig(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.of(75),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty());
+      BsonDocument bsonWith = configWith.toBson();
+      assertTrue(
+          "BSON should contain mvWriteRateLimitRps",
+          bsonWith.containsKey("mvWriteRateLimitRps"));
+      assertEquals(75, bsonWith.getInt32("mvWriteRateLimitRps").getValue());
+
+      AutoEmbeddingMaterializedViewConfig configWithout =
+          AutoEmbeddingMaterializedViewConfig.getDefault();
+      BsonDocument bsonWithout = configWithout.toBson();
+      assertFalse(
+          "BSON should not contain mvWriteRateLimitRps when empty",
+          bsonWithout.containsKey("mvWriteRateLimitRps"));
+    }
+
+    @Test
+    public void testMatViewWriterMaxConnections_explicitValue() {
+      Runtime runtime = MockRuntimeBuilder.buildDefault();
+      when(runtime.getNumCpus()).thenReturn(8);
+      AutoEmbeddingMaterializedViewConfig config =
+          AutoEmbeddingMaterializedViewConfig.create(
+              runtime,
+              new CommonReplicationConfig.GlobalReplicationConfig(
+                  false, List.of(), false, List.of(), false),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.of(8),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty());
+      assertEquals(8, config.matViewWriterMaxConnections);
+    }
+
+    @Test
+    public void testMatViewWriterMaxConnections_defaultsTo4WhenAbsent() {
+      Runtime runtime = MockRuntimeBuilder.buildDefault();
+      when(runtime.getNumCpus()).thenReturn(8);
+      AutoEmbeddingMaterializedViewConfig config =
+          AutoEmbeddingMaterializedViewConfig.create(
+              runtime,
+              new CommonReplicationConfig.GlobalReplicationConfig(
+                  false, List.of(), false, List.of(), false),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty());
+      assertEquals(4, config.matViewWriterMaxConnections);
     }
   }
 }
