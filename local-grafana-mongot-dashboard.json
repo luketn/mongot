@@ -3,7 +3,7 @@
   "title": "MongoT — Metrics & Traces",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 5,
   "refresh": "10s",
   "tags": ["mongot", "prometheus", "jaeger"],
   "time": { "from": "now-15m", "to": "now" },
@@ -11,7 +11,7 @@
     {
       "type": "stat",
       "title": "MongoT Target UP",
-      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "gridPos": { "x": 0, "y": 18, "w": 6, "h": 4 },
       "targets": [
         { "expr": "up{job=\"mongot\"}", "refId": "A" }
       ],
@@ -20,7 +20,7 @@
     {
       "type": "timeseries",
       "title": "Scrape Duration (s)",
-      "gridPos": { "x": 6, "y": 0, "w": 9, "h": 4 },
+      "gridPos": { "x": 6, "y": 18, "w": 9, "h": 4 },
       "targets": [
         { "expr": "scrape_duration_seconds{job=\"mongot\"}", "refId": "A" }
       ]
@@ -28,7 +28,7 @@
     {
       "type": "timeseries",
       "title": "Samples Scraped",
-      "gridPos": { "x": 15, "y": 0, "w": 9, "h": 4 },
+      "gridPos": { "x": 15, "y": 18, "w": 9, "h": 4 },
       "targets": [
         { "expr": "scrape_samples_scraped{job=\"mongot\"}", "refId": "A" }
       ]
@@ -37,7 +37,7 @@
     {
       "type": "timeseries",
       "title": "Replication Lag (ms)",
-      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 6 },
+      "gridPos": { "x": 0, "y": 22, "w": 12, "h": 6 },
       "targets": [
         { "expr": "mongot_index_stats_indexing_replicationLagMs", "refId": "A" }
       ]
@@ -45,7 +45,7 @@
     {
       "type": "stat",
       "title": "Index Status = STEADY (1 = healthy)",
-      "gridPos": { "x": 12, "y": 4, "w": 6, "h": 6 },
+      "gridPos": { "x": 12, "y": 22, "w": 6, "h": 6 },
       "targets": [
         { "expr": "max(mongot_index_stats_indexStatusCode{status=\"STEADY\"})", "refId": "A" }
       ],
@@ -54,7 +54,7 @@
     {
       "type": "timeseries",
       "title": "Index Size (bytes)",
-      "gridPos": { "x": 18, "y": 4, "w": 6, "h": 6 },
+      "gridPos": { "x": 18, "y": 22, "w": 6, "h": 6 },
       "targets": [
         { "expr": "mongot_index_stats_indexSizeBytes", "refId": "A" }
       ]
@@ -63,7 +63,7 @@
     {
       "type": "timeseries",
       "title": "Indexing Inserts / sec",
-      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 28, "w": 12, "h": 7 },
       "targets": [
         { "expr": "sum(rate(mongot_index_stats_indexing_insert_total[5m]))", "refId": "A" }
       ]
@@ -71,36 +71,251 @@
     {
       "type": "timeseries",
       "title": "Bytes Processed / sec",
-      "gridPos": { "x": 12, "y": 10, "w": 12, "h": 7 },
+      "gridPos": { "x": 12, "y": 28, "w": 12, "h": 7 },
       "targets": [
         { "expr": "sum(rate(mongot_index_stats_indexing_totalBytesProcessed_total[5m]))", "refId": "A" }
       ]
     },
 
     {
-      "type": "timeseries",
-      "title": "Search Avg Latency (s)",
-      "gridPos": { "x": 0, "y": 17, "w": 12, "h": 7 },
+      "type": "stat",
+      "title": "Search Latency (mean)",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
       "targets": [
         {
-          "expr": "rate(mongot_command_searchCommandTotalLatency_seconds_sum{timeUnit=\"seconds\"}[5m]) / clamp_min(rate(mongot_command_searchCommandTotalLatency_seconds_count{timeUnit=\"seconds\"}[5m]), 1e-9)",
+          "expr": "increase(mongot_command_searchCommandTotalLatency_seconds_sum{timeUnit=\"seconds\"}[$__range]) / clamp_min(increase(mongot_command_searchCommandTotalLatency_seconds_count{timeUnit=\"seconds\"}[$__range]), 1e-9)",
+          "instant": true,
           "refId": "A"
         }
-      ]
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat",
+      "title": "Search Latency (max)",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "max_over_time(mongot_command_searchCommandTotalLatency_seconds_max{timeUnit=\"seconds\"}[$__range])",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat",
+      "title": "Search Latency (med)",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "avg_over_time(mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.5\"}[$__range])",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat",
+      "title": "Search Latency (p75)",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "avg_over_time(mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.75\"}[$__range])",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat",
+      "title": "Search Latency (p90)",
+      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "avg_over_time(mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.9\"}[$__range])",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "type": "stat",
+      "title": "Search Latency (p99)",
+      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "avg_over_time(mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.99\"}[$__range])",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
     {
       "type": "timeseries",
-      "title": "Search Max Latency (s)",
-      "gridPos": { "x": 12, "y": 17, "w": 12, "h": 7 },
+      "title": "Search Latency (over time)",
+      "description": "Closest match to the k6 request view from the latency summary metrics MongoT exports.",
+      "gridPos": { "x": 0, "y": 4, "w": 14, "h": 8 },
       "targets": [
-        { "expr": "mongot_command_searchCommandTotalLatency_seconds_max{timeUnit=\"seconds\"}", "refId": "A" }
-      ]
+        {
+          "expr": "mongot_command_searchCommandTotalLatency_seconds_max{timeUnit=\"seconds\"}",
+          "legendFormat": "max",
+          "refId": "A"
+        },
+        {
+          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.99\"}",
+          "legendFormat": "p99",
+          "refId": "B"
+        },
+        {
+          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.9\"}",
+          "legendFormat": "p90",
+          "refId": "C"
+        },
+        {
+          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.75\"}",
+          "legendFormat": "p75",
+          "refId": "D"
+        },
+        {
+          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.5\"}",
+          "legendFormat": "p50",
+          "refId": "E"
+        },
+        {
+          "expr": "rate(mongot_command_searchCommandTotalLatency_seconds_sum{timeUnit=\"seconds\"}[$__rate_interval]) / clamp_min(rate(mongot_command_searchCommandTotalLatency_seconds_count{timeUnit=\"seconds\"}[$__rate_interval]), 1e-9)",
+          "legendFormat": "mean",
+          "refId": "F"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "type": "heatmap",
+      "title": "Search Latency (heatmap)",
+      "description": "Approximation from exported mean and percentile series. A true request-distribution heatmap would require histogram buckets or raw per-request samples.",
+      "gridPos": { "x": 14, "y": 4, "w": 10, "h": 8 },
+      "cards": {
+        "cardPadding": null,
+        "cardRound": null
+      },
+      "color": {
+        "cardColor": "rgb(0, 234, 255)",
+        "colorScale": "sqrt",
+        "colorScheme": "interpolateRdYlGn",
+        "exponent": 0.5,
+        "mode": "spectrum"
+      },
+      "dataFormat": "timeseries",
+      "heatmap": {},
+      "highlightCards": true,
+      "targets": [
+        {
+          "expr": "mongot_command_searchCommandTotalLatency_seconds_max{timeUnit=\"seconds\"}",
+          "legendFormat": "max",
+          "refId": "A"
+        },
+        {
+          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.99\"}",
+          "legendFormat": "p99",
+          "refId": "B"
+        },
+        {
+          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.9\"}",
+          "legendFormat": "p90",
+          "refId": "C"
+        },
+        {
+          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.75\"}",
+          "legendFormat": "p75",
+          "refId": "D"
+        },
+        {
+          "expr": "mongot_command_searchCommandTotalLatency_seconds{timeUnit=\"seconds\",quantile=\"0.5\"}",
+          "legendFormat": "p50",
+          "refId": "E"
+        },
+        {
+          "expr": "rate(mongot_command_searchCommandTotalLatency_seconds_sum{timeUnit=\"seconds\"}[$__rate_interval]) / clamp_min(rate(mongot_command_searchCommandTotalLatency_seconds_count{timeUnit=\"seconds\"}[$__rate_interval]), 1e-9)",
+          "legendFormat": "mean",
+          "refId": "F"
+        }
+      ],
+      "tooltip": {
+        "show": true,
+        "showHistogram": true
+      },
+      "xAxis": {
+        "show": true
+      },
+      "yAxis": {
+        "format": "s",
+        "logBase": 2,
+        "show": true
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Search Requests / sec",
+      "description": "Success is derived from total search commands minus invalid queries, internal search failures, and command failures.",
+      "gridPos": { "x": 0, "y": 12, "w": 24, "h": 6 },
+      "targets": [
+        {
+          "expr": "clamp_min((sum(rate(mongot_search_metrics_searchCommandTotalCount_total[$__rate_interval])) or vector(0)) - ((sum(rate(mongot_search_metrics_searchCommandInvalidQueries_total[$__rate_interval])) or vector(0)) + (sum(rate(mongot_search_metrics_searchCommandInternalFailures_total[$__rate_interval])) or vector(0)) + (sum(rate(mongot_command_searchCommandFailure_total[$__rate_interval])) or vector(0))), 0)",
+          "legendFormat": "success",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum(rate(mongot_search_metrics_searchCommandInvalidQueries_total[$__rate_interval])) or vector(0)) + (sum(rate(mongot_search_metrics_searchCommandInternalFailures_total[$__rate_interval])) or vector(0)) + (sum(rate(mongot_command_searchCommandFailure_total[$__rate_interval])) or vector(0))",
+          "legendFormat": "failure",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 0,
+            "fillOpacity": 80,
+            "stacking": { "mode": "normal", "group": "A" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "success" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#299c46" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "failure" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d44a3a" } }
+            ]
+          }
+        ]
+      }
     },
 
     {
       "type": "timeseries",
       "title": "Executor Queues — Top 10",
-      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 7 },
+      "gridPos": { "x": 0, "y": 35, "w": 12, "h": 7 },
       "targets": [
         {
           "expr": "topk(10, {job=\"mongot\", __name__=~\"mongot_.*_executor_queued_tasks\"})",
@@ -111,7 +326,7 @@
     {
       "type": "timeseries",
       "title": "Active Threads — Top 10 Executors",
-      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 7 },
+      "gridPos": { "x": 12, "y": 35, "w": 12, "h": 7 },
       "targets": [
         {
           "expr": "topk(10, {job=\"mongot\", __name__=~\"mongot_.*_executor_active_threads\"})",
@@ -123,13 +338,13 @@
     {
       "type": "row",
       "title": "Distributed Tracing (Jaeger)",
-      "gridPos": { "x": 0, "y": 31, "w": 24, "h": 1 },
+      "gridPos": { "x": 0, "y": 42, "w": 24, "h": 1 },
       "collapsed": false
     },
     {
       "type": "table",
       "title": "Recent Traces — mongot",
-      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 10 },
+      "gridPos": { "x": 0, "y": 43, "w": 24, "h": 10 },
       "datasource": { "type": "jaeger", "uid": "jaeger" },
       "targets": [
         {
