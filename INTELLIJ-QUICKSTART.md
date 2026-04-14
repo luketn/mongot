@@ -26,7 +26,13 @@ e.g.
 ```
 5. To enable distributed tracing, add these Bazel parameters:
 ```
---jvmopt=-javaagent:{full-path-to-source-dir}/mongot/otel-agent/opentelemetry-javaagent.jar --jvmopt=-Dotel.traces.exporter=otlp --jvmopt=-Dotel.exporter.otlp.endpoint=http://127.0.0.1:4318 --jvmopt=-Dotel.service.name=mongot --jvmopt=-Dotel.metrics.exporter=none --jvmopt=-Dotel.logs.exporter=none
+--jvmopt=-javaagent:{full-path-to-source-dir}/otel-agent/opentelemetry-javaagent.jar --jvmopt=-Dotel.traces.exporter=otlp --jvmopt=-Dotel.exporter.otlp.endpoint=http://127.0.0.1:4318 --jvmopt=-Dotel.service.name=mongot --jvmopt=-Dotel.logs.exporter=none
 ```
-
+6. Set the environment variables:
+```
+OTEL_TRACES_EXPORTER=jaeger_thrift;
+OTEL_EXPORTER_JAEGER_AGENT_HOST=localhost;
+OTEL_EXPORTER_JAEGER_AGENT_PORT=6831;
+OTEL_SERVICE_NAME=mongot;
+```
 ![intellij-run-config.png](intellij-run-config.png)
