@@ -15,6 +15,8 @@ Configure IntelliJ run config:
 ```
 @//:mongot_community__non_stamped
 ```
+![img.png](img.png)
+![img_1.png](img_1.png)
 3. Save the Run config, clicking OK
 4. Open the Run config settings, and add the Program arguments:
 ```
@@ -24,9 +26,13 @@ e.g.
 ```
 --config /Users/luketn/code/personal/mongot/mongot-dev.yml --internalListAllIndexesForTesting
 ```
+![img_2.png](img_2.png)
 5. To enable distributed tracing, add these Bazel parameters:
 ```
---jvmopt=-javaagent:{full-path-to-source-dir}/mongot/otel-agent/opentelemetry-javaagent.jar --jvmopt=-Dotel.traces.exporter=otlp --jvmopt=-Dotel.exporter.otlp.endpoint=http://127.0.0.1:4318 --jvmopt=-Dotel.service.name=mongot --jvmopt=-Dotel.metrics.exporter=none --jvmopt=-Dotel.logs.exporter=none
+--jvmopt=-javaagent:{full-path-to-source-dir}/otel-agent/opentelemetry-javaagent.jar --jvmopt=-Dotel.traces.exporter=otlp --jvmopt=-Dotel.exporter.otlp.endpoint=http://127.0.0.1:4318 --jvmopt=-Dotel.service.name=mongot --jvmopt=-Dotel.metrics.exporter=none --jvmopt=-Dotel.logs.exporter=none
 ```
-
-![intellij-run-config.png](intellij-run-config.png)
+e.g.
+```
+--jvmopt=-javaagent:/Users/luketn/code/personal/mongot/otel-agent/opentelemetry-javaagent.jar --jvmopt=-Dotel.traces.exporter=otlp --jvmopt=-Dotel.exporter.otlp.endpoint=http://127.0.0.1:4318 --jvmopt=-Dotel.service.name=mongot --jvmopt=-Dotel.metrics.exporter=none --jvmopt=-Dotel.logs.exporter=none
+```
+![img_3.png](img_3.png)

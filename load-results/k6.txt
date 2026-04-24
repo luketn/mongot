@@ -1,0 +1,68 @@
+k6 run -e K6_VUS=25 -e K6_DURATION=5m k6.js
+
+         /\      Grafana   /‾‾/
+    /\  /  \     |\  __   /  /
+   /  \/    \    | |/ /  /   ‾‾\
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/
+
+WARN[0000] "env" level configuration overrode scenarios configuration entirely
+     execution: local
+        script: k6.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 25 max VUs, 5m30s max duration (incl. graceful stop):
+              * default: 25 looping VUs for 5m0s (gracefulStop: 30s)
+
+
+
+  █ THRESHOLDS
+
+    http_req_duration
+    ✓ 'p(95)<750' p(95)=18.87ms
+    ✓ 'p(99)<1500' p(99)=22.26ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+    search_checks
+    ✓ 'rate>0.99' rate=100.00%
+
+
+  █ TOTAL RESULTS
+
+    checks_total.......................: 2298076 7659.910629/s
+    checks_succeeded...................: 100.00% 2298076 out of 2298076
+    checks_failed......................: 0.00%   0 out of 2298076
+
+    ✓ status is 200
+    ✓ response is json
+    ✓ docs is an array
+    ✓ meta is an array
+
+    CUSTOM
+    search_checks...........................................................: 100.00% 574519 out of 574519
+    search_docs_returned....................................................: avg=4.428905 min=0      med=5       max=5        p(90)=5       p(95)=5
+    search_requests.........................................................: 574519  1914.977657/s
+
+    HTTP
+    http_req_duration.......................................................: avg=12.76ms  min=2.36ms med=12.28ms max=208.43ms p(90)=17.43ms p(95)=18.87ms
+      { expected_response:true }............................................: avg=12.76ms  min=2.36ms med=12.28ms max=208.43ms p(90)=17.43ms p(95)=18.87ms
+    http_req_failed.........................................................: 0.00%   0 out of 574519
+    http_reqs...............................................................: 574519  1914.977657/s
+
+    EXECUTION
+    iteration_duration......................................................: avg=13.04ms  min=2.65ms med=12.54ms max=210.52ms p(90)=17.73ms p(95)=19.2ms
+    iterations..............................................................: 574519  1914.977657/s
+    vus.....................................................................: 25      min=25               max=25
+    vus_max.................................................................: 25      min=25               max=25
+
+    NETWORK
+    data_received...........................................................: 2.7 GB  9.1 MB/s
+    data_sent...............................................................: 84 MB   281 kB/s
+
+
+
+
+running (5m00.0s), 00/25 VUs, 574519 complete and 0 interrupted iterations
+default ✓ [======================================] 25 VUs  5m0s

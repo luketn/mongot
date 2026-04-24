@@ -18,6 +18,7 @@ import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.TimeGauge;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.search.RequiredSearch;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -367,6 +368,54 @@ public class MetricsFactory {
         0.75,
         0.9,
         0.99);
+  }
+
+  /**
+   * Used to track the duration of short-running tasks while also exporting explicit histogram
+   * buckets for Prometheus.
+   *
+   * <p>This preserves the standard percentile series while also enabling PromQL queries over
+   * {@code *_bucket} data such as {@code histogram_quantile()} and real heatmaps in Grafana.
+   *
+   * @param name name of the metric
+   * @param buckets explicit upper-bound bucket cutoffs
+   * @return a {@link Timer} that can be used to record durations
+   */
+  public Timer histogramTimer(String name, Duration... buckets) {
+    return histogramTimer(
+        name,
+        Tags.of("timeUnit", Enums.convertNameTo(CaseFormat.LOWER_CAMEL, TimeUnit.SECONDS)),
+        buckets);
+  }
+
+  /**
+   * Used to track the duration of short-running tasks while also exporting explicit histogram
+   * buckets for Prometheus.
+   *
+   * <p>This preserves the standard percentile series while also enabling PromQL queries over
+   * {@code *_bucket} data such as {@code histogram_quantile()} and real heatmaps in Grafana.
+   *
+   * @param name name of the metric
+   * @param meterTags additional tags to add to the exported timer
+   * @param buckets explicit upper-bound bucket cutoffs
+   * @return a {@link Timer} that can be used to record durations
+   */
+  public Timer histogramTimer(String name, Tags meterTags, Duration... buckets) {
+    boolean hasTimeUnitTag = meterTags.stream().anyMatch(tag -> tag.getKey().equals("timeUnit"));
+    var defaultTimeUnitTag =
+        Tags.of("timeUnit", Enums.convertNameTo(CaseFormat.LOWER_CAMEL, TimeUnit.SECONDS));
+
+    Timer timer =
+        Timer.builder(metricName(name))
+            .tags(
+                hasTimeUnitTag
+                    ? this.factoryTags.and(meterTags)
+                    : this.factoryTags.and(meterTags.and(defaultTimeUnitTag)))
+            .publishPercentiles(0.5, 0.75, 0.9, 0.99)
+            .serviceLevelObjectives(buckets)
+            .register(this.registry);
+    this.registeredMeters.add(timer);
+    return timer;
   }
 
   /**
