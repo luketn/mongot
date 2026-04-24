@@ -78,11 +78,15 @@ public class AutoEmbeddingMaterializedViewConfigTest {
               Optional.of(42),
               Optional.empty(),
               Optional.empty(),
+              Optional.empty(),
               Optional.of(30_000L),
               Optional.of(45_000L),
               Optional.of(1L),
               Optional.of(75),
-              Optional.of(60)));
+              Optional.of(60),
+              Optional.of(1000L),
+              Optional.of(2000L),
+              Optional.of(3000L)));
     }
 
     @Test
@@ -151,6 +155,11 @@ public class AutoEmbeddingMaterializedViewConfigTest {
       assertEquals(
           AutoEmbeddingMaterializedViewConfig.DEFAULT_PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT,
           config.perBatchMemoryBudgetHeapPercent);
+
+      // Interval defaults (milliseconds)
+      assertEquals(30_000L, config.leaseManagerHeartbeatIntervalMs);
+      assertEquals(30_000L, config.materializedViewStatusRefreshIntervalMs);
+      assertEquals(10_000L, config.materializedViewOptimeUpdateIntervalMs);
     }
 
     @Test
@@ -175,6 +184,10 @@ public class AutoEmbeddingMaterializedViewConfigTest {
               Optional.empty(),
               Optional.empty(),
               Optional.of(50),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),
@@ -208,6 +221,10 @@ public class AutoEmbeddingMaterializedViewConfigTest {
                   Optional.empty(),
                   Optional.empty(),
                   Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
+                  Optional.empty(),
                   Optional.empty()));
     }
 
@@ -229,6 +246,10 @@ public class AutoEmbeddingMaterializedViewConfigTest {
               Optional.empty(),
               Optional.empty(),
               Optional.of(75),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),
@@ -278,6 +299,10 @@ public class AutoEmbeddingMaterializedViewConfigTest {
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
               Optional.empty());
       assertEquals(8, config.matViewWriterMaxConnections);
     }
@@ -310,8 +335,114 @@ public class AutoEmbeddingMaterializedViewConfigTest {
               Optional.empty(),
               Optional.empty(),
               Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
               Optional.empty());
       assertEquals(4, config.matViewWriterMaxConnections);
+    }
+
+    @Test
+    public void testIntervalMs_customValues() {
+      AutoEmbeddingMaterializedViewConfig config =
+          AutoEmbeddingMaterializedViewConfig.create(
+              CommonReplicationConfig.defaultGlobalReplicationConfig(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.of(5000L),
+              Optional.of(15000L),
+              Optional.of(3000L));
+      assertEquals(5000L, config.leaseManagerHeartbeatIntervalMs);
+      assertEquals(15000L, config.materializedViewStatusRefreshIntervalMs);
+      assertEquals(3000L, config.materializedViewOptimeUpdateIntervalMs);
+    }
+
+    @Test
+    public void testIntervalMs_zeroFallsBackToDefault() {
+      AutoEmbeddingMaterializedViewConfig config =
+          AutoEmbeddingMaterializedViewConfig.create(
+              CommonReplicationConfig.defaultGlobalReplicationConfig(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.of(0L),
+              Optional.of(0L),
+              Optional.of(0L));
+      assertEquals(30_000L, config.leaseManagerHeartbeatIntervalMs);
+      assertEquals(30_000L, config.materializedViewStatusRefreshIntervalMs);
+      assertEquals(10_000L, config.materializedViewOptimeUpdateIntervalMs);
+    }
+
+    @Test
+    public void testIntervalMs_negativeFallsBackToDefault() {
+      AutoEmbeddingMaterializedViewConfig config =
+          AutoEmbeddingMaterializedViewConfig.create(
+              CommonReplicationConfig.defaultGlobalReplicationConfig(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.empty(),
+              Optional.of(-1L),
+              Optional.of(-100L),
+              Optional.of(-50L));
+      assertEquals(30_000L, config.leaseManagerHeartbeatIntervalMs);
+      assertEquals(30_000L, config.materializedViewStatusRefreshIntervalMs);
+      assertEquals(10_000L, config.materializedViewOptimeUpdateIntervalMs);
     }
   }
 }

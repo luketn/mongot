@@ -3,7 +3,9 @@ package com.xgen.mongot.index.lucene;
 import static com.xgen.mongot.index.lucene.LuceneSearchManager.QueryInfo;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.errorprone.annotations.Var;
 import com.xgen.mongot.index.lucene.quantization.BinaryQuantizedVectorRescorer;
+import com.xgen.mongot.index.lucene.query.NestedAvgVectorRescorer;
 import com.xgen.mongot.index.lucene.query.custom.WrappedKnnQuery;
 import com.xgen.mongot.index.lucene.searcher.LuceneIndexSearcher;
 import com.xgen.mongot.index.query.VectorSearchQuery;
@@ -29,13 +31,16 @@ public class LuceneVectorSearchManager implements LuceneSearchManager<QueryInfo>
   private final Query luceneQuery;
   private final VectorSearchCriteria criteria;
   private final Optional<BinaryQuantizedVectorRescorer> rescorer;
+  private final Optional<NestedAvgVectorRescorer> nestedAvgRescorer;
 
   public LuceneVectorSearchManager(
       Query luceneQuery,
       VectorSearchCriteria criteria,
-      Optional<BinaryQuantizedVectorRescorer> rescorer) {
+      Optional<BinaryQuantizedVectorRescorer> rescorer,
+      Optional<NestedAvgVectorRescorer> nestedAvgRescorer) {
 
     this.rescorer = rescorer;
+    this.nestedAvgRescorer = nestedAvgRescorer;
     this.luceneQuery = luceneQuery;
     this.criteria = criteria;
   }
@@ -44,8 +49,9 @@ public class LuceneVectorSearchManager implements LuceneSearchManager<QueryInfo>
   public QueryInfo initialSearch(LuceneIndexSearcherReference searcherReference, int batchSize)
       throws IOException {
 
+    boolean requiresAnyRescoring = this.rescorer.isPresent() || this.nestedAvgRescorer.isPresent();
     int hitsToCollect =
-        this.rescorer.isPresent()
+        requiresAnyRescoring
             // rescoring needs to operate on the full set of candidates
             ? ((ApproximateVectorSearchCriteria) this.criteria).numCandidates()
             : this.criteria.limit();
@@ -54,7 +60,15 @@ public class LuceneVectorSearchManager implements LuceneSearchManager<QueryInfo>
     TopScoreDocCollectorManager collectorManager =
         new TopScoreDocCollectorManager(hitsToCollect, 0);
 
-    TopDocs topCandidates = topCandidates(indexSearcher, collectorManager);
+    @Var TopDocs topCandidates = topCandidates(indexSearcher, collectorManager);
+
+    if (this.nestedAvgRescorer.isPresent()) {
+      topCandidates =
+          this.nestedAvgRescorer
+              .get()
+              .rescore(indexSearcher, topCandidates, this.luceneQuery, this.criteria.limit());
+    }
+
     TopDocs result =
         new TopDocs(
             // override number of hits to match the limit

@@ -784,6 +784,42 @@ public class MaterializedViewWriterTest {
     verify(this.mockCollection, times(1)).bulkWrite(any());
   }
 
+  @Test
+  public void testTenantPrefixedDatabaseName_usesCorrectNamespace()
+      throws IOException, FieldExceededLimitsException {
+    String tenantDb = "acme___mdb_internal_search";
+    MongoDatabase tenantMockDatabase = mock(MongoDatabase.class);
+    when(this.mockMongoClient.getDatabase(tenantDb)).thenReturn(tenantMockDatabase);
+    when(tenantMockDatabase.getCollection(MV_COLLECTION_NAME, RawBsonDocument.class))
+        .thenReturn(this.mockCollection);
+
+    var matViewWriter =
+        new MaterializedViewWriter(
+            this.autoEmbeddingMongoClient,
+            tenantDb,
+            MV_COLLECTION_NAME,
+            GENERATION_ID,
+            this.mockLeaseManager,
+            METRICS_FACTORY,
+            COLLECTION_UUID,
+            Optional.empty());
+
+    Assert.assertEquals(
+        new MongoNamespace(tenantDb, MV_COLLECTION_NAME), matViewWriter.getNamespace());
+
+    ObjectId indexId = new ObjectId();
+    RawBsonDocument document =
+        BsonUtils.documentToRaw(
+            new BsonDocument(indexId.toString(), new BsonDocument("_id", new BsonInt32(1))));
+    matViewWriter.updateIndex(
+        DocumentEvent.createInsert(
+            DocumentMetadata.fromMetadataNamespace(Optional.of(document), indexId), document));
+    matViewWriter.commit(EncodedUserData.EMPTY);
+
+    verify(this.mockMongoClient).getDatabase(tenantDb);
+    verify(this.mockCollection).bulkWrite(argThat(list -> list.size() == 1));
+  }
+
   private DocumentEvent createDocumentEvent(ObjectId indexId, int docId) {
     RawBsonDocument document =
         BsonUtils.documentToRaw(

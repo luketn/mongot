@@ -120,7 +120,7 @@ public class ConfigStateMocks {
       new EmbeddingServiceConfig(
           EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
           "voyage-3-large",
-          EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+          Optional.empty(),
           VOYAGE_3_CONFIG);
 
   public final StagedIndexes staged;

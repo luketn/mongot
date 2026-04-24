@@ -28,7 +28,8 @@ public class EmbeddingServiceRegistry {
       NamedScheduledExecutorService namedScheduledExecutorService,
       EmbeddingClientFactory embeddingClientFactory,
       MetricsFactory metricsFactory,
-      Optional<CongestionControlParams> congestionControl) {
+      Optional<CongestionControlParams> congestionControl,
+      Optional<Integer> embeddingProviderRpsLimit) {
     // TODO(CLOUDP-310761): Implement deregister individual model/provider config later.
     if (embeddingServiceConfigs.isEmpty()) {
       clearRegistry();
@@ -43,7 +44,10 @@ public class EmbeddingServiceRegistry {
               // TODO(CLOUDP-335133): Decouple model and provider specific configs
               EmbeddingModelConfig newConfig =
                   EmbeddingModelConfig.create(
-                      modelKey, serviceConfig.embeddingProvider, serviceConfig.embeddingConfig);
+                      modelKey,
+                      serviceConfig.embeddingProvider,
+                      serviceConfig.embeddingConfig,
+                      serviceConfig.rpsPerProvider);
               EmbeddingModelCatalog.registerModelConfig(modelKey, newConfig);
               // Register compatible models from the config (model itself is auto-included)
               EmbeddingModelCatalog.registerCompatibleModels(
@@ -57,7 +61,8 @@ public class EmbeddingServiceRegistry {
                               embeddingClientFactory,
                               namedScheduledExecutorService,
                               metricsFactory,
-                              congestionControl))
+                              congestionControl,
+                              embeddingProviderRpsLimit))
                   .updateEmbeddingProviderManager(newConfig);
             });
   }

@@ -18,6 +18,7 @@ java_library(
     exports = [
         "//src/main/java/com/xgen/mongot/index/path/string",
         "@maven//:org_apache_lucene_lucene_core",
+        "@maven//:org_apache_lucene_lucene_join",
         "@maven//:org_mongodb_bson",
     ],
     deps = [

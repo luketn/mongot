@@ -23,6 +23,21 @@ public record EmbeddingModelConfig(
     ConsolidatedWorkloadParams collectionScan) {
   public static EmbeddingModelConfig create(
       String model, EmbeddingProvider provider, EmbeddingConfig config) {
+    return create(model, provider, config, Optional.empty());
+  }
+
+  /**
+   * Creates an EmbeddingModelConfig, merging the outer per-model
+   * rpsPerProvider with the inner {@code config.rpsPerProvider}.
+   * When both are present the minimum is used so every configured
+   * value acts as an upper bound.
+   */
+  public static EmbeddingModelConfig create(
+      String model,
+      EmbeddingProvider provider,
+      EmbeddingConfig config,
+      Optional<Integer> outerRpsPerProvider) {
+    Optional<Integer> rps = optionalMin(outerRpsPerProvider, config.rpsPerProvider);
     return new EmbeddingModelConfig(
         model,
         provider,
@@ -33,7 +48,7 @@ public record EmbeddingModelConfig(
             config.getErrorHandlingConfigBase(),
             config.getCredentialsBase(),
             config.getProviderEndpoint(),
-            config.rpsPerProvider,
+            rps,
             config.getQueryParams().flatMap(params -> params.tenantCredentials),
             config.tenantCredentials,
             config.isDedicatedCluster),
@@ -43,7 +58,7 @@ public record EmbeddingModelConfig(
             config.getErrorHandlingConfigBase(),
             config.getCredentialsBase(),
             config.getProviderEndpoint(),
-            config.rpsPerProvider,
+            rps,
             config.getChangeStreamParams().flatMap(params -> params.tenantCredentials),
             config.tenantCredentials,
             config.isDedicatedCluster),
@@ -53,7 +68,7 @@ public record EmbeddingModelConfig(
             config.getErrorHandlingConfigBase(),
             config.getCredentialsBase(),
             config.getProviderEndpoint(),
-            config.rpsPerProvider,
+            rps,
             config.getCollectionScanParams().flatMap(params -> params.tenantCredentials),
             config.tenantCredentials,
             config.isDedicatedCluster));
@@ -284,5 +299,17 @@ public record EmbeddingModelConfig(
           this.perTenantCredentials.orElse(null),
           this.isDedicatedCluster);
     }
+  }
+
+  /**
+   * Returns the minimum of two optional integers. If only one is
+   * present, returns that one. If neither is present, returns empty.
+   */
+  public static Optional<Integer> optionalMin(
+      Optional<Integer> a, Optional<Integer> b) {
+    if (a.isPresent() && b.isPresent()) {
+      return Optional.of(Math.min(a.get(), b.get()));
+    }
+    return a.isPresent() ? a : b;
   }
 }

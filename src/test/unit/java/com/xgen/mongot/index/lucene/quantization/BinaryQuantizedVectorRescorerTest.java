@@ -11,8 +11,8 @@ import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.IndexDefinition;
 import com.xgen.mongot.index.definition.VectorFieldSpecification;
 import com.xgen.mongot.index.definition.VectorIndexingAlgorithm;
-import com.xgen.mongot.index.definition.VectorQuantization;
 import com.xgen.mongot.index.definition.VectorSimilarity;
+import com.xgen.mongot.index.definition.quantization.VectorQuantization;
 import com.xgen.mongot.index.lucene.LuceneIndexSearcherReference;
 import com.xgen.mongot.index.lucene.LuceneVectorSearchManager;
 import com.xgen.mongot.index.lucene.codec.LuceneCodec;
@@ -553,7 +553,8 @@ public class BinaryQuantizedVectorRescorerTest {
     KnnFloatVectorQuery luceneQuery =
         new MongotKnnFloatQuery(metrics, this.vectorFieldName, queryVector, numCandidates);
 
-    return new LuceneVectorSearchManager(luceneQuery, vectorQuery.criteria(), Optional.empty());
+    return new LuceneVectorSearchManager(
+        luceneQuery, vectorQuery.criteria(), Optional.empty(), Optional.empty());
   }
 
   private static ApproximateVectorSearchCriteria createVectorSearchQuery(

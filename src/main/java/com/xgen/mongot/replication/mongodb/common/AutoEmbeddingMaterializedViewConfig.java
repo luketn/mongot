@@ -3,6 +3,7 @@ package com.xgen.mongot.replication.mongodb.common;
 import com.google.common.annotations.VisibleForTesting;
 import com.xgen.mongot.embedding.AutoEmbeddingMemoryBudget;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig;
+import com.xgen.mongot.embedding.providers.congestion.AimdCongestionControl;
 import com.xgen.mongot.embedding.providers.congestion.AimdCongestionControl.CongestionControlParams;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.Runtime;
@@ -33,6 +34,12 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
   private static final int DEFAULT_MAT_VIEW_WRITER_MAX_CONNECTIONS = 4;
   private static final int MAX_MAT_VIEW_WRITER_MAX_CONNECTIONS = 16;
   private static final long DEFAULT_MATERIALIZED_VIEW_NAME_FORMAT_VERSION = 1;
+  private static final long DEFAULT_LEASE_MANAGER_HEARTBEAT_INTERVAL_MS =
+      Duration.ofSeconds(30).toMillis();
+  private static final long DEFAULT_MATERIALIZED_VIEW_STATUS_REFRESH_INTERVAL_MS =
+      Duration.ofSeconds(30).toMillis();
+  private static final long DEFAULT_MATERIALIZED_VIEW_OPTIME_UPDATE_INTERVAL_MS =
+      Duration.ofSeconds(10).toMillis();
 
   /**
    * Default memory budget as a percentage of JVM heap. The global default is 100% (unbounded). The
@@ -101,6 +108,13 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
   public final Optional<Integer> mvWriteRateLimitRps;
 
   /**
+   * Node-level rate limit (RPS) for embedding provider API calls.
+   * Merged with per-model values using min so every value acts as
+   * an upper bound.
+   */
+  public final Optional<Integer> embeddingProviderRpsLimit;
+
+  /**
    * AIMD congestion control parameters for flex-tier / embedding provider rate limiting (collection
    * scan workloads). When empty, {@link AimdCongestionControl} defaults apply at runtime.
    */
@@ -160,6 +174,17 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
    */
   public final int perBatchMemoryBudgetHeapPercent;
 
+  /** The interval in milliseconds at which the lease manager heartbeat task runs. */
+  public final long leaseManagerHeartbeatIntervalMs;
+
+  /**
+   * The interval in milliseconds at which the materialized view manager status refresh task runs.
+   */
+  public final long materializedViewStatusRefreshIntervalMs;
+
+  /** The interval in milliseconds at which the materialized view index optime is updated. */
+  public final long materializedViewOptimeUpdateIntervalMs;
+
   private AutoEmbeddingMaterializedViewConfig(
       boolean pauseAllInitialSyncs,
       List<ObjectId> pauseInitialSyncOnIndexIds,
@@ -179,13 +204,17 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Integer> embeddingGetMoreBatchSize,
       Optional<Integer> materializedViewSchemaVersion,
       Optional<Integer> mvWriteRateLimitRps,
+      Optional<Integer> embeddingProviderRpsLimit,
       Optional<CongestionControlParams> congestionControl,
       Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads,
       Optional<Duration> resyncBackoff,
       Optional<Duration> transientBackoff,
       long defaultMaterializedViewNameFormatVersion,
       int globalMemoryBudgetHeapPercent,
-      int perBatchMemoryBudgetHeapPercent) {
+      int perBatchMemoryBudgetHeapPercent,
+      long leaseManagerHeartbeatIntervalMs,
+      long materializedViewStatusRefreshIntervalMs,
+      long materializedViewOptimeUpdateIntervalMs) {
     super(
         pauseAllInitialSyncs,
         pauseInitialSyncOnIndexIds,
@@ -203,6 +232,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     this.requestRateLimitBackoffMs = requestRateLimitBackoffMs;
     this.materializedViewSchemaVersion = materializedViewSchemaVersion;
     this.mvWriteRateLimitRps = mvWriteRateLimitRps;
+    this.embeddingProviderRpsLimit = embeddingProviderRpsLimit;
     this.congestionControl = congestionControl;
     this.flexTierWorkloads = flexTierWorkloads;
     this.matViewWriterMaxConnections = matViewWriterMaxConnections;
@@ -212,6 +242,9 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     this.defaultMaterializedViewNameFormatVersion = defaultMaterializedViewNameFormatVersion;
     this.globalMemoryBudgetHeapPercent = globalMemoryBudgetHeapPercent;
     this.perBatchMemoryBudgetHeapPercent = perBatchMemoryBudgetHeapPercent;
+    this.leaseManagerHeartbeatIntervalMs = leaseManagerHeartbeatIntervalMs;
+    this.materializedViewStatusRefreshIntervalMs = materializedViewStatusRefreshIntervalMs;
+    this.materializedViewOptimeUpdateIntervalMs = materializedViewOptimeUpdateIntervalMs;
   }
 
   /**
@@ -233,13 +266,17 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Integer> embeddingGetMoreBatchSize,
       Optional<Integer> materializedViewSchemaVersion,
       Optional<Integer> mvWriteRateLimitRps,
+      Optional<Integer> embeddingProviderRpsLimit,
       Optional<CongestionControlParams> congestionControl,
       Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads,
       Optional<Long> optionalResyncBackoffMs,
       Optional<Long> optionalTransientBackoffMs,
       Optional<Long> defaultMaterializedViewNameFormatVersion,
       Optional<Integer> globalMemoryBudgetHeapPercent,
-      Optional<Integer> perBatchMemoryBudgetHeapPercent) {
+      Optional<Integer> perBatchMemoryBudgetHeapPercent,
+      Optional<Long> optionalLeaseManagerHeartbeatIntervalMs,
+      Optional<Long> optionalMaterializedViewStatusRefreshIntervalMs,
+      Optional<Long> optionalMaterializedViewOptimeUpdateIntervalMs) {
     return create(
         Runtime.INSTANCE,
         globalReplicationConfig,
@@ -256,13 +293,17 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         embeddingGetMoreBatchSize,
         materializedViewSchemaVersion,
         mvWriteRateLimitRps,
+        embeddingProviderRpsLimit,
         congestionControl,
         flexTierWorkloads,
         optionalResyncBackoffMs,
         optionalTransientBackoffMs,
         defaultMaterializedViewNameFormatVersion,
         globalMemoryBudgetHeapPercent,
-        perBatchMemoryBudgetHeapPercent);
+        perBatchMemoryBudgetHeapPercent,
+        optionalLeaseManagerHeartbeatIntervalMs,
+        optionalMaterializedViewStatusRefreshIntervalMs,
+        optionalMaterializedViewOptimeUpdateIntervalMs);
   }
 
   /** Used for testing. The above create() method should be called instead. */
@@ -283,13 +324,17 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
       Optional<Integer> embeddingGetMoreBatchSize,
       Optional<Integer> materializedViewSchemaVersion,
       Optional<Integer> mvWriteRateLimitRps,
+      Optional<Integer> embeddingProviderRpsLimit,
       Optional<CongestionControlParams> congestionControl,
       Optional<Set<EmbeddingServiceConfig.ServiceTier>> flexTierWorkloads,
       Optional<Long> optionalResyncBackoffMs,
       Optional<Long> optionalTransientBackoffMs,
       Optional<Long> optionalMaterializedViewNameFormatVersion,
       Optional<Integer> optionalGlobalMemoryBudgetHeapPercent,
-      Optional<Integer> optionalPerBatchMemoryBudgetHeapPercent) {
+      Optional<Integer> optionalPerBatchMemoryBudgetHeapPercent,
+      Optional<Long> optionalLeaseManagerHeartbeatIntervalMs,
+      Optional<Long> optionalMaterializedViewStatusRefreshIntervalMs,
+      Optional<Long> optionalMaterializedViewOptimeUpdateIntervalMs) {
 
     int maxConcurrentEmbeddingInitialSyncs =
         getMaxConcurrentEmbeddingInitialSyncsWithDefault(
@@ -341,6 +386,15 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     Check.argIsPositive(requestRateLimitBackoffMs, "requestRateLimitBackoffMs");
 
     mvWriteRateLimitRps.ifPresent(value -> Check.argIsPositive(value, "mvWriteRateLimitRps"));
+    embeddingProviderRpsLimit.ifPresent(
+        value -> {
+          Check.argIsPositive(value, "embeddingProviderRpsLimit");
+          Check.checkArg(
+              value <= EmbeddingServiceConfig.MAX_RPS_PER_PROVIDER,
+              "embeddingProviderRpsLimit must be at most %s, got %s",
+              EmbeddingServiceConfig.MAX_RPS_PER_PROVIDER,
+              value);
+        });
 
     congestionControl.ifPresent(
         c -> {
@@ -381,6 +435,22 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
             "perBatchMemoryBudgetHeapPercent",
             DEFAULT_PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT);
 
+    long leaseManagerHeartbeatIntervalMs =
+        getIntervalMsWithDefault(
+            optionalLeaseManagerHeartbeatIntervalMs,
+            "leaseManagerHeartbeatIntervalMs",
+            DEFAULT_LEASE_MANAGER_HEARTBEAT_INTERVAL_MS);
+    long materializedViewStatusRefreshIntervalMs =
+        getIntervalMsWithDefault(
+            optionalMaterializedViewStatusRefreshIntervalMs,
+            "materializedViewStatusRefreshIntervalMs",
+            DEFAULT_MATERIALIZED_VIEW_STATUS_REFRESH_INTERVAL_MS);
+    long materializedViewOptimeUpdateIntervalMs =
+        getIntervalMsWithDefault(
+            optionalMaterializedViewOptimeUpdateIntervalMs,
+            "materializedViewOptimeUpdateIntervalMs",
+            DEFAULT_MATERIALIZED_VIEW_OPTIME_UPDATE_INTERVAL_MS);
+
     return new AutoEmbeddingMaterializedViewConfig(
         globalReplicationConfig.pauseAllInitialSyncs(),
         globalReplicationConfig.pauseInitialSyncOnIndexIds(),
@@ -400,13 +470,33 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         embeddingGetMoreBatchSize,
         materializedViewSchemaVersion,
         mvWriteRateLimitRps,
+        embeddingProviderRpsLimit,
         congestionControl,
         flexTierWorkloads,
         resyncBackoff,
         transientBackoff,
         defaultMaterializedViewNameFormatVersion,
         globalMemoryBudgetHeapPercent,
-        perBatchMemoryBudgetHeapPercent);
+        perBatchMemoryBudgetHeapPercent,
+        leaseManagerHeartbeatIntervalMs,
+        materializedViewStatusRefreshIntervalMs,
+        materializedViewOptimeUpdateIntervalMs);
+  }
+
+  private static long getIntervalMsWithDefault(
+      Optional<Long> optionalIntervalMs, String name, long defaultMs) {
+    long value =
+        optionalIntervalMs.orElseGet(
+            () -> {
+              LOG.info("{} not configured, defaulting to {}ms.", name, defaultMs);
+              return defaultMs;
+            });
+    if (value <= 0) {
+      LOG.warn(
+          "{} must be positive, got {}. Falling back to default {}ms.", name, value, defaultMs);
+      return defaultMs;
+    }
+    return value;
   }
 
   /**
@@ -435,6 +525,10 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
         Optional.empty());
   }
 
@@ -444,6 +538,10 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     return create(
         runtime,
         defaultGlobalReplicationConfig(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty(),
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
@@ -494,6 +592,7 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
         .field(Fields.EMBEDDING_GET_MORE_BATCH_SIZE, this.embeddingGetMoreBatchSize)
         .field(Fields.MATERIALIZED_VIEW_SCHEMA_VERSION, this.materializedViewSchemaVersion)
         .field(Fields.MV_WRITE_RATE_LIMIT_RPS, this.mvWriteRateLimitRps)
+        .field(Fields.EMBEDDING_PROVIDER_RPS_LIMIT, this.embeddingProviderRpsLimit)
         .field(Fields.CONGESTION_CONTROL, this.congestionControl)
         .field(
             Fields.FLEX_TIER_WORKLOADS,
@@ -507,6 +606,14 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
             Fields.GLOBAL_MEMORY_BUDGET_HEAP_PERCENT, this.globalMemoryBudgetHeapPercent)
         .fieldOmitDefaultValue(
             Fields.PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT, this.perBatchMemoryBudgetHeapPercent)
+        .field(
+            Fields.LEASE_MANAGER_HEARTBEAT_INTERVAL_MS, this.leaseManagerHeartbeatIntervalMs)
+        .field(
+            Fields.MATERIALIZED_VIEW_STATUS_REFRESH_INTERVAL_MS,
+            this.materializedViewStatusRefreshIntervalMs)
+        .field(
+            Fields.MATERIALIZED_VIEW_OPTIME_UPDATE_INTERVAL_MS,
+            this.materializedViewOptimeUpdateIntervalMs)
         .build();
   }
 
@@ -562,6 +669,10 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
 
   public Optional<Integer> getMvWriteRateLimitRps() {
     return this.mvWriteRateLimitRps;
+  }
+
+  public Optional<Integer> getEmbeddingProviderRpsLimit() {
+    return this.embeddingProviderRpsLimit;
   }
 
   private static int getMaxConcurrentEmbeddingInitialSyncsWithDefault(
@@ -806,6 +917,13 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
     private static final Field.Optional<Integer> MV_WRITE_RATE_LIMIT_RPS =
         Field.builder("mvWriteRateLimitRps").intField().mustBePositive().optional().noDefault();
 
+    private static final Field.Optional<Integer> EMBEDDING_PROVIDER_RPS_LIMIT =
+        Field.builder("embeddingProviderRpsLimit")
+            .intField()
+            .mustBePositive()
+            .optional()
+            .noDefault();
+
     private static final Field.Optional<CongestionControlParams> CONGESTION_CONTROL =
         Field.builder("congestionControl")
             .classField(CongestionControlParams::fromBson)
@@ -850,5 +968,26 @@ public final class AutoEmbeddingMaterializedViewConfig extends CommonReplication
             .mustBePositive()
             .optional()
             .withDefault(DEFAULT_PER_BATCH_MEMORY_BUDGET_HEAP_PERCENT);
+
+    private static final Field.WithDefault<Long> LEASE_MANAGER_HEARTBEAT_INTERVAL_MS =
+        Field.builder("leaseManagerHeartbeatIntervalMs")
+            .longField()
+            .mustBePositive()
+            .optional()
+            .withDefault(DEFAULT_LEASE_MANAGER_HEARTBEAT_INTERVAL_MS);
+
+    private static final Field.WithDefault<Long> MATERIALIZED_VIEW_STATUS_REFRESH_INTERVAL_MS =
+        Field.builder("materializedViewStatusRefreshIntervalMs")
+            .longField()
+            .mustBePositive()
+            .optional()
+            .withDefault(DEFAULT_MATERIALIZED_VIEW_STATUS_REFRESH_INTERVAL_MS);
+
+    private static final Field.WithDefault<Long> MATERIALIZED_VIEW_OPTIME_UPDATE_INTERVAL_MS =
+        Field.builder("materializedViewOptimeUpdateIntervalMs")
+            .longField()
+            .mustBePositive()
+            .optional()
+            .withDefault(DEFAULT_MATERIALIZED_VIEW_OPTIME_UPDATE_INTERVAL_MS);
   }
 }

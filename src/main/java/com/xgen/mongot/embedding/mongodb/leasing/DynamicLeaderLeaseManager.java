@@ -22,6 +22,7 @@ import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalo
 import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
+import com.xgen.mongot.embedding.mongodb.common.InternalDatabaseResolver;
 import com.xgen.mongot.embedding.utils.MongoClientOperationExecutor;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.IndexGeneration;
@@ -68,9 +69,6 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
   private static final Logger LOG = LoggerFactory.getLogger(DynamicLeaderLeaseManager.class);
 
-  // TODO(CLOUDP-356242): make this configurable
-  private static final String AUTO_EMBEDDING_INTERNAL_DATABASE_NAME = "__mdb_internal_search";
-
   private static final String METRICS_NAMESPACE = "embedding.leasing.stats";
 
   @VisibleForTesting static final String LEASE_COLLECTION_NAME = "auto_embedding_leases";
@@ -88,7 +86,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   // Maps GenerationId to its definition version (as String) for use in pollFollowerStatuses().
   private final Map<MaterializedViewGenerationId, String> matViewGenerationIdToDefinitionVersion;
   private final MaterializedViewCollectionMetadataCatalog mvMetadataCatalog;
-  private final String databaseName;
+  private final InternalDatabaseResolver dbResolver;
+  private final Map<String, String> leaseKeyToDatabase;
   private final AutoEmbeddingMongoClient autoEmbeddingMongoClient;
   // End of give-up blackout (epoch ms). While now < this, do not acquire leadership.
   private final AtomicLong giveUpBlackoutEndTimeMs = new AtomicLong(0);
@@ -97,7 +96,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
       AutoEmbeddingMongoClient autoEmbeddingMongoClient,
       MetricsFactory metricsFactory,
       String hostname,
-      String databaseName,
+      InternalDatabaseResolver dbResolver,
       MaterializedViewCollectionMetadataCatalog mvMetadataCatalog) {
     this.operationExecutor =
         new MongoClientOperationExecutor(metricsFactory, "leaseTableCollection");
@@ -107,7 +106,8 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     this.leaderGenerationIds = ConcurrentHashMap.newKeySet();
     this.followerGenerationIds = ConcurrentHashMap.newKeySet();
     this.matViewGenerationIdToDefinitionVersion = new ConcurrentHashMap<>();
-    this.databaseName = databaseName;
+    this.dbResolver = dbResolver;
+    this.leaseKeyToDatabase = new ConcurrentHashMap<>();
     this.autoEmbeddingMongoClient = autoEmbeddingMongoClient;
   }
 
@@ -115,6 +115,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
       AutoEmbeddingMongoClient autoEmbeddingMongoClient,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
       String hostname,
+      InternalDatabaseResolver dbResolver,
       MaterializedViewCollectionMetadataCatalog mvMetadataCatalog,
       LeaseManagerOpsCommands opsCommands) {
     DynamicLeaderLeaseManager manager =
@@ -122,7 +123,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
             autoEmbeddingMongoClient,
             new MetricsFactory(METRICS_NAMESPACE, meterAndFtdcRegistry.meterRegistry()),
             hostname,
-            AUTO_EMBEDDING_INTERNAL_DATABASE_NAME,
+            dbResolver,
             mvMetadataCatalog);
     manager.opsGiveUpLease(opsCommands.opsGiveUpLease());
     return manager;
@@ -189,7 +190,9 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
       try {
         UpdateResult result =
             this.operationExecutor.execute(
-                "giveUpLease", () -> this.getCollection().replaceOne(filter, released.toBson()));
+                "giveUpLease",
+                () -> this.getCollection(getDatabaseForLease(leaseKeyToGiveUp))
+                    .replaceOne(filter, released.toBson()));
         if (result.getModifiedCount() == 1) {
           this.leases.put(leaseKeyToGiveUp, released);
           LOG.atInfo()
@@ -224,19 +227,26 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
    * }
    * }</pre>
    */
+  @VisibleForTesting
   public void syncLeasesFromMongod() {
     try {
+      String defaultDb = this.dbResolver.resolveDefault();
       List<BsonDocument> rawLeases =
           this.operationExecutor.execute(
-              "getLeases", () -> this.getCollection().find().into(new ArrayList<>()));
+              "getLeases",
+              () -> this.getCollection(defaultDb).find().into(new ArrayList<>()));
       for (BsonDocument rawLease : rawLeases) {
-        Lease lease = normalizeLeaseIfNeeded(Lease.fromBson(rawLease));
+        // Populate the database mapping before normalization so that getDatabaseForLease()
+        // resolves correctly when normalizeLeaseIfNeeded() calls back into it for UUID resolution.
+        Lease parsed = Lease.fromBson(rawLease);
+        this.leaseKeyToDatabase.putIfAbsent(parsed.id(), defaultDb);
+        Lease lease = normalizeLeaseIfNeeded(parsed);
         if (lease != null) {
           this.leases.put(lease.id(), lease);
         } else {
           // TODO(CLOUDP-384971): clean up corrupted leases
           LOG.atError()
-              .addKeyValue("leaseId", rawLease.getString("_id"))
+              .addKeyValue("leaseId", parsed.id())
               .log("Corrupted lease found, skipping");
         }
       }
@@ -268,7 +278,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
                       Check.isPresent(
                           this.autoEmbeddingMongoClient.getLeaseManagerMongoClient(),
                           "leaseManagerMongoClient"),
-                      this.databaseName,
+                      getDatabaseForLease(lease.id()),
                       lease.materializedViewCollectionMetadata().collectionName()),
                   MongoDbCollectionInfo.Collection.class)
               .info()
@@ -306,6 +316,9 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
         Check.instanceOf(indexGeneration.getGenerationId(), MaterializedViewGenerationId.class);
     String versionKey = getIndexDefinitionVersion(indexGeneration.getDefinition());
     this.matViewGenerationIdToDefinitionVersion.put(generationId, versionKey);
+    this.leaseKeyToDatabase.put(
+        getLeaseKey(generationId),
+        this.dbResolver.resolve(indexGeneration.getDefinition().getDatabase()));
 
     if (this.leases.containsKey(getLeaseKey(generationId))) {
       // Lease exists in memory - check if we own it.
@@ -375,7 +388,18 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
   @Override
   public CompletableFuture<Void> dropLease(String leaseKey) {
-
+    String dbName;
+    try {
+      dbName = getDatabaseForLease(leaseKey);
+    } catch (IllegalStateException e) {
+      LOG.warn(
+          "No database mapping for lease key {} during drop, skipping DB cleanup. "
+              + "Lease document may remain in database.",
+          leaseKey,
+          e);
+      this.leases.remove(leaseKey);
+      return COMPLETED_FUTURE;
+    }
     // Only delete the lease from the database if we own the lease.
     // Enforce ownership check in the filter to handle stale in-memory state.
     Lease lease = this.leases.get(leaseKey);
@@ -387,6 +411,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
       // Remove the lease from memory first, then delete it from DB.
       // This ensures we stop considering ourselves the leader immediately.
       this.leases.remove(leaseKey);
+      this.leaseKeyToDatabase.remove(leaseKey);
       return CompletableFuture.runAsync(
           () -> {
             try {
@@ -394,7 +419,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
                   Filters.and(
                       Filters.eq("_id", leaseKey),
                       Filters.eq(Lease.Fields.LEASE_OWNER.getName(), this.hostname));
-              var deleteResult = this.getCollection().deleteOne(filter);
+              var deleteResult = this.getCollection(dbName).deleteOne(filter);
               if (deleteResult.getDeletedCount() > 0) {
                 LOG.atInfo()
                     .addKeyValue("leaseKey", leaseKey)
@@ -430,6 +455,7 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
           .log("Dropping index - no lease found in memory");
     }
     this.leases.remove(leaseKey);
+    this.leaseKeyToDatabase.remove(leaseKey);
     return COMPLETED_FUTURE;
   }
 
@@ -578,21 +604,44 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
       return new LeaseManager.FollowerPollResult(statuses, acquirableLeases);
     }
 
-    // Batch fetch all follower leases from the database.
+    // Group lease keys by resolved database name so each batch query
+    // targets a single database (one group for dedicated, potentially
+    // many for MTM).
+    Map<String, List<String>> dbToLeaseKeys = new HashMap<>();
+    for (String leaseKey : leaseKeys) {
+      try {
+        dbToLeaseKeys
+            .computeIfAbsent(getDatabaseForLease(leaseKey), k -> new ArrayList<>())
+            .add(leaseKey);
+      } catch (IllegalStateException e) {
+        // Concurrent drop() removed the database mapping between the leaseKey resolution loop
+        // above and this grouping step. Skip the key; it will be cleaned up by drop().
+        LOG.warn(
+            "No database mapping for lease key {} during follower poll, skipping.", leaseKey, e);
+      }
+    }
+
+    // Batch fetch follower leases, one query per database.
     Map<String, Lease> fetchedLeases = new HashMap<>();
     try {
-      List<BsonDocument> rawLeases =
-          this.operationExecutor.execute(
-              "getFollowerLeases",
-              () ->
-                  this.getCollection().find(Filters.in("_id", leaseKeys)).into(new ArrayList<>()));
-      for (BsonDocument rawLease : rawLeases) {
-        Lease lease = Lease.fromBson(rawLease);
-        fetchedLeases.put(lease.id(), lease);
+      for (var entry : dbToLeaseKeys.entrySet()) {
+        String dbName = entry.getKey();
+        List<String> keys = entry.getValue();
+        List<BsonDocument> rawLeases =
+            this.operationExecutor.execute(
+                "getFollowerLeases",
+                () ->
+                    this.getCollection(dbName)
+                        .find(Filters.in("_id", keys))
+                        .into(new ArrayList<>()));
+        for (BsonDocument rawLease : rawLeases) {
+          Lease lease = Lease.fromBson(rawLease);
+          fetchedLeases.put(lease.id(), lease);
+        }
       }
       LOG.atDebug()
           .addKeyValue("requestedCount", leaseKeys.size())
-          .addKeyValue("fetchedCount", rawLeases.size())
+          .addKeyValue("fetchedCount", fetchedLeases.size())
           .log("Batch fetched follower leases");
     } catch (Exception e) {
       LOG.warn("Failed to batch fetch follower leases, falling back to UNKNOWN status", e);
@@ -774,6 +823,10 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
       MaterializedViewIndexDefinitionGeneration indexDefinitionGeneration,
       MaterializedViewCollectionMetadata proposedMetadata)
       throws Exception {
+    this.leaseKeyToDatabase.put(
+        proposedMetadata.collectionName(),
+        this.dbResolver.resolve(
+            indexDefinitionGeneration.getIndexDefinition().getDatabase()));
     @Var var existingLease = this.leases.get(proposedMetadata.collectionName());
     if (existingLease == null) {
       // Try to get lease from database and update in memory state.
@@ -821,6 +874,11 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     return ImmutableMap.copyOf(this.leases);
   }
 
+  @VisibleForTesting
+  Map<String, String> getLeaseKeyToDatabase() {
+    return ImmutableMap.copyOf(this.leaseKeyToDatabase);
+  }
+
   /**
    * Creates a new lease in the database for a new index. Uses insertOne to atomically detect
    * conflicts - if another instance already created the lease, we get a duplicate key error.
@@ -841,7 +899,9 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
   private boolean createLeaseForNewIndex(Lease newLease) throws Exception {
     try {
       this.operationExecutor.execute(
-          "createLease", () -> this.getCollection().insertOne(newLease.toBson()));
+          "createLease",
+          () -> this.getCollection(getDatabaseForLease(newLease.id()))
+              .insertOne(newLease.toBson()));
       // Insert succeeded - we created the lease and synchronized in-memory lease state.
       this.leases.put(newLease.id(), newLease);
       // Don't add or remove generationId into this.followerGenerationIds or
@@ -910,7 +970,9 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
     var result =
         this.operationExecutor.execute(
-            "acquireLease", () -> this.getCollection().replaceOne(filter, newLease.toBson()));
+            "acquireLease",
+            () -> this.getCollection(getDatabaseForLease(getLeaseKey(generationId)))
+                .replaceOne(filter, newLease.toBson()));
 
     if (result.getMatchedCount() > 0) {
       this.leases.put(getLeaseKey(generationId), newLease);
@@ -1108,7 +1170,9 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
 
       var result =
           this.operationExecutor.execute(
-              "renewLease", () -> this.getCollection().replaceOne(filter, renewedLease.toBson()));
+              "renewLease",
+              () -> this.getCollection(getDatabaseForLease(getLeaseKey(generationId)))
+                  .replaceOne(filter, renewedLease.toBson()));
 
       if (result.getMatchedCount() > 0) {
         // Successfully renewed.
@@ -1227,7 +1291,9 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
     BsonDocument rawLease =
         this.operationExecutor.execute(
             "getLease",
-            () -> this.getCollection().find(new Document("_id", collectionName)).first());
+            () -> this.getCollection(getDatabaseForLease(collectionName))
+                .find(new Document("_id", collectionName))
+                .first());
     if (rawLease == null) {
       return null;
     }
@@ -1285,7 +1351,9 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
                   Filters.eq(Lease.Fields.COMMIT_INFO.getName(), encodedUserData.asString())));
       var result =
           this.operationExecutor.execute(
-              "updateLease", () -> this.getCollection().replaceOne(filter, updatedLease.toBson()));
+              "updateLease",
+              () -> this.getCollection(getDatabaseForLease(getLeaseKey(generationId)))
+                  .replaceOne(filter, updatedLease.toBson()));
       if (result.getMatchedCount() == 0) {
         // OCC failure - we lost leadership (or lease was deleted during index drop).
         becomeFollower(generationId);
@@ -1306,18 +1374,30 @@ public class DynamicLeaderLeaseManager implements LeaseManager {
         indexDefinition.getDefinitionVersion().orElse(DEFAULT_INDEX_DEFINITION_VERSION));
   }
 
-  private MongoCollection<BsonDocument> getCollection() throws MaterializedViewTransientException {
+  private String getDatabaseForLease(String leaseKey) {
+    String db = this.leaseKeyToDatabase.get(leaseKey);
+    if (db == null) {
+      throw new IllegalStateException(
+          "No database mapping found for lease key '"
+              + leaseKey
+              + "'. Ensure add() or initializeLease() has been called before operating on this"
+              + " key.");
+    }
+    return db;
+  }
+
+  private MongoCollection<BsonDocument> getCollection(
+      String databaseName) throws MaterializedViewTransientException {
     try {
       return Check.isPresent(
-              this.autoEmbeddingMongoClient.getLeaseManagerMongoClient(), "leaseManagerMongoClient")
-          .getDatabase(this.databaseName)
+              this.autoEmbeddingMongoClient.getLeaseManagerMongoClient(),
+              "leaseManagerMongoClient")
+          .getDatabase(databaseName)
           .getCollection(LEASE_COLLECTION_NAME, BsonDocument.class)
           .withReadConcern(ReadConcern.LINEARIZABLE)
           .withReadPreference(ReadPreference.primary())
           .withWriteConcern(WriteConcern.MAJORITY);
     } catch (AssertionError e) {
-      // Catches empty this.autoEmbeddingMongoClient.getLeaseManagerMongoClient() when sync source
-      // is missing.
       throw new MaterializedViewTransientException(e);
     }
   }

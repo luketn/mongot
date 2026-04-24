@@ -8,12 +8,14 @@ import com.xgen.mongot.featureflag.dynamic.DynamicFeatureFlags;
 import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.definition.FieldDefinitionResolver;
 import com.xgen.mongot.index.definition.VectorFieldSpecification;
-import com.xgen.mongot.index.definition.VectorQuantization;
+import com.xgen.mongot.index.definition.quantization.VectorQuantization;
 import com.xgen.mongot.index.lucene.LuceneFacetCollectorSearchManager.FacetCollectorQueryInfo;
 import com.xgen.mongot.index.lucene.LuceneFacetGenericDrillSidewaysSearchManager.GenericDrillSidewaysResultFacetCollectorQueryInfo;
 import com.xgen.mongot.index.lucene.quantization.BinaryQuantizedVectorRescorer;
+import com.xgen.mongot.index.lucene.query.NestedAvgVectorRescorer;
 import com.xgen.mongot.index.query.OperatorQuery;
 import com.xgen.mongot.index.query.counts.Count;
+import com.xgen.mongot.index.query.operators.VectorEmbeddedOptions;
 import com.xgen.mongot.index.query.operators.VectorSearchCriteria;
 import com.xgen.mongot.index.query.operators.VectorSearchOperator;
 import com.xgen.mongot.index.query.sort.SequenceToken;
@@ -70,11 +72,15 @@ class LuceneSearchManagerFactory {
 
     VectorQuantization quantization = this.resolveQuantization(criteria.path());
     boolean requiresRescoring = requiresRescoring(criteria, quantization);
+    boolean requiresNestedAvgRescoring = requiresNestedAvgRescoring(criteria);
     LuceneSearchManager<QueryInfo> innerSearchManager =
         new LuceneCachingVectorSearchManager(
             luceneQuery,
             criteria,
-            requiresRescoring ? Optional.of(this.rescorer) : Optional.empty());
+            requiresRescoring ? Optional.of(this.rescorer) : Optional.empty(),
+            requiresNestedAvgRescoring
+                ? Optional.of(new NestedAvgVectorRescorer())
+                : Optional.empty());
     return new MeteredLuceneVectorSearchManager<>(
         this.metricsUpdater, innerSearchManager, criteria, quantization);
   }
@@ -84,11 +90,15 @@ class LuceneSearchManagerFactory {
 
     VectorQuantization quantization = this.resolveQuantization(criteria.path());
     boolean requiresRescoring = requiresRescoring(criteria, quantization);
+    boolean requiresNestedAvgRescoring = requiresNestedAvgRescoring(criteria);
     LuceneSearchManager<QueryInfo> innerSearchManager =
         new LuceneVectorSearchManager(
             luceneQuery,
             criteria,
-            requiresRescoring ? Optional.of(this.rescorer) : Optional.empty());
+            requiresRescoring ? Optional.of(this.rescorer) : Optional.empty(),
+            requiresNestedAvgRescoring
+                ? Optional.of(new NestedAvgVectorRescorer())
+                : Optional.empty());
     return new MeteredLuceneVectorSearchManager<>(
         this.metricsUpdater, innerSearchManager, criteria, quantization);
   }
@@ -100,6 +110,14 @@ class LuceneSearchManagerFactory {
     return quantization == VectorQuantization.BINARY
         && vector.getVectorType() == Vector.VectorType.FLOAT
         && criteria.getVectorSearchType() == VectorSearchCriteria.Type.APPROXIMATE;
+  }
+
+  private static boolean requiresNestedAvgRescoring(VectorSearchCriteria criteria) {
+    return criteria.getVectorSearchType() != VectorSearchCriteria.Type.EXACT
+        && criteria
+            .embeddedOptions()
+            .map(opts -> opts.scoreMode() == VectorEmbeddedOptions.ScoreMode.AVG)
+            .orElse(false);
   }
 
   private VectorQuantization resolveQuantization(FieldPath path) {

@@ -15,7 +15,6 @@ import com.xgen.mongot.embedding.exceptions.EmbeddingProviderTransientException;
 import com.xgen.mongot.embedding.providers.clients.ClientInterface;
 import com.xgen.mongot.embedding.providers.clients.EmbeddingClientFactory;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingModelConfig;
-import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig.EmbeddingCredentials;
 import com.xgen.mongot.embedding.providers.congestion.AimdCongestionControl;
 import com.xgen.mongot.embedding.providers.congestion.AimdCongestionControl.CongestionControlParams;
@@ -93,6 +92,7 @@ public class EmbeddingProviderManager {
         embeddingClientFactory,
         namedScheduledExecutorService,
         metricsFactory,
+        Optional.empty(),
         Optional.empty());
   }
 
@@ -108,7 +108,8 @@ public class EmbeddingProviderManager {
       EmbeddingClientFactory embeddingClientFactory,
       NamedScheduledExecutorService namedScheduledExecutorService,
       MetricsFactory metricsFactory,
-      Optional<CongestionControlParams> congestionControl) {
+      Optional<CongestionControlParams> congestionControl,
+      Optional<Integer> embeddingProviderRpsLimit) {
     initializeMetrics(embeddingModelConfig, metricsFactory);
     this.embeddingClientFactory = embeddingClientFactory;
     this.embeddingModelConfig = embeddingModelConfig;
@@ -135,12 +136,12 @@ public class EmbeddingProviderManager {
             embeddingModelConfig.query(),
             embeddingModelConfig.collectionScan(),
             embeddingModelConfig.changeStream())) {
-      String credUuid = workloadParams.credentials().getCredentialsUuID();
-      int rps =
-          workloadParams
-              .rpsPerProvider()
-              .orElse(EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER);
-      this.rateLimiters.putIfAbsent(credUuid, RateLimiter.create(rps));
+      EmbeddingModelConfig.optionalMin(workloadParams.rpsPerProvider(), embeddingProviderRpsLimit)
+          .ifPresent(
+              rps -> {
+                String credUuid = workloadParams.credentials().getCredentialsUuID();
+                this.rateLimiters.putIfAbsent(credUuid, RateLimiter.create(rps));
+              });
     }
     this.failsafeExecutors = initializeExecutors();
     this.clients =
@@ -367,4 +368,5 @@ public class EmbeddingProviderManager {
               }
             });
   }
+
 }

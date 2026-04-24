@@ -169,6 +169,54 @@ public class VectorSearchCommandAutoEmbedTest {
   }
 
   @Test
+  public void testEmbeddingRequestContext_usesSourceDatabaseNotDerived() throws Exception {
+    // Verify that maybeEmbed passes the original source database (from the raw auto-embedding
+    // definition) to EmbeddingRequestContext, not the derived mat-view database.
+    setupRegistry();
+    EmbeddingServiceManager manager = mock(EmbeddingServiceManager.class);
+    doReturn(List.of(new VectorOrError(QUERY_VECTOR)))
+        .when(manager)
+        .embed(
+            Mockito.anyList(),
+            any(EmbeddingModelConfig.class),
+            any(EmbeddingServiceConfig.ServiceTier.class),
+            any(EmbeddingRequestContext.class));
+    Supplier<EmbeddingServiceManager> embeddingService = Suppliers.ofInstance(manager);
+
+    var mocks = new Mocks();
+    var command =
+        buildAutoEmbeddingVectorSearchCommandWithMocks(
+            mocks,
+            VectorQueryBuilder.builder()
+                .index(INDEX_NAME)
+                .criteria(
+                    ApproximateVectorQueryCriteriaBuilder.builder()
+                        .limit(LIMIT)
+                        .numCandidates(NUM_CANDIDATES)
+                        .query(new VectorSearchQueryInput.Text("test query"))
+                        .path(PATH)
+                        .filter(getFilter())
+                        .build())
+                .build(),
+            embeddingService);
+    command.run();
+
+    // Capture the EmbeddingRequestContext passed to embed()
+    ArgumentCaptor<EmbeddingRequestContext> contextCaptor =
+        ArgumentCaptor.forClass(EmbeddingRequestContext.class);
+    Mockito.verify(manager)
+        .embed(
+            Mockito.anyList(),
+            any(EmbeddingModelConfig.class),
+            any(EmbeddingServiceConfig.ServiceTier.class),
+            contextCaptor.capture());
+    EmbeddingRequestContext context = contextCaptor.getValue();
+    // The context database should be the source database from the raw auto-embedding definition,
+    // NOT __mdb_internal_search from a derived definition.
+    Assert.assertEquals("myDatabase", context.database());
+  }
+
+  @Test
   public void testValidQueryFromTextWithDefaultModel_withMultiModalQuery() throws Exception {
     var mocks = new Mocks();
     var command = buildAutoEmbeddingVectorSearchCommandWithMocksWithMultiModalQuery(mocks);
@@ -252,14 +300,15 @@ public class VectorSearchCommandAutoEmbedTest {
                     .build())
             .build();
     var command = buildAutoEmbeddingVectorSearchCommandWithMocks(mocks, matViewVectorSearchQuery);
-    Optional<String> modelName =
-        command.findEmbeddingModelName(
+    var embedInfo =
+        command.findEmbedRequestInfo(
             VectorIndexDefinitionBuilder.builder()
                 .withDotProductVectorField(PATH.toString(), 1024)
                 .build(),
             matViewVectorSearchQuery);
-    assertThat(modelName).isPresent();
-    Assert.assertEquals("voyage-3-large", modelName.get());
+    assertThat(embedInfo).isPresent();
+    assertThat(embedInfo.get().modelName()).isPresent();
+    Assert.assertEquals("voyage-3-large", embedInfo.get().modelName().get());
   }
 
   @Test
@@ -279,17 +328,17 @@ public class VectorSearchCommandAutoEmbedTest {
                     .build())
             .build();
     var command = buildAutoEmbeddingVectorSearchCommandWithMocks(mocks, matViewVectorSearchQuery);
-    Optional<String> modelName =
-        command.findEmbeddingModelName(
+    var embedInfo =
+        command.findEmbedRequestInfo(
             VectorIndexDefinitionBuilder.builder()
                 .withDotProductVectorField(PATH.toString(), 1024)
                 .build(),
             matViewVectorSearchQuery);
-    assertThat(modelName).isEmpty();
+    assertThat(embedInfo).isEmpty();
   }
 
   @Test
-  public void findEmbeddingModelName_throwsException_whenQueryModelNotAllowed() throws Exception {
+  public void findEmbedRequestInfo_throwsException_whenQueryModelNotAllowed() throws Exception {
     var mocks = new Mocks();
     // Query specifies a model that is not in the allowed list
     var queryWithInvalidModel =
@@ -311,7 +360,7 @@ public class VectorSearchCommandAutoEmbedTest {
         Assert.assertThrows(
             InvalidQueryException.class,
             () ->
-                command.findEmbeddingModelName(
+                command.findEmbedRequestInfo(
                     VectorIndexDefinitionBuilder.builder()
                         .withDotProductVectorField(PATH.toString(), 1024)
                         .build(),
@@ -320,7 +369,7 @@ public class VectorSearchCommandAutoEmbedTest {
   }
 
   @Test
-  public void findEmbeddingModelName_fallsBackToIndexModel_whenQueryModelNotSpecified()
+  public void findEmbedRequestInfo_fallsBackToIndexModel_whenQueryModelNotSpecified()
       throws Exception {
     var mocks = new Mocks();
     // Query does not specify a model
@@ -337,19 +386,20 @@ public class VectorSearchCommandAutoEmbedTest {
                     .build())
             .build();
     var command = buildAutoEmbeddingVectorSearchCommandWithMocks(mocks, queryWithoutModel);
-    Optional<String> modelName =
-        command.findEmbeddingModelName(
+    var embedInfo =
+        command.findEmbedRequestInfo(
             VectorIndexDefinitionBuilder.builder()
                 .withDotProductVectorField(PATH.toString(), 1024)
                 .build(),
             queryWithoutModel);
     // Should fall back to the index model (voyage-3-large from the mock)
-    assertThat(modelName).isPresent();
-    Assert.assertEquals("voyage-3-large", modelName.get());
+    assertThat(embedInfo).isPresent();
+    assertThat(embedInfo.get().modelName()).isPresent();
+    Assert.assertEquals("voyage-3-large", embedInfo.get().modelName().get());
   }
 
   @Test
-  public void findEmbeddingModelName_returnsEmpty_whenQueryVectorUsed() throws Exception {
+  public void findEmbedRequestInfo_returnsEmpty_whenQueryVectorUsed() throws Exception {
     var mocks = new Mocks();
     // Query uses queryVector instead of query text
     var queryWithVector =
@@ -365,18 +415,18 @@ public class VectorSearchCommandAutoEmbedTest {
                     .build())
             .build();
     var command = buildAutoEmbeddingVectorSearchCommandWithMocks(mocks, queryWithVector);
-    Optional<String> modelName =
-        command.findEmbeddingModelName(
+    var embedInfo =
+        command.findEmbedRequestInfo(
             VectorIndexDefinitionBuilder.builder()
                 .withDotProductVectorField(PATH.toString(), 1024)
                 .build(),
             queryWithVector);
     // Should return empty since queryVector is used, not query text
-    assertThat(modelName).isEmpty();
+    assertThat(embedInfo).isEmpty();
   }
 
   @Test
-  public void findEmbeddingModelName_voyage4ModelsAreInterchangeable_queryVoyage4WithIndexVoyage4()
+  public void findEmbedRequestInfo_voyage4ModelsAreInterchangeable_queryVoyage4WithIndexVoyage4()
       throws Exception {
     // Test that voyage-4 query model works with voyage-4 index model
     var mocks = new Mocks();
@@ -393,19 +443,20 @@ public class VectorSearchCommandAutoEmbedTest {
                     .build())
             .build();
     var command = buildAutoEmbeddingVectorSearchCommandWithMocks(mocks, queryWithVoyage4);
-    Optional<String> modelName =
-        command.findEmbeddingModelName(
+    var embedInfo =
+        command.findEmbedRequestInfo(
             VectorIndexDefinitionBuilder.builder()
                 .withAutoEmbedField(PATH.toString(), "voyage-4")
                 .build(),
             queryWithVoyage4);
-    assertThat(modelName).isPresent();
-    Assert.assertEquals("voyage-4", modelName.get());
+    assertThat(embedInfo).isPresent();
+    assertThat(embedInfo.get().modelName()).isPresent();
+    Assert.assertEquals("voyage-4", embedInfo.get().modelName().get());
   }
 
   @Test
   public void
-      findEmbeddingModelName_voyage4ModelsAreInterchangeable_queryVoyage4LargeWithIndexVoyage4()
+      findEmbedRequestInfo_voyage4ModelsAreInterchangeable_queryVoyage4LargeWithIndexVoyage4()
           throws Exception {
     // Test that voyage-4-large query model works with voyage-4 index model
     var mocks = new Mocks();
@@ -424,20 +475,21 @@ public class VectorSearchCommandAutoEmbedTest {
                     .build())
             .build();
     var command = buildAutoEmbeddingVectorSearchCommandWithMocks(mocks, queryWithVoyage4Large);
-    Optional<String> modelName =
-        command.findEmbeddingModelName(
+    var embedInfo =
+        command.findEmbedRequestInfo(
             VectorIndexDefinitionBuilder.builder()
                 .withAutoEmbedField(PATH.toString(), "voyage-4")
                 .build(),
             queryWithVoyage4Large);
     // Should use the query-specified model (voyage-4-large) since it's compatible with voyage-4
-    assertThat(modelName).isPresent();
-    Assert.assertEquals("voyage-4-large", modelName.get());
+    assertThat(embedInfo).isPresent();
+    assertThat(embedInfo.get().modelName()).isPresent();
+    Assert.assertEquals("voyage-4-large", embedInfo.get().modelName().get());
   }
 
   @Test
   public void
-      findEmbeddingModelName_voyage4ModelsAreInterchangeable_queryVoyage4LiteWithIndexVoyage4Large()
+      findEmbedRequestInfo_voyage4ModelsAreInterchangeable_queryVoyage4LiteWithIndexVoyage4Large()
           throws Exception {
     // Test that voyage-4-lite query model works with voyage-4-large index model
     var mocks = new Mocks();
@@ -455,20 +507,21 @@ public class VectorSearchCommandAutoEmbedTest {
                     .build())
             .build();
     var command = buildAutoEmbeddingVectorSearchCommandWithMocks(mocks, queryWithVoyage4Lite);
-    Optional<String> modelName =
-        command.findEmbeddingModelName(
+    var embedInfo =
+        command.findEmbedRequestInfo(
             VectorIndexDefinitionBuilder.builder()
                 .withAutoEmbedField(PATH.toString(), "voyage-4-large")
                 .build(),
             queryWithVoyage4Lite);
     // voyage-4-lite is compatible with voyage-4-large, so query model is used
-    assertThat(modelName).isPresent();
-    Assert.assertEquals("voyage-4-lite", modelName.get());
+    assertThat(embedInfo).isPresent();
+    assertThat(embedInfo.get().modelName()).isPresent();
+    Assert.assertEquals("voyage-4-lite", embedInfo.get().modelName().get());
   }
 
   @Test
   public void
-      findEmbeddingModelName_voyage4ModelsAreInterchangeable_queryVoyage4WithIndexVoyage4Lite()
+      findEmbedRequestInfo_voyage4ModelsAreInterchangeable_queryVoyage4WithIndexVoyage4Lite()
           throws Exception {
     // Test that voyage-4 query model works with voyage-4-lite index model
     var mocks = new Mocks();
@@ -485,19 +538,20 @@ public class VectorSearchCommandAutoEmbedTest {
                     .build())
             .build();
     var command = buildAutoEmbeddingVectorSearchCommandWithMocks(mocks, queryWithVoyage4);
-    Optional<String> modelName =
-        command.findEmbeddingModelName(
+    var embedInfo =
+        command.findEmbedRequestInfo(
             VectorIndexDefinitionBuilder.builder()
                 .withAutoEmbedField(PATH.toString(), "voyage-4-lite")
                 .build(),
             queryWithVoyage4);
     // Should use the query-specified model (voyage-4) since it's compatible with voyage-4-lite
-    assertThat(modelName).isPresent();
-    Assert.assertEquals("voyage-4", modelName.get());
+    assertThat(embedInfo).isPresent();
+    assertThat(embedInfo.get().modelName()).isPresent();
+    Assert.assertEquals("voyage-4", embedInfo.get().modelName().get());
   }
 
   @Test
-  public void findEmbeddingModelName_voyage4NotCompatibleWithVoyage3() throws Exception {
+  public void findEmbedRequestInfo_voyage4NotCompatibleWithVoyage3() throws Exception {
     // Test that voyage-4 query model is NOT compatible with voyage-3 index model
     var mocks = new Mocks();
     var queryWithVoyage4 =
@@ -517,7 +571,7 @@ public class VectorSearchCommandAutoEmbedTest {
         Assert.assertThrows(
             InvalidQueryException.class,
             () ->
-                command.findEmbeddingModelName(
+                command.findEmbedRequestInfo(
                     VectorIndexDefinitionBuilder.builder()
                         .withAutoEmbedField(PATH.toString(), "voyage-3")
                         .build(),
@@ -527,7 +581,7 @@ public class VectorSearchCommandAutoEmbedTest {
   }
 
   @Test
-  public void findEmbeddingModelName_voyage4NotCompatibleWithVoyageCode3() throws Exception {
+  public void findEmbedRequestInfo_voyage4NotCompatibleWithVoyageCode3() throws Exception {
     // Test that voyage-4 query model is NOT compatible with voyage-code-3 index model
     var mocks = new Mocks();
     var queryWithVoyage4 =
@@ -547,7 +601,7 @@ public class VectorSearchCommandAutoEmbedTest {
         Assert.assertThrows(
             InvalidQueryException.class,
             () ->
-                command.findEmbeddingModelName(
+                command.findEmbedRequestInfo(
                     VectorIndexDefinitionBuilder.builder()
                         .withAutoEmbedField(PATH.toString(), "voyage-code-3")
                         .build(),
@@ -557,7 +611,7 @@ public class VectorSearchCommandAutoEmbedTest {
   }
 
   @Test
-  public void findEmbeddingModelName_voyageCode3NotCompatibleWithVoyage4() throws Exception {
+  public void findEmbedRequestInfo_voyageCode3NotCompatibleWithVoyage4() throws Exception {
     // Test that voyage-code-3 query model is NOT compatible with voyage-4 index model
     var mocks = new Mocks();
     var queryWithVoyageCode3 =
@@ -578,7 +632,7 @@ public class VectorSearchCommandAutoEmbedTest {
         Assert.assertThrows(
             InvalidQueryException.class,
             () ->
-                command.findEmbeddingModelName(
+                command.findEmbedRequestInfo(
                     VectorIndexDefinitionBuilder.builder()
                         .withAutoEmbedField(PATH.toString(), "voyage-4")
                         .build(),
@@ -588,7 +642,7 @@ public class VectorSearchCommandAutoEmbedTest {
   }
 
   @Test
-  public void findEmbeddingModelName_voyageCode3CompatibleWithItself() throws Exception {
+  public void findEmbedRequestInfo_voyageCode3CompatibleWithItself() throws Exception {
     // Test that voyage-code-3 query model IS compatible with voyage-code-3 index model
     var mocks = new Mocks();
     var queryWithVoyageCode3 =
@@ -605,19 +659,20 @@ public class VectorSearchCommandAutoEmbedTest {
                     .build())
             .build();
     var command = buildAutoEmbeddingVectorSearchCommandWithMocks(mocks, queryWithVoyageCode3);
-    var modelName =
-        command.findEmbeddingModelName(
+    var embedInfo =
+        command.findEmbedRequestInfo(
             VectorIndexDefinitionBuilder.builder()
                 .withAutoEmbedField(PATH.toString(), "voyage-code-3")
                 .build(),
             queryWithVoyageCode3);
     // Should use the query-specified model (voyage-code-3) since it's compatible with itself
-    assertThat(modelName).isPresent();
-    Assert.assertEquals("voyage-code-3", modelName.get());
+    assertThat(embedInfo).isPresent();
+    assertThat(embedInfo.get().modelName()).isPresent();
+    Assert.assertEquals("voyage-code-3", embedInfo.get().modelName().get());
   }
 
   @Test
-  public void findEmbeddingModelName_caseInsensitiveQueryModel() throws Exception {
+  public void findEmbedRequestInfo_caseInsensitiveQueryModel() throws Exception {
     // Test that model names are case-insensitive (e.g., "VoyagE-4-Large" should work)
     var mocks = new Mocks();
     var queryWithMixedCase =
@@ -635,15 +690,16 @@ public class VectorSearchCommandAutoEmbedTest {
                     .build())
             .build();
     var command = buildAutoEmbeddingVectorSearchCommandWithMocks(mocks, queryWithMixedCase);
-    var modelName =
-        command.findEmbeddingModelName(
+    var embedInfo =
+        command.findEmbedRequestInfo(
             VectorIndexDefinitionBuilder.builder()
                 .withAutoEmbedField(PATH.toString(), "voyage-4")
                 .build(),
             queryWithMixedCase);
     // Should use the query-specified model (case preserved) since it's compatible
-    assertThat(modelName).isPresent();
-    Assert.assertEquals("VoyagE-4-Large", modelName.get());
+    assertThat(embedInfo).isPresent();
+    assertThat(embedInfo.get().modelName()).isPresent();
+    Assert.assertEquals("VoyagE-4-Large", embedInfo.get().modelName().get());
   }
 
   @Test

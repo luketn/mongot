@@ -2,6 +2,7 @@ package com.xgen.mongot.embedding.providers.configs;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.Hashing;
+import com.xgen.mongot.index.definition.quantization.VectorAutoEmbedQuantization;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.bson.parser.BsonDocumentBuilder;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
@@ -20,7 +21,6 @@ import java.util.UUID;
 import org.bson.BsonDocument;
 
 public class EmbeddingServiceConfig implements DocumentEncodable {
-  public static final int DEFAULT_RPS_PER_PROVIDER = 30;
   public static final int MAX_RPS_PER_PROVIDER = 100;
   public static final ErrorHandlingConfig DEFAULT_ERROR_HANDLING_CONFIG =
       new ErrorHandlingConfig(50, 200L, 10000L, 0.1 /* 10% jitter */);
@@ -43,12 +43,8 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
     static final Field.WithDefault<List<String>> COMPATIBLE_MODELS =
         Field.builder("compatibleModels").stringField().asList().optional().withDefault(List.of());
 
-    static final Field.WithDefault<Integer> RPS_PER_PROVIDER =
-        Field.builder("rpsPerProvider")
-            .intField()
-            .mustBePositive()
-            .optional()
-            .withDefault(DEFAULT_RPS_PER_PROVIDER);
+    static final Field.Optional<Integer> RPS_PER_PROVIDER =
+        Field.builder("rpsPerProvider").intField().mustBePositive().optional().noDefault();
   }
 
   public static EmbeddingServiceConfig fromBson(DocumentParser parser) throws BsonParseException {
@@ -71,7 +67,7 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
    */
   public final Set<String> compatibleModels;
 
-  public final Integer rpsPerProvider;
+  public final Optional<Integer> rpsPerProvider;
 
   @Override
   public BsonDocument toBson() {
@@ -90,7 +86,7 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
   public EmbeddingServiceConfig(
       EmbeddingProvider embeddingProvider,
       String modelName,
-      Integer rpsPerProvider,
+      Optional<Integer> rpsPerProvider,
       EmbeddingConfig embeddingConfig) {
     this(embeddingProvider, modelName, rpsPerProvider, embeddingConfig, Set.of());
   }
@@ -98,14 +94,16 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
   public EmbeddingServiceConfig(
       EmbeddingProvider embeddingProvider,
       String modelName,
-      Integer rpsPerProvider,
+      Optional<Integer> rpsPerProvider,
       EmbeddingConfig embeddingConfig,
       Set<String> compatibleModels) {
-    Check.checkArg(
-        rpsPerProvider <= MAX_RPS_PER_PROVIDER,
-        "rpsPerProvider must be at most %s, got %s",
-        MAX_RPS_PER_PROVIDER,
-        rpsPerProvider);
+    rpsPerProvider.ifPresent(
+        rps ->
+            Check.checkArg(
+                rps <= MAX_RPS_PER_PROVIDER,
+                "rpsPerProvider must be at most %s, got %s",
+                MAX_RPS_PER_PROVIDER,
+                rps));
     this.embeddingProvider = embeddingProvider;
     this.modelName = modelName;
     this.embeddingConfig = embeddingConfig;
@@ -518,7 +516,7 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
     public final Optional<Integer> outputDimensions;
     public final Optional<TruncationOption> truncation;
     public final Optional<String> modality;
-    public final Optional<VoyageModelVectorParams.Quantization> quantization;
+    public final Optional<VectorAutoEmbedQuantization> quantization;
 
     public VoyageModelConfig(
         Optional<Integer> outputDimensions,
@@ -540,7 +538,7 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
         Optional<Integer> batchSize,
         Optional<Integer> batchTokenLimit,
         Optional<String> modality,
-        Optional<VoyageModelVectorParams.Quantization> quantization) {
+        Optional<VectorAutoEmbedQuantization> quantization) {
       this.outputDimensions = outputDimensions;
       this.truncation = truncation;
       this.batchSize = batchSize;
@@ -577,7 +575,7 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
           .field(Fields.OUTPUT_DIMENSIONS, this.outputDimensions)
           .field(Fields.TRUNCATION, this.truncation)
           .field(Fields.MODALITY, this.modality)
-          .field(Fields.QUANTIZATION, this.quantization)
+          .field(Fields.QUANTIZATION, this.quantization.map(VectorAutoEmbedQuantization::getName))
           .build();
     }
 
@@ -588,7 +586,21 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
           parser.getField(Fields.BATCH_SIZE).unwrap(),
           parser.getField(Fields.BATCH_TOKEN_LIMIT).unwrap(),
           parser.getField(Fields.MODALITY).unwrap(),
-          parser.getField(Fields.QUANTIZATION).unwrap());
+          parseQuantization(parser));
+    }
+
+    private static Optional<VectorAutoEmbedQuantization> parseQuantization(DocumentParser parser)
+        throws BsonParseException {
+      Optional<String> quantization = parser.getField(Fields.QUANTIZATION).unwrap();
+      if (quantization.isEmpty()) {
+        return Optional.empty();
+      }
+      Optional<VectorAutoEmbedQuantization> vectorAutoEmbedQuantization =
+          VectorAutoEmbedQuantization.fromName(quantization.get());
+
+      return vectorAutoEmbedQuantization.isPresent()
+          ? vectorAutoEmbedQuantization
+          : parser.getContext().handleSemanticError("invalid quantization value");
     }
 
     public static class Fields {
@@ -606,13 +618,8 @@ public class EmbeddingServiceConfig implements DocumentEncodable {
               .noDefault();
       static final Field.Optional<String> MODALITY =
           Field.builder("modality").stringField().optional().noDefault();
-      static final Field.Optional<VoyageModelVectorParams.Quantization> QUANTIZATION =
-          Field.builder("quantization")
-              .classField(
-                  VoyageModelVectorParams::parseQuantizationFromModelConfigWire,
-                  VoyageModelVectorParams.QUANTIZATION_MODEL_CONFIG_WIRE_ENCODER)
-              .optional()
-              .noDefault();
+      static final Field.Optional<String> QUANTIZATION =
+          Field.builder("quantization").stringField().optional().noDefault();
     }
 
     @Override

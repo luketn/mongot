@@ -2,7 +2,11 @@ load("//bazel/java:package.bzl", "java_library")
 
 java_library(
     name = "common",
-    srcs = ["AutoEmbeddingMongoClient.java"],
+    srcs = [
+        "AutoEmbeddingMongoClient.java",
+        "DefaultInternalDatabaseResolver.java",
+        "InternalDatabaseResolver.java",
+    ],
     visibility = ["//:__subpackages__"],
     exports = [
         "//src/main/java/com/xgen/mongot/util/mongodb",

@@ -20,6 +20,7 @@ public class LocalDevOptions {
   public final Optional<String> metricsDenyLabels;
   public final Optional<String> voyageApiKey;
   public final Optional<Integer> mvWriteRateLimitRps;
+  public final Optional<Integer> embeddingProviderRpsLimit;
 
   public LocalDevOptions(
       HostAndPort mongodHost,
@@ -34,7 +35,8 @@ public class LocalDevOptions {
       Optional<String> metricsCommonLabels,
       Optional<String> metricsDenyLabels,
       Optional<String> voyageApiKey,
-      Optional<Integer> mvWriteRateLimitRps) {
+      Optional<Integer> mvWriteRateLimitRps,
+      Optional<Integer> embeddingProviderRpsLimit) {
     this.mongodHost = mongodHost;
     this.mongosHost = mongosHost;
     this.mongotPort = mongotPort;
@@ -48,6 +50,7 @@ public class LocalDevOptions {
     this.metricsDenyLabels = metricsDenyLabels;
     this.voyageApiKey = voyageApiKey;
     this.mvWriteRateLimitRps = mvWriteRateLimitRps;
+    this.embeddingProviderRpsLimit = embeddingProviderRpsLimit;
   }
 
   @Override
@@ -77,6 +80,8 @@ public class LocalDevOptions {
         + this.metricsDenyLabels
         + ", mvWriteRateLimitRps="
         + this.mvWriteRateLimitRps
+        + ", embeddingProviderRpsLimit="
+        + this.embeddingProviderRpsLimit
         + '}';
   }
 }

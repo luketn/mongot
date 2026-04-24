@@ -26,6 +26,14 @@ public class WrappedToParentBlockJoinQuery extends ToParentBlockJoinQuery {
     this.scoreMode = scoreMode;
   }
 
+  public BitSetProducer getParentsFilter() {
+    return this.parentsFilter;
+  }
+
+  public ScoreMode getScoreMode() {
+    return this.scoreMode;
+  }
+
   public WrappedToParentBlockJoinQuery withWrappedChildQuery(Query query) {
     return new WrappedToParentBlockJoinQuery(query, this.parentsFilter, this.scoreMode);
   }

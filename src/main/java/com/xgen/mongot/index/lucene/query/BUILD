@@ -24,6 +24,7 @@ java_library(
         "LuceneVectorQueryFactoryDistributor.java",
         "MoreLikeThisQueryFactory.java",
         "NearQueryFactory.java",
+        "NestedAvgVectorRescorer.java",
         "NumericNearQueryFactory.java",
         "NumericRangeQueryFactory.java",
         "ObjectIdRangeQueryFactory.java",
@@ -48,6 +49,7 @@ java_library(
     visibility = ["//visibility:public"],
     exports = [
         "//src/main/java/com/xgen/mongot/index/definition",
+        "//src/main/java/com/xgen/mongot/index/lucene/query/util",
         "//src/main/java/com/xgen/mongot/index/path/string",
         "//src/main/java/com/xgen/mongot/index/query",
         "//src/main/java/com/xgen/mongot/util",
@@ -93,6 +95,7 @@ java_library(
         "//src/main/java/com/xgen/mongot/util/bson",
         "//src/main/java/com/xgen/mongot/util/functionalinterfaces",
         "//src/main/java/com/xgen/mongot/util/geo",
+        "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:com_google_guava_guava",
         "@maven//:org_apache_commons_commons_collections4",
         "@maven//:org_apache_commons_commons_lang3",

@@ -17,9 +17,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MaterializedViewCollectionMetadataCatalog {
 
   private final Map<String, MaterializedViewCollectionMetadata> metadataMap;
+  private final Map<String, String> databaseNameMap;
 
   public MaterializedViewCollectionMetadataCatalog() {
     this.metadataMap = new ConcurrentHashMap<>();
+    this.databaseNameMap = new ConcurrentHashMap<>();
   }
 
   /**
@@ -40,6 +42,10 @@ public class MaterializedViewCollectionMetadataCatalog {
     this.metadataMap.put(canonicalKey(generationId), metadata);
   }
 
+  public void addDatabaseName(MaterializedViewGenerationId generationId, String databaseName) {
+    this.databaseNameMap.put(canonicalKey(generationId), databaseName);
+  }
+
   /**
    * Returns MaterializedViewCollectionMetadata by GenerationId.
    *
@@ -51,6 +57,14 @@ public class MaterializedViewCollectionMetadataCatalog {
         "Mat view metadata not found for generationId: %s. This likely indicates a bug.",
         generationId);
     return this.metadataMap.get(canonicalKey(generationId));
+  }
+
+  public String getDatabaseName(GenerationId generationId) {
+    checkState(
+        this.databaseNameMap.containsKey(canonicalKey(generationId)),
+        "Mat view database name not found for generationId: %s. This likely indicates a bug.",
+        generationId);
+    return this.databaseNameMap.get(canonicalKey(generationId));
   }
 
   /**
@@ -69,5 +83,6 @@ public class MaterializedViewCollectionMetadataCatalog {
    */
   public void removeMetadata(MaterializedViewGenerationId generationId) {
     this.metadataMap.remove(canonicalKey(generationId));
+    this.databaseNameMap.remove(canonicalKey(generationId));
   }
 }

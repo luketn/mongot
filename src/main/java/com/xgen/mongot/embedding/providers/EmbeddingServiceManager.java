@@ -46,6 +46,7 @@ public class EmbeddingServiceManager {
   private final MetricsFactory metricsFactory;
   private final Counter tokenEstimationFailsCounter;
   private final Optional<CongestionControlParams> congestionControl;
+  private final Optional<Integer> embeddingProviderRpsLimit;
 
   /** Creates an EmbeddingServiceManager from a list of EmbeddingServiceConfig. */
   public EmbeddingServiceManager(
@@ -54,11 +55,29 @@ public class EmbeddingServiceManager {
       NamedScheduledExecutorService namedScheduledExecutorService,
       MeterRegistry meterRegistry,
       Optional<CongestionControlParams> congestionControl) {
+    this(
+        embeddingServiceConfigs,
+        embeddingClientFactory,
+        namedScheduledExecutorService,
+        meterRegistry,
+        congestionControl,
+        Optional.empty());
+  }
+
+  /** Creates an EmbeddingServiceManager with an optional node-level provider RPS limit. */
+  public EmbeddingServiceManager(
+      List<EmbeddingServiceConfig> embeddingServiceConfigs,
+      EmbeddingClientFactory embeddingClientFactory,
+      NamedScheduledExecutorService namedScheduledExecutorService,
+      MeterRegistry meterRegistry,
+      Optional<CongestionControlParams> congestionControl,
+      Optional<Integer> embeddingProviderRpsLimit) {
     this.embeddingClientFactory = embeddingClientFactory;
     this.namedScheduledExecutorService = namedScheduledExecutorService;
     this.metricsFactory = new MetricsFactory("embeddingServiceManager", meterRegistry);
     this.tokenEstimationFailsCounter = this.metricsFactory.counter("tokenEstimationFailsCounter");
     this.congestionControl = congestionControl;
+    this.embeddingProviderRpsLimit = embeddingProviderRpsLimit;
 
     updateEmbeddingProviderManagers(embeddingServiceConfigs);
   }
@@ -86,7 +105,8 @@ public class EmbeddingServiceManager {
         this.namedScheduledExecutorService,
         this.embeddingClientFactory,
         this.metricsFactory,
-        this.congestionControl);
+        this.congestionControl,
+        this.embeddingProviderRpsLimit);
   }
 
   /**
