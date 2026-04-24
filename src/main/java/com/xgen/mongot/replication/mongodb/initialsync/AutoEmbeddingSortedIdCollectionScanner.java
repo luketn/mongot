@@ -1,8 +1,7 @@
 package com.xgen.mongot.replication.mongodb.initialsync;
 
-import static com.xgen.mongot.index.mongodb.MaterializedViewWriter.MV_DATABASE_NAME;
-
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Stopwatch;
 import com.google.common.flogger.FluentLogger;
 import com.google.errorprone.annotations.Var;
 import com.mongodb.MongoNamespace;
@@ -27,6 +26,7 @@ import com.xgen.mongot.replication.mongodb.common.CollectionScanMongoClient;
 import com.xgen.mongot.replication.mongodb.common.InitialSyncException;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.mongodb.CollectionScanFindCommand;
+import io.micrometer.core.instrument.Timer;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -53,9 +53,11 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
   private final VectorIndexFieldMapping matViewFieldMappingWithHashes;
   private final MaterializedViewCollectionMetadata matViewCollectionMetadata;
 
+  private final Timer preprocessingBatchTimer;
   private boolean firstPage = true;
 
   /** Builds an AutoEmbeddingSortedIdCollectionScanner. */
+  @VisibleForTesting
   public AutoEmbeddingSortedIdCollectionScanner(
       Clock clock,
       InitialSyncContext context,
@@ -63,27 +65,8 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
       BsonValue lastScannedToken,
       MaterializedViewCollectionMetadataCatalog matViewCollectionMetadataCatalog,
       MetricsFactory metricsFactory) {
-    this(
-        clock,
-        context,
-        mongoClient,
-        lastScannedToken,
-        matViewCollectionMetadataCatalog,
-        MV_DATABASE_NAME,
-        metricsFactory);
-  }
-
-  // TEST ONLY
-  @VisibleForTesting
-  AutoEmbeddingSortedIdCollectionScanner(
-      Clock clock,
-      InitialSyncContext context,
-      InitialSyncMongoClient mongoClient,
-      BsonValue lastScannedToken,
-      MaterializedViewCollectionMetadataCatalog matViewCollectionMetadataCatalog,
-      String matViewDatabaseName,
-      MetricsFactory metricsFactory) {
     super(clock, context, mongoClient, lastScannedToken, metricsFactory, false);
+    this.preprocessingBatchTimer = metricsFactory.timer(PREPROCESSING_BATCH_DURATIONS);
     Check.checkState(
         !context.useNaturalOrderScan(),
         "AutoEmbeddingSortedIdCollectionScanner should not be used with natural order scan");
@@ -102,7 +85,9 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
     // TODO(CLOUDP-363914): collectionName can be different if we want to reuse different MV
     // collection to build new MV collection
     this.matViewNamespace =
-        new MongoNamespace(matViewDatabaseName, this.matViewCollectionMetadata.collectionName());
+        new MongoNamespace(
+            matViewCollectionMetadataCatalog.getDatabaseName(context.getGenerationId()),
+            this.matViewCollectionMetadata.collectionName());
 
     this.matViewFieldMappingWithHashes =
         AutoEmbeddingIndexDefinitionUtils.getMatViewIndexFields(
@@ -123,9 +108,13 @@ public class AutoEmbeddingSortedIdCollectionScanner extends BufferlessCollection
       upperBound = Optional.empty();
     }
 
+    // For autoEmbedding indexes, the preprocessing timer measures the time to fetch the relevant
+    // docs from the mat view collection and do the sort merge.
+    var preprocessingTimer = Stopwatch.createStarted();
     List<RawBsonDocument> matViewBatch = getMatViewDocsInRange(upperBound);
     List<DocumentEvent> documentEvents = new ArrayList<>(sortMergeEvents(batch, matViewBatch));
-    this.logger.info(
+    this.preprocessingBatchTimer.record(preprocessingTimer.stop().elapsed());
+    this.logger.debug(
         "Detected "
             + documentEvents.size()
             + " events that need to be resynced to the MaterializedView.");

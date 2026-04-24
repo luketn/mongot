@@ -24,6 +24,8 @@ import com.mongodb.client.result.UpdateResult;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
+import com.xgen.mongot.embedding.mongodb.common.DefaultInternalDatabaseResolver;
+import com.xgen.mongot.embedding.mongodb.common.InternalDatabaseResolver;
 import com.xgen.mongot.index.EncodedUserData;
 import com.xgen.mongot.index.autoembedding.MaterializedViewIndexGeneration;
 import com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration;
@@ -57,6 +59,8 @@ public class DynamicLeaderLeaseManagerTest {
 
   private static final String HOSTNAME = "test-host";
   private static final String DATABASE_NAME = "test-db";
+  private static final InternalDatabaseResolver DB_RESOLVER =
+      new DefaultInternalDatabaseResolver(DATABASE_NAME);
   private static final String OTHER_HOSTNAME = "other-host";
 
   private AutoEmbeddingMongoClient mockAutoEmbeddingMongoClient;
@@ -94,7 +98,7 @@ public class DynamicLeaderLeaseManagerTest {
             this.mockAutoEmbeddingMongoClient,
             this.metricsFactory,
             HOSTNAME,
-            DATABASE_NAME,
+            DB_RESOLVER,
             this.mvMetadataCatalog);
   }
 
@@ -122,7 +126,7 @@ public class DynamicLeaderLeaseManagerTest {
             this.mockAutoEmbeddingMongoClient,
             new SimpleMetricsFactory(),
             HOSTNAME,
-            DATABASE_NAME,
+            DB_RESOLVER,
             this.mvMetadataCatalog);
     // Call opsGiveUpLease via reflection since it is private
     try {
@@ -152,7 +156,7 @@ public class DynamicLeaderLeaseManagerTest {
             this.mockAutoEmbeddingMongoClient,
             new SimpleMetricsFactory(),
             HOSTNAME,
-            DATABASE_NAME,
+            DB_RESOLVER,
             this.mvMetadataCatalog);
     try {
       java.lang.reflect.Method method =
@@ -183,7 +187,7 @@ public class DynamicLeaderLeaseManagerTest {
             this.mockAutoEmbeddingMongoClient,
             new SimpleMetricsFactory(),
             HOSTNAME,
-            DATABASE_NAME,
+            DB_RESOLVER,
             this.mvMetadataCatalog);
     try {
       java.lang.reflect.Method method =
@@ -210,6 +214,10 @@ public class DynamicLeaderLeaseManagerTest {
     assertThat(this.leaseManager.isLeader(generationId)).isFalse();
     assertThat(this.leaseManager.getFollowerGenerationIds()).contains(generationId);
     assertThat(this.leaseManager.getLeaderGenerationIds()).doesNotContain(generationId);
+    String leaseKey = getLeaseKeyFromCatalog(generationId);
+    assertThat(this.leaseManager.getLeaseKeyToDatabase()).containsKey(leaseKey);
+    assertThat(this.leaseManager.getLeaseKeyToDatabase().get(leaseKey))
+        .isEqualTo(DATABASE_NAME);
   }
 
   @Test
@@ -228,13 +236,25 @@ public class DynamicLeaderLeaseManagerTest {
     assertThat(this.leaseManager.getFollowerGenerationIds())
         .containsExactly(generationId1, generationId2);
     assertThat(this.leaseManager.getLeaderGenerationIds()).isEmpty();
+    String leaseKey1 = getLeaseKeyFromCatalog(generationId1);
+    String leaseKey2 = getLeaseKeyFromCatalog(generationId2);
+    assertThat(this.leaseManager.getLeaseKeyToDatabase())
+        .containsKey(leaseKey1);
+    assertThat(this.leaseManager.getLeaseKeyToDatabase())
+        .containsKey(leaseKey2);
 
     // Act - drop one
     this.leaseManager.drop(generationId1);
 
-    // Assert - only one should remain
+    // Assert - only one should remain in the tracking sets
     assertThat(this.leaseManager.getFollowerGenerationIds()).containsExactly(generationId2);
     assertThat(this.leaseManager.getLeaderGenerationIds()).isEmpty();
+    // leaseKeyToDatabase is associated with the lease, not the generation tracking sets,
+    // and is only cleaned up by dropLease().
+    assertThat(this.leaseManager.getLeaseKeyToDatabase())
+        .containsKey(leaseKey1);
+    assertThat(this.leaseManager.getLeaseKeyToDatabase())
+        .containsKey(leaseKey2);
   }
 
   @Test
@@ -243,6 +263,7 @@ public class DynamicLeaderLeaseManagerTest {
     MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
     MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
+    String leaseKey = getLeaseKeyFromCatalog(generationId);
 
     // Act
     this.leaseManager.drop(generationId);
@@ -251,7 +272,6 @@ public class DynamicLeaderLeaseManagerTest {
     assertThat(this.leaseManager.getFollowerGenerationIds()).doesNotContain(generationId);
     assertThat(this.leaseManager.getLeaderGenerationIds()).doesNotContain(generationId);
     // Assert - lease is still in local cache (drop() does not remove from leases map)
-    String leaseKey = getLeaseKeyFromCatalog(generationId);
     assertThat(this.leaseManager.getLeases()).containsKey(leaseKey);
   }
 
@@ -789,6 +809,7 @@ public class DynamicLeaderLeaseManagerTest {
     MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
     MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
+    String leaseKey = getLeaseKeyFromCatalog(generationId);
 
     // Acquire leadership via tryAcquireLeadership
     Lease expiredLease = createLease(generationId, OTHER_HOSTNAME, Instant.now().minusSeconds(60));
@@ -803,13 +824,13 @@ public class DynamicLeaderLeaseManagerTest {
     when(this.mockCollection.deleteOne(any(Bson.class))).thenReturn(deleteResult);
 
     // Act - dropLease deletes from memory and database
-    String leaseKey = getLeaseKeyFromCatalog(generationId);
     this.leaseManager.dropLease(leaseKey).join();
 
-    // Assert - verify deleteOne was called
+    // Assert - verify deleteOne was called and maps are cleaned
     verify(this.mockCollection).deleteOne(any(Bson.class));
     // Assert - lease is removed from local cache
     assertThat(this.leaseManager.getLeases()).doesNotContainKey(leaseKey);
+    assertThat(this.leaseManager.getLeaseKeyToDatabase()).doesNotContainKey(leaseKey);
   }
 
   @Test
@@ -818,16 +839,17 @@ public class DynamicLeaderLeaseManagerTest {
     MaterializedViewIndexGeneration indexGeneration = createTestIndexGeneration();
     MaterializedViewGenerationId generationId = indexGeneration.getGenerationId();
     this.leaseManager.add(indexGeneration);
+    String leaseKey = getLeaseKeyFromCatalog(generationId);
     // Note: not acquiring leadership, so we're still a follower
 
     // Act - dropLease removes from memory but does not delete from DB since we don't own it
-    String leaseKey = getLeaseKeyFromCatalog(generationId);
     this.leaseManager.dropLease(leaseKey).join();
 
     // Assert - verify deleteOne was NOT called (we don't own the lease)
     verify(this.mockCollection, never()).deleteOne(any(Bson.class));
     // Assert - lease is removed from local cache
     assertThat(this.leaseManager.getLeases()).doesNotContainKey(leaseKey);
+    assertThat(this.leaseManager.getLeaseKeyToDatabase()).doesNotContainKey(leaseKey);
   }
 
   // ==================== initializeLease ====================
@@ -858,6 +880,10 @@ public class DynamicLeaderLeaseManagerTest {
 
     // Verify lease was stored in memory
     assertThat(this.leaseManager.getLeases()).containsKey("mv-collection-name");
+    assertThat(this.leaseManager.getLeaseKeyToDatabase())
+        .containsKey("mv-collection-name");
+    assertThat(this.leaseManager.getLeaseKeyToDatabase().get("mv-collection-name"))
+        .isEqualTo(DATABASE_NAME);
   }
 
   @Test
@@ -980,7 +1006,7 @@ public class DynamicLeaderLeaseManagerTest {
             this.mockAutoEmbeddingMongoClient,
             new SimpleMetricsFactory(),
             HOSTNAME,
-            DATABASE_NAME,
+            DB_RESOLVER,
             this.mvMetadataCatalog);
     manager.syncLeasesFromMongod();
 
@@ -989,6 +1015,7 @@ public class DynamicLeaderLeaseManagerTest {
     assertThat(
             storedLeases.get(collectionName).materializedViewCollectionMetadata().collectionUuid())
         .isEqualTo(originalUuid);
+    assertThat(manager.getLeaseKeyToDatabase()).containsKey(collectionName);
   }
 
   @Test
@@ -1031,7 +1058,7 @@ public class DynamicLeaderLeaseManagerTest {
             this.mockAutoEmbeddingMongoClient,
             new SimpleMetricsFactory(),
             HOSTNAME,
-            DATABASE_NAME,
+            DB_RESOLVER,
             this.mvMetadataCatalog);
     manager.syncLeasesFromMongod();
 
@@ -1041,6 +1068,7 @@ public class DynamicLeaderLeaseManagerTest {
     assertThat(
             storedLeases.get(collectionName).materializedViewCollectionMetadata().collectionUuid())
         .isEqualTo(expectedUuid);
+    assertThat(manager.getLeaseKeyToDatabase()).containsKey(collectionName);
   }
 
   @Test
@@ -1087,12 +1115,13 @@ public class DynamicLeaderLeaseManagerTest {
             this.mockAutoEmbeddingMongoClient,
             new SimpleMetricsFactory(),
             HOSTNAME,
-            DATABASE_NAME,
+            DB_RESOLVER,
             this.mvMetadataCatalog);
 
     // Assert - lease should NOT be stored (normalizeLeaseIfNeeded returned null)
     Map<String, Lease> storedLeases = manager.getLeases();
     assertThat(storedLeases).doesNotContainKey(collectionName);
+    assertThat(manager.getLeaseKeyToDatabase()).doesNotContainKey(collectionName);
   }
 
   // ==================== Helper Methods ====================

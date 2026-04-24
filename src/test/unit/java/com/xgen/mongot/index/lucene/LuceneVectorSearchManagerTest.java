@@ -68,6 +68,7 @@ public class LuceneVectorSearchManagerTest {
             new MongotKnnFloatQuery(
                 metrics, luceneFieldName, queryVector.getFloatVector(), numCandidates),
             query.criteria(),
+            Optional.empty(),
             Optional.empty());
 
     // insert documents into Lucene

@@ -22,6 +22,7 @@ import com.xgen.mongot.embedding.exceptions.EmbeddingProviderTransientException;
 import com.xgen.mongot.embedding.providers.clients.ClientInterface;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingModelConfig;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingServiceConfig;
+import com.xgen.mongot.index.definition.quantization.VectorAutoEmbedQuantization;
 import com.xgen.mongot.util.bson.Vector;
 import com.xgen.mongot.util.concurrent.Executors;
 import com.xgen.mongot.util.concurrent.NamedScheduledExecutorService;
@@ -41,7 +42,8 @@ import org.mockito.Mockito;
 
 public class EmbeddingServiceManagerTest {
   private static EmbeddingRequestContext dummyContext() {
-    return new EmbeddingRequestContext("testdb", "testIndex", "testCollection");
+    return new EmbeddingRequestContext(
+        "testdb", "testIndex", "testCollection", 1024, VectorAutoEmbedQuantization.FLOAT);
   }
 
   private static final EmbeddingServiceConfig.EmbeddingConfig VOYAGE_3_CONFIG =
@@ -95,7 +97,7 @@ public class EmbeddingServiceManagerTest {
         new EmbeddingServiceConfig(
             EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
             "voyage-3-large",
-            EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+            Optional.empty(),
             VOYAGE_3_CONFIG);
 
     EmbeddingServiceManager embeddingServiceManager =
@@ -146,7 +148,7 @@ public class EmbeddingServiceManagerTest {
         new EmbeddingServiceConfig(
             EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
             "voyage-3-large",
-            EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+            Optional.empty(),
             VOYAGE_3_CONFIG);
 
     EmbeddingServiceManager embeddingServiceManager =
@@ -183,7 +185,7 @@ public class EmbeddingServiceManagerTest {
         new EmbeddingServiceConfig(
             EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
             "voyage-3-large",
-            EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+            Optional.empty(),
             VOYAGE_3_CONFIG);
 
     EmbeddingServiceManager embeddingServiceManager =
@@ -225,7 +227,7 @@ public class EmbeddingServiceManagerTest {
         new EmbeddingServiceConfig(
             EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
             "voyage-3-large",
-            EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+            Optional.empty(),
             VOYAGE_3_CONFIG);
 
     MeterRegistry registry = new SimpleMeterRegistry();
@@ -295,7 +297,7 @@ public class EmbeddingServiceManagerTest {
         new EmbeddingServiceConfig(
             EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
             "voyage-3-large",
-            EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+            Optional.empty(),
             VOYAGE_3_CONFIG);
 
     MeterRegistry registry = new SimpleMeterRegistry();
@@ -385,7 +387,7 @@ public class EmbeddingServiceManagerTest {
         new EmbeddingServiceConfig(
             EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
             "voyage-3-large",
-            EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+            Optional.empty(),
             VOYAGE_3_CONFIG);
 
     MeterRegistry registry = new SimpleMeterRegistry();
@@ -426,7 +428,8 @@ public class EmbeddingServiceManagerTest {
   }
 
   @Test
-  public void testTransientErrorThrowByRateLimiter() {
+  public void testTransientErrorThrowByRateLimiter_outerRpsPerProvider() {
+    int rpsLimit = 30;
     EmbeddingServiceConfig.EmbeddingConfig disabledRetriesConfig =
         new EmbeddingServiceConfig.EmbeddingConfig(
             Optional.empty(),
@@ -450,7 +453,7 @@ public class EmbeddingServiceManagerTest {
         new EmbeddingServiceConfig(
             EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
             "voyage-3-large",
-            EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+            Optional.of(rpsLimit),
             disabledRetriesConfig);
 
     EmbeddingServiceManager embeddingServiceManager =
@@ -465,8 +468,68 @@ public class EmbeddingServiceManagerTest {
         assertThrows(
                 CompletionException.class,
                 () -> {
-                  // Sends 2x QPS limit to get error.
-                  for (int i = 0; i <= EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER * 2; i++) {
+                  for (int i = 0; i <= rpsLimit * 2; i++) {
+                    embeddingServiceManager
+                        .embedAsync(
+                            List.of("test"),
+                            EmbeddingModelConfig.create(
+                                "voyage-3-large",
+                                EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
+                                disabledRetriesConfig,
+                                Optional.of(rpsLimit)),
+                            QUERY,
+                            dummyContext())
+                        .join();
+                  }
+                })
+            .getCause();
+    assertTrue(ex instanceof EmbeddingProviderTransientException);
+    assertEquals("Client side rate limit exceeded, retry it later", ex.getMessage());
+  }
+
+  @Test
+  public void testTransientErrorThrowByNodeLevelRpsLimit() {
+    int rpsLimit = 30;
+    EmbeddingServiceConfig.EmbeddingConfig disabledRetriesConfig =
+        new EmbeddingServiceConfig.EmbeddingConfig(
+            Optional.empty(),
+            new EmbeddingServiceConfig.VoyageModelConfig(
+                Optional.of(1024),
+                Optional.of(EmbeddingServiceConfig.TruncationOption.NONE),
+                Optional.of(100),
+                Optional.of(120_000)),
+            new EmbeddingServiceConfig.ErrorHandlingConfig(0, 50L, 100L, 0.1),
+            new EmbeddingServiceConfig.VoyageEmbeddingCredentials(
+                "token123", "2024-10-15T22:32:20.925Z"),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            true,
+            Optional.empty(),
+            false,
+            Optional.empty());
+    EmbeddingServiceConfig embeddingServiceConfig =
+        new EmbeddingServiceConfig(
+            EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
+            "voyage-3-large",
+            Optional.empty(),
+            disabledRetriesConfig);
+
+    EmbeddingServiceManager embeddingServiceManager =
+        new EmbeddingServiceManager(
+            List.of(embeddingServiceConfig),
+            new FakeEmbeddingClientFactory(),
+            EXECUTOR,
+            new SimpleMeterRegistry(),
+            Optional.empty(),
+            Optional.of(rpsLimit));
+
+    Throwable ex =
+        assertThrows(
+                CompletionException.class,
+                () -> {
+                  for (int i = 0; i <= rpsLimit * 2; i++) {
                     embeddingServiceManager
                         .embedAsync(
                             List.of("test"),
@@ -481,7 +544,9 @@ public class EmbeddingServiceManagerTest {
                 })
             .getCause();
     assertTrue(ex instanceof EmbeddingProviderTransientException);
-    assertEquals("Client side rate limit exceeded, retry it later", ex.getMessage());
+    assertEquals(
+        "Client side rate limit exceeded, retry it later",
+        ex.getMessage());
   }
 
   @Test
@@ -509,7 +574,7 @@ public class EmbeddingServiceManagerTest {
         new EmbeddingServiceConfig(
             EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
             "voyage-3-large",
-            EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+            Optional.empty(),
             disabledRetriesConfig);
 
     EmbeddingServiceManager embeddingServiceManager =
@@ -565,7 +630,7 @@ public class EmbeddingServiceManagerTest {
         new EmbeddingServiceConfig(
             EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
             "voyage-3-large",
-            EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+            Optional.empty(),
             VOYAGE_3_CONFIG);
 
     FakeEmbeddingClientFactory embeddingClientFactory = mock(FakeEmbeddingClientFactory.class);
@@ -618,7 +683,7 @@ public class EmbeddingServiceManagerTest {
         new EmbeddingServiceConfig(
             EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
             "voyage-3-large",
-            EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+            Optional.empty(),
             new EmbeddingServiceConfig.EmbeddingConfig(
                 Optional.empty(),
                 new EmbeddingServiceConfig.VoyageModelConfig(
@@ -655,7 +720,7 @@ public class EmbeddingServiceManagerTest {
         new EmbeddingServiceConfig(
             EmbeddingServiceConfig.EmbeddingProvider.VOYAGE,
             "voyage-3-large",
-            EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+            Optional.empty(),
             new EmbeddingServiceConfig.EmbeddingConfig(
                 Optional.empty(),
                 new EmbeddingServiceConfig.VoyageModelConfig(

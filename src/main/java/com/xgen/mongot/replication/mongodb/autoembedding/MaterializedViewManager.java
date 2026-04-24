@@ -4,6 +4,8 @@ import static com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadat
 import static com.xgen.mongot.replication.mongodb.MongoDbReplicationManager.getClientSessionRecords;
 import static com.xgen.mongot.replication.mongodb.MongoDbReplicationManager.getSyncBatchMongoClient;
 import static com.xgen.mongot.replication.mongodb.MongoDbReplicationManager.getSyncSourceHost;
+import static com.xgen.mongot.replication.mongodb.ReplicationIndexManager.State.FAILED;
+import static com.xgen.mongot.replication.mongodb.ReplicationIndexManager.State.SHUT_DOWN;
 import static com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig.Type.AUTO_EMBEDDING;
 import static com.xgen.mongot.util.Check.checkState;
 import static com.xgen.mongot.util.FutureUtils.COMPLETED_FUTURE;
@@ -12,6 +14,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.xgen.mongot.cursor.MongotCursorManager;
+import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
 import com.xgen.mongot.embedding.mongodb.leasing.DynamicLeaderLeaseManager;
@@ -94,18 +97,14 @@ public class MaterializedViewManager implements ReplicationManager {
   // TODO(CLOUDP-356241): Make this parameter part of durabilityConfig
   private static final Duration DEFAULT_COMMIT_INTERVAL = Duration.ofSeconds(30);
 
-  /** Interval for emitting leader heartbeat log lines for monitoring purposes. */
-  private static final Duration DEFAULT_HEARTBEAT_INTERVAL = Duration.ofSeconds(30);
-
-  // TODO(CLOUDP-356241): Make this parameter part of materializedViewManagerConfig
-  private static final Duration DEFAULT_STATUS_TRACKING_INTERVAL = Duration.ofSeconds(30);
-
-  /** Interval for periodic optime updates. Used when acting as leader. */
-  private static final Duration DEFAULT_OPTIME_UPDATE_INTERVAL = Duration.ofSeconds(10);
-
   public static final String OPTIME_UPDATER_ERROR_COUNTER_NAME = "matViewOptimeUpdaterError";
 
   public static final String STATE_LABEL = "state";
+
+  // Set of terminal states for a MaterializedViewGenerator that disqualifies it from being reused,
+  // for materializedViewGenerator, FAILED_EXCEEDED and STEADY_STATE_SHUT_DOWN wont reached.
+  private static final Set<ReplicationIndexManager.State> TERMINAL_STATES =
+      Set.of(SHUT_DOWN, FAILED);
 
   // ==================== Common Fields ====================
 
@@ -172,6 +171,8 @@ public class MaterializedViewManager implements ReplicationManager {
 
   private final ScheduledFuture<?> statusRefreshFuture;
 
+  private final AutoEmbeddingMaterializedViewConfig materializedViewConfig;
+
   /**
    * Package-private constructor for testing - registers gauges and starts periodic tasks. This
    * constructor maintains backward compatibility with existing tests. Production code should use
@@ -190,7 +191,8 @@ public class MaterializedViewManager implements ReplicationManager {
       NamedScheduledExecutorService optimeUpdaterExecutor,
       MeterRegistry meterRegistry,
       LeaseManager leaseManager,
-      MaterializedViewCollectionMetadataCatalog matViewMetadataCatalog) {
+      MaterializedViewCollectionMetadataCatalog matViewMetadataCatalog,
+      AutoEmbeddingMaterializedViewConfig materializedViewConfig) {
     this(
         lifecycleExecutor,
         indexingWorkSchedulerFactory,
@@ -204,6 +206,7 @@ public class MaterializedViewManager implements ReplicationManager {
         meterRegistry,
         leaseManager,
         matViewMetadataCatalog,
+        materializedViewConfig,
         true); // registerGauges = true for backward compatibility
   }
 
@@ -224,6 +227,7 @@ public class MaterializedViewManager implements ReplicationManager {
       MeterRegistry meterRegistry,
       LeaseManager leaseManager,
       MaterializedViewCollectionMetadataCatalog matViewMetadataCatalog,
+      AutoEmbeddingMaterializedViewConfig materializedViewConfig,
       boolean registerGauges) {
     this.lifecycleExecutor = lifecycleExecutor;
     this.indexingWorkSchedulerFactory = indexingWorkSchedulerFactory;
@@ -243,10 +247,11 @@ public class MaterializedViewManager implements ReplicationManager {
     this.matViewMetadataCatalog = matViewMetadataCatalog;
     this.optimeUpdaterErrorCounter = this.meterRegistry.counter(OPTIME_UPDATER_ERROR_COUNTER_NAME);
     this.isReplicationEnabled = false;
+    this.materializedViewConfig = materializedViewConfig;
 
     // Always start heartbeat - it emits heartbeat only for indexes where this instance is leader
     LOG.atInfo()
-        .addKeyValue("interval", DEFAULT_HEARTBEAT_INTERVAL)
+        .addKeyValue("intervalMs", materializedViewConfig.leaseManagerHeartbeatIntervalMs)
         .log("Starting auto-embedding heartbeat");
     this.heartbeatFuture =
         heartbeatExecutor.scheduleWithFixedDelay(
@@ -262,7 +267,7 @@ public class MaterializedViewManager implements ReplicationManager {
               }
             },
             0,
-            DEFAULT_HEARTBEAT_INTERVAL.toMillis(),
+            this.materializedViewConfig.leaseManagerHeartbeatIntervalMs,
             TimeUnit.MILLISECONDS);
 
     // Periodic status refresh for all indexes (leader updates optime, follower polls status)
@@ -280,7 +285,7 @@ public class MaterializedViewManager implements ReplicationManager {
               }
             },
             0,
-            DEFAULT_STATUS_TRACKING_INTERVAL.toMillis(),
+            this.materializedViewConfig.materializedViewStatusRefreshIntervalMs,
             TimeUnit.MILLISECONDS);
 
     // Periodic optime updates for materialized view indexes.
@@ -299,7 +304,7 @@ public class MaterializedViewManager implements ReplicationManager {
               }
             },
             0,
-            DEFAULT_OPTIME_UPDATE_INTERVAL.toMillis(),
+            this.materializedViewConfig.materializedViewOptimeUpdateIntervalMs,
             TimeUnit.MILLISECONDS);
 
     if (registerGauges) {
@@ -390,8 +395,8 @@ public class MaterializedViewManager implements ReplicationManager {
             meterRegistry,
             leaseManager,
             matViewMetadataCatalog,
-            false); // Don't register gauges/tasks in constructor to avoid
-    // this-escape
+            materializedViewConfig,
+            false); // Don't register gauges/tasks in constructor to avoid this-escape
 
     // Register gauges after construction is complete
     createStateGauges(manager, manager.metricsFactory);
@@ -506,8 +511,12 @@ public class MaterializedViewManager implements ReplicationManager {
       return createNewGenerator(matViewIndexGeneration);
     }
 
+    ReplicationIndexManager.State existingState = existingGenerator.getState();
     boolean needsNewGenerator =
-        existingGenerator.getIndexGeneration().needsNewMatViewGenerator(matViewIndexGeneration);
+        TERMINAL_STATES.contains(existingState)
+            || existingGenerator
+                .getIndexGeneration()
+                .needsNewMatViewGenerator(matViewIndexGeneration);
     if (needsNewGenerator) {
       LOG.atInfo()
           .addKeyValue("generationId", matViewIndexGeneration.getGenerationId())
@@ -879,7 +888,8 @@ public class MaterializedViewManager implements ReplicationManager {
         .forEach(
             generator -> {
               var generationId = generator.getIndexGeneration().getGenerationId();
-              if (pollResult.statuses().containsKey(generationId)) {
+              // Check generator.isLeader again before setting.
+              if (pollResult.statuses().containsKey(generationId) && !generator.isLeader()) {
                 var status = pollResult.statuses().get(generationId);
                 generator.getIndexGeneration().getIndex().setStatus(status);
               }
@@ -888,33 +898,33 @@ public class MaterializedViewManager implements ReplicationManager {
     // Dynamic leader election only: attempt to acquire leadership for acquirable leases.
     if (this.leaseManager instanceof DynamicLeaderLeaseManager) {
       for (MaterializedViewGenerationId generationId : pollResult.acquirableLeases()) {
+        // Get a fresh snapshot from managedMaterializedViewGenerators instead of the snapshot
+        // taken at the start of refreshStatus(). The generator may still be missing due to a
+        // race condition (leaseManager.add() called but generator not yet stored), which is
+        // handled below - createNewGenerator() will call becomeLeader() when it completes.
+        var generator = getMatViewGenerator(generationId);
+        if (generator.isEmpty() || TERMINAL_STATES.contains(generator.get().getState())) {
+          // For generator is empty, this is a transient race condition: leaseManager.add() was
+          // called (adding to followerGenerationIds), but the generator hasn't been stored in the
+          // map yet. This is safe because createNewGenerator() checks isLeader() after creating the
+          // generator and will call becomeLeader() when it completes.
+          LOG.atWarn()
+              .addKeyValue("generationId", generationId)
+              .addKeyValue("generatorState", generator.map(ReplicationIndexManager::getState))
+              .addKeyValue("generatorCreated", generator.isPresent())
+              .log("Generator disqualified for leadership acquisition");
+          // Terminated generators should be shut down to release resources, should never become
+          // leader again. Explicitly shutting down here as fail-safe.
+          generator.ifPresent(MaterializedViewGenerator::shutdown);
+          continue;
+        }
         if (this.leaseManager.tryAcquireLeadership(generationId)) {
           // Successfully acquired leadership - transition generator to leader mode.
-          UUID uuid = getCollectionUuid(generationId);
-          // Get a fresh snapshot from managedMaterializedViewGenerators instead of the snapshot
-          // taken at the start of refreshStatus(). The generator may still be missing due to a
-          // race condition (leaseManager.add() called but generator not yet stored), which is
-          // handled below - createNewGenerator() will call becomeLeader() when it completes.
-          var generator = getMatViewGenerators().get(uuid);
-          if (generator != null) {
-            LOG.atInfo()
-                .addKeyValue("indexId", generationId.indexId)
-                .addKeyValue("generationId", generationId)
-                .log("Acquired leadership for materialized view, transitioning to leader mode");
-            generator.becomeLeader();
-          } else {
-            // This is a transient race condition: leaseManager.add() was called (adding to
-            // followerGenerationIds), but the generator hasn't been stored in the map yet.
-            // This is safe because createNewGenerator() checks isLeader() after creating the
-            // generator and will call becomeLeader() when it completes.
-            LOG.atDebug()
-                .addKeyValue("indexId", generationId.indexId)
-                .addKeyValue("generationId", generationId)
-                .addKeyValue("uuid", uuid)
-                .log(
-                    "Acquired leadership but generator still being created, "
-                        + "createNewGenerator() will activate leadership when complete");
-          }
+          LOG.atInfo()
+              .addKeyValue("indexId", generationId.indexId)
+              .addKeyValue("generationId", generationId)
+              .log("Acquired leadership for materialized view, transitioning to leader mode");
+          generator.get().becomeLeader();
         }
       }
     }
@@ -1021,6 +1031,14 @@ public class MaterializedViewManager implements ReplicationManager {
 
   public UUID getCollectionUuid(MaterializedViewGenerationId generationId) {
     return this.matViewMetadataCatalog.getMetadata(generationId).collectionUuid();
+  }
+
+  public synchronized Optional<MaterializedViewGenerator> getMatViewGenerator(
+      MaterializedViewGenerationId generationId) {
+    return this.matViewMetadataCatalog
+        .getMetadataIfPresent(generationId)
+        .map(MaterializedViewCollectionMetadata::collectionUuid)
+        .map(this.managedMaterializedViewGenerators::get);
   }
 
   public synchronized void restartReplication() {

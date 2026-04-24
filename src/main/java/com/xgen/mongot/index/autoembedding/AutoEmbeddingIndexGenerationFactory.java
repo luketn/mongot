@@ -2,7 +2,6 @@ package com.xgen.mongot.index.autoembedding;
 
 import static com.xgen.mongot.embedding.utils.AutoEmbeddingIndexDefinitionUtils.getDerivedVectorIndexDefinition;
 import static com.xgen.mongot.index.definition.MaterializedViewIndexDefinitionGeneration.MIN_VERSION_FOR_MATERIALIZED_VIEW_EMBEDDING;
-import static com.xgen.mongot.index.mongodb.MaterializedViewWriter.MV_DATABASE_NAME;
 
 import com.xgen.mongot.catalog.InitializedIndexCatalog;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
@@ -104,7 +103,7 @@ public class AutoEmbeddingIndexGenerationFactory {
     return new VectorIndexDefinitionGeneration(
         getDerivedVectorIndexDefinition(
             rawDefinitionGeneration.getIndexDefinition(),
-            MV_DATABASE_NAME,
+            matViewIndex.getMaterializedViewDatabaseName(),
             matViewIndex.getMaterializedViewCollectionUuid(),
             matViewIndex.getSchemaMetadata()),
         rawDefinitionGeneration.generation());

@@ -122,7 +122,7 @@ public class MaterializedViewWriter implements IndexWriter {
   /** Builds Materialized View Writer for an auto embedding index. */
   public MaterializedViewWriter(
       AutoEmbeddingMongoClient autoEmbeddingMongoClient,
-      String databaseName,
+      String matViewDatabaseName,
       String matViewName,
       MaterializedViewGenerationId generationId,
       LeaseManager leaseManager,
@@ -130,7 +130,7 @@ public class MaterializedViewWriter implements IndexWriter {
       UUID collectionUuid,
       Optional<RateLimiter> rateLimiter) {
     this.autoEmbeddingMongoClient = autoEmbeddingMongoClient;
-    this.namespace = new MongoNamespace(databaseName, matViewName);
+    this.namespace = new MongoNamespace(matViewDatabaseName, matViewName);
     this.generationId = generationId;
     this.leaseManager = leaseManager;
     this.bulkOperationsRef = new AtomicReference<>(new ConcurrentLinkedQueue<>());
@@ -340,13 +340,14 @@ public class MaterializedViewWriter implements IndexWriter {
     }
 
     public MaterializedViewWriter create(
+        String matViewDatabaseName,
         String matViewColName,
         MaterializedViewGenerationId generationId,
         LeaseManager leaseManager,
         UUID collectionUuid) {
       return new MaterializedViewWriter(
           this.autoEmbeddingMongoClient,
-          MV_DATABASE_NAME,
+          matViewDatabaseName,
           matViewColName,
           generationId,
           leaseManager,
@@ -431,6 +432,8 @@ public class MaterializedViewWriter implements IndexWriter {
             "MV write rejected by fencing: a newer leader has written to this document");
       }
       // Not a fencing rejection — retry the failed + unattempted operations.
+      // Disk-full and write-blocked cases are detected and wrapped as transient by
+      // MongoClientOperationExecutor before reaching here.
       this.partialBulkWriteErrors.increment();
       var failedOperations = filterFailedOperations(documents, e.getWriteErrors());
       LOG.warn(

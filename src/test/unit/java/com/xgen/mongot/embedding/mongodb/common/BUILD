@@ -4,6 +4,7 @@ java_test_suite(
     name = "common",
     srcs = [
         "AutoEmbeddingMongoClientTest.java",
+        "InternalDatabaseResolverTest.java",
     ],
     tags = ["unit"],
     deps = [

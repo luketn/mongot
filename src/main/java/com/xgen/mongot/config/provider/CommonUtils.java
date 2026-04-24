@@ -8,6 +8,7 @@ import com.xgen.mongot.cursor.MongotCursorManager;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.mongodb.MaterializedViewCollectionResolver;
 import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
+import com.xgen.mongot.embedding.mongodb.common.InternalDatabaseResolver;
 import com.xgen.mongot.embedding.mongodb.leasing.DynamicLeaderLeaseManager;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManagerOpsCommands;
@@ -191,6 +192,7 @@ public class CommonUtils {
       MeterAndFtdcRegistry meterAndFtdcRegistry,
       LeaseManager leaseManager,
       MaterializedViewCollectionResolver collectionResolver,
+      InternalDatabaseResolver dbResolver,
       AutoEmbeddingMaterializedViewConfig materializedViewConfig) {
     return new MaterializedViewIndexFactory(
         autoEmbeddingMongoClient,
@@ -198,6 +200,7 @@ public class CommonUtils {
         meterAndFtdcRegistry,
         leaseManager,
         collectionResolver,
+        dbResolver,
         materializedViewConfig.getMvWriteRateLimitRps(),
         materializedViewConfig.matViewWriterMaxConnections);
   }
@@ -214,28 +217,31 @@ public class CommonUtils {
    */
   @Deprecated
   public static LeaseManager getLeaseManager(
+      InternalDatabaseResolver dbResolver,
       AutoEmbeddingMongoClient autoEmbeddingMongoClient,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
       boolean isAutoEmbeddingViewWriter,
       MaterializedViewCollectionMetadataCatalog mvMetadataCatalog) {
     LOG.info("Auto-embedding leader mode set via config: {}", isAutoEmbeddingViewWriter);
-    // hostname is an unused parameter for now, so passing in a placeholder.
     return StaticLeaderLeaseManager.create(
         Check.isPresent(
             autoEmbeddingMongoClient.getLeaseManagerMongoClient(),
             "autoEmbeddingLeaseManagerMongoClient"),
         meterAndFtdcRegistry,
         "localhost",
+        dbResolver,
         isAutoEmbeddingViewWriter,
         mvMetadataCatalog);
   }
 
   public static MaterializedViewCollectionResolver getMaterializedViewCollectionResolver(
+      InternalDatabaseResolver dbResolver,
       AutoEmbeddingMongoClient autoEmbeddingMongoClient,
       MaterializedViewCollectionMetadataCatalog metadataCatalog,
       LeaseManager leaseManager,
       AutoEmbeddingMaterializedViewConfig materializedViewConfig) {
     return MaterializedViewCollectionResolver.create(
+        dbResolver,
         autoEmbeddingMongoClient,
         metadataCatalog,
         leaseManager,
@@ -257,13 +263,20 @@ public class CommonUtils {
    * @return a DynamicLeaderLeaseManager for dynamic leader election
    */
   public static LeaseManager getDynamicLeaseManager(
+      InternalDatabaseResolver dbResolver,
       AutoEmbeddingMongoClient autoEmbeddingMongoClient,
       MeterAndFtdcRegistry meterAndFtdcRegistry,
       String hostname,
       MaterializedViewCollectionMetadataCatalog mvMetadataCatalog,
       LeaseManagerOpsCommands opsCommands) {
-    LOG.info("Creating DynamicLeaderLeaseManager for dynamic per-index leader election");
+    LOG.info(
+        "Creating DynamicLeaderLeaseManager for dynamic per-index leader election");
     return DynamicLeaderLeaseManager.create(
-        autoEmbeddingMongoClient, meterAndFtdcRegistry, hostname, mvMetadataCatalog, opsCommands);
+        autoEmbeddingMongoClient,
+        meterAndFtdcRegistry,
+        hostname,
+        dbResolver,
+        mvMetadataCatalog,
+        opsCommands);
   }
 }

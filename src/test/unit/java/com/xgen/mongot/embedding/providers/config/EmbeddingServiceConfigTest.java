@@ -103,7 +103,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3-large",
-              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+              Optional.empty(),
               new EmbeddingConfig(
                   Optional.of("us-east-1"),
                   MODEL_CONFIG,
@@ -143,7 +143,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3.5-lite",
-              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+              Optional.empty(),
               new EmbeddingConfig(
                   Optional.empty(),
                   MODEL_CONFIG,
@@ -166,7 +166,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3.5",
-              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+              Optional.empty(),
               new EmbeddingConfig(
                   Optional.empty(),
                   MODEL_CONFIG,
@@ -189,7 +189,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3.5",
-              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+              Optional.empty(),
               new EmbeddingConfig(
                   Optional.empty(),
                   MODEL_CONFIG,
@@ -264,7 +264,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
                   VOYAGE,
                   "voyage-3-large",
-                  EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+                  Optional.empty(),
                   new EmbeddingConfig(
                       Optional.of("us-east-1"),
                       MODEL_CONFIG,
@@ -304,7 +304,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3.5-lite",
-              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+              Optional.empty(),
               new EmbeddingConfig(
                   Optional.empty(),
                   MODEL_CONFIG,
@@ -341,7 +341,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3.5",
-              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+              Optional.empty(),
               new EmbeddingConfig(
                   Optional.empty(),
                   MODEL_CONFIG,
@@ -364,7 +364,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3.5",
-              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+              Optional.empty(),
               new EmbeddingConfig(
                   Optional.empty(),
                   MODEL_CONFIG,
@@ -387,7 +387,7 @@ public class EmbeddingServiceConfigTest {
           new EmbeddingServiceConfig(
               VOYAGE,
               "voyage-3.5",
-              EmbeddingServiceConfig.DEFAULT_RPS_PER_PROVIDER,
+              Optional.empty(),
               new EmbeddingConfig(
                   Optional.empty(),
                   MODEL_CONFIG,

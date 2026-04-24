@@ -4,6 +4,7 @@ import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadata;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
 import com.xgen.mongot.embedding.mongodb.MaterializedViewCollectionResolver;
 import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
+import com.xgen.mongot.embedding.mongodb.common.InternalDatabaseResolver;
 import com.xgen.mongot.embedding.mongodb.leasing.LeaseManager;
 import com.xgen.mongot.featureflag.Feature;
 import com.xgen.mongot.featureflag.FeatureFlags;
@@ -41,6 +42,7 @@ public class MaterializedViewIndexFactory implements IndexFactory {
   private final LeaseManager leaseManager;
   private final MaterializedViewCollectionResolver collectionResolver;
   private final AutoEmbeddingMongoClient autoEmbeddingMongoClient;
+  private final InternalDatabaseResolver dbResolver;
 
   public MaterializedViewIndexFactory(
       AutoEmbeddingMongoClient autoEmbeddingMongoClient,
@@ -48,6 +50,7 @@ public class MaterializedViewIndexFactory implements IndexFactory {
       MeterAndFtdcRegistry meterAndFtdcRegistry,
       LeaseManager leaseManager,
       MaterializedViewCollectionResolver collectionResolver,
+      InternalDatabaseResolver dbResolver,
       Optional<Integer> mvWriteRateLimitRps,
       int matViewWriterMaxConnections) {
     this.meterAndFtdcRegistry = meterAndFtdcRegistry;
@@ -59,6 +62,7 @@ public class MaterializedViewIndexFactory implements IndexFactory {
     this.leaseManager = leaseManager;
     this.collectionResolver = collectionResolver;
     this.autoEmbeddingMongoClient = autoEmbeddingMongoClient;
+    this.dbResolver = dbResolver;
   }
 
   /** Must be called after all associated indexes are closed. */
@@ -82,8 +86,11 @@ public class MaterializedViewIndexFactory implements IndexFactory {
         this.collectionResolver.getOrCreateMaterializedViewForIndex(
             matViewIndexDefinitionGeneration);
 
+    String matViewDatabaseName = this.dbResolver.resolve(
+        matViewIndexDefinitionGeneration.getIndexDefinition().getDatabase());
     MaterializedViewWriter writer =
         this.materializedViewWriterFactory.create(
+            matViewDatabaseName,
             collectionMetadata.collectionName(),
             matViewIndexDefinitionGeneration.getGenerationId(),
             this.leaseManager,
@@ -118,7 +125,8 @@ public class MaterializedViewIndexFactory implements IndexFactory {
         indexMetricsUpdaterBuilder.build(metricValuesSupplier),
         statusRef,
         this.leaseManager,
-        collectionMetadata.schemaMetadata());
+        collectionMetadata.schemaMetadata(),
+        matViewDatabaseName);
   }
 
   @Override

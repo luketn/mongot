@@ -4,6 +4,7 @@ import static com.xgen.mongot.index.lucene.Comparators.SCORE_DOC_RELEVANCE_COMPA
 
 import com.google.errorprone.annotations.Var;
 import com.xgen.mongot.index.lucene.quantization.BinaryQuantizedVectorRescorer;
+import com.xgen.mongot.index.lucene.query.NestedAvgVectorRescorer;
 import com.xgen.mongot.index.query.operators.VectorSearchCriteria;
 import java.io.IOException;
 import java.util.Arrays;
@@ -26,8 +27,9 @@ public class LuceneCachingVectorSearchManager extends LuceneVectorSearchManager 
   public LuceneCachingVectorSearchManager(
       Query luceneQuery,
       VectorSearchCriteria criteria,
-      Optional<BinaryQuantizedVectorRescorer> rescorer) {
-    super(luceneQuery, criteria, rescorer);
+      Optional<BinaryQuantizedVectorRescorer> rescorer,
+      Optional<NestedAvgVectorRescorer> nestedAvgRescorer) {
+    super(luceneQuery, criteria, rescorer, nestedAvgRescorer);
   }
 
   @Override

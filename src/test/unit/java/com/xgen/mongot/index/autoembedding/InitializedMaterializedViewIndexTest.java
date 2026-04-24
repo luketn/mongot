@@ -56,7 +56,8 @@ public class InitializedMaterializedViewIndexTest {
 
     InitializedMaterializedViewIndex index =
         new InitializedMaterializedViewIndex(
-            defGen, writer, indexMetricsUpdater, statusRef, leaseManager, schemaMetadata);
+            defGen, writer, indexMetricsUpdater, statusRef, leaseManager, schemaMetadata,
+            "__mdb_internal_search");
 
     long leaderStatusGaugesBefore =
         meterRegistry.getMeters().stream()

@@ -26,6 +26,7 @@ import com.xgen.mongot.cursor.MongotCursorManager;
 import com.xgen.mongot.cursor.MongotCursorManagerImpl;
 import com.xgen.mongot.embedding.config.MaterializedViewCollectionMetadataCatalog;
 import com.xgen.mongot.embedding.mongodb.common.AutoEmbeddingMongoClient;
+import com.xgen.mongot.embedding.mongodb.common.DefaultInternalDatabaseResolver;
 import com.xgen.mongot.embedding.providers.EmbeddingServiceManager;
 import com.xgen.mongot.embedding.providers.clients.EmbeddingClientFactory;
 import com.xgen.mongot.embedding.providers.configs.EmbeddingModelCatalog;
@@ -630,14 +631,17 @@ public class CommunityMongotBootstrapper {
     var autoEmbeddingMongoClient =
         new AutoEmbeddingMongoClient(
             Optional.of(syncSourceConfig), meterAndFtdcRegistry.meterRegistry());
+    var dbResolver = new DefaultInternalDatabaseResolver();
     var leaseManager =
         CommonUtils.getLeaseManager(
+            dbResolver,
             autoEmbeddingMongoClient,
             meterAndFtdcRegistry,
             isAutoEmbeddingViewWriter,
             mvMetadataCatalog);
     var mvCollectionResolver =
         CommonUtils.getMaterializedViewCollectionResolver(
+            dbResolver,
             autoEmbeddingMongoClient,
             mvMetadataCatalog,
             leaseManager,
@@ -649,6 +653,7 @@ public class CommunityMongotBootstrapper {
             meterAndFtdcRegistry,
             leaseManager,
             mvCollectionResolver,
+            dbResolver,
             mongotConfigs.autoEmbeddingMaterializedViewConfig);
     var replicationManagerFactory =
         CommonUtils.getReplicationManagerFactory(
@@ -847,6 +852,8 @@ public class CommunityMongotBootstrapper {
     var regularBlockingRequestSettings = RegularBlockingRequestSettings.defaults();
 
     var mvWriteRateLimitRps = embeddingConfig.flatMap(EmbeddingConfig::mvWriteRateLimitRps);
+    var embeddingProviderRpsLimit =
+        embeddingConfig.flatMap(EmbeddingConfig::embeddingProviderRpsLimit);
     var autoEmbeddingMaterializedViewConfig =
         AutoEmbeddingMaterializedViewConfig.create(
             CommonReplicationConfig.defaultGlobalReplicationConfig(),
@@ -863,12 +870,16 @@ public class CommunityMongotBootstrapper {
             Optional.empty(),
             Optional.empty(),
             mvWriteRateLimitRps,
+            embeddingProviderRpsLimit,
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             // Set 0 for now, as we are still working on the mat view collection naming.
             Optional.of(0L),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
             Optional.empty(),
             Optional.empty());
     return new MongotConfigs(

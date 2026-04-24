@@ -46,6 +46,7 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
   private final AtomicReference<IndexStatus> statusRef;
   private final LeaseManager leaseManager;
   private final MaterializedViewSchemaMetadata schemaMetadata;
+  private final String matViewDatabaseName;
   private final AtomicLong leaderStatusGauge;
 
   public InitializedMaterializedViewIndex(
@@ -54,7 +55,8 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
       IndexMetricsUpdater indexMetricsUpdater,
       AtomicReference<IndexStatus> statusRef,
       LeaseManager leaseManager,
-      MaterializedViewSchemaMetadata schemaMetadata) {
+      MaterializedViewSchemaMetadata schemaMetadata,
+      String matViewDatabaseName) {
     // TODO(CLOUDP-353553): Handle search index version - getIndexDefinition() now returns
     //  IndexDefinition which may be a SearchIndexDefinition.
     this.vectorIndexDefinition =
@@ -65,6 +67,7 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
     this.statusRef = statusRef;
     this.leaseManager = leaseManager;
     this.schemaMetadata = schemaMetadata;
+    this.matViewDatabaseName = matViewDatabaseName;
     this.leaderStatusGauge =
         indexMetricsUpdater.getMetricsFactory().perIndexNumGauge("leaderStatus");
   }
@@ -180,6 +183,10 @@ public class InitializedMaterializedViewIndex implements InitializedVectorIndex 
 
   public MaterializedViewSchemaMetadata getSchemaMetadata() {
     return this.schemaMetadata;
+  }
+
+  public String getMaterializedViewDatabaseName() {
+    return this.matViewDatabaseName;
   }
 
   static class NoOpIndexReader implements VectorIndexReader {
