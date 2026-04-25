@@ -5,6 +5,7 @@ WORKDIR="$(pwd)"
 AGENT_DIR="${WORKDIR}/otel-agent"
 AGENT_JAR="${AGENT_DIR}/opentelemetry-javaagent.jar"
 AGENT_VERSION="2.5.0"
+JAEGER_MEMORY_MAX_TRACES="${JAEGER_MEMORY_MAX_TRACES:-50000}"
 
 # ── OpenTelemetry Java Agent ─────────────────────────────────────────
 mkdir -p "${AGENT_DIR}"
@@ -26,7 +27,8 @@ docker run -d --name jaeger \
   -p 14268:14268 \
   -p 16686:16686 \
   --add-host=host.docker.internal:host-gateway \
-  jaegertracing/all-in-one:latest
+  jaegertracing/all-in-one:latest \
+  --memory.max-traces="${JAEGER_MEMORY_MAX_TRACES}"
 
 # ── Prometheus (metrics) ─────────────────────────────────────────────
 docker rm -f prometheus >/dev/null 2>&1 || true
@@ -48,15 +50,20 @@ docker run -d --name grafana \
 
 echo ""
 echo "✓ Jaeger     http://localhost:16686"
+echo "  Jaeger in-memory trace cap: ${JAEGER_MEMORY_MAX_TRACES}"
 echo "✓ Prometheus http://localhost:9090"
 echo "✓ Grafana    http://localhost:3000  (admin/admin)"
 echo ""
-echo "To run MongoT with tracing, add these Bazel flags:"
+echo "To run MongoT with tracing, run from the repo root:"
 echo ""
-echo "  --jvmopt=-javaagent:${AGENT_JAR}"
-echo "  --jvmopt=-Dotel.traces.exporter=otlp"
-echo "  --jvmopt=-Dotel.exporter.otlp.endpoint=http://127.0.0.1:4318"
-echo "  --jvmopt=-Dotel.service.name=mongot"
-echo "  --jvmopt=-Dotel.metrics.exporter=none"
-echo "  --jvmopt=-Dotel.logs.exporter=none"
+echo "  bazel build //src/main/java/com/xgen/mongot/community:MongotCommunity"
+echo "  JAVABIN=\$(/usr/libexec/java_home -v 21)/bin/java DETAILED_TRACE_SPANS=true \\"
+echo "    ./bazel-bin/src/main/java/com/xgen/mongot/community/MongotCommunity \\"
+echo "    --jvm_flag=-javaagent:${AGENT_JAR} \\"
+echo "    --jvm_flag=-Dotel.traces.exporter=otlp \\"
+echo "    --jvm_flag=-Dotel.exporter.otlp.endpoint=http://127.0.0.1:4318 \\"
+echo "    --jvm_flag=-Dotel.service.name=mongot \\"
+echo "    --jvm_flag=-Dotel.metrics.exporter=none \\"
+echo "    --jvm_flag=-Dotel.logs.exporter=none \\"
+echo "    --config mongot-dev.yml --internalListAllIndexesForTesting"
 echo ""

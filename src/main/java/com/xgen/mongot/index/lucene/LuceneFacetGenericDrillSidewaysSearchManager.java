@@ -5,6 +5,7 @@ import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.sort.SequenceToken;
 import com.xgen.mongot.util.CheckedExceptionUtils;
 import com.xgen.mongot.util.concurrent.NamedExecutorService;
+import io.opentelemetry.api.trace.Span;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -76,6 +77,16 @@ class LuceneFacetGenericDrillSidewaysSearchManager
     var searchLimit = Math.min(readerLimit, batchSize);
 
     var searchCollectorManager = createCollectorManager(searchLimit, Integer.MAX_VALUE);
+    Span.current().setAttribute("mongot.lucene.collector_manager.class", searchCollectorManager.getClass().getName());
+    Span.current().setAttribute("mongot.lucene.hit_threshold", Integer.MAX_VALUE);
+    Span.current()
+        .setAttribute(
+            "mongot.lucene.drill_sideways.facet_count",
+            this.facetToDrillSidewaysFacetQueries.size());
+    Span.current()
+        .setAttribute(
+            "mongot.lucene.drill_sideways.concurrent",
+            this.drillSidewaysConcurrentFacetExecutor.isPresent());
     var topDocs = searcher.search(this.getLuceneQuery(), searchCollectorManager);
 
     Map<String, DrillSidewaysResult> facetDrillSidewaysResults;

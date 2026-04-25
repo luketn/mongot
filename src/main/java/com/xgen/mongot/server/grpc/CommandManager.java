@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class CommandManager<T> {
   private final StreamObserver<T> responseObserver;
+  private final Runnable streamClosedCallback;
 
   // Total number of pending `responseObserver.onNext` and `responseObserver.onCompleted` calls.
   // Server will send half-close after this number is reduced to 0.
@@ -44,7 +45,12 @@ public class CommandManager<T> {
   private volatile boolean streamCancelled;
 
   CommandManager(StreamObserver<T> responseObserver) {
+    this(responseObserver, () -> {});
+  }
+
+  CommandManager(StreamObserver<T> responseObserver, Runnable streamClosedCallback) {
     this.responseObserver = responseObserver;
+    this.streamClosedCallback = streamClosedCallback;
     // This is initialized to 1 because we need to call `responseObserver.onCompleted` after
     // receiving `onHalfClosedByClient` or `onStreamCancellation`.
     this.numPendingResponseObserverCalls = new AtomicInteger(1);
@@ -118,6 +124,7 @@ public class CommandManager<T> {
       // The RPC stream is already cancelled.
     }
 
+    this.streamClosedCallback.run();
     this.cleanupCallback.run();
   }
 }

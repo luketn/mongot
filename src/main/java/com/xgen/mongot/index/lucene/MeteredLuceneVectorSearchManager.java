@@ -7,6 +7,8 @@ import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.operators.ApproximateVectorSearchCriteria;
 import com.xgen.mongot.index.query.operators.VectorSearchCriteria;
 import com.xgen.mongot.metrics.Timed;
+import com.xgen.mongot.trace.Tracing;
+import io.opentelemetry.api.common.Attributes;
 import java.io.IOException;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
@@ -48,17 +50,43 @@ public class MeteredLuceneVectorSearchManager<T> implements LuceneSearchManager<
     }
     this.metricsUpdater.getLimitPerQuery().record(this.criteria.limit());
 
-    return Timed.<T, IOException, InvalidQueryException>supplier2(
-        this.metricsUpdater.getVectorSearchInitialTopDocsLatencyTimer(),
-        () -> this.searchManager.initialSearch(searcherReference, batchSize));
+    try (var span =
+        Tracing.detailedSpanGuard(
+            "mongot.lucene.vector_initial_top_docs",
+            Attributes.builder()
+                .put("mongot.lucene.batch_size", batchSize)
+                .put("mongot.vector.search.type", this.criteria.getVectorSearchType().name())
+                .put("mongot.vector.limit", this.criteria.limit())
+                .put("mongot.vector.quantization", this.fieldQuantization.name())
+                .build())) {
+      T result =
+          Timed.<T, IOException, InvalidQueryException>supplier2(
+              this.metricsUpdater.getVectorSearchInitialTopDocsLatencyTimer(),
+              () -> this.searchManager.initialSearch(searcherReference, batchSize));
+      if (result instanceof LuceneSearchManager.QueryInfo queryInfo) {
+        span.getSpan().setAttribute("mongot.lucene.top_docs.count", queryInfo.topDocs.scoreDocs.length);
+        span.getSpan().setAttribute("mongot.lucene.total_hits", queryInfo.topDocs.totalHits.value);
+        span.getSpan().setAttribute("mongot.lucene.exhausted", queryInfo.luceneExhausted);
+      }
+      return result;
+    }
   }
 
   @Override
   public TopDocs getMoreTopDocs(
       LuceneIndexSearcherReference searcherReference, ScoreDoc lastScoreDoc, int batchSize)
       throws IOException {
-    return Timed.supplier(
-        this.metricsUpdater.getVectorSearchGetMoreTopDocsLatencyTimer(),
-        () -> this.searchManager.getMoreTopDocs(searcherReference, lastScoreDoc, batchSize));
+    try (var span =
+        Tracing.detailedSpanGuard(
+            "mongot.lucene.vector_get_more_top_docs",
+            Attributes.builder().put("mongot.lucene.batch_size", batchSize).build())) {
+      TopDocs topDocs =
+          Timed.supplier(
+              this.metricsUpdater.getVectorSearchGetMoreTopDocsLatencyTimer(),
+              () -> this.searchManager.getMoreTopDocs(searcherReference, lastScoreDoc, batchSize));
+      span.getSpan().setAttribute("mongot.lucene.top_docs.count", topDocs.scoreDocs.length);
+      span.getSpan().setAttribute("mongot.lucene.total_hits", topDocs.totalHits.value);
+      return topDocs;
+    }
   }
 }

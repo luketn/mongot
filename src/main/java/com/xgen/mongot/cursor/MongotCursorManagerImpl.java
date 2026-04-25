@@ -17,6 +17,7 @@ import com.xgen.mongot.index.query.SearchQuery;
 import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.searchenvoy.grpc.SearchEnvoyMetadata;
+import com.xgen.mongot.trace.Tracing;
 import com.xgen.mongot.util.Bytes;
 import com.xgen.mongot.util.Crash;
 import com.xgen.mongot.util.concurrent.Executors;
@@ -149,14 +150,17 @@ public class MongotCursorManagerImpl implements MongotCursorManager {
       // Validate the input and return the proper cursor (either an actual cursor over the index, or
       // an empty cursor if the index doesn't exist), or throw a validation exception if
       // appropriate.
-      IndexCursorManager indexManager =
-          provideIndexManager(
-              databaseName,
-              collectionName,
-              collectionUuid,
-              viewName,
-              cursorQuery.getQuery(),
-              searchEnvoyMetadata);
+      IndexCursorManager indexManager;
+      try (var selectIndexSpan = Tracing.detailedSpanGuard("mongot.cursor.select_index_manager")) {
+        indexManager =
+            provideIndexManager(
+                databaseName,
+                collectionName,
+                collectionUuid,
+                viewName,
+                cursorQuery.getQuery(),
+                searchEnvoyMetadata);
+      }
 
       // if another thread is in killIndexCursors right now, the index should not be available, and
       // so we would throw or use an empty cursor.
@@ -167,7 +171,10 @@ public class MongotCursorManagerImpl implements MongotCursorManager {
               queryCursorOptions,
               queryOptimizationFlags);
 
-      this.cursorToIndex.put(cursorInfo.cursorId, indexManager);
+      try (var registerMappingSpan =
+          Tracing.detailedSpanGuard("mongot.cursor.register_index_mapping")) {
+        this.cursorToIndex.put(cursorInfo.cursorId, indexManager);
+      }
 
       return cursorInfo;
     }

@@ -56,6 +56,7 @@ import com.xgen.mongot.index.query.operators.Operator;
 import com.xgen.mongot.index.query.sort.SequenceToken;
 import com.xgen.mongot.index.synonym.SynonymRegistry;
 import com.xgen.mongot.index.version.IndexFormatVersion;
+import com.xgen.mongot.trace.Tracing;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.CheckedStream;
 import com.xgen.mongot.util.bson.Vector;
@@ -252,27 +253,41 @@ public class LuceneSearchIndexReader implements SearchIndexReader {
       BatchSizeStrategy batchSizeStrategy,
       QueryOptimizationFlags queryOptimizationFlags)
       throws IOException, InvalidQueryException, InterruptedException {
-    if (query.returnScope().isEmpty()
-        && query.returnStoredSource()
-        && this.indexDefinition.getStoredSource().isAllExcluded()) {
-      throw new InvalidQueryException(
-          "storedSource is not configured for this index. "
-              + "For queries on 'embeddedDocument' fields with 'storedSource', "
-              + "the 'returnScope' option must be populated");
-    }
-    try (LockGuard ignored = LockGuard.with(this.shutdownSharedLock)) {
-      ensureOpen("query");
-      var searcherReference = createSearcherReference(query.concurrent());
-      try {
-        return query(
-            query,
-            searcherReference,
-            queryCursorOptions,
-            batchSizeStrategy,
-            queryOptimizationFlags);
-      } catch (Exception e) {
-        searcherReference.close();
-        throw e;
+    try (var span = Tracing.detailedSpanGuard("mongot.lucene.prepare_search_reader_query")) {
+      span.getSpan().setAttribute("mongot.search.index.name", query.index());
+      span.getSpan().setAttribute("mongot.lucene.index.partition", this.indexPartitionId);
+      span.getSpan().setAttribute("mongot.query.return_stored_source", query.returnStoredSource());
+      if (query.returnScope().isEmpty()
+          && query.returnStoredSource()
+          && this.indexDefinition.getStoredSource().isAllExcluded()) {
+        throw new InvalidQueryException(
+            "storedSource is not configured for this index. "
+                + "For queries on 'embeddedDocument' fields with 'storedSource', "
+                + "the 'returnScope' option must be populated");
+      }
+      try (LockGuard ignored = LockGuard.with(this.shutdownSharedLock)) {
+        LuceneIndexSearcherReference searcherReference;
+        try (var searcherSpan = Tracing.detailedSpanGuard("mongot.lucene.open_index_searcher")) {
+          ensureOpen("query");
+          searcherReference = createSearcherReference(query.concurrent());
+          var indexReader = searcherReference.getIndexSearcher().getIndexReader();
+          searcherSpan.getSpan().setAttribute("mongot.lucene.reader.num_docs", indexReader.numDocs());
+          searcherSpan.getSpan().setAttribute("mongot.lucene.reader.max_doc", indexReader.maxDoc());
+          searcherSpan
+              .getSpan()
+              .setAttribute("mongot.lucene.reader.segment_count", indexReader.leaves().size());
+        }
+        try {
+          return query(
+              query,
+              searcherReference,
+              queryCursorOptions,
+              batchSizeStrategy,
+              queryOptimizationFlags);
+        } catch (Exception e) {
+          searcherReference.close();
+          throw e;
+        }
       }
     }
   }
@@ -293,59 +308,95 @@ public class LuceneSearchIndexReader implements SearchIndexReader {
         Vector vector = Check.isPresent(vectorSearchQuery.criteria().queryVector(), "queryVector");
         var materializedQuery = new MaterializedVectorSearchQuery(vectorSearchQuery, vector);
         // Vector search query over search index
-        org.apache.lucene.search.Query luceneQuery =
-            Explain.isEnabled()
-                ? this.queryFactory.createVectorSearchExplainQuery(
-                    materializedQuery, indexSearcher.getIndexReader())
-                : this.queryFactory.createVectorQuery(
-                    materializedQuery, indexSearcher.getIndexReader());
+        org.apache.lucene.search.Query luceneQuery;
+        try (var span = Tracing.detailedSpanGuard("mongot.lucene.create_vector_query")) {
+          luceneQuery =
+              Explain.isEnabled()
+                  ? this.queryFactory.createVectorSearchExplainQuery(
+                      materializedQuery, indexSearcher.getIndexReader())
+                  : this.queryFactory.createVectorQuery(
+                      materializedQuery, indexSearcher.getIndexReader());
+          span.getSpan().setAttribute("mongot.lucene.query.class", luceneQuery.getClass().getName());
+          Tracing.setPayloadAttribute(
+              span.getSpan(), "mongot.lucene.query", luceneQuery.toString());
+        }
         yield vectorSearchQuery(
             vectorSearchQuery, luceneQuery, searcherReference, batchSizeStrategy);
       }
       case SearchQuery searchQuery -> {
         Operator operator = getOperator(searchQuery);
-        org.apache.lucene.search.Query luceneQuery =
-            Explain.isEnabled()
-                ? this.queryFactory.createSearchExplainQuery(
-                    operator,
-                    indexSearcher.getIndexReader(),
-                    searchQuery.returnScope(),
-                    queryOptimizationFlags)
-                : this.queryFactory.createQuery(
-                    operator,
-                    indexSearcher.getIndexReader(),
-                    searchQuery.returnScope(),
-                    queryOptimizationFlags);
+        org.apache.lucene.search.Query luceneQuery;
+        try (var span = Tracing.detailedSpanGuard("mongot.lucene.build_query")) {
+          luceneQuery =
+              Explain.isEnabled()
+                  ? this.queryFactory.createSearchExplainQuery(
+                      operator,
+                      indexSearcher.getIndexReader(),
+                      searchQuery.returnScope(),
+                      queryOptimizationFlags)
+                  : this.queryFactory.createQuery(
+                      operator,
+                      indexSearcher.getIndexReader(),
+                      searchQuery.returnScope(),
+                      queryOptimizationFlags);
+          span.getSpan()
+              .setAttribute("mongot.lucene.query.class", luceneQuery.getClass().getName());
+          Tracing.setPayloadAttribute(
+              span.getSpan(), "mongot.lucene.query", luceneQuery.toString());
+        }
 
-        Optional<LuceneUnifiedHighlighter> unifiedHighlighter =
-            this.highlighterContext.getHighlighterIfPresent(
-                indexSearcher,
-                searchQuery.highlight(),
-                luceneQuery,
-                operator,
-                searchQuery.returnScope(),
-                queryOptimizationFlags);
+        Optional<LuceneUnifiedHighlighter> unifiedHighlighter;
+        try (var span = Tracing.detailedSpanGuard("mongot.lucene.prepare_highlights")) {
+          unifiedHighlighter =
+              this.highlighterContext.getHighlighterIfPresent(
+                  indexSearcher,
+                  searchQuery.highlight(),
+                  luceneQuery,
+                  operator,
+                  searchQuery.returnScope(),
+                  queryOptimizationFlags);
+          span.getSpan()
+              .setAttribute("mongot.lucene.highlighter.present", unifiedHighlighter.isPresent());
+        }
 
-        Optional<LuceneScoreDetailsManager> scoreDetailsManager =
-            LuceneScoreDetailsManager.getScoreDetailsManagerIfPresent(
-                searchQuery.scoreDetails(), luceneQuery, queryOptimizationFlags);
+        Optional<LuceneScoreDetailsManager> scoreDetailsManager;
+        try (var span = Tracing.detailedSpanGuard("mongot.lucene.prepare_score_details")) {
+          scoreDetailsManager =
+              LuceneScoreDetailsManager.getScoreDetailsManagerIfPresent(
+                  searchQuery.scoreDetails(), luceneQuery, queryOptimizationFlags);
+          span.getSpan()
+              .setAttribute(
+                  "mongot.lucene.score_details.present", scoreDetailsManager.isPresent());
+        }
 
-        Optional<SequenceToken> searchAfter =
-            searchQuery.pagination().map(Pagination::sequenceToken);
+        Optional<SequenceToken> searchAfter;
+        Optional<Sort> indexSort;
+        try (var ignored =
+            Tracing.detailedSpanGuard("mongot.lucene.prepare_pagination_sort_context")) {
+          searchAfter = searchQuery.pagination().map(Pagination::sequenceToken);
 
-        Optional<Sort> indexSort =
-            this.featureFlags.isEnabled(Feature.SORTED_INDEX)
-                ? IndexSortUtils.extractFirstIndexSort(indexSearcher.getIndexReader())
-                : Optional.empty();
+          indexSort =
+              this.featureFlags.isEnabled(Feature.SORTED_INDEX)
+                  ? IndexSortUtils.extractFirstIndexSort(indexSearcher.getIndexReader())
+                  : Optional.empty();
+          ignored.getSpan().setAttribute("mongot.lucene.search_after.present", searchAfter.isPresent());
+          ignored.getSpan().setAttribute("mongot.lucene.index_sort.present", indexSort.isPresent());
+        }
 
-        Optional<Sort> luceneSort =
-            this.queryFactory.createSort(
-                searchQuery.sortSpec(),
-                searchAfter,
-                indexSearcher.getFieldToSortableTypesMapping(),
-                searchQuery.returnScope(),
-                queryOptimizationFlags,
-                indexSort);
+        Optional<Sort> luceneSort;
+        try (var span = Tracing.detailedSpanGuard("mongot.lucene.build_sort")) {
+          luceneSort =
+              this.queryFactory.createSort(
+                  searchQuery.sortSpec(),
+                  searchAfter,
+                  indexSearcher.getFieldToSortableTypesMapping(),
+                  searchQuery.returnScope(),
+                  queryOptimizationFlags,
+                  indexSort);
+          span.getSpan().setAttribute("mongot.lucene.sort.present", luceneSort.isPresent());
+          luceneSort.ifPresent(
+              sort -> Tracing.setPayloadAttribute(span.getSpan(), "mongot.lucene.sort", sort.toString()));
+        }
         trackIndexSortMetrics(luceneSort, indexSort);
 
         yield switch (searchQuery) {
@@ -568,8 +619,11 @@ public class LuceneSearchIndexReader implements SearchIndexReader {
       BatchSizeStrategy batchSizeStrategy)
       throws IOException, InvalidQueryException {
 
-    LuceneSearchManager<QueryInfo> operatorSearchManager =
-        this.luceneSearchManagerFactory.newVectorQueryManager(luceneQuery, query.criteria());
+    LuceneSearchManager<QueryInfo> operatorSearchManager;
+    try (var ignored = Tracing.detailedSpanGuard("mongot.lucene.create_search_manager")) {
+      operatorSearchManager =
+          this.luceneSearchManagerFactory.newVectorQueryManager(luceneQuery, query.criteria());
+    }
 
     var queryInfo =
         operatorSearchManager.initialSearch(
@@ -577,14 +631,16 @@ public class LuceneSearchIndexReader implements SearchIndexReader {
 
     // TODO(CLOUDP-280897): remove count from interacting with vector search at all, we will not
     // surface count for vectorsearch.
-    return new SearchProducerAndMetaResults(
-        vectorSearchBatchProducer(
-            operatorSearchManager,
-            queryInfo.topDocs,
-            queryInfo.luceneExhausted,
-            batchSizeStrategy,
-            searcherReference),
-        this.metaResultsBuilder.getCountMetaResults(queryInfo.topDocs, Count.DEFAULT.type()));
+    try (var ignored = Tracing.detailedSpanGuard("mongot.lucene.create_result_producer")) {
+      return new SearchProducerAndMetaResults(
+          vectorSearchBatchProducer(
+              operatorSearchManager,
+              queryInfo.topDocs,
+              queryInfo.luceneExhausted,
+              batchSizeStrategy,
+              searcherReference),
+          this.metaResultsBuilder.getCountMetaResults(queryInfo.topDocs, Count.DEFAULT.type()));
+    }
   }
 
   private SearchProducerAndMetaResults operatorQuery(
@@ -600,27 +656,32 @@ public class LuceneSearchIndexReader implements SearchIndexReader {
       QueryOptimizationFlags queryOptimizationFlags)
       throws IOException, InvalidQueryException {
 
-    LuceneSearchManager<QueryInfo> operatorSearchManager =
-        this.luceneSearchManagerFactory.newOperatorManager(
-            query, luceneQuery, luceneSort, searchAfter);
+    LuceneSearchManager<QueryInfo> operatorSearchManager;
+    try (var ignored = Tracing.detailedSpanGuard("mongot.lucene.create_search_manager")) {
+      operatorSearchManager =
+          this.luceneSearchManagerFactory.newOperatorManager(
+              query, luceneQuery, luceneSort, searchAfter);
+    }
 
     var queryInfo =
         operatorSearchManager.initialSearch(
             searcherReference, batchSizeStrategy.adviseNextBatchSize());
 
-    return new SearchProducerAndMetaResults(
-        searchBatchProducer(
-            query,
-            operatorSearchManager,
-            queryInfo.topDocs,
-            queryInfo.luceneExhausted,
-            batchSizeStrategy,
-            searcherReference,
-            unifiedHighlighter,
-            scoreDetailsManager,
-            queryCursorOptions,
-            queryOptimizationFlags),
-        this.metaResultsBuilder.getCountMetaResults(queryInfo.topDocs, query.count().type()));
+    try (var ignored = Tracing.detailedSpanGuard("mongot.lucene.create_result_producer")) {
+      return new SearchProducerAndMetaResults(
+          searchBatchProducer(
+              query,
+              operatorSearchManager,
+              queryInfo.topDocs,
+              queryInfo.luceneExhausted,
+              batchSizeStrategy,
+              searcherReference,
+              unifiedHighlighter,
+              scoreDetailsManager,
+              queryCursorOptions,
+              queryOptimizationFlags),
+          this.metaResultsBuilder.getCountMetaResults(queryInfo.topDocs, query.count().type()));
+    }
   }
 
   @VisibleForTesting

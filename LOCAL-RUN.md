@@ -46,7 +46,11 @@ Grafana is auto-provisioned with:
 ### From the command line (Bazel)
 
 ```bash
-./bazel-bin/src/main/java/com/xgen/mongot/community/MongotCommunity \
+cd /Users/luketn/code/personal/mongot
+bazel build //src/main/java/com/xgen/mongot/community:MongotCommunity
+
+JAVABIN=$(/usr/libexec/java_home -v 21)/bin/java \
+DETAILED_TRACE_SPANS=true ./bazel-bin/src/main/java/com/xgen/mongot/community/MongotCommunity \
   --jvm_flag="-javaagent:$(pwd)/otel-agent/opentelemetry-javaagent.jar" \
   --jvm_flag="-Dotel.traces.exporter=otlp" \
   --jvm_flag="-Dotel.exporter.otlp.endpoint=http://127.0.0.1:4318" \
@@ -55,6 +59,11 @@ Grafana is auto-provisioned with:
   --jvm_flag="-Dotel.logs.exporter=none" \
   --config mongot-dev.yml --internalListAllIndexesForTesting
 ```
+
+`DETAILED_TRACE_SPANS=true` enables the expanded MongoT/Lucene span hierarchy for `$search` and
+`$vectorSearch`. Leave it unset for the default lower-overhead tracing behavior.
+The explicit Java 21 launcher avoids Java 25 module-access failures with the local OpenTelemetry
+agent.
 
 ### From IntelliJ
 

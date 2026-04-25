@@ -2,6 +2,7 @@ package com.xgen.mongot.trace;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.MustBeClosed;
+import com.google.errorprone.annotations.Var;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -11,6 +12,7 @@ import io.opentelemetry.api.trace.TraceFlags;
 import io.opentelemetry.api.trace.TraceId;
 import io.opentelemetry.api.trace.TraceState;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
@@ -23,6 +25,12 @@ import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
 import io.opentelemetry.semconv.resource.attributes.ResourceAttributes;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.Locale;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -94,27 +102,71 @@ public class Tracing {
   private static final SdkTracerProvider TRACER_PROVIDER;
   private static final String DEFAULT_REMOTE_SPAN_ID = ID_GENERATOR.generateSpanId();
   private static final ToggleSampler sampler = new ToggleSampler();
+  private static final boolean DETAILED_TRACE_SPANS =
+      Boolean.parseBoolean(
+          System.getenv().getOrDefault("DETAILED_TRACE_SPANS", "false").toLowerCase(Locale.ROOT));
+  private static final boolean DETAILED_TRACE_PAYLOADS =
+      Boolean.parseBoolean(
+          System.getenv()
+              .getOrDefault("DETAILED_TRACE_PAYLOADS", Boolean.toString(DETAILED_TRACE_SPANS))
+              .toLowerCase(Locale.ROOT));
+  private static final double TRACE_PAYLOAD_SAMPLE_RATE =
+      parseDoubleEnv("TRACE_PAYLOAD_SAMPLE_RATE", 1.0, 0.0, 1.0);
+  private static final int TRACE_PAYLOAD_MAX_CHARS =
+      parseIntEnv("TRACE_PAYLOAD_MAX_CHARS", 4096, 1, 1_000_000);
+  private static final int TRACE_PAYLOAD_SAMPLE_DOCS =
+      parseIntEnv("TRACE_PAYLOAD_SAMPLE_DOCS", 2, 0, 100);
 
   static {
     Resource resource =
         Resource.getDefault()
             .merge(Resource.create(Attributes.of(ResourceAttributes.SERVICE_NAME, "mongot")));
 
-    SpanExporter slf4jExporter = Slf4jExporter.create();
-
     TRACER_PROVIDER =
         SdkTracerProvider.builder()
-            .addSpanProcessor(BatchSpanProcessor.builder(slf4jExporter).build())
+            .addSpanProcessor(BatchSpanProcessor.builder(createSpanExporter()).build())
             .setSpanLimits(
-                SpanLimits.getDefault().toBuilder().setMaxAttributeValueLength(1000).build())
+                SpanLimits.getDefault()
+                    .toBuilder()
+                    .setMaxAttributeValueLength(Math.max(1000, TRACE_PAYLOAD_MAX_CHARS))
+                    .build())
             .setSampler(Sampler.parentBased(sampler))
             .setResource(resource)
             .build();
 
     OpenTelemetry openTelemetry =
-        OpenTelemetrySdk.builder().setTracerProvider(TRACER_PROVIDER).buildAndRegisterGlobal();
+        OpenTelemetrySdk.builder().setTracerProvider(TRACER_PROVIDER).build();
 
     TRACER = openTelemetry.getTracer("mongot-tracing", "0.0.1");
+  }
+
+  private static SpanExporter createSpanExporter() {
+    String tracesExporter =
+        System.getProperty(
+            "otel.traces.exporter", System.getenv().getOrDefault("OTEL_TRACES_EXPORTER", ""));
+    if (!"otlp".equalsIgnoreCase(tracesExporter)) {
+      return Slf4jExporter.create();
+    }
+
+    return OtlpHttpSpanExporter.builder().setEndpoint(getOtlpHttpTraceEndpoint()).build();
+  }
+
+  private static String getOtlpHttpTraceEndpoint() {
+    @Var
+    String endpoint =
+        System.getProperty(
+            "otel.exporter.otlp.traces.endpoint",
+            System.getenv().getOrDefault("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", ""));
+    if (endpoint.isBlank()) {
+      endpoint =
+          System.getProperty(
+              "otel.exporter.otlp.endpoint",
+              System.getenv().getOrDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318"));
+    }
+    if (endpoint.endsWith("/v1/traces")) {
+      return endpoint;
+    }
+    return endpoint.replaceAll("/+$", "") + "/v1/traces";
   }
 
   /**
@@ -180,7 +232,99 @@ public class Tracing {
   @MustBeClosed
   public static SpanGuard simpleSpanGuard(String name, Attributes attributes) {
     Span span = unguardedSpan(name, attributes);
-    return SpanGuard.fromSpan(span);
+    return SpanGuard.fromSpan(span, detailedSpanMetricName(name));
+  }
+
+  /**
+   * Creates a span only when {@code DETAILED_TRACE_SPANS=true}. Use this for expensive diagnostic
+   * spans that should not even be allocated on the default production path.
+   */
+  @MustBeClosed
+  public static SpanGuard detailedSpanGuard(String name) {
+    return detailedSpanGuard(name, Attributes.empty());
+  }
+
+  /**
+   * Creates a span only when {@code DETAILED_TRACE_SPANS=true}. Use this for expensive diagnostic
+   * spans that should not even be allocated on the default production path.
+   */
+  @MustBeClosed
+  public static SpanGuard detailedSpanGuard(String name, Attributes attributes) {
+    if (!isDetailedTraceSpansEnabled()) {
+      return SpanGuard.noop();
+    }
+    return simpleSpanGuard(name, attributes);
+  }
+
+  /**
+   * Attributes for a search command root span. When detailed tracing is enabled the root span is
+   * force-sampled and all descendant spans inherit that decision. When disabled, the current
+   * ToggleSampler keeps the root span dropped.
+   */
+  public static Attributes rootSpanAttributes(Attributes attributes) {
+    return Attributes.builder()
+        .putAll(attributes)
+        .put(TOGGLE_TRACE, isDetailedTraceSpansEnabled())
+        .build();
+  }
+
+  public static boolean isDetailedTraceSpansEnabled() {
+    return DETAILED_TRACE_SPANS;
+  }
+
+  public static boolean shouldCaptureTracePayloads(Span span) {
+    if (!isDetailedTraceSpansEnabled()
+        || !DETAILED_TRACE_PAYLOADS
+        || TRACE_PAYLOAD_SAMPLE_RATE <= 0.0
+        || !span.getSpanContext().isValid()) {
+      return false;
+    }
+    if (TRACE_PAYLOAD_SAMPLE_RATE >= 1.0) {
+      return true;
+    }
+
+    long positiveHash = Integer.toUnsignedLong(span.getSpanContext().getTraceId().hashCode());
+    double normalized = positiveHash / (double) (1L << 32);
+    return normalized < TRACE_PAYLOAD_SAMPLE_RATE;
+  }
+
+  public static int tracePayloadSampleDocs() {
+    return TRACE_PAYLOAD_SAMPLE_DOCS;
+  }
+
+  public static void setPayloadAttribute(Span span, String attributeName, String value) {
+    if (!shouldCaptureTracePayloads(span) || value == null) {
+      return;
+    }
+
+    byte[] utf8 = value.getBytes(StandardCharsets.UTF_8);
+    boolean truncated = value.length() > TRACE_PAYLOAD_MAX_CHARS;
+    String emitted = truncated ? value.substring(0, TRACE_PAYLOAD_MAX_CHARS) : value;
+
+    span.setAttribute(attributeName, emitted);
+    span.setAttribute(attributeName + ".sha256", sha256Hex(utf8));
+    span.setAttribute(attributeName + ".size_bytes", utf8.length);
+    span.setAttribute(attributeName + ".truncated", truncated);
+  }
+
+  private static String sha256Hex(byte[] value) {
+    try {
+      return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 is required by the JDK", e);
+    }
+  }
+
+  private static Optional<String> detailedSpanMetricName(String name) {
+    if (!isDetailedTraceSpansEnabled()) {
+      return Optional.empty();
+    }
+    return name.startsWith("mongot.search.")
+            || name.startsWith("mongot.vector_search.")
+            || name.startsWith("mongot.cursor.")
+            || name.startsWith("mongot.lucene.")
+        ? Optional.of(name)
+        : Optional.empty();
   }
 
   /**
@@ -333,5 +477,57 @@ public class Tracing {
   @VisibleForTesting
   static CompletableResultCode forceFlush() {
     return TRACER_PROVIDER.forceFlush();
+  }
+
+  private static double parseDoubleEnv(String name, double defaultValue, double min, double max) {
+    String value = System.getenv().get(name);
+    if (value == null || value.isBlank()) {
+      return defaultValue;
+    }
+    try {
+      double parsed = Double.parseDouble(value);
+      if (parsed < min || parsed > max) {
+        LOG.atWarn()
+            .addKeyValue("name", name)
+            .addKeyValue("value", value)
+            .addKeyValue("defaultValue", defaultValue)
+            .log("Ignoring out-of-range tracing environment value.");
+        return defaultValue;
+      }
+      return parsed;
+    } catch (NumberFormatException e) {
+      LOG.atWarn()
+          .addKeyValue("name", name)
+          .addKeyValue("value", value)
+          .addKeyValue("defaultValue", defaultValue)
+          .log("Ignoring invalid tracing environment value.");
+      return defaultValue;
+    }
+  }
+
+  private static int parseIntEnv(String name, int defaultValue, int min, int max) {
+    String value = System.getenv().get(name);
+    if (value == null || value.isBlank()) {
+      return defaultValue;
+    }
+    try {
+      int parsed = Integer.parseInt(value);
+      if (parsed < min || parsed > max) {
+        LOG.atWarn()
+            .addKeyValue("name", name)
+            .addKeyValue("value", value)
+            .addKeyValue("defaultValue", defaultValue)
+            .log("Ignoring out-of-range tracing environment value.");
+        return defaultValue;
+      }
+      return parsed;
+    } catch (NumberFormatException e) {
+      LOG.atWarn()
+          .addKeyValue("name", name)
+          .addKeyValue("value", value)
+          .addKeyValue("defaultValue", defaultValue)
+          .log("Ignoring invalid tracing environment value.");
+      return defaultValue;
+    }
   }
 }

@@ -15,11 +15,13 @@ import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 public class CommandRegistry {
   private static final String SEARCH_COMMAND_NAME = "search";
+  private static final Set<String> SEARCH_LIKE_COMMAND_NAMES = Set.of("search", "vectorSearch");
   private static final Duration[] SEARCH_COMMAND_LATENCY_BUCKETS = {
     micros(50),
     micros(75),
@@ -106,6 +108,7 @@ public class CommandRegistry {
     public final CommandFactoryMarker factory;
     public final boolean isSecure;
     public final Timer totalTimer;
+    public final Optional<Timer> streamTimer;
     public final Optional<Timer> serializationTimer;
     public final Counter failureCounter;
 
@@ -120,6 +123,8 @@ public class CommandRegistry {
       // To avoid triggering lookups for each command, the metric is cached in this class.
       if (detailedStats) {
         this.totalTimer = totalLatencyTimer(commandName, commandMetricsFactory, true);
+        this.streamTimer =
+            Optional.of(streamLatencyTimer(commandName, commandMetricsFactory, true));
         this.serializationTimer =
             Optional.of(
                 commandMetricsFactory.timer(
@@ -134,6 +139,7 @@ public class CommandRegistry {
       } else {
         // NB: no percentiles
         this.totalTimer = totalLatencyTimer(commandName, commandMetricsFactory, false);
+        this.streamTimer = Optional.empty();
         this.serializationTimer = Optional.empty();
       }
       this.failureCounter =
@@ -153,6 +159,18 @@ public class CommandRegistry {
       String commandName, MetricsFactory commandMetricsFactory, boolean detailedStats) {
     String metricName = String.format("%sCommandTotalLatency", commandName);
     if (detailedStats && SEARCH_COMMAND_NAME.equals(commandName)) {
+      return commandMetricsFactory.histogramTimer(metricName, SEARCH_COMMAND_LATENCY_BUCKETS);
+    }
+    if (detailedStats) {
+      return commandMetricsFactory.timer(metricName);
+    }
+    return commandMetricsFactory.timer(metricName, Tags.empty());
+  }
+
+  private static Timer streamLatencyTimer(
+      String commandName, MetricsFactory commandMetricsFactory, boolean detailedStats) {
+    String metricName = String.format("%sCommandStreamLatency", commandName);
+    if (detailedStats && SEARCH_LIKE_COMMAND_NAMES.contains(commandName)) {
       return commandMetricsFactory.histogramTimer(metricName, SEARCH_COMMAND_LATENCY_BUCKETS);
     }
     if (detailedStats) {

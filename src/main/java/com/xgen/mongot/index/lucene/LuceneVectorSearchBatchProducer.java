@@ -8,12 +8,14 @@ import com.xgen.mongot.cursor.batch.BatchSizeStrategy;
 import com.xgen.mongot.index.BatchProducer;
 import com.xgen.mongot.index.IndexMetricsUpdater;
 import com.xgen.mongot.index.VectorSearchResult;
+import com.xgen.mongot.trace.Tracing;
 import com.xgen.mongot.util.Bytes;
 import com.xgen.mongot.util.bson.BsonArrayBuilder;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import org.bson.BsonArray;
+import org.bson.BsonValue;
 import org.bson.RawBsonDocument;
 
 /**
@@ -73,30 +75,46 @@ public class LuceneVectorSearchBatchProducer implements BatchProducer {
           "internal error: attempted getNextBatch on closed LuceneVectorSearchBatchProducer");
     }
 
-    var builder = BsonArrayBuilder.withLimit(sizeLimit);
+    try (var span = Tracing.detailedSpanGuard("mongot.lucene.vector_serialize_batch")) {
+      var builder = BsonArrayBuilder.withLimit(sizeLimit);
 
-    while (this.nextResultIndex < this.allResults.size()
-        && builder.getDocumentCount() < this.nextBatchDocumentMax) {
-      VectorSearchResult result = this.allResults.get(this.nextResultIndex);
-      RawBsonDocument resultBson = result.toRawBson();
+      while (this.nextResultIndex < this.allResults.size()
+          && builder.getDocumentCount() < this.nextBatchDocumentMax) {
+        VectorSearchResult result = this.allResults.get(this.nextResultIndex);
+        RawBsonDocument resultBson = result.toRawBson();
 
-      if (!builder.append(resultBson)) {
-        break; // The next result will be left for the next batch.
+        if (!builder.append(resultBson)) {
+          break; // The next result will be left for the next batch.
+        }
+
+        ++this.nextResultIndex;
       }
 
-      ++this.nextResultIndex;
+      var batch = builder.build();
+
+      this.metricsUpdater.getBatchDocumentCount().record(builder.getDocumentCount());
+      this.metricsUpdater.getBatchDataSize().record(builder.getDataSize().toBytes());
+      span.getSpan().setAttribute("mongot.batch.result.count", batch.size());
+      span.getSpan().setAttribute("mongot.batch.data_size.bytes", builder.getDataSize().toBytes());
+      span.getSpan().setAttribute("mongot.vector.total_prefetched_results", this.allResults.size());
+      addResultSamples(span.getSpan(), batch);
+
+      checkState(
+          this.nextResultIndex >= this.allResults.size() || builder.getDocumentCount() > 0,
+          "Search result output exceeds BSON size limit");
+
+      return batch;
     }
+  }
 
-    var batch = builder.build();
-
-    this.metricsUpdater.getBatchDocumentCount().record(builder.getDocumentCount());
-    this.metricsUpdater.getBatchDataSize().record(builder.getDataSize().toBytes());
-
-    checkState(
-        this.nextResultIndex >= this.allResults.size() || builder.getDocumentCount() > 0,
-        "Search result output exceeds BSON size limit");
-
-    return batch;
+  private static void addResultSamples(io.opentelemetry.api.trace.Span span, BsonArray results) {
+    int sampleCount = Math.min(results.size(), Tracing.tracePayloadSampleDocs());
+    span.setAttribute("mongot.result.sample.count", sampleCount);
+    for (int i = 0; i < sampleCount; i++) {
+      BsonValue value = results.get(i);
+      String sample = value.isDocument() ? value.asDocument().toJson() : value.toString();
+      Tracing.setPayloadAttribute(span, "mongot.result.sample." + i, sample);
+    }
   }
 
   @Override

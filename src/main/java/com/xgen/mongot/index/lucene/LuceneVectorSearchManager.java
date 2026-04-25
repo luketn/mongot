@@ -11,6 +11,7 @@ import com.xgen.mongot.index.lucene.searcher.LuceneIndexSearcher;
 import com.xgen.mongot.index.query.VectorSearchQuery;
 import com.xgen.mongot.index.query.operators.ApproximateVectorSearchCriteria;
 import com.xgen.mongot.index.query.operators.VectorSearchCriteria;
+import com.xgen.mongot.trace.Tracing;
 import com.xgen.mongot.util.Check;
 import java.io.IOException;
 import java.util.Optional;
@@ -60,13 +61,30 @@ public class LuceneVectorSearchManager implements LuceneSearchManager<QueryInfo>
     TopScoreDocCollectorManager collectorManager =
         new TopScoreDocCollectorManager(hitsToCollect, 0);
 
-    @Var TopDocs topCandidates = topCandidates(indexSearcher, collectorManager);
+    @Var TopDocs topCandidates;
+    try (var span = Tracing.detailedSpanGuard("mongot.lucene.vector_collect_candidates")) {
+      topCandidates = topCandidates(indexSearcher, collectorManager);
+      span.getSpan().setAttribute("mongot.lucene.candidate.count", topCandidates.scoreDocs.length);
+      span.getSpan().setAttribute("mongot.lucene.total_hits", topCandidates.totalHits.value);
+      span.getSpan()
+          .setAttribute("mongot.lucene.total_hits.relation", topCandidates.totalHits.relation.name());
+      span.getSpan()
+          .setAttribute(
+              "mongot.lucene.collector_manager.class", collectorManager.getClass().getName());
+      span.getSpan().setAttribute("mongot.vector.limit", this.criteria.limit());
+      if (this.criteria instanceof ApproximateVectorSearchCriteria approximateCriteria) {
+        span.getSpan().setAttribute("mongot.vector.num_candidates", approximateCriteria.numCandidates());
+      }
+    }
 
     if (this.nestedAvgRescorer.isPresent()) {
-      topCandidates =
-          this.nestedAvgRescorer
-              .get()
-              .rescore(indexSearcher, topCandidates, this.luceneQuery, this.criteria.limit());
+      try (var span = Tracing.detailedSpanGuard("mongot.lucene.vector_nested_avg_rescore")) {
+        topCandidates =
+            this.nestedAvgRescorer
+                .get()
+                .rescore(indexSearcher, topCandidates, this.luceneQuery, this.criteria.limit());
+        span.getSpan().setAttribute("mongot.lucene.rescored.count", topCandidates.scoreDocs.length);
+      }
     }
 
     TopDocs result =
@@ -94,11 +112,16 @@ public class LuceneVectorSearchManager implements LuceneSearchManager<QueryInfo>
             ? wrappedKnnQuery.getQuery()
             : this.luceneQuery;
 
-    return this.rescorer.get().rescore(
-        indexSearcher,
-        topCandidates,
-        (ApproximateVectorSearchCriteria) this.criteria,
-        Check.instanceOf(unwrapped, KnnFloatVectorQuery.class));
+    try (var span = Tracing.detailedSpanGuard("mongot.lucene.vector_quantized_rescore")) {
+      TopDocs rescored =
+          this.rescorer.get().rescore(
+              indexSearcher,
+              topCandidates,
+              (ApproximateVectorSearchCriteria) this.criteria,
+              Check.instanceOf(unwrapped, KnnFloatVectorQuery.class));
+      span.getSpan().setAttribute("mongot.lucene.rescored.count", rescored.scoreDocs.length);
+      return rescored;
+    }
   }
 
   @Override

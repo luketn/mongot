@@ -20,11 +20,13 @@ java_library(
         "@maven//:io_opentelemetry_opentelemetry_sdk_trace",
     ],
     deps = [
+        "//src/main/java/com/xgen/mongot/util",
         "@maven//:com_fasterxml_jackson_core_jackson_core",
         "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:com_google_guava_guava",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_exporter_otlp",
         "@maven//:io_opentelemetry_opentelemetry_exporter_otlp_common",
         "@maven//:io_opentelemetry_opentelemetry_sdk",
         "@maven//:io_opentelemetry_opentelemetry_sdk_common",

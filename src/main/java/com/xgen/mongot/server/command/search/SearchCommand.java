@@ -24,6 +24,7 @@ import com.xgen.mongot.index.IndexUnavailableException;
 import com.xgen.mongot.index.InitializedIndex;
 import com.xgen.mongot.index.ReaderClosedException;
 import com.xgen.mongot.index.Variables;
+import com.xgen.mongot.index.query.CollectorQuery;
 import com.xgen.mongot.index.lucene.explain.explainers.MetadataFeatureExplainer;
 import com.xgen.mongot.index.lucene.explain.tracing.Explain;
 import com.xgen.mongot.index.lucene.explain.tracing.ExplainQueryState;
@@ -49,6 +50,7 @@ import com.xgen.mongot.util.UserFacingException;
 import com.xgen.mongot.util.bson.parser.BsonDocumentParser;
 import com.xgen.mongot.util.bson.parser.BsonParseException;
 import com.xgen.mongot.util.mongodb.MongoDbVersion;
+import io.opentelemetry.api.common.Attributes;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
@@ -127,28 +129,75 @@ public class SearchCommand implements Command {
   public BsonDocument run() {
     LOG.atTrace().addKeyValue("command", SearchCommandDefinition.NAME).log("Received command");
 
-    try (var guard = Tracing.simpleSpanGuard("SearchCommand.run", Tracing.TOGGLE_OFF)) {
+    try (var guard =
+        Tracing.simpleSpanGuard(
+            "mongot.search.command",
+            Tracing.rootSpanAttributes(
+                Attributes.builder()
+                    .put("db.system", "mongodb")
+                    .put("db.operation.name", SearchCommandDefinition.NAME)
+                    .put("db.namespace", namespace())
+                    .put("mongodb.database.name", this.definition.db())
+                    .put("mongodb.collection.name", this.definition.collectionName())
+                    .put(
+                        "mongodb.collection.uuid",
+                        this.definition.collectionUuid().toString())
+                    .put("mongot.command.name", SearchCommandDefinition.NAME)
+                    .put("mongot.query.document", this.definition.queryDocument().toJson())
+                    .build()))) {
+      guard
+          .getSpan()
+          .setAttribute(
+              "mongot.operation.id", guard.getSpan().getSpanContext().getTraceId());
       this.metrics.searchCommandsTotalCount.increment();
-      QueryOptimizationFlags queryOptimizationFlags =
-          this.definition
-              .optimizationFlags()
-              .map(OptimizationFlagsDefinition::toQueryOptimizationFlags)
-              .orElse(QueryOptimizationFlags.DEFAULT_OPTIONS);
-      boolean allow10k =
-          this.metadata
-              .dynamicFeatureFlagRegistry()
-              .evaluateClusterInvariant(DynamicFeatureFlags.ENABLE_10K_BUCKET_LIMIT);
-      SearchQuery queryDefinition =
-          SearchQuery.fromBson(
-              this.definition.queryDocument(), queryOptimizationFlags, allow10k);
-      Optional<InitializedIndex> index = getIndexFromCatalog(queryDefinition);
-      QueryCursorOptions queryCursorOptions =
-          this.definition
-              .cursorOptions()
-              .map(CursorOptionsDefinition::toQueryCursorOptions)
-              .orElse(QueryCursorOptions.empty());
+      QueryOptimizationFlags queryOptimizationFlags;
+      boolean allow10k;
+      try (var optionsSpan = Tracing.detailedSpanGuard("mongot.search.prepare_query_context")) {
+        queryOptimizationFlags =
+            this.definition
+                .optimizationFlags()
+                .map(OptimizationFlagsDefinition::toQueryOptimizationFlags)
+                .orElse(QueryOptimizationFlags.DEFAULT_OPTIONS);
+        allow10k =
+            this.metadata
+                .dynamicFeatureFlagRegistry()
+                .evaluateClusterInvariant(DynamicFeatureFlags.ENABLE_10K_BUCKET_LIMIT);
+        optionsSpan.getSpan().setAttribute("mongot.search.allow_10k_bucket_limit", allow10k);
+      }
+      SearchQuery queryDefinition;
+      try (var parseSpan = Tracing.detailedSpanGuard("mongot.search.parse_query_bson")) {
+        queryDefinition =
+            SearchQuery.fromBson(
+                this.definition.queryDocument(), queryOptimizationFlags, allow10k);
+        parseSpan.getSpan().setAttribute("mongot.search.index.name", queryDefinition.index());
+        parseSpan.getSpan().setAttribute("mongot.search.query.type", queryType(queryDefinition));
+      }
+      guard.getSpan().setAttribute("mongot.search.index.name", queryDefinition.index());
+      guard.getSpan().setAttribute("mongot.search.query.type", queryType(queryDefinition));
+      Optional<InitializedIndex> index;
+      try (var catalogSpan = Tracing.detailedSpanGuard("mongot.search.lookup_index_catalog")) {
+        index = getIndexFromCatalog(queryDefinition);
+        catalogSpan.getSpan().setAttribute("mongot.search.index.found", index.isPresent());
+        index.ifPresent(
+            initializedIndex ->
+                catalogSpan
+                    .getSpan()
+                    .setAttribute(
+                        "mongot.search.index.partitions",
+                        initializedIndex.getDefinition().getNumPartitions()));
+      }
+      QueryCursorOptions queryCursorOptions;
+      try (var ignored = Tracing.detailedSpanGuard("mongot.search.parse_cursor_options")) {
+        queryCursorOptions =
+            this.definition
+                .cursorOptions()
+                .map(CursorOptionsDefinition::toQueryCursorOptions)
+                .orElse(QueryCursorOptions.empty());
+      }
 
-      validateQueryAndCursorOptions(queryDefinition, queryCursorOptions);
+      try (var ignored = Tracing.detailedSpanGuard("mongot.search.validate_query_options")) {
+        validateQueryAndCursorOptions(queryDefinition, queryCursorOptions);
+      }
 
       try (var unusedExplain =
               Explain.setup(
@@ -156,15 +205,22 @@ public class SearchCommand implements Command {
                   index.map(idx -> idx.getDefinition().getNumPartitions()));
           var unusedFeatureFlags = DynamicFeatureFlagsMetricsRecorder.setup()) {
 
-        addMetadataIfExplain(queryDefinition);
+        boolean populateCursorResult;
+        try (var responseModeSpan =
+            Tracing.detailedSpanGuard("mongot.search.prepare_response_mode")) {
+          addMetadataIfExplain(queryDefinition);
 
-        boolean populateCursorResult =
-            determinePopulateCursor(
-                Explain.getExplainQueryState(),
-                this.metadata
-                    .mongoDbServerInfoProvider()
-                    .getCachedMongoDbServerInfo()
-                    .mongoDbVersion());
+          populateCursorResult =
+              determinePopulateCursor(
+                  Explain.getExplainQueryState(),
+                  this.metadata
+                      .mongoDbServerInfoProvider()
+                      .getCachedMongoDbServerInfo()
+                      .mongoDbVersion());
+          responseModeSpan
+              .getSpan()
+              .setAttribute("mongot.search.populate_cursor_result", populateCursorResult);
+        }
 
         try (var cursorGuard = new CursorGuard(this.createdCursorIds, this.cursorManager)) {
           BsonDocument batch;
@@ -269,47 +325,78 @@ public class SearchCommand implements Command {
           IOException,
           InterruptedException,
           ReaderClosedException {
-    Timer.Sample sample = Timer.start();
-    SearchCursorInfo cursorInfo =
-        this.cursorManager.newCursor(
-            this.definition.db(),
-            this.definition.collectionName(),
-            this.definition.collectionUuid(),
-            this.definition.viewName(),
-            queryDefinition,
-            queryCursorOptions,
-            queryOptimizationFlags,
-            this.searchEnvoyMetadata);
+    try (var batchSpan =
+        Tracing.detailedSpanGuard(
+            "mongot.search.build_first_batch",
+            Attributes.builder().put("mongot.search.index.name", queryDefinition.index()).build())) {
+      Timer.Sample sample = Timer.start();
+      SearchCursorInfo cursorInfo;
+      try (var ignored = Tracing.detailedSpanGuard("mongot.search.create_and_register_cursor")) {
+        cursorInfo =
+            this.cursorManager.newCursor(
+                this.definition.db(),
+                this.definition.collectionName(),
+                this.definition.collectionUuid(),
+                this.definition.viewName(),
+                queryDefinition,
+                queryCursorOptions,
+                queryOptimizationFlags,
+                this.searchEnvoyMetadata);
+      }
 
-    long cursorId = cursorInfo.cursorId;
-    this.createdCursorIds.add(cursorId);
+      long cursorId = cursorInfo.cursorId;
+      batchSpan.getSpan().setAttribute("mongot.cursor.id", cursorId);
+      this.createdCursorIds.add(cursorId);
 
-    // Get the timer consumer first, as the cursor may be killed when the next batch is retrieved.
-    QueryBatchTimerRecorder queryBatchTimerRecorder =
-        this.cursorManager.getIndexQueryBatchTimerRecorder(cursorId);
+      // Get the timer consumer first, as the cursor may be killed when the next batch is retrieved.
+      QueryBatchTimerRecorder queryBatchTimerRecorder =
+          this.cursorManager.getIndexQueryBatchTimerRecorder(cursorId);
 
-    Optional<BsonValue> variables = Optional.of(new Variables(cursorInfo.metaResults).toRawBson());
-    MongotCursorResultInfo cursorResultInfo =
-        this.cursorManager.getNextBatch(
-            cursorId,
-            this.bsonSizeSoftLimit.subtract(
-                MongotCursorBatch.calculateEmptyBatchSize(variables, Optional.empty())),
-            queryCursorOptions);
+      Optional<BsonValue> variables = Optional.of(new Variables(cursorInfo.metaResults).toRawBson());
+      MongotCursorResultInfo cursorResultInfo;
+      try (var ignored = Tracing.detailedSpanGuard("mongot.search.load_first_cursor_batch")) {
+        cursorResultInfo =
+            this.cursorManager.getNextBatch(
+                cursorId,
+                this.bsonSizeSoftLimit.subtract(
+                    MongotCursorBatch.calculateEmptyBatchSize(variables, Optional.empty())),
+                queryCursorOptions);
+      }
+      batchSpan.getSpan().setAttribute("mongot.batch.exhausted", cursorResultInfo.exhausted);
+      batchSpan
+          .getSpan()
+          .setAttribute(
+              "mongot.batch.result.count",
+              cursorResultInfo.batch.isArray() ? cursorResultInfo.batch.asArray().size() : -1);
 
-    Optional<MongotCursorResult> cursorResult =
-        populateCursorResult
-            ? Optional.of(cursorResultInfo.toCursorResult(cursorId, Optional.empty()))
-            : Optional.empty();
+      MongotCursorBatch batch;
+      try (var responseSpan = Tracing.detailedSpanGuard("mongot.search.prepare_response_document")) {
+        Optional<MongotCursorResult> cursorResult =
+            populateCursorResult
+                ? Optional.of(cursorResultInfo.toCursorResult(cursorId, Optional.empty()))
+                : Optional.empty();
 
-    MongotCursorBatch batch =
-        new MongotCursorBatch(
-            cursorResult,
-            cursorResultInfo.explainResult,
-            populateCursorResult ? variables : Optional.empty());
+        batch =
+            new MongotCursorBatch(
+                cursorResult,
+                cursorResultInfo.explainResult,
+                populateCursorResult ? variables : Optional.empty());
 
-    queryBatchTimerRecorder.recordSample(sample);
+        queryBatchTimerRecorder.recordSample(sample);
+        responseSpan
+            .getSpan()
+            .setAttribute("mongot.search.populate_cursor_result", populateCursorResult);
+        responseSpan
+            .getSpan()
+            .setAttribute("mongot.batch.has_explain", cursorResultInfo.explainResult.isPresent());
+      }
 
-    return batch.toBson();
+      try (var serializeSpan = Tracing.detailedSpanGuard("mongot.search.encode_response_bson")) {
+        var bson = batch.toBson();
+        serializeSpan.getSpan().setAttribute("mongot.batch.bson.field_count", bson.size());
+        return bson;
+      }
+    }
   }
 
   private BsonDocument getIntermediateBatch(
@@ -419,6 +506,17 @@ public class SearchCommand implements Command {
     }
 
     return Optional.of(initializedIndex);
+  }
+
+  private String namespace() {
+    return this.definition.db() + "." + this.definition.collectionName();
+  }
+
+  private static String queryType(SearchQuery query) {
+    return switch (query) {
+      case OperatorQuery ignored -> "operator";
+      case CollectorQuery ignored -> "collector";
+    };
   }
 
   private void addMetadataIfExplain(SearchQuery query) {

@@ -76,11 +76,14 @@ class CursorFactory {
     long cursorId = this.cursorIdSupplier.nextId();
 
     try (SpanGuard guard =
-        Tracing.simpleSpanGuard(
-            "CursorFactory.createCursor",
+        Tracing.detailedSpanGuard(
+            "mongot.cursor.create_cursor_state",
             Attributes.of(AttributeKey.longKey("cursorId"), cursorId))) {
-      BatchSizeStrategy batchSizeStrategy =
-          BatchSizeStrategySelector.forQuery(cursorQuery.getQuery(), queryCursorOptions);
+      BatchSizeStrategy batchSizeStrategy;
+      try (var ignored = Tracing.detailedSpanGuard("mongot.cursor.choose_batch_size")) {
+        batchSizeStrategy =
+            BatchSizeStrategySelector.forQuery(cursorQuery.getQuery(), queryCursorOptions);
+      }
 
       if (cursorQuery instanceof CursorQuery.Search && !(index instanceof InitializedSearchIndex)) {
         throw new InvalidQueryException(
@@ -97,29 +100,33 @@ class CursorFactory {
 
       BatchProducer batchProducer;
       MetaResults metaResults;
-      switch (cursorQuery) {
-        case CursorQuery.Search(var query) -> {
-          var r =
-              index
-                  .asSearchIndex()
-                  .getReader()
-                  .query(query, queryCursorOptions, batchSizeStrategy, queryOptimizationFlags);
-          batchProducer = r.searchBatchProducer;
-          metaResults = r.metaResults;
-        }
-        case CursorQuery.Vector(var query) -> {
-          var r =
-              index
-                  .asVectorIndex()
-                  .getReader()
-                  .query(query, queryCursorOptions, batchSizeStrategy, queryOptimizationFlags);
-          batchProducer = r.vectorBatchProducer;
-          metaResults = r.metaResults;
+      try (var ignored = Tracing.detailedSpanGuard("mongot.cursor.open_batch_producer")) {
+        switch (cursorQuery) {
+          case CursorQuery.Search(var query) -> {
+            var r =
+                index
+                    .asSearchIndex()
+                    .getReader()
+                    .query(query, queryCursorOptions, batchSizeStrategy, queryOptimizationFlags);
+            batchProducer = r.searchBatchProducer;
+            metaResults = r.metaResults;
+          }
+          case CursorQuery.Vector(var query) -> {
+            var r =
+                index
+                    .asVectorIndex()
+                    .getReader()
+                    .query(query, queryCursorOptions, batchSizeStrategy, queryOptimizationFlags);
+            batchProducer = r.vectorBatchProducer;
+            metaResults = r.metaResults;
+          }
         }
       }
 
-      return new CursorAndMetaResults(
-          new MongotCursor(cursorId, batchProducer, namespace, batchSizeStrategy), metaResults);
+      try (var ignored = Tracing.detailedSpanGuard("mongot.cursor.instantiate_cursor")) {
+        return new CursorAndMetaResults(
+            new MongotCursor(cursorId, batchProducer, namespace, batchSizeStrategy), metaResults);
+      }
     }
   }
 

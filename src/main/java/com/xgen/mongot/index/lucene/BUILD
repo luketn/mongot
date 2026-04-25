@@ -141,6 +141,7 @@ java_library(
         "@maven//:com_google_flogger_flogger",
         "@maven//:com_google_guava_guava",
         "@maven//:io_micrometer_micrometer_core",
+        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:org_apache_lucene_lucene_backward_codecs",  # keep: required to read indices with legacy codecs
         "@maven//:org_apache_lucene_lucene_core",

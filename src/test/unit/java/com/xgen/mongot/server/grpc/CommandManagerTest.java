@@ -3,6 +3,7 @@ package com.xgen.mongot.server.grpc;
 import static com.google.common.truth.Truth.assertThat;
 
 import io.grpc.stub.StreamObserver;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 
 /** Unit tests for {@link CommandManager} stream cancellation tracking. */
@@ -26,6 +27,31 @@ public class CommandManagerTest {
     CommandManager<String> manager = new CommandManager<>(noOpObserver());
     manager.onHalfClosedByClient();
     assertThat(manager.isStreamCancelled()).isFalse();
+  }
+
+  @Test
+  public void streamClosedCallback_runsAfterHalfClose() {
+    AtomicInteger callbacks = new AtomicInteger();
+    CommandManager<String> manager =
+        new CommandManager<>(noOpObserver(), callbacks::incrementAndGet);
+
+    manager.onHalfClosedByClient();
+
+    assertThat(callbacks.get()).isEqualTo(1);
+  }
+
+  @Test
+  public void streamClosedCallback_waitsForPendingCommands() {
+    AtomicInteger callbacks = new AtomicInteger();
+    CommandManager<String> manager =
+        new CommandManager<>(noOpObserver(), callbacks::incrementAndGet);
+
+    manager.onCommandStart();
+    manager.onHalfClosedByClient();
+    assertThat(callbacks.get()).isEqualTo(0);
+
+    manager.onCommandComplete("ok", () -> {});
+    assertThat(callbacks.get()).isEqualTo(1);
   }
 
   private static StreamObserver<String> noOpObserver() {

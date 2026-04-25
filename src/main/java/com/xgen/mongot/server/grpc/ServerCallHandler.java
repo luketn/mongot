@@ -18,11 +18,14 @@ import com.xgen.mongot.server.message.MessageUtils;
 import com.xgen.mongot.util.FutureUtils;
 import com.xgen.mongot.util.mongodb.Errors;
 import io.grpc.stub.StreamObserver;
+import io.opentelemetry.api.trace.Span;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.bson.BsonDocument;
+import org.bson.BsonValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,6 +46,10 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
   private final MongotCursorManager cursorManager;
   private final CommandManager<T> commandManager;
   private final SearchEnvoyMetadata searchEnvoyMetadata;
+  private final Stopwatch streamTime = Stopwatch.createStarted();
+  private final AtomicBoolean streamTimerRecorded = new AtomicBoolean(false);
+  private volatile Optional<CommandRegistry.CommandRegistration> initialCommandRegistration =
+      Optional.empty();
 
   // Newly created cursors in this gRPC stream.
   // 1. This variable is at most written once. Each stream will have at most one $search command.
@@ -60,7 +67,7 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
     this.commandExecutor = commandExecutor;
     this.cursorManager = cursorManager;
     this.searchEnvoyMetadata = searchEnvoyMetadata;
-    this.commandManager = new CommandManager<T>(responseObserver);
+    this.commandManager = new CommandManager<T>(responseObserver, this::recordStreamTimer);
     this.createdCursorIds = Collections.emptyList();
   }
 
@@ -106,6 +113,8 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
       CommandRegistry.CommandRegistration registration =
           this.commandRegistry.getCommandRegistration(parsedCommand.name());
       handlingContext.commandRegistration = Optional.of(registration);
+      updateInitialServerSpan(parsedCommand);
+      captureInitialCommandRegistration(registration);
 
       // Session commands are supposed to be handled by the Envoy proxy instead of the gRPC
       // server.
@@ -163,6 +172,68 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
   abstract ParsedCommand parseCommand(T message);
 
   abstract T serializeResponse(T request, BsonDocument response);
+
+  abstract String traceServiceName();
+
+  private synchronized void captureInitialCommandRegistration(
+      CommandRegistry.CommandRegistration registration) {
+    if (this.initialCommandRegistration.isEmpty()) {
+      this.initialCommandRegistration = Optional.of(registration);
+    }
+  }
+
+  private synchronized void updateInitialServerSpan(ParsedCommand parsedCommand) {
+    if (this.initialCommandRegistration.isPresent()) {
+      return;
+    }
+
+    Span span = Span.current();
+    if (!span.getSpanContext().isValid()) {
+      return;
+    }
+
+    Optional<String> namespace = traceNamespace(parsedCommand);
+    if (namespace.isEmpty()) {
+      return;
+    }
+
+    String operationName = parsedCommand.name();
+    span.updateName("%s/%s/%s".formatted(traceServiceName(), namespace.get(), operationName));
+    span.setAttribute("db.system", "mongodb");
+    span.setAttribute("db.operation.name", operationName);
+    span.setAttribute("db.namespace", namespace.get());
+    span.setAttribute("mongot.command.name", operationName);
+  }
+
+  private static Optional<String> traceNamespace(ParsedCommand parsedCommand) {
+    Optional<String> db = stringField(parsedCommand.body(), "$db");
+    Optional<String> collection =
+        stringField(parsedCommand.body(), parsedCommand.name())
+            .or(() -> stringField(parsedCommand.body(), "search"))
+            .or(() -> stringField(parsedCommand.body(), "searchBeta"))
+            .or(() -> stringField(parsedCommand.body(), "vectorSearch"));
+    if (db.isEmpty() || collection.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.of(db.get() + "." + collection.get());
+  }
+
+  private static Optional<String> stringField(BsonDocument document, String fieldName) {
+    BsonValue value = document.get(fieldName);
+    if (value == null || !value.isString()) {
+      return Optional.empty();
+    }
+    return Optional.of(value.asString().getValue());
+  }
+
+  private void recordStreamTimer() {
+    if (!this.streamTimerRecorded.compareAndSet(false, true)) {
+      return;
+    }
+    this.initialCommandRegistration.ifPresent(
+        registration ->
+            registration.streamTimer.ifPresent(timer -> timer.record(this.streamTime.elapsed())));
+  }
 
   private T getErrorMessage(T request, Throwable exception) {
     Throwable cause = FutureUtils.unwrapCause(exception);

@@ -15,6 +15,7 @@ import com.xgen.mongot.cursor.MongotCursorNotFoundException;
 import com.xgen.mongot.cursor.MongotCursorResultInfo;
 import com.xgen.mongot.cursor.NamespaceBuilder;
 import com.xgen.mongot.cursor.QueryBatchTimerRecorder;
+import com.xgen.mongot.cursor.SearchCursorInfo;
 import com.xgen.mongot.cursor.batch.QueryCursorOptions;
 import com.xgen.mongot.cursor.serialization.MongotCursorBatch;
 import com.xgen.mongot.cursor.serialization.MongotCursorResult;
@@ -80,6 +81,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
+import io.opentelemetry.api.common.Attributes;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -232,9 +234,32 @@ public class VectorSearchCommand implements Command {
         .log("Received command");
 
     @Var Optional<VectorSearchCriteria.Type> queryTypeOptional = Optional.empty();
-    try {
+    try (var guard =
+        Tracing.simpleSpanGuard(
+            "mongot.vector_search.command",
+            Tracing.rootSpanAttributes(
+                Attributes.builder()
+                    .put("db.system", "mongodb")
+                    .put("db.operation.name", VectorSearchCommandDefinition.NAME)
+                    .put("db.namespace", namespace())
+                    .put("mongodb.database.name", this.definition.db())
+                    .put("mongodb.collection.name", this.definition.collectionName())
+                    .put(
+                        "mongodb.collection.uuid",
+                        this.definition.collectionUuid().toString())
+                    .put("mongot.command.name", VectorSearchCommandDefinition.NAME)
+                    .build()))) {
+      guard
+          .getSpan()
+          .setAttribute(
+              "mongot.operation.id", guard.getSpan().getSpanContext().getTraceId());
       this.metrics.totalCount.increment();
-      var query = this.definition.getQuery();
+      VectorSearchQuery query;
+      try (var parseSpan = Tracing.detailedSpanGuard("mongot.vector_search.parse_query")) {
+        query = this.definition.getQuery();
+        setVectorQueryAttributes(parseSpan.getSpan(), query);
+      }
+      setVectorQueryAttributes(guard.getSpan(), query);
       if (query.userReturnStoredSource()) {
         this.metrics.vectorStoredSourceQueries.increment();
       }
@@ -243,7 +268,9 @@ public class VectorSearchCommand implements Command {
               .cursorOptions()
               .map(CursorOptionsDefinition::toQueryCursorOptions)
               .orElse(QueryCursorOptions.empty());
-      validateQueryAndCursorOptions(query, queryCursorOptions);
+      try (var ignored = Tracing.detailedSpanGuard("mongot.vector_search.validate_query")) {
+        validateQueryAndCursorOptions(query, queryCursorOptions);
+      }
 
       VectorSearchCriteria criteria = query.criteria();
       if (criteria.queryVector().isPresent()) {
@@ -263,14 +290,28 @@ public class VectorSearchCommand implements Command {
       // chances of an error when this rare race condition is hit.
       return ActionRetry.onException(
           () -> {
-            var index = getIndexFromCatalog(query);
+            Optional<InitializedIndex> index;
+            try (var catalogSpan = Tracing.detailedSpanGuard("mongot.vector_search.resolve_index")) {
+              index = getIndexFromCatalog(query);
+              catalogSpan.getSpan().setAttribute("mongot.search.index.found", index.isPresent());
+              index.ifPresent(
+                  initializedIndex ->
+                      catalogSpan
+                          .getSpan()
+                          .setAttribute(
+                              "mongot.search.index.partitions",
+                              initializedIndex.getDefinition().getNumPartitions()));
+            }
             try (var unusedExplain =
                     Explain.setup(
                         this.definition.explain().map(ExplainDefinition::verbosity),
                         index.map(idx -> idx.getDefinition().getNumPartitions()));
                 var unusedFeatureFlags = DynamicFeatureFlagsMetricsRecorder.setup()) {
               addMetadataIfExplain(query);
-              checkSupportForVectorStoredSource(this.metadata, query, index);
+              try (var ignored =
+                  Tracing.detailedSpanGuard("mongot.vector_search.validate_stored_source")) {
+                checkSupportForVectorStoredSource(this.metadata, query, index);
+              }
               return getSearchResults(query, index, queryCursorOptions);
             }
           },
@@ -435,9 +476,18 @@ public class VectorSearchCommand implements Command {
         Tracing.simpleSpanGuard("VectorSearchCommand.getSearchResults", Tracing.TOGGLE_OFF)) {
       var timer = Timer.start();
       var commandTimer = Timer.start();
-      var materializedQuery = maybeEmbed(
-              vectorSearchQuery,
-              findEmbedRequestInfo(optionalIndex.get().getDefinition(), vectorSearchQuery));
+      MaterializedVectorSearchQuery materializedQuery;
+      try (var embedSpan = Tracing.detailedSpanGuard("mongot.vector_search.materialize_query")) {
+        materializedQuery =
+            maybeEmbed(
+                vectorSearchQuery,
+                findEmbedRequestInfo(optionalIndex.get().getDefinition(), vectorSearchQuery));
+        embedSpan
+            .getSpan()
+            .setAttribute(
+                "mongot.vector.query_vector.type",
+                materializedQuery.queryVectorType().name());
+      }
       if (vectorSearchQuery.returnStoredSource()) {
         return getBatch(
             materializedQuery,
@@ -479,16 +529,19 @@ public class VectorSearchCommand implements Command {
     try (var cursorGuard = new CursorGuard(this.createdCursorIds, this.cursorManager)) {
       var sample = Timer.start();
 
-      var cursorInfo =
-          this.cursorManager.newCursor(
-              this.definition.db(),
-              this.definition.collectionName(),
-              this.definition.collectionUuid(),
-              this.definition.viewName(),
-              new CursorQuery.Vector(materializedQuery),
-              queryCursorOptions,
-              QueryOptimizationFlags.DEFAULT_OPTIONS,
-              this.searchEnvoyMetadata);
+      SearchCursorInfo cursorInfo;
+      try (var ignored = Tracing.detailedSpanGuard("mongot.vector_search.create_cursor")) {
+        cursorInfo =
+            this.cursorManager.newCursor(
+                this.definition.db(),
+                this.definition.collectionName(),
+                this.definition.collectionUuid(),
+                this.definition.viewName(),
+                new CursorQuery.Vector(materializedQuery),
+                queryCursorOptions,
+                QueryOptimizationFlags.DEFAULT_OPTIONS,
+                this.searchEnvoyMetadata);
+      }
 
       long cursorId = cursorInfo.cursorId;
       this.createdCursorIds.add(cursorId);
@@ -500,12 +553,22 @@ public class VectorSearchCommand implements Command {
 
       Optional<BsonValue> variables =
           Optional.of(new Variables(cursorInfo.metaResults).toRawBson());
-      MongotCursorResultInfo cursorResultInfo =
-          this.cursorManager.getNextBatch(
-              cursorId,
-              this.bsonSizeSoftLimit.subtract(
-                  MongotCursorBatch.calculateEmptyBatchSize(variables, Optional.empty())),
-              queryCursorOptions);
+      MongotCursorResultInfo cursorResultInfo;
+      try (var batchSpan = Tracing.detailedSpanGuard("mongot.vector_search.cursor_next_batch")) {
+        cursorResultInfo =
+            this.cursorManager.getNextBatch(
+                cursorId,
+                this.bsonSizeSoftLimit.subtract(
+                    MongotCursorBatch.calculateEmptyBatchSize(variables, Optional.empty())),
+                queryCursorOptions);
+        batchSpan.getSpan().setAttribute("mongot.cursor.id", cursorId);
+        batchSpan.getSpan().setAttribute("mongot.batch.exhausted", cursorResultInfo.exhausted);
+        batchSpan
+            .getSpan()
+            .setAttribute(
+                "mongot.batch.result.count",
+                cursorResultInfo.batch.isArray() ? cursorResultInfo.batch.asArray().size() : -1);
+      }
 
       Optional<MongotCursorResult> cursorResult =
           populateCursorResult
@@ -519,7 +582,11 @@ public class VectorSearchCommand implements Command {
               populateCursorResult ? variables : Optional.empty());
 
       queryBatchTimerRecorder.recordSample(sample);
-      var serializedBatch = batch.toBson();
+      BsonDocument serializedBatch;
+      try (var serializeSpan = Tracing.detailedSpanGuard("mongot.vector_search.serialize_batch")) {
+        serializedBatch = batch.toBson();
+        serializeSpan.getSpan().setAttribute("mongot.batch.bson.field_count", serializedBatch.size());
+      }
       var metrics = index.getMetricsUpdater().getQueryingMetricsUpdater();
       timer.stop(metrics.getVectorResultLatencyTimer());
       metrics.getVectorCommandCounter().increment();
@@ -556,7 +623,10 @@ public class VectorSearchCommand implements Command {
           InvalidQueryException.Type.STRICT);
     }
     var reader = vectorIndex.getReader();
-    var results = reader.query(materializedQuery);
+    BsonArray results;
+    try (var ignored = Tracing.detailedSpanGuard("mongot.vector_search.reader_query")) {
+      results = reader.query(materializedQuery);
+    }
     var serializedBatch = createExhaustedCursorBatch(results).toBson();
 
     var metrics = index.getMetricsUpdater().getQueryingMetricsUpdater();
@@ -794,7 +864,10 @@ public class VectorSearchCommand implements Command {
         // TODO(CLOUDP-353553): Handle search index with autoEmbed field.
         prepareEmbeddingRequestContext(vectorSearchQuery, sourceDefinition.asVectorDefinition());
     List<VectorOrError> results;
-    try {
+    try (var embedSpan =
+        Tracing.detailedSpanGuard(
+            "mongot.vector_search.embedding_service",
+            Attributes.builder().put("mongot.embedding.model", canonicalModel.get()).build())) {
       results =
           this.embeddingServiceManagerSupplier
               .get()
@@ -803,6 +876,7 @@ public class VectorSearchCommand implements Command {
                   EmbeddingModelCatalog.getModelConfig(canonicalModel.get()),
                   EmbeddingServiceConfig.ServiceTier.QUERY,
                   context);
+      embedSpan.getSpan().setAttribute("mongot.embedding.result.count", results.size());
     } catch (Exception e) {
       LOG.atError()
           .addKeyValue("model", canonicalModel.get())
@@ -825,6 +899,22 @@ public class VectorSearchCommand implements Command {
         vectorSearchQuery,
         Check.isPresent(result.vector, "vector"),
         findAutoEmbeddingFieldsMapping(vectorSearchQuery));
+  }
+
+  private String namespace() {
+    return this.definition.db() + "." + this.definition.collectionName();
+  }
+
+  private static void setVectorQueryAttributes(
+      io.opentelemetry.api.trace.Span span, VectorSearchQuery query) {
+    span.setAttribute("mongot.search.index.name", query.index());
+    span.setAttribute("mongot.vector.path", query.criteria().path().toString());
+    span.setAttribute("mongot.vector.search.type", query.criteria().getVectorSearchType().name());
+    span.setAttribute("mongot.vector.limit", query.criteria().limit());
+    span.setAttribute("mongot.vector.return_stored_source", query.returnStoredSource());
+    span.setAttribute("mongot.vector.has_filter", query.criteria().filter().isPresent());
+    span.setAttribute("mongot.vector.has_query_text", query.criteria().query().isPresent());
+    span.setAttribute("mongot.vector.has_query_vector", query.criteria().queryVector().isPresent());
   }
 
   private EmbeddingRequestContext prepareEmbeddingRequestContext(

@@ -42,4 +42,9 @@ public class BsonMessageCallHandler extends ServerCallHandler<RawBsonDocument> {
   RawBsonDocument serializeError(RawBsonDocument requestMessage, BsonDocument error) {
     return new RawBsonDocument(error, BsonUtils.BSON_DOCUMENT_CODEC);
   }
+
+  @Override
+  String traceServiceName() {
+    return CommandStreamMethods.MONGODB_BSON_SERVICE_NAME;
+  }
 }

@@ -38,4 +38,9 @@ public class WireMessageCallHandler extends ServerCallHandler<MessageMessage> {
   MessageMessage serializeError(MessageMessage request, BsonDocument error) {
     return (MessageMessage) request.getOutboundMessage(error);
   }
+
+  @Override
+  String traceServiceName() {
+    return CommandStreamMethods.MONGODB_WIRE_SERVICE_NAME;
+  }
 }
