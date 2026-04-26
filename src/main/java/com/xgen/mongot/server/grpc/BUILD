@@ -42,6 +42,7 @@ java_library(
         "//src/main/java/com/xgen/mongot/server/executors",
         "//src/main/java/com/xgen/mongot/server/message",
         "//src/main/java/com/xgen/mongot/server/util",
+        "//src/main/java/com/xgen/mongot/trace",
         "//src/main/java/com/xgen/mongot/util",
         "//src/main/java/com/xgen/mongot/util/concurrent",
         "//src/main/java/com/xgen/mongot/util/mongodb",

@@ -1,5 +1,6 @@
 package com.xgen.mongot.server.grpc;
 
+import com.xgen.mongot.trace.Tracing;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,6 +44,7 @@ public class CommandManager<T> {
   private volatile Runnable cleanupCallback;
 
   private volatile boolean streamCancelled;
+  private volatile boolean clientHalfClosed;
 
   CommandManager(StreamObserver<T> responseObserver) {
     this(responseObserver, () -> {});
@@ -55,6 +57,7 @@ public class CommandManager<T> {
     // receiving `onHalfClosedByClient` or `onStreamCancellation`.
     this.numPendingResponseObserverCalls = new AtomicInteger(1);
     this.streamCancelled = false;
+    this.clientHalfClosed = false;
     this.cleanupCallback =
         () -> {
           // Do nothing.
@@ -70,12 +73,16 @@ public class CommandManager<T> {
     // Synchronization is required here because the `StreamObserver` is not thread-safe.
     synchronized (this) {
       try {
-        this.responseObserver.onNext(replyMsg);
+        try (var ignored = Tracing.detailedSpanGuard("mongot.grpc.response_observer_on_next")) {
+          this.responseObserver.onNext(replyMsg);
+        }
       } catch (StatusRuntimeException e) {
         // The RPC stream is already cancelled.
       }
     }
-    replySentCallback.run();
+    try (var ignored = Tracing.detailedSpanGuard("mongot.grpc.reply_sent_callback")) {
+      replySentCallback.run();
+    }
 
     if (this.numPendingResponseObserverCalls.decrementAndGet() == 0) {
       sendSeverHalfCloseAndRunCleanupCallback();
@@ -83,6 +90,7 @@ public class CommandManager<T> {
   }
 
   void onHalfClosedByClient() {
+    this.clientHalfClosed = true;
     if (this.numPendingResponseObserverCalls.decrementAndGet() == 0) {
       sendSeverHalfCloseAndRunCleanupCallback();
     }
@@ -90,6 +98,10 @@ public class CommandManager<T> {
 
   boolean isStreamCancelled() {
     return this.streamCancelled;
+  }
+
+  boolean isWaitingForClientMessages() {
+    return !this.streamCancelled && !this.clientHalfClosed;
   }
 
   void onStreamCancellation(Runnable cleanupCallback) {
@@ -119,12 +131,18 @@ public class CommandManager<T> {
     // Synchronization is not necessary here because there should be no concurrent calls to the
     // responseObserver.
     try {
-      this.responseObserver.onCompleted();
+      try (var ignored = Tracing.detailedSpanGuard("mongot.grpc.server_half_close")) {
+        this.responseObserver.onCompleted();
+      }
     } catch (StatusRuntimeException e) {
       // The RPC stream is already cancelled.
     }
 
-    this.streamClosedCallback.run();
-    this.cleanupCallback.run();
+    try (var ignored = Tracing.detailedSpanGuard("mongot.grpc.stream_closed_callback")) {
+      this.streamClosedCallback.run();
+    }
+    try (var ignored = Tracing.detailedSpanGuard("mongot.grpc.stream_cleanup")) {
+      this.cleanupCallback.run();
+    }
   }
 }

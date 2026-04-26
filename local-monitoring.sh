@@ -5,6 +5,8 @@ WORKDIR="$(pwd)"
 AGENT_DIR="${WORKDIR}/otel-agent"
 AGENT_JAR="${AGENT_DIR}/opentelemetry-javaagent.jar"
 AGENT_VERSION="2.5.0"
+# Jaeger's in-memory backend keeps traces until this cap is exceeded or the
+# container restarts. It does not expose a separate age-based TTL setting.
 JAEGER_MEMORY_MAX_TRACES="${JAEGER_MEMORY_MAX_TRACES:-50000}"
 
 # ── OpenTelemetry Java Agent ─────────────────────────────────────────

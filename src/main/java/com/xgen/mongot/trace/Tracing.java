@@ -257,6 +257,18 @@ public class Tracing {
   }
 
   /**
+   * Creates a span only when {@code DETAILED_TRACE_SPANS=true}, without making the span current.
+   * Use this for lifecycle spans that need to cross callbacks or threads, where keeping a
+   * thread-local {@link Scope} open would be incorrect.
+   */
+  public static Optional<Span> detailedUnguardedSpan(String name, Attributes attributes) {
+    if (!isDetailedTraceSpansEnabled()) {
+      return Optional.empty();
+    }
+    return Optional.of(unguardedSpan(name, attributes));
+  }
+
+  /**
    * Attributes for a search command root span. When detailed tracing is enabled the root span is
    * force-sampled and all descendant spans inherit that decision. When disabled, the current
    * ToggleSampler keeps the root span dropped.
@@ -323,6 +335,8 @@ public class Tracing {
             || name.startsWith("mongot.vector_search.")
             || name.startsWith("mongot.cursor.")
             || name.startsWith("mongot.lucene.")
+            || name.startsWith("mongot.grpc.")
+            || name.startsWith("mongot.executor.")
         ? Optional.of(name)
         : Optional.empty();
   }
