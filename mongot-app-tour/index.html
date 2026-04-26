@@ -42,6 +42,7 @@
     html, body {
       margin: 0;
       min-height: 100%;
+      overflow-x: hidden;
       background:
         radial-gradient(circle at top left, rgba(105, 192, 255, 0.18), transparent 28%),
         radial-gradient(circle at top right, rgba(157, 140, 255, 0.18), transparent 24%),
@@ -139,7 +140,7 @@
 
     .graph-frame {
       height: 100%;
-      min-height: 620px;
+      min-height: 680px;
       border-radius: 24px;
       position: relative;
       overflow: hidden;
@@ -272,6 +273,7 @@
 
     .codeish {
       font-family: "IBM Plex Mono", monospace;
+      overflow-wrap: anywhere;
     }
 
     .node-pill {
@@ -311,6 +313,28 @@
     .tour-card.active {
       border-color: rgba(255, 190, 107, 0.55);
       background: linear-gradient(180deg, rgba(255, 190, 107, 0.12), rgba(255,255,255,0.04));
+    }
+
+    .story-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+    }
+
+    .story-classes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-height: 30px;
+    }
+
+    .boundary-note {
+      border-radius: 18px;
+      padding: 12px 14px;
+      border: 1px solid rgba(128, 240, 196, 0.22);
+      background: rgba(128, 240, 196, 0.07);
+      color: rgba(236,244,255,0.82);
+      font-size: 13.5px;
     }
 
     .legend-dot {
@@ -369,6 +393,8 @@
     } = MaterialUI;
 
     const topPackages = [
+      { id: "top:client", name: "java.client", short: "client", kind: "external", description: "Atlas Search Coco and the MongoDB Java driver. The driver sends normal MongoDB aggregate/getMore commands to mongod; it has no direct MongoT connection or gRPC command-stream client.", complexity: 5, links: ["mongod"] },
+      { id: "top:mongod", name: "mongod", short: "mongod", kind: "mongod", description: "MongoDB server aggregation executor. It receives the Java driver's aggregate command, runs the pipeline, and is the process that opens the gRPC search command stream to MongoT.", complexity: 8, links: ["com.xgen.mongot.server"] },
       { id: "top:blobstore", name: "com.xgen.mongot.blobstore", short: "blobstore", description: "Minimal blob-storage integration surface; currently mostly a placeholder/error boundary.", complexity: 1, links: ["com.xgen.mongot.util"] },
       { id: "top:catalog", name: "com.xgen.mongot.catalog", short: "catalog", description: "Local index catalog abstractions and implementations used to resolve and search index state.", complexity: 2, links: ["com.xgen.mongot.index"] },
       { id: "top:catalogservice", name: "com.xgen.mongot.catalogservice", short: "catalogservice", description: "Metadata service layer for authoritative index definitions, per-server index stats, and heartbeats.", complexity: 4, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.replication"] },
@@ -383,7 +409,7 @@
       { id: "top:metrics", name: "com.xgen.mongot.metrics", short: "metrics", description: "Metrics abstractions plus FTDC collection and reporting infrastructure.", complexity: 4, links: ["com.xgen.mongot.util", "com.xgen.mongot.index"] },
       { id: "top:monitor", name: "com.xgen.mongot.monitor", short: "monitor", description: "Disk and replication-state monitoring, gates, and hysteresis controls.", complexity: 3, links: ["com.xgen.mongot.util", "com.xgen.mongot.config", "com.xgen.mongot.metrics"] },
       { id: "top:replication", name: "com.xgen.mongot.replication", short: "replication", description: "MongoDB replication pipeline: initial sync, steady-state change streams, durability, and indexing work scheduling. Insert/delete traces now expose change stream batch, decode batch, document event, indexing batch, Lucene writer, commit, and searcher refresh work.", complexity: 9, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.metrics", "com.xgen.mongot.embedding", "com.xgen.mongot.logging", "com.xgen.mongot.featureflag", "com.xgen.mongot.catalog", "com.xgen.mongot.cursor", "com.xgen.mongot.monitor"] },
-      { id: "top:server", name: "com.xgen.mongot.server", short: "server", description: "External server surface: gRPC and command handling, protocol plumbing, request routing, and streaming responses. Search root spans are renamed to namespace-aware operations such as mongodb.CommandService/atlasSearchCoco.image/search.", complexity: 8, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.cursor", "com.xgen.mongot.config", "com.xgen.mongot.catalogservice", "com.xgen.mongot.catalog", "com.xgen.mongot.embedding", "com.xgen.mongot.metrics", "com.xgen.mongot.featureflag", "com.xgen.mongot.trace"] },
+      { id: "top:server", name: "com.xgen.mongot.server", short: "server", description: "MongoT's gRPC command-stream surface. It accepts search commands from mongod, not from the Java driver directly, then routes into SearchCommand, cursors, index readers, tracing, and response serialization.", complexity: 8, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.cursor", "com.xgen.mongot.config", "com.xgen.mongot.catalogservice", "com.xgen.mongot.catalog", "com.xgen.mongot.embedding", "com.xgen.mongot.metrics", "com.xgen.mongot.featureflag", "com.xgen.mongot.trace"] },
       { id: "top:trace", name: "com.xgen.mongot.trace", short: "trace", description: "OpenTelemetry tracing helpers, exporters, sampling toggles, and trace parsing utilities. With DETAILED_TRACE_SPANS enabled, spans include full input BSON, Lucene query shape, sampled BSON results, and indexing update details.", complexity: 3, links: [] },
       { id: "top:util", name: "com.xgen.mongot.util", short: "util", description: "Shared foundation code: BSON/proto conversion, concurrency helpers, collections, versioning, and general utilities.", complexity: 8, links: ["com.xgen.proto", "com.xgen.mongot.metrics", "com.xgen.mongot.logging"] },
       { id: "top:proto", name: "com.xgen.proto", short: "proto", description: "BSON-aware protobuf runtime plus code-generation plugin for BSON-capable protobuf messages.", complexity: 4, links: [] }
@@ -490,22 +516,23 @@
 
     const STORIES = {
       system: [
-        { key: "top:server", title: "Command Stream Entry", body: "Search traces now start with a namespace-aware gRPC root such as `mongodb.CommandService/atlasSearchCoco.image/search`, then fan into parse, dispatch, executor, and response lifecycle spans." },
-        { key: "top:index", title: "Measured Search Engine", body: "The `index` package is where the trace breaks into concrete work: parse BSON, build Lucene query, collect hits or vector candidates, materialize BSON, and shape the response." },
-        { key: "top:replication", title: "Indexed Updates", body: "Insert/delete activity appears asynchronously through replication: change stream batch, decode batch, document event, indexing batch, Lucene writer update/delete, commit, and searcher refresh." },
-        { key: "top:trace", title: "Trace Payloads", body: "`trace` controls detailed spans and payload attributes. The useful payloads are full input BSON, Lucene query representation, sampled BSON result documents, and update event metadata." }
+        { key: "top:client", title: "Client Boundary", body: "Coco uses the MongoDB Java driver, but the driver only opens MongoDB server connections. It sends aggregate/getMore to mongod, never directly to MongoT.", classes: ["MongoCollectionImpl", "AggregateIterableImpl", "AggregateOperationImpl"] },
+        { key: "top:mongod", title: "mongod Owns $search Dispatch", body: "mongod receives the aggregate pipeline, runs aggregation, and opens the gRPC search command stream into MongoT for $search sub-pipelines.", classes: ["AggregateOperationImpl", "SyncOperationHelper", "ClusterBinding"] },
+        { key: "top:server", title: "MongoT Command Stream Entry", body: "MongoT starts at the server package: gRPC command stream handling, SearchCommand parsing, cursor creation, and response serialization.", classes: ["GrpcStreamingServer", "ServerCallHandler", "SearchCommand"] },
+        { key: "top:index", title: "Measured Search Engine", body: "The index package is where traces break into concrete work: parse BSON, build Lucene query, collect hits or vector candidates, materialize BSON, and shape results.", classes: ["LuceneSearchIndexReader", "LuceneSearchBatchProducer", "ProjectFactory"] },
+        { key: "top:replication", title: "Indexed Updates", body: "Insert/delete activity is not a child of the client request trace. MongoT sees it asynchronously through replication and change streams.", classes: ["MongoDbReplicationManager", "ChangeStreamManager", "IndexingWorkScheduler"] }
       ],
       index: [
-        { key: "index:query", title: "BSON To Query", body: "The query layer turns the `$search` BSON body into typed MongoT query objects. In the 25-VU runs, parse BSON was visible in every search command and grows for vector/rank-fusion payloads." },
-        { key: "index:lucene", title: "Lucene Execution", body: "Lucene spans distinguish actual library calls from setup: text collect hits, exact vector candidate collection, materialize BSON, updateDocuments, deleteDocuments, commit, and searcher refresh." },
-        { key: "index:ingestion", title: "Document Blocks", body: "For updates, ingestion builds Lucene document blocks from MongoDB BSON before `IndexWriter.updateDocuments` replaces the indexed block." },
-        { key: "index:definition", title: "Index Shape", body: "The Coco text index uses `caption` plus boolean/token facet fields. The vector index uses `captionEmbedding`, 768 dimensions, cosine similarity, and stored-source image fields." }
+        { key: "index:query", title: "BSON To Query", body: "The query layer turns the `$search` BSON body into typed MongoT query objects. In the 25-VU runs, parse BSON was visible in every search command and grows for vector/rank-fusion payloads.", classes: ["SearchQuery", "OperatorQuery", "SearchQueryFactory"] },
+        { key: "index:lucene", title: "Lucene Execution", body: "Lucene spans distinguish actual library calls from setup: text collect hits, exact vector candidate collection, materialize BSON, updateDocuments, deleteDocuments, commit, and searcher refresh.", classes: ["LuceneSearchIndexReader", "LuceneSearchManager", "LuceneVectorSearchManager"] },
+        { key: "index:ingestion", title: "Document Blocks", body: "For updates, ingestion builds Lucene document blocks from MongoDB BSON before `IndexWriter.updateDocuments` replaces the indexed block.", classes: ["RootDocumentBuilder", "StoredDocumentBuilder", "SingleLuceneIndexWriter"] },
+        { key: "index:definition", title: "Index Shape", body: "The Coco text index uses `caption` plus boolean/token facet fields. The vector index uses `captionEmbedding`, 768 dimensions, cosine similarity, and stored-source image fields.", classes: ["SearchIndexDefinition", "VectorIndexDefinition", "StoredSourceDefinition"] }
       ],
       deps: [
-        { key: "group:Cloud Integration", title: "Cloud Reach", body: "The runtime payload is surprisingly cloud-heavy, with AWS, GCP, and Azure libraries grouped into a large storage and credential surface." },
-        { key: "group:Lucene", title: "Search Payload", body: "Lucene is the next major dependency cluster. The analyzers are large because international text support ships with real data and dictionaries." },
-        { key: "group:Monitoring", title: "Observe Everything", body: "Micrometer, OpenTelemetry, and OSHI show how much runtime support exists around monitoring and machine introspection." },
-        { key: "group:Serialization", title: "Config and Wire Formats", body: "Jackson and SnakeYAML give MongoT its config and serialization vocabulary across APIs, metadata, and tooling." }
+        { key: "group:Cloud Integration", title: "Cloud Reach", body: "The runtime payload is cloud-heavy, with AWS, GCP, and Azure libraries grouped into a large storage and credential surface.", classes: ["S3", "Storage", "BlobClient"] },
+        { key: "group:Lucene", title: "Search Payload", body: "Lucene is the next major dependency cluster. The analyzers are large because international text support ships with real data and dictionaries.", classes: ["IndexSearcher", "IndexWriter", "Analyzer"] },
+        { key: "group:Monitoring", title: "Observe Everything", body: "Micrometer, OpenTelemetry, and OSHI show how much runtime support exists around monitoring and machine introspection.", classes: ["MeterRegistry", "Tracer", "SystemInfo"] },
+        { key: "group:Serialization", title: "Config and Wire Formats", body: "Jackson and SnakeYAML give MongoT its config and serialization vocabulary across APIs, metadata, and tooling.", classes: ["ObjectMapper", "BsonDocument", "Yaml"] }
       ]
     };
 
@@ -516,7 +543,7 @@
         http: "39.2 ms",
         stream: "8.9 ms",
         command: "890 us",
-        detail: "Stored-source text search on `default`; materialize BSON was the largest command-phase median at 372 us."
+        detail: "Java driver sends aggregate to mongod; mongod opens the MongoT gRPC search stream for `default` text search."
       },
       {
         label: "Vector",
@@ -524,7 +551,7 @@
         http: "124 ms",
         stream: "10.0 ms",
         command: "2.8 ms",
-        detail: "`vector_caption` exact vector search; Lucene vector candidate collection dominated command time at 1.9 ms."
+        detail: "Coco builds the embedding before aggregate; mongod then calls MongoT for `vector_caption` vector search."
       },
       {
         label: "Both",
@@ -532,7 +559,7 @@
         http: "268 ms",
         stream: "37.8 ms",
         command: "2.2 ms",
-        detail: "$rankFusion emits separate text/default and vector/vector_caption MongoT search streams; vector traces had 4.3 ms command medians in the saved split."
+        detail: "$rankFusion runs in mongod and emits separate MongoT streams for text/default and vector/vector_caption sub-pipelines."
       },
       {
         label: "License",
@@ -540,7 +567,7 @@
         http: "87.0 ms",
         stream: "11.9 ms",
         command: "863 us",
-        detail: "includeLicense=true forces full field projection; end-to-end app/MongoDB latency rose while MongoT command work stayed sub-millisecond."
+        detail: "MongoT returns hit ids/scores; mongod performs server-side id lookup/materialization for licenseName/licenseUrl."
       },
       {
         label: "Mutations",
@@ -548,14 +575,14 @@
         http: "5.4 ms",
         stream: "async",
         command: "indexing",
-        detail: "5,662 synthetic inserts and deletes traced through change streams, document events, Lucene update/delete, commit, and refresh spans."
+        detail: "Client writes go to mongod; MongoT observes them later through change streams and updates Lucene asynchronously."
       }
     ];
 
     const VIEW_META = {
       system: {
-        label: "System Map",
-        blurb: "Major package boundaries and their import relationships.",
+        label: "Runtime Animation",
+        blurb: "Client, mongod, and MongoT command-stream boundaries over the package graph.",
         accent: "#69c0ff"
       },
       index: {
@@ -1199,6 +1226,8 @@
     }
 
     const RUNTIME_PACKAGE_IDS = {
+      client: "top:client",
+      mongod: "top:mongod",
       community: "top:community",
       config: "top:config",
       metrics: "top:metrics",
@@ -1214,7 +1243,7 @@
       trace: "top:trace"
     };
 
-    const DEFAULT_RUNTIME_TIMELINE_DURATION = 90;
+    const DEFAULT_RUNTIME_TIMELINE_DURATION = 64;
     const EMPTY_RUNTIME_TIMELINE = {
       duration: DEFAULT_RUNTIME_TIMELINE_DURATION,
       phases: [
@@ -1245,7 +1274,8 @@
                 ...stream,
                 edges: Array.isArray(stream?.edges) ? stream.edges : []
               }))
-              : []
+              : [],
+            classes: Array.isArray(phase?.classes) ? phase.classes : []
           }))
           .sort((left, right) => left.start - right.start)
         : [];
@@ -1332,7 +1362,7 @@
     }
 
     function getTimelineEnvelope(phase, timeSec) {
-      const ramp = Math.min(1.6, Math.max(0.8, (phase.end - phase.start) * 0.18));
+      const ramp = Math.min(0.95, Math.max(0.45, (phase.end - phase.start) * 0.12));
       const intro = smoothstep(phase.start, phase.start + ramp, timeSec);
       const outro = 1 - smoothstep(phase.end - ramp, phase.end, timeSec);
       return clamp(intro * outro, 0, 1);
@@ -1469,7 +1499,7 @@
       network.moveTo({
         position: { x: targetCenterX, y: targetCenterY },
         scale: safeScale,
-        animation: options.animation || { duration: 720, easingFunction: "easeInOutCubic" }
+        animation: options.animation || { duration: 420, easingFunction: "easeInOutCubic" }
       });
       return true;
     }
@@ -1480,6 +1510,8 @@
         if (item.kind === "group") return preset.group;
         return preset.support;
       }
+      if (item.kind === "external") return preset.mint || preset.support;
+      if (item.kind === "mongod") return preset.cool;
       const c = item.complexity;
       if (c >= 9) return preset.hot;
       if (c >= 7) return preset.warm;
@@ -1797,7 +1829,7 @@
 
         network.on("doubleClick", params => {
           if (params.nodes.length > 0) {
-            network.focus(params.nodes[0], { scale: 1.35, animation: { duration: 650, easingFunction: "easeInOutQuart" } });
+            network.focus(params.nodes[0], { scale: 1.35, animation: { duration: 420, easingFunction: "easeInOutQuart" } });
           }
         });
 
@@ -1820,7 +1852,7 @@
                 marginX: Math.max(88, (graphRef.current?.clientWidth || 0) * 0.12),
                 marginY: Math.max(84, (graphRef.current?.clientHeight || 0) * 0.13),
                 focusBias: 0.32,
-                animation: { duration: 620, easingFunction: "easeInOutCubic" }
+                animation: { duration: 420, easingFunction: "easeInOutCubic" }
               }
             );
           });
@@ -1873,7 +1905,7 @@
           network.moveTo({
             position: { x: 0, y: 0 },
             scale: orbitModel.fitScale,
-            animation: { duration: 700, easingFunction: "easeInOutCubic" }
+            animation: { duration: 440, easingFunction: "easeInOutCubic" }
           });
         } else if (!layoutFrozen) {
           network.stabilize(layoutMode === "spread" ? 240 : 180);
@@ -2031,7 +2063,7 @@
 
         const network = networkRef.current;
         if (command.type === "fit") {
-          network.fit({ animation: { duration: 560, easingFunction: "easeInOutCubic" } });
+          network.fit({ animation: { duration: 360, easingFunction: "easeInOutCubic" } });
           return;
         }
 
@@ -2049,17 +2081,17 @@
             anchorId,
             {
               maxScale: layoutMode === "orbit" ? orbitModelRef.current?.fitScale || undefined : undefined,
-              animation: { duration: 680, easingFunction: "easeInOutCubic" }
+              animation: { duration: 420, easingFunction: "easeInOutCubic" }
             }
           )) {
-            network.fit({ animation: { duration: 560, easingFunction: "easeInOutCubic" } });
+            network.fit({ animation: { duration: 360, easingFunction: "easeInOutCubic" } });
           }
           return;
         }
 
         if (command.type === "stabilize" && layoutMode !== "orbit" && !layoutFrozen) {
           network.stabilize(layoutMode === "spread" ? 240 : 180);
-          network.fit({ animation: { duration: 520, easingFunction: "easeInOutCubic" } });
+          network.fit({ animation: { duration: 340, easingFunction: "easeInOutCubic" } });
         }
       }, [command, data, layoutFrozen, layoutMode, onSelect, view]);
 
@@ -2080,11 +2112,11 @@
             ? { x: 0, y: 0 }
             : networkRef.current.getPositions([selectedId])[selectedId];
           if (position) {
-            networkRef.current.moveTo({ position, scale: selectedId === orbitModelRef.current?.anchorId ? orbitModelRef.current?.fitScale || 1 : 1.12, animation: { duration: 700, easingFunction: "easeInOutCubic" } });
+            networkRef.current.moveTo({ position, scale: selectedId === orbitModelRef.current?.anchorId ? orbitModelRef.current?.fitScale || 1 : 1.12, animation: { duration: 420, easingFunction: "easeInOutCubic" } });
           }
           return;
         }
-        networkRef.current.focus(selectedId, { scale: 1.25, animation: { duration: 700, easingFunction: "easeInOutCubic" } });
+        networkRef.current.focus(selectedId, { scale: 1.25, animation: { duration: 420, easingFunction: "easeInOutCubic" } });
       }, [selectedId, data.nodes, layoutMode, motionMode, view]);
 
       return (
@@ -2164,13 +2196,13 @@
       const [motionMode, setMotionMode] = React.useState("timeline");
       const [runtimeTimelineDefinition, setRuntimeTimelineDefinition] = React.useState(EMPTY_RUNTIME_TIMELINE);
       const [timelineClock, setTimelineClock] = React.useState(0);
-      const [timelinePlaying, setTimelinePlaying] = React.useState(false);
-      const [timelineSpeed, setTimelineSpeed] = React.useState(2);
-      const [timelineLoop, setTimelineLoop] = React.useState(false);
+      const [timelinePlaying, setTimelinePlaying] = React.useState(true);
+      const [timelineSpeed, setTimelineSpeed] = React.useState(1);
+      const [timelineLoop, setTimelineLoop] = React.useState(true);
       const [viewerCommand, setViewerCommand] = React.useState(null);
       const [settingsOpen, setSettingsOpen] = React.useState(false);
-      const [sidebarOpen, setSidebarOpen] = React.useState(true);
-      const [controlsOpen, setControlsOpen] = React.useState(true);
+      const [sidebarOpen, setSidebarOpen] = React.useState(false);
+      const [controlsOpen, setControlsOpen] = React.useState(false);
       const [storyOpen, setStoryOpen] = React.useState(true);
       const [focusOpen, setFocusOpen] = React.useState(true);
       const [filtersOpen, setFiltersOpen] = React.useState(true);
@@ -2462,6 +2494,7 @@
       const animationSummary = motionMode === "timeline"
         ? `${currentTimelinePhase.label} at ${formatRuntimeClock(timelineClock)} of ${formatRuntimeClock(runtimeTimelineDuration)}.`
         : "Ambient mode shows the architecture without a runtime story overlaid on top.";
+      const currentPhaseClasses = Array.isArray(currentTimelinePhase.classes) ? currentTimelinePhase.classes : [];
       const toggleTimelinePlayback = () => {
         if (timelinePlaying) {
           setTimelinePlaying(false);
@@ -2551,11 +2584,67 @@
                     </Button>
                   </Stack>
                   <Typography variant="h2" sx={{ fontWeight: 700, lineHeight: 1.04, letterSpacing: "-0.04em", fontSize: { xs: 34, md: 56 } }}>
-                    MongoT, as a living graph.
+                    MongoT runtime, animated.
                   </Typography>
                   <Typography sx={{ color: "rgba(236,244,255,0.76)", maxWidth: 760, fontSize: 17 }}>
-                    Trace MongoT’s package graph, index engine, and shipped runtime as one animated system.
+                    The Java driver sends aggregate and getMore to mongod. mongod owns the gRPC command stream into MongoT for $search, rank fusion sub-pipelines, and cursor continuation.
                   </Typography>
+                  <Stack direction={{ xs: "column", md: "row" }} spacing={1.1} alignItems={{ xs: "stretch", md: "center" }} sx={{ pt: 0.8 }}>
+                    <Tabs
+                      value={view}
+                      onChange={(event, next) => {
+                        setView(next);
+                        if (next === "system") {
+                          setMotionMode("timeline");
+                        }
+                      }}
+                      variant="scrollable"
+                      allowScrollButtonsMobile
+                      sx={{
+                        minHeight: 42,
+                        "& .MuiTabs-indicator": { display: "none" },
+                        "& .MuiTab-root": {
+                          minHeight: 42,
+                          borderRadius: 999,
+                          color: "var(--muted)",
+                          textTransform: "none",
+                          fontWeight: 700,
+                          px: 2.2
+                        },
+                        "& .Mui-selected": {
+                          color: "#08111d !important",
+                          background: stylePreset.warm
+                        }
+                      }}
+                    >
+                      <Tab value="system" label="Animation" />
+                      <Tab value="index" label="Index Core" />
+                      <Tab value="deps" label="Libraries" />
+                    </Tabs>
+                    <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
+                      <Button
+                        variant="contained"
+                        onClick={toggleTimelinePlayback}
+                        disabled={view !== "system"}
+                        startIcon={<span className="material-icons" style={{ fontSize: 18 }}>{timelinePlaying ? "pause" : "play_arrow"}</span>}
+                        sx={{ borderRadius: 999, color: "#08111d", background: stylePreset.cool, "&:hover": { background: stylePreset.cool } }}
+                      >
+                        {timelinePlaying ? "Pause" : "Play"}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        onClick={restartTimeline}
+                        disabled={view !== "system"}
+                        startIcon={<span className="material-icons" style={{ fontSize: 18 }}>replay</span>}
+                        sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
+                      >
+                        Restart
+                      </Button>
+                    </Stack>
+                  </Stack>
+                  <Box className="boundary-note">
+                    No Java driver to MongoT connection: <span className="codeish">java client -> mongod -> mongot</span>. The gRPC search stream starts at mongod.
+                  </Box>
                 </Stack>
               </Grid>
               <Grid item xs={12} lg={5}>
@@ -2590,12 +2679,13 @@
                     <Stack spacing={2.2}>
                       <Box>
                         <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.6 }}>
-                          Modes
+                          Tabs
                         </Typography>
                         <Tabs
                           value={view}
                           onChange={(event, next) => setView(next)}
-                          variant="fullWidth"
+                          variant="scrollable"
+                          allowScrollButtonsMobile
                           sx={{
                             minHeight: 44,
                             "& .MuiTabs-indicator": { display: "none" },
@@ -2612,8 +2702,8 @@
                             }
                           }}
                         >
-                          <Tab value="system" label="System" />
-                          <Tab value="index" label="Index" />
+                          <Tab value="system" label="Animation" />
+                          <Tab value="index" label="Index Core" />
                           <Tab value="deps" label="Libraries" />
                         </Tabs>
                       </Box>
@@ -2814,6 +2904,13 @@
                               >
                                 <Typography sx={{ fontWeight: 700 }}>{story.title}</Typography>
                                 <Typography sx={{ color: "var(--muted)", mt: 0.4, fontSize: 14 }}>{story.body}</Typography>
+                                {Array.isArray(story.classes) && story.classes.length > 0 && (
+                                  <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                                    {story.classes.slice(0, 4).map(className => (
+                                      <Chip key={`${story.key}-${className}`} label={className} size="small" sx={classChipStyles} />
+                                    ))}
+                                  </Stack>
+                                )}
                               </Box>
                             ))}
                           </Stack>
@@ -3212,7 +3309,7 @@
                       sx={{
                         borderRadius: 6,
                         p: 2,
-                        height: storyOpen ? 184 : 84,
+                        height: storyOpen ? 260 : 84,
                         overflow: "hidden",
                         background: stylePreset.panelBackground,
                         borderColor: hexToRgba(stylePreset.cool, 0.26),
@@ -3230,21 +3327,24 @@
                           action={<Chip label={timelinePlaying ? `Playing ${timelineSpeed}x` : "Paused"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />}
                         />
                         <Collapse in={storyOpen}>
-                          <Stack spacing={1.1}>
+                          <Stack className="story-shell">
                             <Typography
                               sx={{
                                 color: "var(--muted)",
                                 fontSize: 13.5,
-                                minHeight: 38,
-                                display: "-webkit-box",
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: "vertical",
-                                overflow: "hidden"
+                                minHeight: 42
                               }}
                             >
                               {currentTimelinePhase.description}
                             </Typography>
                             <Typography className="mini-note">{animationSummary}</Typography>
+                            {currentPhaseClasses.length > 0 && (
+                              <Box className="story-classes">
+                                {currentPhaseClasses.slice(0, 5).map(className => (
+                                  <Chip key={`${currentTimelinePhase.id}-${className}`} label={className} size="small" sx={classChipStyles} />
+                                ))}
+                              </Box>
+                            )}
                             <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap sx={{ minHeight: 32, alignContent: "flex-start" }}>
                               {timelineActiveStreams.map(stream => (
                                 <Chip
@@ -3431,6 +3531,16 @@
       color: "#ecf4ff",
       background: "rgba(255,255,255,0.06)",
       border: "1px solid rgba(155, 192, 255, 0.18)"
+    };
+
+    const classChipStyles = {
+      ...chipStyles,
+      maxWidth: 230,
+      "& .MuiChip-label": {
+        display: "block",
+        overflow: "hidden",
+        textOverflow: "ellipsis"
+      }
     };
 
     ReactDOM.createRoot(document.getElementById("root")).render(
