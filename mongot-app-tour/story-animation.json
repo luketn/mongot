@@ -2,68 +2,18 @@
   "duration": 64,
   "phases": [
     {
-      "id": "boundary",
-      "label": "Client Boundary",
-      "focusKey": "client",
-      "start": 0,
-      "end": 6,
-      "description": "Coco uses the MongoDB Java driver, but the driver only opens MongoDB server connections. It sends aggregate/getMore to mongod; it does not connect to MongoT.",
-      "classes": ["MongoCollectionImpl", "AggregateIterableImpl", "AggregateOperationImpl", "ClusterBinding"],
-      "streams": [
-        {
-          "id": "client-to-mongod",
-          "label": "aggregate command",
-          "colorKey": "cool",
-          "width": 3.3,
-          "intensity": 0.96,
-          "tempo": 1.45,
-          "particles": 4,
-          "modulation": "surge",
-          "edges": [["client", "mongod"]]
-        }
-      ]
-    },
-    {
-      "id": "mongod-dispatch",
-      "label": "mongod Dispatch",
-      "focusKey": "mongod",
-      "start": 6,
-      "end": 12,
-      "description": "mongod owns aggregation execution. When the pipeline reaches $search, mongod opens the gRPC command stream into MongoT.",
-      "classes": ["SyncOperationHelper", "ReadBinding", "CommandCursor", "CommandBatchCursorHelper"],
-      "streams": [
-        {
-          "id": "mongod-to-mongot",
-          "label": "gRPC search command",
-          "colorKey": "warm",
-          "width": 3.8,
-          "intensity": 1,
-          "tempo": 1.7,
-          "particles": 5,
-          "modulation": "burst",
-          "edges": [["mongod", "server"]]
-        },
-        {
-          "id": "server-command",
-          "label": "command dispatch",
-          "colorKey": "support",
-          "width": 2.4,
-          "intensity": 0.7,
-          "tempo": 1.1,
-          "particles": 3,
-          "modulation": "ramp",
-          "edges": [["server", "cursor"], ["server", "trace"]]
-        }
-      ]
-    },
-    {
       "id": "bootstrap",
       "label": "MongoT Bootstrap",
       "focusKey": "config",
-      "start": 12,
-      "end": 18,
+      "start": 0,
+      "end": 6,
       "description": "MongoT startup wires config, tracing, metrics, catalog service, lifecycle managers, cursor management, and the gRPC server before search traffic arrives.",
-      "classes": ["MongotCommunity", "CommunityMongotBootstrapper", "DefaultConfigManager", "GrpcStreamingServer"],
+      "classes": [
+        "MongotCommunity",
+        "CommunityMongotBootstrapper",
+        "DefaultConfigManager",
+        "GrpcStreamingServer"
+      ],
       "streams": [
         {
           "id": "bootstrap-core",
@@ -74,7 +24,32 @@
           "tempo": 1.05,
           "particles": 3,
           "modulation": "ramp",
-          "edges": [["community", "config"], ["config", "server"], ["config", "cursor"], ["config", "catalogservice"], ["config", "metrics"], ["config", "trace"]]
+          "edges": [
+            [
+              "community",
+              "config"
+            ],
+            [
+              "config",
+              "server"
+            ],
+            [
+              "config",
+              "cursor"
+            ],
+            [
+              "config",
+              "catalogservice"
+            ],
+            [
+              "config",
+              "metrics"
+            ],
+            [
+              "config",
+              "trace"
+            ]
+          ]
         }
       ]
     },
@@ -82,21 +57,43 @@
       "id": "initialize",
       "label": "Index Ready",
       "focusKey": "index",
-      "start": 18,
-      "end": 25,
+      "start": 6,
+      "end": 13,
       "description": "Lifecycle initializes index generations, replication establishes durable state, and Lucene-backed readers become available for command streams.",
-      "classes": ["DefaultLifecycleManager", "IndexLifecycleManager", "InitializedLuceneSearchIndex", "MongoDbReplicationManager"],
+      "classes": [
+        "DefaultLifecycleManager",
+        "IndexLifecycleManager",
+        "InitializedLuceneSearchIndex",
+        "MongoDbReplicationManager"
+      ],
       "streams": [
         {
           "id": "initialize-index",
           "label": "index lifecycle",
           "colorKey": "warm",
-          "width": 3.0,
+          "width": 3,
           "intensity": 0.9,
           "tempo": 1.2,
           "particles": 4,
           "modulation": "surge",
-          "edges": [["config", "lifecycle"], ["lifecycle", "index"], ["lifecycle", "replication"], ["index", "cursor"]]
+          "edges": [
+            [
+              "config",
+              "lifecycle"
+            ],
+            [
+              "lifecycle",
+              "index"
+            ],
+            [
+              "lifecycle",
+              "replication"
+            ],
+            [
+              "index",
+              "cursor"
+            ]
+          ]
         },
         {
           "id": "initialize-catalog",
@@ -107,7 +104,100 @@
           "tempo": 0.9,
           "particles": 2,
           "modulation": "ping",
-          "edges": [["config", "catalogservice"], ["catalogservice", "index"]]
+          "edges": [
+            [
+              "config",
+              "catalogservice"
+            ],
+            [
+              "catalogservice",
+              "index"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "boundary",
+      "label": "Client Boundary",
+      "focusKey": "client",
+      "start": 13,
+      "end": 19,
+      "description": "The client uses the MongoDB Java driver, but the driver only opens MongoDB server connections. It sends aggregate/getMore to mongod; it does not connect to MongoT.",
+      "classes": [
+        "MongoCollectionImpl",
+        "AggregateIterableImpl",
+        "AggregateOperationImpl",
+        "ClusterBinding"
+      ],
+      "streams": [
+        {
+          "id": "client-to-mongod",
+          "label": "aggregate command",
+          "colorKey": "cool",
+          "width": 3.3,
+          "intensity": 0.96,
+          "tempo": 1.45,
+          "particles": 4,
+          "modulation": "surge",
+          "edges": [
+            [
+              "client",
+              "mongod"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mongod-dispatch",
+      "label": "mongod Dispatch",
+      "focusKey": "mongod",
+      "start": 19,
+      "end": 25,
+      "description": "mongod owns aggregation execution. When the pipeline reaches $search, mongod opens the gRPC command stream into MongoT.",
+      "classes": [
+        "SyncOperationHelper",
+        "ReadBinding",
+        "CommandCursor",
+        "CommandBatchCursorHelper"
+      ],
+      "streams": [
+        {
+          "id": "mongod-to-mongot",
+          "label": "gRPC search command",
+          "colorKey": "warm",
+          "width": 3.8,
+          "intensity": 1,
+          "tempo": 1.7,
+          "particles": 5,
+          "modulation": "burst",
+          "edges": [
+            [
+              "mongod",
+              "server"
+            ]
+          ]
+        },
+        {
+          "id": "server-command",
+          "label": "command dispatch",
+          "colorKey": "support",
+          "width": 2.4,
+          "intensity": 0.7,
+          "tempo": 1.1,
+          "particles": 3,
+          "modulation": "ramp",
+          "edges": [
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "server",
+              "trace"
+            ]
+          ]
         }
       ]
     },
@@ -118,7 +208,12 @@
       "start": 25,
       "end": 33,
       "description": "Text-only load reached 554 req/s. The full path is Java aggregate to mongod, mongod gRPC to MongoT, then SearchCommand, cursor, and Lucene text execution.",
-      "classes": ["SearchCommand", "SearchQuery", "LuceneSearchIndexReader", "LuceneSearchBatchProducer"],
+      "classes": [
+        "SearchCommand",
+        "SearchQuery",
+        "LuceneSearchIndexReader",
+        "LuceneSearchBatchProducer"
+      ],
       "streams": [
         {
           "id": "text-boundary",
@@ -129,7 +224,24 @@
           "tempo": 1.9,
           "particles": 5,
           "modulation": "burst",
-          "edges": [["client", "mongod"], ["mongod", "server"], ["server", "cursor"], ["cursor", "index"]]
+          "edges": [
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ]
+          ]
         },
         {
           "id": "text-lucene",
@@ -140,7 +252,16 @@
           "tempo": 1.55,
           "particles": 3,
           "modulation": "surge",
-          "edges": [["index", "metrics"], ["index", "trace"]]
+          "edges": [
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
         }
       ]
     },
@@ -150,8 +271,13 @@
       "focusKey": "index",
       "start": 33,
       "end": 41,
-      "description": "Coco builds the embedding before the aggregate. MongoT then sees the vector search from mongod and spends command time in vector query build and candidate collection.",
-      "classes": ["VectorSearchOperator", "LuceneVectorSearchManager", "LuceneVectorSearchBatchProducer", "VectorSearchCommand"],
+      "description": "The client builds the embedding before the aggregate. MongoT then sees the vector search from mongod and spends command time in vector query build and candidate collection.",
+      "classes": [
+        "VectorSearchOperator",
+        "LuceneVectorSearchManager",
+        "LuceneVectorSearchBatchProducer",
+        "VectorSearchCommand"
+      ],
       "streams": [
         {
           "id": "vector-boundary",
@@ -162,7 +288,24 @@
           "tempo": 1.75,
           "particles": 4,
           "modulation": "burst",
-          "edges": [["client", "mongod"], ["mongod", "server"], ["server", "cursor"], ["cursor", "index"]]
+          "edges": [
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ]
+          ]
         },
         {
           "id": "vector-lucene",
@@ -173,7 +316,16 @@
           "tempo": 2.05,
           "particles": 5,
           "modulation": "burst",
-          "edges": [["index", "trace"], ["index", "metrics"]]
+          "edges": [
+            [
+              "index",
+              "trace"
+            ],
+            [
+              "index",
+              "metrics"
+            ]
+          ]
         }
       ]
     },
@@ -184,7 +336,12 @@
       "start": 41,
       "end": 49,
       "description": "$rankFusion is not one monolithic MongoT request. mongod runs the fusion and opens separate MongoT streams for the text/default and vector/vector_caption sub-pipelines.",
-      "classes": ["AggregateOperationImpl", "SearchCommand", "LuceneSearchIndexReader", "LuceneVectorSearchManager"],
+      "classes": [
+        "AggregateOperationImpl",
+        "SearchCommand",
+        "LuceneSearchIndexReader",
+        "LuceneVectorSearchManager"
+      ],
       "streams": [
         {
           "id": "combined-text",
@@ -195,7 +352,24 @@
           "tempo": 1.65,
           "particles": 3,
           "modulation": "burst",
-          "edges": [["client", "mongod"], ["mongod", "server"], ["server", "cursor"], ["cursor", "index"]]
+          "edges": [
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ]
+          ]
         },
         {
           "id": "combined-vector",
@@ -206,21 +380,43 @@
           "tempo": 1.95,
           "particles": 4,
           "modulation": "burst",
-          "edges": [["mongod", "server"], ["server", "cursor"], ["cursor", "index"], ["index", "trace"]]
+          "edges": [
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
         }
       ]
     },
     {
-      "id": "license",
-      "label": "License Fields",
+      "id": "document-fetch",
+      "label": "Document Fetch",
       "focusKey": "mongod",
       "start": 49,
       "end": 56,
-      "description": "includeLicense=true does not make the Java driver re-query MongoDB and does not make MongoT query mongod. MongoT returns hit ids/scores; mongod performs id lookup/materialization for license fields.",
-      "classes": ["IdLookupFactory", "ProjectFactory", "SearchResult", "CommandCursor"],
+      "description": "If the client query includes fields that are not returned from Lucene Stored Source, MongoT still returns hit ids and scores. mongod then fetches the missing data from the matched MongoDB documents.",
+      "classes": [
+        "IdLookupFactory",
+        "ProjectFactory",
+        "SearchResult",
+        "CommandCursor"
+      ],
       "streams": [
         {
-          "id": "license-search",
+          "id": "document-fetch-search",
           "label": "hit ids and scores",
           "colorKey": "warm",
           "width": 3.2,
@@ -228,18 +424,52 @@
           "tempo": 1.55,
           "particles": 4,
           "modulation": "surge",
-          "edges": [["client", "mongod"], ["mongod", "server"], ["server", "cursor"], ["cursor", "index"]]
+          "edges": [
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ]
+          ]
         },
         {
-          "id": "license-materialize",
-          "label": "mongod materializes fields",
+          "id": "document-fetch-materialize",
+          "label": "mongod fetches documents",
           "colorKey": "cool",
           "width": 2.4,
           "intensity": 0.72,
           "tempo": 1.15,
           "particles": 3,
           "modulation": "ping",
-          "edges": [["index", "cursor"], ["cursor", "server"], ["server", "mongod"], ["mongod", "client"]]
+          "edges": [
+            [
+              "index",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "server"
+            ],
+            [
+              "server",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "client"
+            ]
+          ]
         }
       ]
     },
@@ -250,7 +480,12 @@
       "start": 56,
       "end": 62,
       "description": "Mutation requests write to mongod first. MongoT sees the changes later through change streams, then emits decode, document event, Lucene update/delete, commit, and refresh spans.",
-      "classes": ["ChangeStreamManager", "DecodingWorkScheduler", "IndexingWorkScheduler", "SingleLuceneIndexWriter"],
+      "classes": [
+        "ChangeStreamManager",
+        "DecodingWorkScheduler",
+        "IndexingWorkScheduler",
+        "SingleLuceneIndexWriter"
+      ],
       "streams": [
         {
           "id": "mutation-write",
@@ -261,7 +496,16 @@
           "tempo": 1.25,
           "particles": 3,
           "modulation": "surge",
-          "edges": [["client", "mongod"], ["mongod", "replication"]]
+          "edges": [
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "replication"
+            ]
+          ]
         },
         {
           "id": "mutation-lucene-writer",
@@ -272,7 +516,20 @@
           "tempo": 1.8,
           "particles": 4,
           "modulation": "burst",
-          "edges": [["replication", "index"], ["index", "metrics"], ["index", "trace"]]
+          "edges": [
+            [
+              "replication",
+              "index"
+            ],
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
         }
       ]
     },
@@ -283,7 +540,12 @@
       "start": 62,
       "end": 64,
       "description": "Remember the boundary: Java driver to mongod, mongod to MongoT. MongoT is the search sidecar behind mongod's aggregation execution.",
-      "classes": ["MongoCollectionImpl", "ClusterBinding", "GrpcStreamingServer", "SearchCommand"],
+      "classes": [
+        "MongoCollectionImpl",
+        "ClusterBinding",
+        "GrpcStreamingServer",
+        "SearchCommand"
+      ],
       "streams": [
         {
           "id": "summary-boundary",
@@ -294,7 +556,16 @@
           "tempo": 1.9,
           "particles": 5,
           "modulation": "burst",
-          "edges": [["client", "mongod"], ["mongod", "server"]]
+          "edges": [
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "server"
+            ]
+          ]
         }
       ]
     }

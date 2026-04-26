@@ -93,6 +93,10 @@
 
     .app-shell {
       padding: 0;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     .glass {
@@ -142,7 +146,7 @@
 
     .graph-frame {
       height: 100%;
-      min-height: 680px;
+      min-height: 0;
       border-radius: 24px;
       position: relative;
       overflow: hidden;
@@ -155,8 +159,9 @@
     .viewer-shell {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
       min-height: 0;
+      height: 100%;
     }
 
     .viewer-shell:fullscreen,
@@ -186,8 +191,9 @@
     .viewer-stage {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
       min-height: 0;
+      flex: 1 1 auto;
     }
 
     .graph-canvas {
@@ -317,19 +323,6 @@
       background: linear-gradient(180deg, rgba(255, 190, 107, 0.12), rgba(255,255,255,0.04));
     }
 
-    .story-shell {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 12px;
-    }
-
-    .story-classes {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      min-height: 30px;
-    }
-
     .boundary-note {
       border-radius: 18px;
       padding: 12px 14px;
@@ -349,11 +342,11 @@
 
     @media (max-width: 1199px) {
       .app-shell {
-        padding: 18px;
+        padding: 0;
       }
 
       .graph-frame {
-        min-height: 500px;
+        min-height: 0;
       }
     }
   </style>
@@ -395,7 +388,7 @@
     } = MaterialUI;
 
     const topPackages = [
-      { id: "top:client", name: "java.client", short: "client", kind: "external", description: "Atlas Search Coco and the MongoDB Java driver. The driver sends normal MongoDB aggregate/getMore commands to mongod; it has no direct MongoT connection or gRPC command-stream client.", complexity: 5, links: ["mongod"] },
+      { id: "top:client", name: "java.client", short: "client", kind: "external", description: "A generic Java client using the MongoDB Java driver. The driver sends normal MongoDB aggregate/getMore commands to mongod; it has no direct MongoT connection or gRPC command-stream client.", complexity: 5, links: ["mongod"] },
       { id: "top:mongod", name: "mongod", short: "mongod", kind: "mongod", description: "MongoDB server aggregation executor. It receives the Java driver's aggregate command, runs the pipeline, and is the process that opens the gRPC search command stream to MongoT.", complexity: 8, links: ["com.xgen.mongot.server"] },
       { id: "top:blobstore", name: "com.xgen.mongot.blobstore", short: "blobstore", description: "Minimal blob-storage integration surface; currently mostly a placeholder/error boundary.", complexity: 1, links: ["com.xgen.mongot.util"] },
       { id: "top:catalog", name: "com.xgen.mongot.catalog", short: "catalog", description: "Local index catalog abstractions and implementations used to resolve and search index state.", complexity: 2, links: ["com.xgen.mongot.index"] },
@@ -518,7 +511,7 @@
 
     const STORIES = {
       system: [
-        { key: "top:client", title: "Client Boundary", body: "Coco uses the MongoDB Java driver, but the driver only opens MongoDB server connections. It sends aggregate/getMore to mongod, never directly to MongoT.", classes: ["MongoCollectionImpl", "AggregateIterableImpl", "AggregateOperationImpl"] },
+        { key: "top:client", title: "Client Boundary", body: "The client uses the MongoDB Java driver, but the driver only opens MongoDB server connections. It sends aggregate/getMore to mongod, never directly to MongoT.", classes: ["MongoCollectionImpl", "AggregateIterableImpl", "AggregateOperationImpl"] },
         { key: "top:mongod", title: "mongod Owns $search Dispatch", body: "mongod receives the aggregate pipeline, runs aggregation, and opens the gRPC search command stream into MongoT for $search sub-pipelines.", classes: ["AggregateOperationImpl", "SyncOperationHelper", "ClusterBinding"] },
         { key: "top:server", title: "MongoT Command Stream Entry", body: "MongoT starts at the server package: gRPC command stream handling, SearchCommand parsing, cursor creation, and response serialization.", classes: ["GrpcStreamingServer", "ServerCallHandler", "SearchCommand"] },
         { key: "top:index", title: "Measured Search Engine", body: "The index package is where traces break into concrete work: parse BSON, build Lucene query, collect hits or vector candidates, materialize BSON, and shape results.", classes: ["LuceneSearchIndexReader", "LuceneSearchBatchProducer", "ProjectFactory"] },
@@ -528,7 +521,7 @@
         { key: "index:query", title: "BSON To Query", body: "The query layer turns the `$search` BSON body into typed MongoT query objects. In the 25-VU runs, parse BSON was visible in every search command and grows for vector/rank-fusion payloads.", classes: ["SearchQuery", "OperatorQuery", "SearchQueryFactory"] },
         { key: "index:lucene", title: "Lucene Execution", body: "Lucene spans distinguish actual library calls from setup: text collect hits, exact vector candidate collection, materialize BSON, updateDocuments, deleteDocuments, commit, and searcher refresh.", classes: ["LuceneSearchIndexReader", "LuceneSearchManager", "LuceneVectorSearchManager"] },
         { key: "index:ingestion", title: "Document Blocks", body: "For updates, ingestion builds Lucene document blocks from MongoDB BSON before `IndexWriter.updateDocuments` replaces the indexed block.", classes: ["RootDocumentBuilder", "StoredDocumentBuilder", "SingleLuceneIndexWriter"] },
-        { key: "index:definition", title: "Index Shape", body: "The Coco text index uses `caption` plus boolean/token facet fields. The vector index uses `captionEmbedding`, 768 dimensions, cosine similarity, and stored-source image fields.", classes: ["SearchIndexDefinition", "VectorIndexDefinition", "StoredSourceDefinition"] }
+        { key: "index:definition", title: "Index Shape", body: "The text index uses `caption` plus boolean/token facet fields. The vector index uses `captionEmbedding`, 768 dimensions, cosine similarity, and stored-source image fields.", classes: ["SearchIndexDefinition", "VectorIndexDefinition", "StoredSourceDefinition"] }
       ],
       deps: [
         { key: "group:Cloud Integration", title: "Cloud Reach", body: "The runtime payload is cloud-heavy, with AWS, GCP, and Azure libraries grouped into a large storage and credential surface.", classes: ["S3", "Storage", "BlobClient"] },
@@ -553,7 +546,7 @@
         http: "124 ms",
         stream: "10.0 ms",
         command: "2.8 ms",
-        detail: "Coco builds the embedding before aggregate; mongod then calls MongoT for `vector_caption` vector search."
+        detail: "The client builds the embedding before aggregate; mongod then calls MongoT for `vector_caption` vector search."
       },
       {
         label: "Both",
@@ -564,12 +557,12 @@
         detail: "$rankFusion runs in mongod and emits separate MongoT streams for text/default and vector/vector_caption sub-pipelines."
       },
       {
-        label: "License",
+        label: "Document Fetch",
         throughput: "225 req/s",
         http: "87.0 ms",
         stream: "11.9 ms",
         command: "863 us",
-        detail: "MongoT returns hit ids/scores; mongod performs server-side id lookup/materialization for licenseName/licenseUrl."
+        detail: "When requested fields are not available from Lucene Stored Source, MongoT returns hit ids/scores and mongod fetches the missing fields from matched documents."
       },
       {
         label: "Mutations",
@@ -2223,7 +2216,6 @@
       const [settingsOpen, setSettingsOpen] = React.useState(false);
       const [sidebarOpen, setSidebarOpen] = React.useState(false);
       const [controlsOpen, setControlsOpen] = React.useState(false);
-      const [storyOpen, setStoryOpen] = React.useState(true);
       const [focusOpen, setFocusOpen] = React.useState(true);
       const [filtersOpen, setFiltersOpen] = React.useState(true);
       const [guidedStopsOpen, setGuidedStopsOpen] = React.useState(true);
@@ -2232,6 +2224,8 @@
       const [viewerFullscreen, setViewerFullscreen] = React.useState(false);
       const lastTimelineFocusRef = React.useRef("");
       const viewerShellRef = React.useRef(null);
+      const storyPanelRef = React.useRef(null);
+      const storyItemRefs = React.useRef({});
       const stylePreset = STYLE_PRESETS[stylePresetId];
       const nodeStyle = NODE_STYLES[nodeStyleId];
       const effects = EFFECT_PRESETS[effectsId];
@@ -2256,6 +2250,9 @@
       );
       const currentTimelinePhase = activeRuntimeTimeline.phase;
       const timelineActiveStreams = activeRuntimeTimeline.streams;
+      const runtimeTimelinePhases = Array.isArray(runtimeTimelineDefinition.phases)
+        ? runtimeTimelineDefinition.phases
+        : EMPTY_RUNTIME_TIMELINE.phases;
       const isTimelineView = view === "system" && motionMode === "timeline";
       const showStoryPanel = isTimelineView;
       const issueViewerCommand = commandType => {
@@ -2367,6 +2364,28 @@
       }, [currentTimelinePhase.focusKey, currentTimelinePhase.id, motionMode, view]);
 
       React.useEffect(() => {
+        if (!showStoryPanel) {
+          return undefined;
+        }
+
+        const scrollFrame = window.requestAnimationFrame(() => {
+          const panel = storyPanelRef.current;
+          const storyItem = storyItemRefs.current[currentTimelinePhase.id];
+          if (!panel || !storyItem) {
+            return;
+          }
+
+          const targetTop = storyItem.offsetTop - (panel.clientHeight / 2) + (storyItem.offsetHeight / 2);
+          panel.scrollTo({
+            top: Math.max(0, targetTop),
+            behavior: timelinePlaying ? "smooth" : "auto"
+          });
+        });
+
+        return () => window.cancelAnimationFrame(scrollFrame);
+      }, [currentTimelinePhase.id, showStoryPanel, timelinePlaying]);
+
+      React.useEffect(() => {
         const syncFullscreen = () => {
           setViewerFullscreen(Boolean(document.fullscreenElement || document.webkitFullscreenElement));
         };
@@ -2386,7 +2405,7 @@
           issueViewerCommand("fit");
         }, 200);
         return () => window.clearTimeout(timerId);
-      }, [controlsOpen, showStoryPanel, sidebarOpen, spacingPresetId, storyOpen, viewerFullscreen]);
+      }, [controlsOpen, showStoryPanel, sidebarOpen, spacingPresetId, viewerFullscreen]);
 
       React.useEffect(() => {
         if (!isTimelineView) {
@@ -2514,7 +2533,6 @@
       const animationSummary = motionMode === "timeline"
         ? `${currentTimelinePhase.label} at ${formatRuntimeClock(timelineClock)} of ${formatRuntimeClock(runtimeTimelineDuration)}.`
         : "Ambient mode shows the architecture without a runtime story overlaid on top.";
-      const currentPhaseClasses = Array.isArray(currentTimelinePhase.classes) ? currentTimelinePhase.classes : [];
       const toggleTimelinePlayback = () => {
         if (timelinePlaying) {
           setTimelinePlaying(false);
@@ -2535,6 +2553,16 @@
         }
         setTimelinePlaying(true);
         setSelectedId(getRuntimeNodeId(getRuntimePhaseAtTime(runtimeTimelineDefinition, timelineClock).focusKey || "index"));
+      };
+      const jumpToRuntimePhase = phase => {
+        if (!phase) {
+          return;
+        }
+        setView("system");
+        setMotionMode("timeline");
+        setTimelinePlaying(false);
+        setTimelineClock(phase.start || 0);
+        setSelectedId(getRuntimeNodeId(phase.focusKey || "index"));
       };
       const pauseTimeline = () => setTimelinePlaying(false);
       const restartTimeline = () => {
@@ -2683,7 +2711,7 @@
             </Stack>
           </Paper>
 
-          <Grid container spacing={2.5}>
+          <Grid container spacing={0} sx={{ flex: 1, minHeight: 0 }}>
             {sidebarOpen && (
             <Grid
               item
@@ -2933,7 +2961,7 @@
                       <Box>
                         <PanelHeader
                           eyebrow="Trace Findings"
-                          title="Measured Coco load paths"
+                          title="Measured client load paths"
                           subtitle="Five k6 scenarios with detailed MongoT spans."
                           open={traceFindingsOpen}
                           onToggle={() => setTraceFindingsOpen(current => !current)}
@@ -3006,18 +3034,17 @@
             </Grid>
             )}
 
-            <Grid item xs={viewerGridSize} xl={viewerXl} sx={{ minWidth: 0, flexGrow: sidebarOpen ? undefined : "1 !important" }}>
+            <Grid item xs={viewerGridSize} xl={viewerXl} sx={{ minWidth: 0, minHeight: 0, height: "100%", flexGrow: sidebarOpen ? undefined : "1 !important" }}>
               <Stack
                 ref={viewerShellRef}
                 className="viewer-shell"
-                spacing={1.5}
                 sx={{ minHeight: 0 }}
               >
                 <Paper
                   className="glass"
                   sx={{
                     borderRadius: 6,
-                    p: 2,
+                    p: 1.35,
                     background: stylePreset.panelBackground
                   }}
                 >
@@ -3311,92 +3338,143 @@
                 <Box
                   className="viewer-stage"
                   sx={{
-                    minHeight: viewerFullscreen ? "100%" : 0,
+                    minHeight: 0,
                     height: viewerFullscreen ? "100%" : "auto"
                   }}
                 >
-                  {showStoryPanel && (
-                    <Paper
-                      className="glass"
-                      sx={{
-                        borderRadius: 6,
-                        p: 2,
-                        height: storyOpen ? 260 : 84,
-                        overflow: "hidden",
-                        background: stylePreset.panelBackground,
-                        borderColor: hexToRgba(stylePreset.cool, 0.26),
-                        flexShrink: 0,
-                        transition: "height 220ms ease"
-                      }}
-                    >
-                      <Stack spacing={1.1} sx={{ height: "100%" }}>
-                        <PanelHeader
-                          eyebrow="Story"
-                          title={currentTimelinePhase.label}
-                          subtitle={null}
-                          open={storyOpen}
-                          onToggle={() => setStoryOpen(current => !current)}
-                          action={<Chip label={timelinePlaying ? `Playing ${timelineSpeed}x` : "Paused"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />}
-                        />
-                        <Collapse in={storyOpen}>
-                          <Stack className="story-shell">
-                            <Typography
-                              sx={{
-                                color: "var(--muted)",
-                                fontSize: 13.5,
-                                minHeight: 42
-                              }}
-                            >
-                              {currentTimelinePhase.description}
-                            </Typography>
-                            <Typography className="mini-note">{animationSummary}</Typography>
-                            {currentPhaseClasses.length > 0 && (
-                              <Box className="story-classes">
-                                {currentPhaseClasses.slice(0, 5).map(className => (
-                                  <Chip key={`${currentTimelinePhase.id}-${className}`} label={className} size="small" sx={classChipStyles} />
-                                ))}
-                              </Box>
-                            )}
-                            <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap sx={{ minHeight: 32, alignContent: "flex-start" }}>
-                              {timelineActiveStreams.map(stream => (
-                                <Chip
-                                  key={stream.id}
-                                  label={stream.label}
-                                  size="small"
-                                  sx={{
-                                    ...chipStyles,
-                                    borderColor: resolveTimelineColor(stream.colorKey, stylePreset),
-                                    background: hexToRgba(resolveTimelineColor(stream.colorKey, stylePreset), 0.1)
-                                  }}
-                                />
-                              ))}
-                            </Stack>
+                  <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} alignItems="stretch" sx={{ flex: 1, minHeight: 0 }}>
+                    {showStoryPanel && (
+                      <Paper
+                        ref={storyPanelRef}
+                        className="glass"
+                        sx={{
+                          borderRadius: 0,
+                          p: 1.4,
+                          width: { xs: "100%", lg: 360 },
+                          height: { xs: "auto", lg: "100%" },
+                          maxHeight: { xs: "none", lg: "100%" },
+                          overflow: "auto",
+                          background: stylePreset.panelBackground,
+                          borderColor: hexToRgba(stylePreset.cool, 0.26),
+                          flexShrink: 0
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                            <Box>
+                              <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.4 }}>
+                                Stories
+                              </Typography>
+                              <Typography sx={{ fontWeight: 700 }}>
+                                {timelinePlaying ? `Playing ${timelineSpeed}x` : "Paused"}
+                              </Typography>
+                            </Box>
+                            <Chip label={`${formatRuntimeClock(timelineClock)} / ${formatRuntimeClock(runtimeTimelineDuration)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
                           </Stack>
-                        </Collapse>
-                      </Stack>
-                    </Paper>
-                  )}
 
-                  <Paper className="glass graph-frame">
-                    <Box sx={{ position: "absolute", inset: 0, background: stylePreset.graphBackground }} />
-                    <GraphView
-                      view={view}
-                      data={data}
-                      selectedId={selectedId}
-                      onSelect={setSelectedId}
-                      nodeStyle={nodeStyle}
-                      effects={effects}
-                      preset={stylePreset}
-                      layoutMode={layoutMode}
-                      layoutFrozen={layoutFrozen}
-                    compactLabels={compactLabels}
-                    command={viewerCommand}
-                    motionMode={motionMode}
-                    timelineClock={timelineClock}
-                    runtimeTimelineDefinition={runtimeTimelineDefinition}
-                    spacingScale={spacingPreset.scale}
-                  />
-                </Paper>
+                          {runtimeTimelinePhases.map((phase, index) => {
+                            const isActivePhase = phase.id === currentTimelinePhase.id;
+                            const phaseClasses = Array.isArray(phase.classes) ? phase.classes : [];
+                            return (
+                              <Box
+                                ref={element => {
+                                  if (element) {
+                                    storyItemRefs.current[phase.id] = element;
+                                  } else {
+                                    delete storyItemRefs.current[phase.id];
+                                  }
+                                }}
+                                key={phase.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => jumpToRuntimePhase(phase)}
+                                onKeyDown={event => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    jumpToRuntimePhase(phase);
+                                  }
+                                }}
+                                sx={{
+                                  borderRadius: 3,
+                                  p: 1.15,
+                                  cursor: "pointer",
+                                  border: `1px solid ${isActivePhase ? stylePreset.warm : "var(--line)"}`,
+                                  background: isActivePhase
+                                    ? `linear-gradient(180deg, ${hexToRgba(stylePreset.warm, 0.18)}, ${hexToRgba(stylePreset.cool, 0.08)})`
+                                    : "rgba(255,255,255,0.035)",
+                                  boxShadow: isActivePhase ? `0 0 0 1px ${hexToRgba(stylePreset.warm, 0.2)}` : "none",
+                                  "&:hover": {
+                                    borderColor: stylePreset.warm,
+                                    background: isActivePhase ? hexToRgba(stylePreset.warm, 0.18) : "rgba(255,255,255,0.07)"
+                                  }
+                                }}
+                              >
+                                <Stack spacing={0.75}>
+                                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                                    <Typography sx={{ fontWeight: 700, lineHeight: 1.15 }}>
+                                      {index + 1}. {phase.label}
+                                    </Typography>
+                                    <Chip
+                                      label={`${formatRuntimeClock(phase.start)}-${formatRuntimeClock(phase.end)}`}
+                                      size="small"
+                                      sx={{ ...chipStyles, borderColor: isActivePhase ? stylePreset.warm : "var(--line)" }}
+                                    />
+                                  </Stack>
+                                  <Typography sx={{ color: isActivePhase ? "rgba(236,244,255,0.88)" : "var(--muted)", fontSize: 12.6, lineHeight: 1.45 }}>
+                                    {phase.description}
+                                  </Typography>
+                                  {phaseClasses.length > 0 && (
+                                    <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
+                                      {phaseClasses.slice(0, isActivePhase ? 4 : 2).map(className => (
+                                        <Chip key={`${phase.id}-${className}`} label={className} size="small" sx={classChipStyles} />
+                                      ))}
+                                    </Stack>
+                                  )}
+                                  {isActivePhase && timelineActiveStreams.length > 0 && (
+                                    <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
+                                      {timelineActiveStreams.map(stream => (
+                                        <Chip
+                                          key={stream.id}
+                                          label={stream.label}
+                                          size="small"
+                                          sx={{
+                                            ...chipStyles,
+                                            borderColor: resolveTimelineColor(stream.colorKey, stylePreset),
+                                            background: hexToRgba(resolveTimelineColor(stream.colorKey, stylePreset), 0.1)
+                                          }}
+                                        />
+                                      ))}
+                                    </Stack>
+                                  )}
+                                </Stack>
+                              </Box>
+                            );
+                          })}
+                        </Stack>
+                      </Paper>
+                    )}
+
+                    <Paper className="glass graph-frame" sx={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+                      <Box sx={{ position: "absolute", inset: 0, background: stylePreset.graphBackground }} />
+                      <GraphView
+                        view={view}
+                        data={data}
+                        selectedId={selectedId}
+                        onSelect={setSelectedId}
+                        nodeStyle={nodeStyle}
+                        effects={effects}
+                        preset={stylePreset}
+                        layoutMode={layoutMode}
+                        layoutFrozen={layoutFrozen}
+                        compactLabels={compactLabels}
+                        command={viewerCommand}
+                        motionMode={motionMode}
+                        timelineClock={timelineClock}
+                        runtimeTimelineDefinition={runtimeTimelineDefinition}
+                        spacingScale={spacingPreset.scale}
+                      />
+                    </Paper>
+                  </Stack>
               </Box>
               </Stack>
             </Grid>
