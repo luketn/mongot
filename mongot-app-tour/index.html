@@ -2669,7 +2669,7 @@
                 <Stack spacing={1.8}>
                   <PanelHeader
                     eyebrow="Navigator"
-                    title="Modes, focus, and graph filters"
+                    title={`${VIEW_META[view].label} details`}
                     subtitle={sidebarOpen ? "Collapse the rail to give the graph more room." : null}
                     open={sidebarOpen}
                     onToggle={() => setSidebarOpen(current => !current)}
@@ -2677,37 +2677,6 @@
 
                   <Collapse in={sidebarOpen}>
                     <Stack spacing={2.2}>
-                      <Box>
-                        <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.6 }}>
-                          Tabs
-                        </Typography>
-                        <Tabs
-                          value={view}
-                          onChange={(event, next) => setView(next)}
-                          variant="scrollable"
-                          allowScrollButtonsMobile
-                          sx={{
-                            minHeight: 44,
-                            "& .MuiTabs-indicator": { display: "none" },
-                            "& .MuiTab-root": {
-                              minHeight: 44,
-                              borderRadius: 999,
-                              color: "var(--muted)",
-                              textTransform: "none",
-                              fontWeight: 700
-                            },
-                            "& .Mui-selected": {
-                              color: "#08111d !important",
-                              background: stylePreset.warm
-                            }
-                          }}
-                        >
-                          <Tab value="system" label="Animation" />
-                          <Tab value="index" label="Index Core" />
-                          <Tab value="deps" label="Libraries" />
-                        </Tabs>
-                      </Box>
-
                       <Paper sx={{ p: 1.8, borderRadius: 4, background: "rgba(255,255,255,0.04)", border: "1px solid var(--line)" }}>
                         <Typography sx={{ fontWeight: 700, mb: 0.5 }}>{VIEW_META[view].label}</Typography>
                         <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>{VIEW_META[view].blurb}</Typography>
