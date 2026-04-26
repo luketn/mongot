@@ -92,7 +92,7 @@
     }
 
     .app-shell {
-      padding: 28px;
+      padding: 0;
     }
 
     .glass {
@@ -105,9 +105,11 @@
     .hero {
       position: relative;
       overflow: hidden;
-      border-radius: 28px;
-      padding: 28px 30px;
-      margin-bottom: 20px;
+      border-radius: 0;
+      padding: 8px 16px;
+      margin-bottom: 0;
+      border-width: 0 0 1px 0;
+      box-shadow: none;
     }
 
     .hero::after {
@@ -2129,10 +2131,28 @@
 
     function StatCard({ label, value, tone }) {
       return (
-        <Paper className="glass metric-pulse" sx={{ p: 2, borderRadius: 4 }}>
-          <Typography sx={{ color: "rgba(236,244,255,0.72)", fontSize: 13 }}>{label}</Typography>
-          <Typography sx={{ color: tone, fontSize: 28, fontWeight: 700, lineHeight: 1.15 }}>{value}</Typography>
+        <Paper className="glass metric-pulse" sx={{ px: 1.5, py: 0.8, borderRadius: 3, minWidth: { xs: 124, xl: 156 } }}>
+          <Typography sx={{ color: "rgba(236,244,255,0.72)", fontSize: 11.5, lineHeight: 1.1 }}>{label}</Typography>
+          <Typography sx={{ color: tone, fontSize: 21, fontWeight: 700, lineHeight: 1 }}>{value}</Typography>
         </Paper>
+      );
+    }
+
+    function NavigatorPanelIcon({ open }) {
+      const stroke = open ? "currentColor" : "#ffc53d";
+      return (
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ display: "block" }}>
+          <rect x="4" y="4" width="16" height="16" rx="2.5" fill="none" stroke={stroke} strokeWidth="2.2" />
+          <path d="M9 5.5v13" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" />
+          <path
+            d={open ? "M16 8.5l-3.5 3.5 3.5 3.5" : "M13 8.5l3.5 3.5-3.5 3.5"}
+            fill="none"
+            stroke={stroke}
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       );
     }
 
@@ -2547,132 +2567,154 @@
           console.error("Viewer fullscreen toggle failed", error);
         }
       };
-      const sidebarXl = sidebarOpen ? 4 : 2;
-      const viewerXl = sidebarOpen ? 8 : 10;
+      const sidebarGridSize = 12;
+      const sidebarXl = 4;
+      const viewerGridSize = 12;
+      const viewerXl = sidebarOpen ? 8 : 12;
 
       return (
         <Box className="app-shell" sx={{ background: stylePreset.shellBackground, minHeight: "100vh" }}>
           <Paper className="glass hero" sx={{ background: stylePreset.panelBackground }}>
-            <Grid container spacing={3} alignItems="center">
-              <Grid item xs={12} lg={7}>
-                <Stack spacing={1.6}>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1.1} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }}>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      <Chip
-                        label="Interactive Architecture Tour"
-                        sx={{
-                          color: "#08111d",
-                          background: `linear-gradient(90deg, ${stylePreset.warm}, ${stylePreset.cool})`
-                        }}
-                      />
-                      <Chip label={stylePreset.label} sx={{ ...chipStyles, borderColor: stylePreset.support }} />
-                      <Chip label={nodeStyle.label} sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
-                      <Chip label={effects.label} sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
-                    </Stack>
-                    <Button
-                      variant="outlined"
-                      onClick={() => setSettingsOpen(true)}
-                      sx={{
+            <Stack direction={{ xs: "column", xl: "row" }} spacing={1.4} alignItems={{ xs: "stretch", xl: "center" }}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.4} alignItems={{ xs: "stretch", md: "center" }} sx={{ minWidth: 0, flex: 1 }}>
+                <Typography
+                  variant="h2"
+                  sx={{
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    letterSpacing: "-0.04em",
+                    fontSize: { xs: 30, md: 40 },
+                    whiteSpace: { md: "nowrap" }
+                  }}
+                >
+                  MongoT runtime, animated.
+                </Typography>
+                <Stack direction="row" spacing={0.8} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <IconButton
+                    aria-label={sidebarOpen ? "Close navigator" : "Open navigator"}
+                    title={sidebarOpen ? "Close navigator" : "Open navigator"}
+                    onClick={() => setSidebarOpen(current => !current)}
+                    sx={{
+                      width: 38,
+                      height: 38,
+                      border: "1px solid var(--line)",
+                      color: stylePreset.warm,
+                      background: sidebarOpen ? hexToRgba(stylePreset.warm, 0.22) : "rgba(255,255,255,0.04)",
+                      "&:hover": {
+                        borderColor: stylePreset.warm,
+                        background: hexToRgba(stylePreset.warm, 0.22)
+                      }
+                    }}
+                  >
+                    <NavigatorPanelIcon open={sidebarOpen} />
+                  </IconButton>
+                  <Tabs
+                    value={view}
+                    onChange={(event, next) => {
+                      setView(next);
+                      if (next === "system") {
+                        setMotionMode("timeline");
+                      }
+                    }}
+                    variant="scrollable"
+                    allowScrollButtonsMobile
+                    sx={{
+                      minHeight: 38,
+                      "& .MuiTabs-indicator": { display: "none" },
+                      "& .MuiTab-root": {
+                        minHeight: 38,
                         borderRadius: 999,
-                        color: "var(--text)",
-                        borderColor: "var(--line)",
-                        whiteSpace: "nowrap"
-                      }}
-                      startIcon={<span className="material-icons" style={{ fontSize: 18 }}>tune</span>}
-                    >
-                      Settings
-                    </Button>
-                  </Stack>
-                  <Typography variant="h2" sx={{ fontWeight: 700, lineHeight: 1.04, letterSpacing: "-0.04em", fontSize: { xs: 34, md: 56 } }}>
-                    MongoT runtime, animated.
-                  </Typography>
-                  <Typography sx={{ color: "rgba(236,244,255,0.76)", maxWidth: 760, fontSize: 17 }}>
-                    The Java driver sends aggregate and getMore to mongod. mongod owns the gRPC command stream into MongoT for $search, rank fusion sub-pipelines, and cursor continuation.
-                  </Typography>
-                  <Stack direction={{ xs: "column", md: "row" }} spacing={1.1} alignItems={{ xs: "stretch", md: "center" }} sx={{ pt: 0.8 }}>
-                    <Tabs
-                      value={view}
-                      onChange={(event, next) => {
-                        setView(next);
-                        if (next === "system") {
-                          setMotionMode("timeline");
-                        }
-                      }}
-                      variant="scrollable"
-                      allowScrollButtonsMobile
-                      sx={{
-                        minHeight: 42,
-                        "& .MuiTabs-indicator": { display: "none" },
-                        "& .MuiTab-root": {
-                          minHeight: 42,
-                          borderRadius: 999,
-                          color: "var(--muted)",
-                          textTransform: "none",
-                          fontWeight: 700,
-                          px: 2.2
-                        },
-                        "& .Mui-selected": {
-                          color: "#08111d !important",
-                          background: stylePreset.warm
-                        }
-                      }}
-                    >
-                      <Tab value="system" label="Animation" />
-                      <Tab value="index" label="Index Core" />
-                      <Tab value="deps" label="Libraries" />
-                    </Tabs>
-                    <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                      <Button
-                        variant="contained"
-                        onClick={toggleTimelinePlayback}
-                        disabled={view !== "system"}
-                        startIcon={<span className="material-icons" style={{ fontSize: 18 }}>{timelinePlaying ? "pause" : "play_arrow"}</span>}
-                        sx={{ borderRadius: 999, color: "#08111d", background: stylePreset.cool, "&:hover": { background: stylePreset.cool } }}
-                      >
-                        {timelinePlaying ? "Pause" : "Play"}
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        onClick={restartTimeline}
-                        disabled={view !== "system"}
-                        startIcon={<span className="material-icons" style={{ fontSize: 18 }}>replay</span>}
-                        sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                      >
-                        Restart
-                      </Button>
-                    </Stack>
-                  </Stack>
-                  <Box className="boundary-note">
-                    No Java driver to MongoT connection: <span className="codeish">java client -> mongod -> mongot</span>. The gRPC search stream starts at mongod.
-                  </Box>
+                        color: "var(--muted)",
+                        textTransform: "none",
+                        fontWeight: 700,
+                        px: 1.8
+                      },
+                      "& .Mui-selected": {
+                        color: "#08111d !important",
+                        background: stylePreset.warm
+                      }
+                    }}
+                  >
+                    <Tab value="system" label="Animation" />
+                    <Tab value="index" label="Index Core" />
+                    <Tab value="deps" label="Libraries" />
+                  </Tabs>
+                  <Button
+                    variant="contained"
+                    onClick={toggleTimelinePlayback}
+                    disabled={view !== "system"}
+                    startIcon={<span className="material-icons" style={{ fontSize: 18 }}>{timelinePlaying ? "pause" : "play_arrow"}</span>}
+                    sx={{ minHeight: 38, borderRadius: 999, color: "#08111d", background: stylePreset.cool, "&:hover": { background: stylePreset.cool } }}
+                  >
+                    {timelinePlaying ? "Pause" : "Play"}
+                  </Button>
+                  <IconButton
+                    aria-label="Restart animation"
+                    title="Restart animation"
+                    onClick={restartTimeline}
+                    disabled={view !== "system"}
+                    sx={{ width: 38, height: 38, color: "var(--text)", border: "1px solid var(--line)" }}
+                  >
+                    <span className="material-icons" style={{ fontSize: 18 }}>replay</span>
+                  </IconButton>
                 </Stack>
-              </Grid>
-              <Grid item xs={12} lg={5}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>
-                    <StatCard {...metrics.one} />
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <StatCard {...metrics.two} />
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <StatCard {...metrics.three} />
-                  </Grid>
-                </Grid>
-              </Grid>
-            </Grid>
+              </Stack>
+
+              <Stack direction="row" spacing={1} alignItems="center" justifyContent={{ xs: "flex-start", xl: "flex-end" }} flexWrap="wrap" useFlexGap>
+                <StatCard {...metrics.one} />
+                <StatCard {...metrics.two} />
+                <StatCard {...metrics.three} />
+                <IconButton
+                  aria-label="Open settings"
+                  title="Settings"
+                  onClick={() => setSettingsOpen(true)}
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    color: "var(--text)",
+                    border: "1px solid var(--line)",
+                    background: "rgba(255,255,255,0.04)",
+                    "&:hover": { background: "rgba(255,255,255,0.1)" }
+                  }}
+                >
+                  <span className="material-icons" style={{ fontSize: 18 }}>tune</span>
+                </IconButton>
+              </Stack>
+            </Stack>
           </Paper>
 
           <Grid container spacing={2.5}>
-            <Grid item xs={12} xl={sidebarXl}>
-              <Paper className="glass" sx={{ borderRadius: 6, p: 2.2, height: "100%", background: stylePreset.panelBackground }}>
-                <Stack spacing={1.8}>
+            {sidebarOpen && (
+            <Grid
+              item
+              xs={sidebarGridSize}
+              xl={sidebarXl}
+            >
+              <Paper
+                className="glass"
+                sx={{
+                  borderRadius: 6,
+                  p: 2.2,
+                  height: "100%",
+                  background: stylePreset.panelBackground,
+                  display: "flex",
+                  alignItems: "stretch",
+                  justifyContent: "flex-start"
+                }}
+              >
+                <Stack
+                  spacing={1.8}
+                  sx={{
+                    width: "100%",
+                    alignItems: "stretch",
+                    overflow: "visible"
+                  }}
+                >
                   <PanelHeader
                     eyebrow="Navigator"
                     title={`${VIEW_META[view].label} details`}
-                    subtitle={sidebarOpen ? "Collapse the rail to give the graph more room." : null}
+                    subtitle="This panel follows the selected top tab."
                     open={sidebarOpen}
-                    onToggle={() => setSidebarOpen(current => !current)}
                   />
 
                   <Collapse in={sidebarOpen}>
@@ -2962,8 +3004,9 @@
                 </Stack>
               </Paper>
             </Grid>
+            )}
 
-            <Grid item xs={12} xl={viewerXl}>
+            <Grid item xs={viewerGridSize} xl={viewerXl} sx={{ minWidth: 0, flexGrow: sidebarOpen ? undefined : "1 !important" }}>
               <Stack
                 ref={viewerShellRef}
                 className="viewer-shell"
