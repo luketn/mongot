@@ -334,6 +334,7 @@ public class Tracing {
     return name.startsWith("mongot.search.")
             || name.startsWith("mongot.vector_search.")
             || name.startsWith("mongot.cursor.")
+            || name.startsWith("mongot.indexing.")
             || name.startsWith("mongot.lucene.")
             || name.startsWith("mongot.grpc.")
             || name.startsWith("mongot.executor.")

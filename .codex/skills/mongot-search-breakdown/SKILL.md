@@ -19,6 +19,17 @@ From the MongoT repo root:
   --duration 5m
 ```
 
+For the full scenario suite used by the MongoT app-tour trace narrative:
+
+```sh
+.codex/skills/mongot-search-breakdown/scripts/run_trace_scenario_breakdowns.sh \
+  --coco-dir /Users/luketn/code/personal/atlas-search-coco \
+  --vus 25 \
+  --duration 5m \
+  --mutation-vus 1 \
+  --scenarios text,vector,both,text-license,mutations
+```
+
 The wrapper uses the skill-local Python environment:
 
 ```text
@@ -35,6 +46,16 @@ If the environment is missing, the wrapper recreates it and installs
 3. Inspect the generated markdown path printed at the end.
 4. If Grafana is needed, use the same run window from the generated `run-*.env`
    file.
+
+For multi-scenario work:
+
+1. Confirm MongoT is running with `DETAILED_TRACE_SPANS=true`, Jaeger is
+   reachable on `http://localhost:16686`, and Atlas Search Coco is reachable on
+   `http://localhost:8222`.
+2. Run `scripts/run_trace_scenario_breakdowns.sh`.
+3. Review `load-results/breakdown/trace-breakdown-summary-<run>.md`.
+4. Each scenario has its own k6 log, run env file, Markdown report, and PNG
+   chart.
 
 ## Script Behavior
 
@@ -62,3 +83,33 @@ Useful options:
 ```
 
 Use `--skip-k6` when regenerating a chart from an existing run window.
+
+`scripts/generate_trace_scenario_breakdowns.py`:
+
+- Runs the text, vector, combined, text-with-license, and mutation scenarios.
+- Search scenarios use Atlas Search Coco `k6.js`.
+- Mutation scenarios use Atlas Search Coco `k6-mutations.js`, which inserts
+  synthetic images and deletes those generated ids through the Coco API.
+- Queries Jaeger immediately after each run to avoid losing traces to the
+  in-memory Jaeger cap.
+- Writes per-scenario reports named
+  `trace-breakdown-<scenario>-<run>.md` and charts named
+  `trace-breakdown-<scenario>-<run>.png`.
+- Writes a summary index named `trace-breakdown-summary-<run>.md`.
+
+Useful options:
+
+```sh
+--scenarios text,vector,both,text-license,mutations
+--vus 25
+--duration 5m
+--mutation-vus 1
+--mutation-duration 2m
+--trace-limit 2000
+--base-url http://localhost:8222
+--jaeger-url http://localhost:16686
+```
+
+Keep mutation VUs low unless the Coco API has been changed to allocate image
+ids atomically. `/image/add` currently calls `nextImageId()` before inserting,
+so concurrent inserts can race and fail with duplicate ids.

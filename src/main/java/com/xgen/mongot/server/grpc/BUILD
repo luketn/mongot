@@ -55,13 +55,13 @@ java_library(
         "@io_grpc_grpc_proto//:health_java_proto",
         "@maven//:com_google_guava_guava",
         "@maven//:io_micrometer_micrometer_core",
-        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_netty_netty_buffer",
         "@maven//:io_netty_netty_codec_http2",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_transport",
         "@maven//:io_netty_netty_transport_classes_kqueue",  # keep: netty native
         "@maven//:io_netty_netty_transport_native_unix_common",  # keep: netty native
+        "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:org_bouncycastle_bcpkix_fips",  # keep: allow the parsing of PKCS#1 private key
         "@maven//:org_mongodb_bson",
         "@maven//:org_slf4j_slf4j_api",

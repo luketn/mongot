@@ -16,8 +16,8 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/xgen/mongot/server/command",
-        "//src/main/java/com/xgen/mongot/trace",
         "//src/main/java/com/xgen/mongot/server/util",
+        "//src/main/java/com/xgen/mongot/trace",
         "//src/main/java/com/xgen/mongot/util",
         "//src/main/java/com/xgen/mongot/util/concurrent",
         "@maven//:com_google_guava_guava",

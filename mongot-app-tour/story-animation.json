@@ -1,122 +1,99 @@
 {
-  "duration": 90,
+  "duration": 116,
   "phases": [
     {
       "id": "bootstrap",
       "label": "Bootstrap",
       "focusKey": "config",
       "start": 0,
-      "end": 6,
-      "description": "Community bootstrap fans out through config to assemble logging, metrics, monitors, metadata, cursors, and servers.",
+      "end": 7,
+      "description": "Community startup loads config, tracing, metrics, catalog service, lifecycle managers, cursor management, and the gRPC server before any search traffic arrives.",
       "streams": [
         {
-          "id": "boot-core",
-          "label": "bootstrap fan-out",
+          "id": "bootstrap-core",
+          "label": "config fan-out",
           "colorKey": "support",
           "width": 2.6,
-          "intensity": 0.92,
+          "intensity": 0.9,
           "tempo": 0.95,
           "particles": 3,
           "modulation": "ramp",
-          "edges": [
-            ["community", "config"],
-            ["config", "metrics"],
-            ["config", "monitor"],
-            ["config", "catalogservice"],
-            ["config", "cursor"],
-            ["config", "server"]
-          ]
+          "edges": [["community", "config"], ["config", "server"], ["config", "cursor"], ["config", "catalogservice"], ["config", "metrics"], ["config", "trace"]]
         },
         {
-          "id": "boot-support",
-          "label": "support wiring",
+          "id": "bootstrap-lifecycle",
+          "label": "lifecycle wiring",
           "colorKey": "cool",
-          "width": 2.1,
-          "intensity": 0.72,
-          "tempo": 0.8,
+          "width": 2.0,
+          "intensity": 0.66,
+          "tempo": 0.75,
           "particles": 2,
           "modulation": "drift",
-          "edges": [
-            ["config", "embedding"],
-            ["config", "lifecycle"],
-            ["community", "logging"]
-          ]
+          "edges": [["config", "lifecycle"], ["config", "replication"], ["community", "logging"]]
         }
       ]
     },
     {
       "id": "initialize",
-      "label": "Initialize",
+      "label": "Index Initialize",
       "focusKey": "index",
-      "start": 6,
+      "start": 7,
       "end": 18,
-      "description": "Config state starts lifecycle managers, initializes indexes, and hands those generations into replication.",
+      "description": "Index lifecycle initializes generations, loads catalog definitions, prepares Lucene readers/writers, and hands queryable state to cursor managers.",
       "streams": [
         {
-          "id": "initialize-lifecycle",
-          "label": "initialize lifecycle",
+          "id": "initialize-index",
+          "label": "index lifecycle",
           "colorKey": "warm",
           "width": 3.0,
           "intensity": 0.88,
           "tempo": 1.05,
           "particles": 3,
           "modulation": "surge",
-          "edges": [
-            ["config", "lifecycle"],
-            ["lifecycle", "index"],
-            ["lifecycle", "replication"]
-          ]
+          "edges": [["config", "lifecycle"], ["lifecycle", "index"], ["index", "cursor"]]
         },
         {
-          "id": "initialize-control",
-          "label": "control-plane polling",
+          "id": "initialize-catalog",
+          "label": "catalog and metrics",
           "colorKey": "support",
           "width": 1.8,
           "intensity": 0.54,
           "tempo": 0.7,
           "particles": 2,
           "modulation": "ping",
-          "edges": [
-            ["config", "catalogservice"],
-            ["catalogservice", "config"]
-          ]
+          "edges": [["config", "catalogservice"], ["catalogservice", "index"], ["index", "metrics"]]
         }
       ]
     },
     {
       "id": "initialsync",
       "label": "Initial Sync",
-      "focusKey": "index",
+      "focusKey": "replication",
       "start": 18,
-      "end": 34,
-      "description": "Replication dominates while collection scan, buffered change capture, and buffered replay all feed the index.",
+      "end": 31,
+      "description": "Initial sync and steady-state setup feed Lucene with MongoDB documents. This is the broad ingestion path later reused by insert/delete mutation traces.",
       "streams": [
         {
           "id": "initialsync-feed",
-          "label": "initial sync ingestion",
+          "label": "collection scan to index",
           "colorKey": "hot",
           "width": 3.5,
-          "intensity": 0.98,
-          "tempo": 1.35,
+          "intensity": 0.96,
+          "tempo": 1.32,
           "particles": 4,
           "modulation": "surge",
-          "edges": [
-            ["replication", "index"]
-          ]
+          "edges": [["replication", "index"], ["index", "metrics"], ["index", "trace"]]
         },
         {
           "id": "initialsync-supervision",
-          "label": "status and lifecycle supervision",
+          "label": "lifecycle supervision",
           "colorKey": "warm",
           "width": 2.2,
           "intensity": 0.62,
           "tempo": 0.84,
           "particles": 2,
           "modulation": "drift",
-          "edges": [
-            ["lifecycle", "replication"],
-            ["config", "lifecycle"]
-          ]
+          "edges": [["lifecycle", "replication"], ["config", "lifecycle"]]
         }
       ]
     },
@@ -124,197 +101,191 @@
       "id": "steady",
       "label": "Stable State",
       "focusKey": "index",
-      "start": 34,
-      "end": 44,
-      "description": "Change streams keep indexes current while config polling and metadata updates continue quietly beside serving.",
+      "start": 31,
+      "end": 42,
+      "description": "Before load, change streams, searcher refresh, metrics scraping, and config polling run quietly while the search indexes remain ready.",
       "streams": [
         {
           "id": "steady-repl",
           "label": "steady-state replication",
           "colorKey": "cool",
-          "width": 2.6,
-          "intensity": 0.68,
-          "tempo": 0.92,
-          "particles": 3,
+          "width": 2.4,
+          "intensity": 0.56,
+          "tempo": 0.9,
+          "particles": 2,
           "modulation": "drift",
-          "edges": [
-            ["replication", "index"]
-          ]
+          "edges": [["replication", "index"], ["index", "trace"]]
         },
         {
-          "id": "steady-config",
-          "label": "catalog polling",
+          "id": "steady-observe",
+          "label": "observe and report",
           "colorKey": "support",
           "width": 1.8,
-          "intensity": 0.46,
+          "intensity": 0.42,
           "tempo": 0.66,
           "particles": 2,
           "modulation": "ping",
-          "edges": [
-            ["config", "catalogservice"],
-            ["catalogservice", "config"]
-          ]
-        },
-        {
-          "id": "steady-guardrails",
-          "label": "monitoring feedback",
-          "colorKey": "warm",
-          "width": 1.7,
-          "intensity": 0.34,
-          "tempo": 0.54,
-          "particles": 1,
-          "modulation": "ping",
-          "edges": [
-            ["monitor", "config"]
-          ]
+          "edges": [["metrics", "config"], ["monitor", "config"], ["catalogservice", "config"]]
         }
       ]
     },
     {
-      "id": "atlasload",
-      "label": "Atlas Search Load",
-      "focusKey": "cursor",
-      "start": 44,
-      "end": 59,
-      "description": "A modeled Atlas Search surge lights up the Lucene-serving path through cursors while steady-state replication keeps running underneath.",
+      "id": "textsearch",
+      "label": "Text Search",
+      "focusKey": "server",
+      "start": 42,
+      "end": 56,
+      "description": "Text-only load reached 554 req/s. The representative MongoT stream median was 8.9 ms; the command median was 890 us, with parse BSON, Lucene collect hits, and materialize BSON visible as separate spans.",
       "streams": [
         {
-          "id": "atlas-load",
-          "label": "atlas search flow",
+          "id": "text-command",
+          "label": "gRPC search stream",
           "colorKey": "warm",
-          "width": 3.9,
-          "intensity": 1,
-          "tempo": 2.15,
+          "width": 3.6,
+          "intensity": 0.96,
+          "tempo": 2.0,
           "particles": 5,
           "modulation": "burst",
-          "edges": [
-            ["server", "cursor"],
-            ["cursor", "index"]
-          ]
+          "edges": [["server", "cursor"], ["cursor", "index"], ["server", "trace"]]
         },
         {
-          "id": "atlas-repl",
-          "label": "background replication",
-          "colorKey": "cool",
-          "width": 2.2,
-          "intensity": 0.52,
-          "tempo": 0.92,
-          "particles": 2,
-          "modulation": "drift",
-          "edges": [
-            ["replication", "index"]
-          ]
+          "id": "text-lucene",
+          "label": "Lucene text collect",
+          "colorKey": "hot",
+          "width": 2.6,
+          "intensity": 0.78,
+          "tempo": 1.55,
+          "particles": 3,
+          "modulation": "surge",
+          "edges": [["index", "metrics"], ["index", "trace"]]
         }
       ]
     },
     {
-      "id": "vectorload",
-      "label": "Vector Search Load",
+      "id": "vectorsearch",
+      "label": "Vector Search",
       "focusKey": "embedding",
-      "start": 59,
-      "end": 74,
-      "description": "A modeled Vector Search surge lights up the embedding path before the vector index reader while steady-state replication continues.",
+      "start": 56,
+      "end": 70,
+      "description": "Vector-only load reached 189 req/s. Coco embedding work sits before MongoT, while MongoT traces show `vector_caption`, exact vector query build, and Lucene vector candidate collection at 1.9 ms median.",
       "streams": [
         {
-          "id": "vector-load",
-          "label": "vector search flow",
+          "id": "vector-embedding",
+          "label": "embedding before search",
           "colorKey": "hot",
-          "width": 3.6,
-          "intensity": 0.94,
-          "tempo": 1.9,
+          "width": 3.2,
+          "intensity": 0.9,
+          "tempo": 1.7,
           "particles": 4,
           "modulation": "burst",
-          "edges": [
-            ["server", "embedding"],
-            ["embedding", "index"]
-          ]
+          "edges": [["server", "embedding"], ["embedding", "index"]]
         },
         {
-          "id": "vector-repl",
-          "label": "background replication",
-          "colorKey": "cool",
-          "width": 2.2,
-          "intensity": 0.52,
-          "tempo": 0.92,
-          "particles": 2,
-          "modulation": "drift",
-          "edges": [
-            ["replication", "index"]
-          ]
-        }
-      ]
-    },
-    {
-      "id": "atlastaper",
-      "label": "Atlas Search Taper",
-      "focusKey": "cursor",
-      "start": 74,
-      "end": 78,
-      "description": "Atlas Search traffic thins out, but the cursor-backed Lucene path is still active at lower intensity.",
-      "streams": [
-        {
-          "id": "atlas-taper",
-          "label": "atlas search tail",
+          "id": "vector-lucene",
+          "label": "Lucene vector candidates",
           "colorKey": "warm",
-          "width": 2.8,
-          "intensity": 0.54,
-          "tempo": 1.2,
-          "particles": 3,
-          "modulation": "fade",
-          "edges": [
-            ["server", "cursor"],
-            ["cursor", "index"]
-          ]
-        },
-        {
-          "id": "atlas-taper-repl",
-          "label": "steady-state replication",
-          "colorKey": "cool",
-          "width": 1.9,
-          "intensity": 0.34,
-          "tempo": 0.72,
-          "particles": 2,
-          "modulation": "fade",
-          "edges": [
-            ["replication", "index"]
-          ]
+          "width": 3.4,
+          "intensity": 0.96,
+          "tempo": 2.1,
+          "particles": 5,
+          "modulation": "burst",
+          "edges": [["server", "cursor"], ["cursor", "index"], ["index", "trace"]]
         }
       ]
     },
     {
-      "id": "vectortaper",
-      "label": "Vector Search Taper",
-      "focusKey": "embedding",
-      "start": 78,
-      "end": 82,
-      "description": "Vector traffic ebbs, leaving the embedding and vector-reader path active at reduced intensity.",
+      "id": "combined",
+      "label": "Text + Vector",
+      "focusKey": "index",
+      "start": 70,
+      "end": 84,
+      "description": "Combined load reached 77.8 req/s. `$rankFusion` emits separate MongoT search streams: `default` text traces and `vector_caption` vector traces, so the component split matters more than a single blended median.",
       "streams": [
         {
-          "id": "vector-taper",
-          "label": "vector search tail",
-          "colorKey": "hot",
-          "width": 2.5,
-          "intensity": 0.44,
-          "tempo": 1.05,
-          "particles": 2,
-          "modulation": "fade",
-          "edges": [
-            ["server", "embedding"],
-            ["embedding", "index"]
-          ]
+          "id": "combined-text",
+          "label": "text sub-pipeline",
+          "colorKey": "warm",
+          "width": 2.9,
+          "intensity": 0.8,
+          "tempo": 1.7,
+          "particles": 3,
+          "modulation": "burst",
+          "edges": [["server", "cursor"], ["cursor", "index"]]
         },
         {
-          "id": "vector-taper-repl",
-          "label": "steady-state replication",
-          "colorKey": "cool",
-          "width": 1.9,
-          "intensity": 0.34,
-          "tempo": 0.72,
+          "id": "combined-vector",
+          "label": "vector sub-pipeline",
+          "colorKey": "hot",
+          "width": 3.3,
+          "intensity": 0.94,
+          "tempo": 2.0,
+          "particles": 4,
+          "modulation": "burst",
+          "edges": [["server", "embedding"], ["embedding", "index"], ["index", "trace"]]
+        }
+      ]
+    },
+    {
+      "id": "license",
+      "label": "License Fields",
+      "focusKey": "cursor",
+      "start": 84,
+      "end": 96,
+      "description": "Text search with license fields reached 225 req/s. It changes projection/materialization behavior because the response needs fields outside the stored-source subset, while MongoT command work stayed under 1 ms median.",
+      "streams": [
+        {
+          "id": "license-materialize",
+          "label": "document materialization",
+          "colorKey": "warm",
+          "width": 3.2,
+          "intensity": 0.88,
+          "tempo": 1.55,
+          "particles": 4,
+          "modulation": "surge",
+          "edges": [["server", "cursor"], ["cursor", "index"], ["index", "trace"]]
+        },
+        {
+          "id": "license-response",
+          "label": "response shaping",
+          "colorKey": "support",
+          "width": 2.2,
+          "intensity": 0.56,
+          "tempo": 1.0,
           "particles": 2,
-          "modulation": "fade",
-          "edges": [
-            ["replication", "index"]
-          ]
+          "modulation": "ping",
+          "edges": [["cursor", "server"], ["server", "metrics"]]
+        }
+      ]
+    },
+    {
+      "id": "mutations",
+      "label": "Inserts + Deletes",
+      "focusKey": "replication",
+      "start": 96,
+      "end": 108,
+      "description": "The mutation run inserted and deleted 5,662 synthetic docs. MongoT sees these asynchronously through change streams, then emits decode, document event, Lucene update/delete, commit, and searcher refresh spans.",
+      "streams": [
+        {
+          "id": "mutation-change-stream",
+          "label": "change stream decode",
+          "colorKey": "cool",
+          "width": 3.0,
+          "intensity": 0.86,
+          "tempo": 1.3,
+          "particles": 3,
+          "modulation": "surge",
+          "edges": [["replication", "index"], ["replication", "trace"]]
+        },
+        {
+          "id": "mutation-lucene-writer",
+          "label": "Lucene writer update/delete",
+          "colorKey": "hot",
+          "width": 3.3,
+          "intensity": 0.94,
+          "tempo": 1.8,
+          "particles": 4,
+          "modulation": "burst",
+          "edges": [["index", "metrics"], ["index", "trace"]]
         }
       ]
     },
@@ -322,40 +293,31 @@
       "id": "shutdown",
       "label": "Shutdown",
       "focusKey": "config",
-      "start": 82,
-      "end": 90,
-      "description": "Terminal health state triggers server stop, metrics stop, config close, lifecycle shutdown, and replication teardown.",
+      "start": 108,
+      "end": 116,
+      "description": "Controlled shutdown drains server lifecycle, metrics, config, index lifecycle, and replication resources.",
       "streams": [
         {
           "id": "shutdown-fanout",
           "label": "controlled shutdown",
           "colorKey": "support",
           "width": 2.7,
-          "intensity": 0.86,
+          "intensity": 0.82,
           "tempo": 1.05,
           "particles": 3,
           "modulation": "surge",
-          "edges": [
-            ["community", "config"],
-            ["config", "server"],
-            ["config", "metrics"],
-            ["config", "catalogservice"]
-          ]
+          "edges": [["community", "config"], ["config", "server"], ["config", "metrics"], ["config", "trace"]]
         },
         {
           "id": "shutdown-core",
-          "label": "lifecycle and replication teardown",
+          "label": "lifecycle teardown",
           "colorKey": "cool",
           "width": 2.5,
-          "intensity": 0.78,
+          "intensity": 0.72,
           "tempo": 0.9,
           "particles": 2,
           "modulation": "surge",
-          "edges": [
-            ["config", "lifecycle"],
-            ["lifecycle", "replication"],
-            ["community", "logging"]
-          ]
+          "edges": [["config", "lifecycle"], ["lifecycle", "replication"], ["community", "logging"]]
         }
       ]
     }

@@ -3,12 +3,14 @@ package com.xgen.mongot.replication.mongodb.common;
 import static com.xgen.mongot.replication.mongodb.common.CommonReplicationConfig.Type.DEFAULT;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.errorprone.annotations.MustBeClosed;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.xgen.mongot.index.IndexMetricsUpdater.ReplicationMetricsUpdater;
 import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.mongot.metrics.MetricsFactory;
 import com.xgen.mongot.metrics.ServerStatusDataExtractor;
 import com.xgen.mongot.replication.mongodb.common.SchedulerQueue.Priority;
+import com.xgen.mongot.trace.Tracing;
 import com.xgen.mongot.util.Crash;
 import com.xgen.mongot.util.concurrent.Executors;
 import com.xgen.mongot.util.concurrent.NamedExecutorService;
@@ -18,6 +20,12 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -130,38 +138,52 @@ public class DecodingWorkScheduler extends Thread {
 
         batch = this.schedulerQueue.remove();
         this.dequeueCounter.increment();
-        this.batchSchedulingTimer.record(batch.elapsed());
+        Duration queueWait = batch.elapsed();
+        this.batchSchedulingTimer.record(queueWait);
+
+        Optional<Span> batchSpan =
+            startSpanFromBatchContext(
+                batch, "mongot.indexing.decode_batch", decodingBatchAttributes(batch, queueWait));
+
+        CompletableFuture<Void> decodingFuture;
+        try (Scope ignored = currentScope(batchSpan)) {
+          Context context = Context.current();
+          decodingFuture =
+              CompletableFuture.runAsync(
+                  context.wrap(() -> batch.decoder.decode(batch.events)), this.executor);
+        }
+
+        Timer.Sample sample = Timer.start();
+        decodingFuture
+            .whenComplete((result, throwable) -> this.concurrentDecodingBatches.release())
+            .whenComplete(
+                (result, throwable) -> {
+                  long durationNs = sample.stop(this.batchTimer);
+                  batch
+                      .replicationMetricsUpdater
+                      .getSteadyStateMetrics()
+                      .getBatchDecodingTimer()
+                      .record(durationNs, TimeUnit.NANOSECONDS);
+                })
+            .thenRunAsync(finalize(batch), this.executor)
+            .whenComplete((result, throwable) -> endSpan(batchSpan, throwable))
+            .exceptionally(
+                throwable -> {
+                  LOG.atError()
+                      .addKeyValue("size", batch.size())
+                      .addKeyValue("priority", batch.priority)
+                      .addKeyValue("indexId", batch.generationId.indexId)
+                      .addKeyValue("generationId", batch.generationId)
+                      .addKeyValue("sequenceNumber", batch.sequenceNumber)
+                      .log("Failed to process a scheduler batch");
+                  batch.future.completeExceptionally(throwable);
+                  return null;
+                });
       } catch (InterruptedException ex) {
         Executors.shutdownOrFail(this.executor);
         this.shutdownFuture.complete(null);
         return;
       }
-
-      Timer.Sample sample = Timer.start();
-      CompletableFuture.runAsync(() -> batch.decoder.decode(batch.events), this.executor)
-          .whenComplete((result, throwable) -> this.concurrentDecodingBatches.release())
-          .whenComplete(
-              (result, throwable) -> {
-                long durationNs = sample.stop(this.batchTimer);
-                batch
-                    .replicationMetricsUpdater
-                    .getSteadyStateMetrics()
-                    .getBatchDecodingTimer()
-                    .record(durationNs, TimeUnit.NANOSECONDS);
-              })
-          .thenRunAsync(finalize(batch), this.executor)
-          .exceptionally(
-              throwable -> {
-                LOG.atError()
-                    .addKeyValue("size", batch.size())
-                    .addKeyValue("priority", batch.priority)
-                    .addKeyValue("indexId", batch.generationId.indexId)
-                    .addKeyValue("generationId", batch.generationId)
-                    .addKeyValue("sequenceNumber", batch.sequenceNumber)
-                    .log("Failed to process a scheduler batch");
-                batch.future.completeExceptionally(throwable);
-                return null;
-              });
     }
   }
 
@@ -240,5 +262,41 @@ public class DecodingWorkScheduler extends Thread {
   @VisibleForTesting
   public SchedulerQueue<DecodingSchedulerBatch> getSchedulerQueue() {
     return this.schedulerQueue;
+  }
+
+  private static Attributes decodingBatchAttributes(
+      DecodingSchedulerBatch batch, Duration queueWait) {
+    return Attributes.builder()
+        .put(Tracing.TOGGLE_TRACE, true)
+        .put("mongot.index.id", batch.generationId.indexId.toHexString())
+        .put("mongot.index.generation_id", batch.generationId.toString())
+        .put("mongot.indexing.raw_event_count", batch.size())
+        .put("mongot.indexing.priority", batch.priority.name())
+        .put("mongot.indexing.sequence_number", batch.sequenceNumber)
+        .put("mongot.indexing.queue_wait_ms", queueWait.toNanos() / 1_000_000.0)
+        .build();
+  }
+
+  @MustBeClosed
+  private static Scope currentScope(Optional<Span> span) {
+    return span.map(Span::makeCurrent).orElseGet(Scope::noop);
+  }
+
+  private static Optional<Span> startSpanFromBatchContext(
+      DecodingSchedulerBatch batch, String name, Attributes attributes) {
+    try (Scope ignored = batch.otelContext.makeCurrent()) {
+      return Tracing.detailedUnguardedSpan(name, attributes);
+    }
+  }
+
+  private static void endSpan(Optional<Span> span, Throwable throwable) {
+    span.ifPresent(
+        value -> {
+          if (throwable != null) {
+            value.recordException(throwable);
+            value.setStatus(StatusCode.ERROR);
+          }
+          value.end();
+        });
   }
 }

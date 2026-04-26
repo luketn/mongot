@@ -5,9 +5,11 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.xgen.mongot.index.status.IndexStatus;
 import com.xgen.mongot.index.status.IndexStatus.StatusCode;
 import com.xgen.mongot.metrics.PerIndexMetricsFactory;
+import com.xgen.mongot.trace.Tracing;
 import com.xgen.mongot.util.Crash;
 import com.xgen.mongot.util.VerboseRunnable;
 import io.micrometer.core.instrument.Timer;
+import io.opentelemetry.api.common.Attributes;
 import java.io.Closeable;
 import java.time.Duration;
 import java.util.concurrent.ScheduledExecutorService;
@@ -75,11 +77,21 @@ class PeriodicLuceneIndexRefresher implements Closeable, VerboseRunnable {
       return;
     }
     if (this.indexStatusRef.get().getStatusCode() == StatusCode.STEADY) {
-      for (var searcherManager : this.searcherManagers) {
-        this.timer.record(
-            () ->
-                Crash.because("failed to refresh searcher manager")
-                    .ifThrows(searcherManager::maybeRefreshBlocking));
+      for (int managerIndex = 0; managerIndex < this.searcherManagers.size(); managerIndex++) {
+        var searcherManager = this.searcherManagers.get(managerIndex);
+        try (var ignored =
+            Tracing.detailedSpanGuard(
+                "mongot.lucene.maybe_refresh_searcher_manager",
+                Attributes.builder()
+                    .put(Tracing.TOGGLE_TRACE, true)
+                    .put("mongot.lucene.searcher_manager.index", managerIndex)
+                    .put("mongot.lucene.searcher_manager.count", this.searcherManagers.size())
+                    .build())) {
+          this.timer.record(
+              () ->
+                  Crash.because("failed to refresh searcher manager")
+                      .ifThrows(searcherManager::maybeRefreshBlocking));
+        }
       }
     }
   }

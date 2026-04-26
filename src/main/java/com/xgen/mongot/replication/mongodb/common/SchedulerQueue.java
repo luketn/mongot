@@ -7,6 +7,7 @@ import com.google.common.base.Stopwatch;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.xgen.mongot.index.version.GenerationId;
 import com.xgen.mongot.metrics.MetricsFactory;
+import io.opentelemetry.context.Context;
 import io.micrometer.core.instrument.Tags;
 import java.time.Duration;
 import java.util.HashMap;
@@ -79,6 +80,7 @@ public class SchedulerQueue<T extends SchedulerQueue.SchedulerBatch> {
     public final Optional<ObjectId> attemptId;
     public final long sequenceNumber;
     public final Stopwatch schedulingTimer;
+    public final Context otelContext;
 
     protected SchedulerBatch(
         Priority priority,
@@ -91,6 +93,7 @@ public class SchedulerQueue<T extends SchedulerQueue.SchedulerBatch> {
       this.attemptId = attemptId;
       this.sequenceNumber = batchCounter.getAndIncrement();
       this.schedulingTimer = Stopwatch.createStarted();
+      this.otelContext = Context.current();
     }
 
     public Duration elapsed() {

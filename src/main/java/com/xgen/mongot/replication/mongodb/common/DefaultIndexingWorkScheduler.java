@@ -4,6 +4,8 @@ import com.xgen.mongot.index.FieldExceededLimitsException;
 import com.xgen.mongot.replication.mongodb.common.IndexingWorkSchedulerFactory.IndexingStrategy;
 import com.xgen.mongot.util.FutureUtils;
 import com.xgen.mongot.util.concurrent.NamedExecutorService;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -30,13 +32,20 @@ final class DefaultIndexingWorkScheduler extends IndexingWorkScheduler {
 
   @Override
   CompletableFuture<Void> getBatchTasksFuture(IndexingSchedulerBatch batch) {
+    Context parentContext = Context.current();
     return FutureUtils.allOf(
         batch.events.stream()
             .map((doc) -> new IndexingTask(batch.indexer, doc))
             .map(
                 (task) ->
                     FutureUtils.checkedRunAsync(
-                        task, this.executor, FieldExceededLimitsException.class))
+                        () -> {
+                          try (Scope ignored = parentContext.makeCurrent()) {
+                            task.run();
+                          }
+                        },
+                        this.executor,
+                        FieldExceededLimitsException.class))
             .collect(Collectors.toList()));
   }
 

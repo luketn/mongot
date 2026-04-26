@@ -35,12 +35,14 @@ import com.xgen.mongot.index.lucene.util.LuceneCodecUtils;
 import com.xgen.mongot.index.lucene.util.LuceneDocumentIdEncoder;
 import com.xgen.mongot.index.version.IndexCapabilities;
 import com.xgen.mongot.logging.DefaultKeyValueLogger;
+import com.xgen.mongot.trace.Tracing;
 import com.xgen.mongot.util.Check;
 import com.xgen.mongot.util.Crash;
 import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.LoggableIdUtils;
 import com.xgen.mongot.util.concurrent.LockGuard;
 import io.micrometer.core.instrument.Tags;
+import io.opentelemetry.api.common.Attributes;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -329,7 +331,11 @@ public class SingleLuceneIndexWriter implements LuceneIndexWriter {
 
   public void updateIndex(byte[] encodedDocumentId, DocumentEvent event)
       throws IOException, FieldExceededLimitsException {
-    try (LockGuard ignored = LockGuard.with(this.shutdownSharedLock)) {
+    try (LockGuard ignored = LockGuard.with(this.shutdownSharedLock);
+        var span =
+            Tracing.detailedSpanGuard(
+                "mongot.lucene.index_writer.update_index",
+                documentEventAttributes(encodedDocumentId, event))) {
       ensureOpen("updateIndex");
 
       switch (event.getEventType()) {
@@ -341,7 +347,14 @@ public class SingleLuceneIndexWriter implements LuceneIndexWriter {
 
   @Override
   public void commit(EncodedUserData userData) throws IOException {
-    try (LockGuard ignored = LockGuard.with(this.shutdownSharedLock)) {
+    try (var ignored =
+            Tracing.detailedSpanGuard(
+                "mongot.lucene.index_writer.commit",
+                Attributes.builder()
+                    .put(Tracing.TOGGLE_TRACE, true)
+                    .put("mongot.lucene.index_writer.commit_user_data.present", true)
+                    .build());
+        LockGuard ignoredLock = LockGuard.with(this.shutdownSharedLock)) {
       ensureOpen("commit");
       LuceneCommitData commitData =
           new LuceneCommitData(LuceneCommitData.IndexWriterData.EMPTY, userData);
@@ -380,13 +393,22 @@ public class SingleLuceneIndexWriter implements LuceneIndexWriter {
       LuceneCommitData commitData =
           new LuceneCommitData(new LuceneCommitData.IndexWriterData(true), userData);
       this.luceneWriter.setLiveCommitData(commitData.toDataMapEntries());
-      try {
+      try (var ignoredSpan =
+          Tracing.detailedSpanGuard(
+              "mongot.lucene.index_writer.delete_all",
+              Attributes.of(Tracing.TOGGLE_TRACE, true))) {
         this.luceneWriter.deleteAll();
       } catch (Exception e) {
         recordIndexingFailure(e, "deleteAll");
         throw e;
       }
-      try {
+      try (var ignoredSpan =
+          Tracing.detailedSpanGuard(
+              "mongot.lucene.index_writer.commit",
+              Attributes.builder()
+                  .put(Tracing.TOGGLE_TRACE, true)
+                  .put("mongot.lucene.index_writer.commit_user_data.present", true)
+                  .build())) {
         this.luceneWriter.commit();
       } catch (Exception e) {
         recordIndexingFailure(e, "commit");
@@ -538,7 +560,10 @@ public class SingleLuceneIndexWriter implements LuceneIndexWriter {
         .atTrace()
         .addKeyValue("eventDocumentId", event.getDocumentId())
         .log("deleting document");
-    try {
+    try (var ignored =
+        Tracing.detailedSpanGuard(
+            "mongot.lucene.index_writer.delete_documents",
+            documentEventAttributes(encodedDocumentId, event))) {
       this.luceneWriter.deleteDocuments(LuceneDocumentIdEncoder.documentIdTerm(encodedDocumentId));
     } catch (Exception e) {
       recordIndexingFailure(e, event.getEventType().name());
@@ -566,22 +591,34 @@ public class SingleLuceneIndexWriter implements LuceneIndexWriter {
         .log("indexing document");
 
     try {
-      IndexingPolicyBuilderContext context =
-          IndexingPolicyBuilderContext.builder()
-              .autoEmbeddings(event.getAutoEmbeddings())
-              .customVectorEngineId(event.getCustomVectorEngineId())
-              .fieldPathsToFilterOut(this.fieldPathsToFilterOut)
-              .build();
-      DocumentBlockBuilder builder = this.indexingPolicy.createBuilder(encodedDocumentId, context);
-      BsonDocumentProcessor.process(document, builder);
+      List<Document> documentBlock;
+      try (var buildSpan =
+          Tracing.detailedSpanGuard(
+              "mongot.lucene.index_writer.build_document_block",
+              documentEventAttributes(encodedDocumentId, event))) {
+        IndexingPolicyBuilderContext context =
+            IndexingPolicyBuilderContext.builder()
+                .autoEmbeddings(event.getAutoEmbeddings())
+                .customVectorEngineId(event.getCustomVectorEngineId())
+                .fieldPathsToFilterOut(this.fieldPathsToFilterOut)
+                .build();
+        DocumentBlockBuilder builder =
+            this.indexingPolicy.createBuilder(encodedDocumentId, context);
+        BsonDocumentProcessor.process(document, builder);
 
-      List<Document> documentBlock = builder.buildBlock();
+        documentBlock = builder.buildBlock();
+        buildSpan
+            .getSpan()
+            .setAttribute("mongot.lucene.document_block.size", documentBlock.size())
+            .setAttribute(
+                "mongot.lucene.document_block.field_count", documentBlockFieldCount(documentBlock));
 
-      if (this.fieldLimit.isPresent()) {
-        // Try to fail early so we don't exceed field limits.
-        // This condition is sufficient but not necessary to exceed field limits (imagine a document
-        // passing this test but pushing the index over the limit). See exceededLimits().
-        throwIfDocumentBlockExceedsFieldLimit(documentBlock, this.fieldLimit.get());
+        if (this.fieldLimit.isPresent()) {
+          // Try to fail early so we don't exceed field limits.
+          // This condition is sufficient but not necessary to exceed field limits (imagine a
+          // document passing this test but pushing the index over the limit). See exceededLimits().
+          throwIfDocumentBlockExceedsFieldLimit(documentBlock, this.fieldLimit.get());
+        }
       }
       // It's possible that the document event we're seeing is an insert from the change stream
       // for a document that we already inserted during the initial sync collection scan. Also,
@@ -592,7 +629,17 @@ public class SingleLuceneIndexWriter implements LuceneIndexWriter {
       // _id. One future optimization could be to denote in the DocumentEvent whether or not it's
       // possible that this is a re-insert (i.e. we're still not up to minValidOpTime), and then
       // call addDocument when we know it's safe.
-      try {
+      try (var updateSpan =
+          Tracing.detailedSpanGuard(
+              "mongot.lucene.index_writer.update_documents",
+              Attributes.builder()
+                  .put(Tracing.TOGGLE_TRACE, true)
+                  .put("mongot.lucene.document_block.size", documentBlock.size())
+                  .put(
+                      "mongot.lucene.document_block.field_count",
+                      documentBlockFieldCount(documentBlock))
+                  .put("mongot.lucene.document_id.encoded_size_bytes", encodedDocumentId.length)
+                  .build())) {
         this.luceneWriter.updateDocuments(
             LuceneDocumentIdEncoder.documentIdTerm(encodedDocumentId), documentBlock);
       } catch (Exception e) {
@@ -620,6 +667,28 @@ public class SingleLuceneIndexWriter implements LuceneIndexWriter {
               "Number of fields exceeded limit in a document: %s > %s", fieldsIndexed, fieldLimit);
       throw new FieldExceededLimitsException(msg);
     }
+  }
+
+  private static Attributes documentEventAttributes(byte[] encodedDocumentId, DocumentEvent event) {
+    return Attributes.builder()
+        .put(Tracing.TOGGLE_TRACE, true)
+        .put("mongot.indexing.event.type", event.getEventType().name())
+        .put("mongot.document.id.type", event.getDocumentId().getBsonType().name())
+        .put("mongot.document.has_document", event.getDocument().isPresent())
+        .put(
+            "mongot.document.size_bytes",
+            event.getDocument().map(document -> document.getByteBuffer().remaining()).orElse(0))
+        .put("mongot.lucene.document_id.encoded_size_bytes", encodedDocumentId.length)
+        .put("mongot.indexing.auto_embedding.field_count", event.getAutoEmbeddings().size())
+        .put("mongot.indexing.filter_only_update", event.getFilterFieldUpdates().isPresent())
+        .put(
+            "mongot.indexing.custom_vector_engine_id.present",
+            event.getCustomVectorEngineId().isPresent())
+        .build();
+  }
+
+  private static int documentBlockFieldCount(List<Document> documentBlock) {
+    return documentBlock.stream().mapToInt(document -> document.getFields().size()).sum();
   }
 
   private void ensureOpen(String methodName) {

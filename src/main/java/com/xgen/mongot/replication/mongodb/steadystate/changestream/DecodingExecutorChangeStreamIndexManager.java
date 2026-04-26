@@ -5,6 +5,7 @@ import static com.xgen.mongot.replication.mongodb.common.ChangeStreamDocumentUti
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.errorprone.annotations.MustBeClosed;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.mongodb.MongoChangeStreamException;
 import com.mongodb.MongoNamespace;
@@ -26,7 +27,12 @@ import com.xgen.mongot.replication.mongodb.common.IndexingWorkScheduler;
 import com.xgen.mongot.replication.mongodb.common.SchedulerQueue;
 import com.xgen.mongot.replication.mongodb.common.SchedulerQueue.Priority;
 import com.xgen.mongot.replication.mongodb.common.SteadyStateException;
+import com.xgen.mongot.trace.Tracing;
 import io.micrometer.core.instrument.Timer;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.context.Scope;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -140,63 +146,92 @@ class DecodingExecutorChangeStreamIndexManager extends ChangeStreamIndexManager 
           batch.getRawEvents(),
           this.indexMetricsUpdater.getIndexingMetricsUpdater()::recordDocumentSizeBytes);
 
+      Optional<Span> changeStreamSpan =
+          Tracing.detailedUnguardedSpan(
+              "mongot.indexing.change_stream_batch",
+              changeStreamBatchAttributes(resumeInfo, hasLifecycleEvent));
       CompletableFuture<Void> schedulingFuture = new CompletableFuture<>();
 
       // Schedule the given batch for decoding. Decoding will be done in-order (FIFO) per index
       // (generation id). In case a batch decoding ended exceptionally, no further decoding will get
       // scheduled for that index and schedulingFuture will end exceptionally. Resulting with
       // cancellation of all pending decoding and indexing work for that index.
-      this.decodingScheduler
-          .schedule(
-              this.generationId,
-              Optional.of(this.attemptId),
-              batch.getRawEvents(),
-              Priority.STEADY_STATE_CHANGE_STREAM,
-              events -> {
-                // A list view of change-stream documents based on given raw documents. The view
-                // excludes non-CRUD events from the end of the list. Note: decoding from raw
-                // document to change-stream document happens when calling List#get.
-                List<ChangeStreamDocument<RawBsonDocument>> indexableChangeStreamEvents =
-                    getIndexableChangeStreamEvents(batch.getRawEvents(), hasLifecycleEvent);
+      try (Scope ignored = currentScope(changeStreamSpan)) {
+        this.decodingScheduler
+            .schedule(
+                this.generationId,
+                Optional.of(this.attemptId),
+                batch.getRawEvents(),
+                Priority.STEADY_STATE_CHANGE_STREAM,
+                events -> {
+                  try (var decodeSpan =
+                      Tracing.detailedSpanGuard(
+                          "mongot.indexing.decode_change_stream_events",
+                          decodeChangeStreamAttributes(events.size(), hasLifecycleEvent))) {
+                    // A list view of change-stream documents based on given raw documents. The view
+                    // excludes non-CRUD events from the end of the list. Note: decoding from raw
+                    // document to change-stream document happens when calling List#get.
+                    List<ChangeStreamDocument<RawBsonDocument>> indexableChangeStreamEvents =
+                        getIndexableChangeStreamEvents(batch.getRawEvents(), hasLifecycleEvent);
 
-                // Asynchronously decode and dedupe events. If an unexpected document type or
-                // lifecycle event is detected during traversal throws a SteadyStateException.
-                DocumentEventBatch documentEventBatch =
-                    ChangeStreamDocumentUtils.handleDocumentEvents(
-                        // Inapplicable updates are not filtered out because decoding happens lazily
-                        // and the batch has not been traversed up to this point.
-                        indexableChangeStreamEvents,
-                        this.indexDefinition,
-                        this.indexDefinition.createFieldDefinitionResolver(
-                            this.generationId.generation.indexFormatVersion),
-                        false /* areUpdateEventsPrefiltered */);
+                    // Asynchronously decode and dedupe events. If an unexpected document type or
+                    // lifecycle event is detected during traversal throws a SteadyStateException.
+                    DocumentEventBatch documentEventBatch =
+                        ChangeStreamDocumentUtils.handleDocumentEvents(
+                            // Inapplicable updates are not filtered out because decoding happens
+                            // lazily and the batch has not been traversed up to this point.
+                            indexableChangeStreamEvents,
+                            this.indexDefinition,
+                            this.indexDefinition.createFieldDefinitionResolver(
+                                this.generationId.generation.indexFormatVersion),
+                            false /* areUpdateEventsPrefiltered */);
 
-                metricsUpdater.accept(
-                    documentEventBatch.updatesWitnessed,
-                    documentEventBatch.updatesApplicable,
-                    documentEventBatch.skippedDocumentsWithoutMetadataNamespace);
+                    decodeSpan
+                        .getSpan()
+                        .setAttribute(
+                            "mongot.indexing.document_event_count",
+                            documentEventBatch.finalChangeEvents.size())
+                        .setAttribute(
+                            "mongot.indexing.updates_witnessed",
+                            documentEventBatch.updatesWitnessed)
+                        .setAttribute(
+                            "mongot.indexing.updates_applicable",
+                            documentEventBatch.updatesApplicable)
+                        .setAttribute(
+                            "mongot.indexing.skipped_documents_without_metadata_namespace",
+                            documentEventBatch.skippedDocumentsWithoutMetadataNamespace);
 
-                // Schedule the given batch for indexing if not shut down or lifecycle future is
-                // not completed. this.scheduleIndexing, ChangeStreamIndexManager#failLifecycle,
-                // ChangeStreamIndexManager#indexBatch and ChangeStreamIndexManager#shutdown
-                // calls are serialized (synchronized) to ensure threads see the latest state.
-                scheduleIndexingAsync(documentEventBatch.finalChangeEvents, resumeInfo)
-                    .whenComplete(
-                        (unused, indexingFailure) -> {
-                          if (indexingFailure != null) {
-                            schedulingFuture.completeExceptionally(indexingFailure);
-                          } else {
-                            schedulingFuture.complete(null);
-                            recordPerBatchMetrics(documentEventBatch);
-                          }
-                        });
-              },
-              this.indexMetricsUpdater.getReplicationMetricsUpdater())
-          .exceptionally(
-              decodingFailure -> {
-                schedulingFuture.completeExceptionally(decodingFailure);
-                return null;
-              });
+                    metricsUpdater.accept(
+                        documentEventBatch.updatesWitnessed,
+                        documentEventBatch.updatesApplicable,
+                        documentEventBatch.skippedDocumentsWithoutMetadataNamespace);
+
+                    // Schedule the given batch for indexing if not shut down or lifecycle future is
+                    // not completed. this.scheduleIndexing, ChangeStreamIndexManager#failLifecycle,
+                    // ChangeStreamIndexManager#indexBatch and ChangeStreamIndexManager#shutdown
+                    // calls are serialized (synchronized) to ensure threads see the latest state.
+                    scheduleIndexingAsync(documentEventBatch.finalChangeEvents, resumeInfo)
+                        .whenComplete(
+                            (unused, indexingFailure) -> {
+                              if (indexingFailure != null) {
+                                schedulingFuture.completeExceptionally(indexingFailure);
+                              } else {
+                                schedulingFuture.complete(null);
+                                recordPerBatchMetrics(documentEventBatch);
+                              }
+                            });
+                  }
+                },
+                this.indexMetricsUpdater.getReplicationMetricsUpdater())
+            .exceptionally(
+                decodingFailure -> {
+                  schedulingFuture.completeExceptionally(decodingFailure);
+                  return null;
+                });
+      } catch (Throwable throwable) {
+        endSpan(changeStreamSpan, throwable);
+        throw throwable;
+      }
 
       // Attach a future stage pipeline to handle: post indexing resume info updates, and indexing
       // future completed exceptionally.
@@ -209,6 +244,7 @@ class DecodingExecutorChangeStreamIndexManager extends ChangeStreamIndexManager 
               resumeInfo,
               lifecycleEvent,
               batch.getCommandOperationTime());
+      indexingFuture.whenComplete((result, throwable) -> endSpan(changeStreamSpan, throwable));
 
       return new BatchInfo(indexingFuture, lifecycleEvent);
     }
@@ -306,6 +342,45 @@ class DecodingExecutorChangeStreamIndexManager extends ChangeStreamIndexManager 
 
     return ChangeStreamDocumentUtils.asLazyDecodableChangeStreamDocumentsWithEventValidation(
         eventsToIndex, this::checkNonIndexableEvent);
+  }
+
+  private Attributes changeStreamBatchAttributes(
+      Optional<ChangeStreamResumeInfo> resumeInfo, boolean hasLifecycleEvent) {
+    return Attributes.builder()
+        .put(Tracing.TOGGLE_TRACE, true)
+        .put("mongot.index.id", this.generationId.indexId.toHexString())
+        .put("mongot.index.generation_id", this.generationId.toString())
+        .put("mongot.index.attempt_id", this.attemptId.toHexString())
+        .put("mongot.mongodb.namespace", this.namespace.getFullName())
+        .put("mongot.search.index.name", this.indexDefinition.getName())
+        .put("mongot.indexing.resume_info.present", resumeInfo.isPresent())
+        .put("mongot.indexing.lifecycle_event.present", hasLifecycleEvent)
+        .build();
+  }
+
+  private static Attributes decodeChangeStreamAttributes(
+      int rawEventCount, boolean hasLifecycleEvent) {
+    return Attributes.builder()
+        .put(Tracing.TOGGLE_TRACE, true)
+        .put("mongot.indexing.raw_event_count", rawEventCount)
+        .put("mongot.indexing.lifecycle_event.present", hasLifecycleEvent)
+        .build();
+  }
+
+  @MustBeClosed
+  private static Scope currentScope(Optional<Span> span) {
+    return span.map(Span::makeCurrent).orElseGet(Scope::noop);
+  }
+
+  private static void endSpan(Optional<Span> span, Throwable throwable) {
+    span.ifPresent(
+        value -> {
+          if (throwable != null) {
+            value.recordException(throwable);
+            value.setStatus(StatusCode.ERROR);
+          }
+          value.end();
+        });
   }
 
   /**
