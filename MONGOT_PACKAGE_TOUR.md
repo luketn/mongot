@@ -2,6 +2,8 @@
 
 Complexity is a subjective `1-10` score based on package size, internal breadth, and how central the package appears in the codebase. Linked packages are other major packages directly imported from that package's source.
 
+The package descriptions now include the runtime picture learned from detailed OpenTelemetry traces gathered with `DETAILED_TRACE_SPANS=true` against Atlas Search Coco. Those traces show the main search stream, the initial command span, Lucene execution spans, BSON materialization, cursor/getMore work, and asynchronous indexing updates from MongoDB change streams.
+
 | Package | Description | Complexity | Linked Major Packages |
 | --- | --- | ---: | --- |
 | `com.xgen.mongot.blobstore` | Minimal blob-storage integration surface; currently mostly a placeholder/error boundary. | 1 | `com.xgen.mongot.util` |
@@ -9,17 +11,17 @@ Complexity is a subjective `1-10` score based on package size, internal breadth,
 | `com.xgen.mongot.catalogservice` | Metadata service layer for authoritative index definitions, per-server index stats, and server heartbeats stored in the internal metadata database. | 4 | `com.xgen.mongot.util`, `com.xgen.mongot.index`, `com.xgen.mongot.replication` |
 | `com.xgen.mongot.community` | Community-edition entrypoint and top-level assembly/bootstrap wiring. | 1 | `com.xgen.mongot.util`, `com.xgen.mongot.config`, `com.xgen.mongot.logging` |
 | `com.xgen.mongot.config` | Configuration models, validation, providers, change planning, and config-management workflow for mongot subsystems. | 7 | `com.xgen.mongot.util`, `com.xgen.mongot.index`, `com.xgen.mongot.replication`, `com.xgen.mongot.featureflag`, `com.xgen.mongot.metrics`, `com.xgen.mongot.catalog`, `com.xgen.mongot.catalogservice`, `com.xgen.mongot.embedding`, `com.xgen.mongot.server`, `com.xgen.mongot.monitor`, `com.xgen.mongot.cursor`, `com.xgen.mongot.lifecycle`, `com.xgen.mongot.logging` |
-| `com.xgen.mongot.cursor` | Cursor domain model, managers, batching, and serialization for paged search results / getMore flows. | 5 | `com.xgen.mongot.index`, `com.xgen.mongot.util`, `com.xgen.mongot.trace`, `com.xgen.mongot.catalog`, `com.xgen.mongot.metrics` |
+| `com.xgen.mongot.cursor` | Cursor domain model, managers, batching, and serialization for paged search results / getMore flows. Detailed traces expose cursor create/register, first-batch loading, batch producer advancement, and later cursor work inside the same gRPC search stream. | 5 | `com.xgen.mongot.index`, `com.xgen.mongot.util`, `com.xgen.mongot.trace`, `com.xgen.mongot.catalog`, `com.xgen.mongot.metrics` |
 | `com.xgen.mongot.embedding` | Embedding-provider integration, request context, auto-embedding helpers, and materialized-view support for vector workflows. | 6 | `com.xgen.mongot.util`, `com.xgen.mongot.index`, `com.xgen.mongot.metrics`, `com.xgen.mongot.replication` |
 | `com.xgen.mongot.featureflag` | Static and dynamic feature flag definitions plus runtime flag registry/config. | 2 | `com.xgen.mongot.util`, `com.xgen.mongot.index` |
-| `com.xgen.mongot.index` | Core search/vector engine: index definitions, ingestion, Lucene integration, query execution, result shaping, and index status/metadata. | 10 | `com.xgen.mongot.util`, `com.xgen.mongot.featureflag`, `com.xgen.mongot.metrics`, `com.xgen.mongot.cursor`, `com.xgen.mongot.embedding`, `com.xgen.mongot.monitor`, `com.xgen.mongot.trace`, `com.xgen.mongot.server`, `com.xgen.proto`, `com.xgen.mongot.blobstore`, `com.xgen.mongot.config`, `com.xgen.mongot.logging` |
+| `com.xgen.mongot.index` | Core search/vector engine: index definitions, ingestion, Lucene integration, query execution, result shaping, and index status/metadata. Trace breakdowns split this package into concrete runtime work: build Lucene query, collect text hits, collect vector candidates, materialize BSON, update/delete Lucene documents, commit, and refresh searchers. | 10 | `com.xgen.mongot.util`, `com.xgen.mongot.featureflag`, `com.xgen.mongot.metrics`, `com.xgen.mongot.cursor`, `com.xgen.mongot.embedding`, `com.xgen.mongot.monitor`, `com.xgen.mongot.trace`, `com.xgen.mongot.server`, `com.xgen.proto`, `com.xgen.mongot.blobstore`, `com.xgen.mongot.config`, `com.xgen.mongot.logging` |
 | `com.xgen.mongot.lifecycle` | Startup/shutdown lifecycle coordination, especially around index lifecycle management. | 3 | `com.xgen.mongot.index`, `com.xgen.mongot.util`, `com.xgen.mongot.replication`, `com.xgen.mongot.catalog`, `com.xgen.mongot.metrics`, `com.xgen.mongot.blobstore`, `com.xgen.mongot.monitor` |
 | `com.xgen.mongot.logging` | Structured logging helpers and JSON log-format customization. | 1 | None |
 | `com.xgen.mongot.metrics` | Metrics abstractions plus FTDC collection/reporting infrastructure. | 4 | `com.xgen.mongot.util`, `com.xgen.mongot.index` |
 | `com.xgen.mongot.monitor` | Disk and replication-state monitoring, gates, and hysteresis controls used to protect service behavior under stress. | 3 | `com.xgen.mongot.util`, `com.xgen.mongot.config`, `com.xgen.mongot.metrics` |
-| `com.xgen.mongot.replication` | MongoDB replication pipeline, including initial sync, steady-state change-stream processing, durability, and indexing work scheduling. | 9 | `com.xgen.mongot.util`, `com.xgen.mongot.index`, `com.xgen.mongot.metrics`, `com.xgen.mongot.embedding`, `com.xgen.mongot.logging`, `com.xgen.mongot.featureflag`, `com.xgen.mongot.catalog`, `com.xgen.mongot.cursor`, `com.xgen.mongot.monitor` |
-| `com.xgen.mongot.server` | External server surface: gRPC/command handling, protocol plumbing, request routing, and streaming responses. | 8 | `com.xgen.mongot.util`, `com.xgen.mongot.index`, `com.xgen.mongot.cursor`, `com.xgen.mongot.config`, `com.xgen.mongot.catalogservice`, `com.xgen.mongot.catalog`, `com.xgen.mongot.embedding`, `com.xgen.mongot.metrics`, `com.xgen.mongot.featureflag`, `com.xgen.mongot.trace` |
-| `com.xgen.mongot.trace` | OpenTelemetry tracing helpers, exporters, sampling toggles, and trace parsing utilities. | 3 | None |
+| `com.xgen.mongot.replication` | MongoDB replication pipeline, including initial sync, steady-state change-stream processing, durability, and indexing work scheduling. Mutation traces show this path as change stream batch, decode batch, decoded document event, indexing batch, Lucene writer update/delete, commit, and searcher refresh. | 9 | `com.xgen.mongot.util`, `com.xgen.mongot.index`, `com.xgen.mongot.metrics`, `com.xgen.mongot.embedding`, `com.xgen.mongot.logging`, `com.xgen.mongot.featureflag`, `com.xgen.mongot.catalog`, `com.xgen.mongot.cursor`, `com.xgen.mongot.monitor` |
+| `com.xgen.mongot.server` | External server surface: gRPC/command handling, protocol plumbing, request routing, and streaming responses. Search root spans are named by namespace and operation, such as `mongodb.CommandService/atlasSearchCoco.image/search`, so traces can be correlated back to the Java client request shape. | 8 | `com.xgen.mongot.util`, `com.xgen.mongot.index`, `com.xgen.mongot.cursor`, `com.xgen.mongot.config`, `com.xgen.mongot.catalogservice`, `com.xgen.mongot.catalog`, `com.xgen.mongot.embedding`, `com.xgen.mongot.metrics`, `com.xgen.mongot.featureflag`, `com.xgen.mongot.trace` |
+| `com.xgen.mongot.trace` | OpenTelemetry tracing helpers, payload attribute guards, detailed-span toggles, and trace parsing utilities. With detailed tracing enabled, important spans include full input BSON, Lucene query string/class, sampled BSON result documents, index/update event metadata, and operation ids for correlation. | 3 | None |
 | `com.xgen.mongot.util` | Shared foundation code used across mongot: BSON/proto conversion, concurrency helpers, collections, versioning, and general utilities. | 8 | `com.xgen.proto`, `com.xgen.mongot.metrics`, `com.xgen.mongot.logging` |
 | `com.xgen.proto` | BSON-aware protobuf runtime plus code-generation plugin for BSON-capable protobuf messages. | 4 | None |
 
@@ -31,14 +33,94 @@ Complexity is a subjective `1-10` score based on package size, internal breadth,
 | `com.xgen.mongot.index.autoembedding` | Auto-embedding and materialized-view index helpers that derive generated fields and coordinate embedding-oriented index metadata. | 4 | `com.xgen.mongot.index.definition`, `com.xgen.mongot.index.mongodb`, `com.xgen.mongot.index.status`, `com.xgen.mongot.index.version`, `com.xgen.mongot.index.analyzer`, `com.xgen.mongot.index.query` |
 | `com.xgen.mongot.index.blobstore` | Snapshotting hooks for persisting and restoring index state through blob storage. | 2 | `com.xgen.mongot.index.version` |
 | `com.xgen.mongot.index.definition` | Core schema model for search, vector, and view indexes, including field definitions, options, and validation logic. | 8 | `com.xgen.mongot.index.version`, `com.xgen.mongot.index.analyzer`, `com.xgen.mongot.index.query`, `com.xgen.mongot.index.lucene`, `com.xgen.mongot.index.path` |
-| `com.xgen.mongot.index.ingestion` | BSON document processing, field extraction, and ingestion-time transforms that feed Lucene indexing. | 5 | `com.xgen.mongot.index.definition`, `com.xgen.mongot.index.lucene` |
-| `com.xgen.mongot.index.lucene` | Largest execution layer: Lucene-backed indexing, search, highlighting, result shaping, commit management, and searcher orchestration. | 10 | `com.xgen.mongot.index.query`, `com.xgen.mongot.index.definition`, `com.xgen.mongot.index.analyzer`, `com.xgen.mongot.index.path`, `com.xgen.mongot.index.ingestion`, `com.xgen.mongot.index.version`, `com.xgen.mongot.index.synonym`, `com.xgen.mongot.index.status`, `com.xgen.mongot.index.blobstore` |
+| `com.xgen.mongot.index.ingestion` | BSON document processing, field extraction, and ingestion-time transforms that feed Lucene indexing. Insert/update traces show this as `build document block`, immediately before Lucene `IndexWriter.updateDocuments`. | 5 | `com.xgen.mongot.index.definition`, `com.xgen.mongot.index.lucene` |
+| `com.xgen.mongot.index.lucene` | Largest execution layer: Lucene-backed indexing, search, highlighting, result shaping, commit management, and searcher orchestration. Trace runs distinguish setup from actual Lucene calls: open searcher, build query, collect hits/vector candidates, materialize BSON, updateDocuments, deleteDocuments, commit, and SearcherManager refresh. | 10 | `com.xgen.mongot.index.query`, `com.xgen.mongot.index.definition`, `com.xgen.mongot.index.analyzer`, `com.xgen.mongot.index.path`, `com.xgen.mongot.index.ingestion`, `com.xgen.mongot.index.version`, `com.xgen.mongot.index.synonym`, `com.xgen.mongot.index.status`, `com.xgen.mongot.index.blobstore` |
 | `com.xgen.mongot.index.mongodb` | Narrow MongoDB-facing helpers for materialized-view writes and index-related metrics/state propagation. | 2 | `com.xgen.mongot.index.lucene`, `com.xgen.mongot.index.status`, `com.xgen.mongot.index.version` |
 | `com.xgen.mongot.index.path` | Shared path abstractions for dotted field-path parsing and traversal across schema and query code. | 2 | None |
-| `com.xgen.mongot.index.query` | Query AST, operators, collectors, pagination, score shaping, and translation from request semantics into Lucene execution. | 9 | `com.xgen.mongot.index.path`, `com.xgen.mongot.index.definition`, `com.xgen.mongot.index.lucene` |
+| `com.xgen.mongot.index.query` | Query AST, operators, collectors, pagination, score shaping, and translation from request semantics into Lucene execution. Search traces expose BSON parse time in this layer and attach the generated Lucene query class/string on the build-query span. | 9 | `com.xgen.mongot.index.path`, `com.xgen.mongot.index.definition`, `com.xgen.mongot.index.lucene` |
 | `com.xgen.mongot.index.status` | Index and synonym status enums/models used to expose lifecycle and readiness state. | 2 | None |
 | `com.xgen.mongot.index.synonym` | Synonym mapping models, registries, and status tracking integrated with Lucene query behavior. | 3 | `com.xgen.mongot.index.status`, `com.xgen.mongot.index.definition` |
 | `com.xgen.mongot.index.version` | Index format/version identifiers, generation metadata, and compatibility/capability checks. | 3 | None |
+
+## Runtime Trace View
+
+The detailed trace runs add a useful second lens to the package map: package structure explains ownership, while traces show the actual execution path for search and index updates. The generated reports live under [`load-results/breakdown-20260426-23`](load-results/breakdown-20260426-23/trace-breakdown-summary-full-20260426-225217.md).
+
+### Search Request Path
+
+For search workloads, the root MongoT span is the gRPC command stream. It is named by namespace and operation, for example:
+
+```text
+mongodb.CommandService/atlasSearchCoco.image/search
+```
+
+That root stream includes the initial `mongot.search.command` span, response-stream handling, client consumption, and later cursor/getMore activity in the same stream. The command span is the best view of the initial MongoT command work; the stream span is the better end-to-end MongoT latency view.
+
+The main package flow for text and vector search is:
+
+| Phase | Main Package(s) | Important Span(s) | What It Means |
+| --- | --- | --- | --- |
+| Stream entry | `com.xgen.mongot.server` | `mongodb.CommandService/<namespace>/<operation>` | gRPC command stream lifecycle, command dispatch, response observer work, and stream close/cleanup. |
+| Command handling | `com.xgen.mongot.server`, `com.xgen.mongot.trace` | `mongot.search.command` | Search command root with operation id, namespace, command name, full input BSON, and top-level command attributes. |
+| Query context | `com.xgen.mongot.server.command.search`, `com.xgen.mongot.featureflag` | `mongot.search.prepare_query_context` | Resolves query optimization flags and dynamic feature state before parsing. |
+| BSON parse | `com.xgen.mongot.index.query` | `mongot.search.parse_query_bson`, `Query.fromBson` | Converts incoming `$search` BSON into MongoT query model objects. This is not Lucene execution. |
+| Catalog lookup | `com.xgen.mongot.catalog`, `com.xgen.mongot.index` | `mongot.search.lookup_index_catalog` | Resolves the named search/vector index from MongoT's initialized in-memory catalog. |
+| Cursor setup | `com.xgen.mongot.cursor` | `mongot.search.create_and_register_cursor`, `mongot.cursor.*` | Creates cursor state, registers cursor/index mappings, and wires the batch producer. |
+| Query build | `com.xgen.mongot.index.query`, `com.xgen.mongot.index.lucene` | `mongot.lucene.build_query` | Builds Lucene `Query` objects and records the Lucene query class/string. This constructs the query but does not execute it. |
+| Text search execution | `com.xgen.mongot.index.lucene` | `mongot.lucene.collect_initial_top_docs` | Actual Lucene text/facet execution through `IndexSearcher.search(Query, CollectorManager)`. |
+| Vector search execution | `com.xgen.mongot.index.lucene` | `mongot.lucene.vector_collect_candidates` | Actual vector candidate collection over the vector field, returning Lucene top-doc candidates before BSON conversion. |
+| Result materialization | `com.xgen.mongot.index.lucene`, `com.xgen.mongot.index.query.pushdown.project` | `mongot.lucene.materialize_bson_documents` | Converts Lucene hits into BSON response documents, reading stored fields or projected document data as needed. |
+| Response build | `com.xgen.mongot.server.command.search`, `com.xgen.mongot.cursor` | `mongot.search.prepare_response_document`, `mongot.search.encode_response_bson` | Builds and serializes the command response, cursor wrapper, and metadata variables. |
+
+### Search Scenario Findings
+
+These measurements came from Atlas Search Coco k6 runs with 25 VUs for search scenarios and detailed trace spans enabled:
+
+| Scenario | Requests | Throughput | HTTP Median | MongoT Stream Median | Initial Command Median | Main Runtime Lesson |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Text Search Only | 166,253 | 554 req/s | 39.2 ms | 8.9 ms | 890 us | Stored-source text search spent most command time in BSON materialization, then parse/build/collect work. |
+| Vector Search Only | 56,594 | 189 req/s | 124 ms | 10.0 ms | 2.8 ms | Vector candidate collection dominated the command span at roughly 1.9 ms median. |
+| Both Vector And Text | 23,388 | 77.8 req/s | 268 ms | 37.8 ms | 2.2 ms | `$rankFusion` creates separate text and vector MongoT search streams; the vector sub-pipeline had a higher command median than the text sub-pipeline. |
+| Text Search With License Fields | 67,688 | 225 req/s | 87.0 ms | 11.9 ms | 863 us | Requesting license fields raised end-to-end app/MongoDB latency, while MongoT's initial command stayed sub-millisecond. |
+
+For combined text/vector search, the trace component split is especially important. The root operation name is the same for both sub-pipelines, but `mongot.search.index.name` separates them:
+
+| Index | Stream Median | Command Median | Runtime Shape |
+| --- | ---: | ---: | --- |
+| `default` | 15.1 ms | 851 us | Text/facet pipeline with Lucene text hit collection and BSON materialization. |
+| `vector_caption` | 24.2 ms | 4.3 ms | Vector pipeline with exact vector candidate collection as the dominant command cost. |
+
+### Index Update Path
+
+Insert/delete API calls are not children of a single client request trace inside MongoT. The client writes to MongoDB first; MongoT then observes those writes through steady-state change streams and updates Lucene asynchronously. Correlation is by run window, namespace/index generation attributes, `mongot.indexing.event.type`, and Lucene writer spans.
+
+The package flow for updates is:
+
+| Phase | Main Package(s) | Important Span(s) | What It Means |
+| --- | --- | --- | --- |
+| Change stream receive | `com.xgen.mongot.replication.mongodb.steadystate.changestream` | `mongot.indexing.change_stream_batch` | Receives a MongoDB change stream batch for an index generation. |
+| Decode scheduling | `com.xgen.mongot.replication.mongodb.common` | `mongot.indexing.decode_batch` | Moves raw change-stream work into the decode scheduler while preserving trace context. |
+| Event decode | `com.xgen.mongot.replication.mongodb.steadystate.changestream` | `mongot.indexing.decode_change_stream_events` | Converts raw change events into MongoT document events and records applicable/witnessed counts. |
+| Index scheduling | `com.xgen.mongot.replication.mongodb.common` | `mongot.indexing.batch`, `mongot.indexing.document_event` | Runs indexing work and routes each insert/update/delete event to the index writer. |
+| Document block build | `com.xgen.mongot.index.ingestion`, `com.xgen.mongot.index.lucene.writer` | `mongot.lucene.index_writer.build_document_block` | Converts MongoDB BSON into Lucene document blocks for indexed and stored fields. |
+| Lucene update/delete | `com.xgen.mongot.index.lucene.writer` | `mongot.lucene.index_writer.update_documents`, `mongot.lucene.index_writer.delete_documents` | Calls Lucene `IndexWriter.updateDocuments` for inserts/updates or `IndexWriter.deleteDocuments` for deletes. |
+| Commit and refresh | `com.xgen.mongot.index.lucene` | `mongot.lucene.index_writer.commit`, `mongot.lucene.maybe_refresh_searcher_manager` | Commits writer changes and refreshes the searcher manager so new segments become visible to search. |
+
+The clean synthetic mutation run used one VU because the Coco `/image/add` endpoint allocates ids with `nextImageId()` before insertion, which races under concurrent inserts. The final run produced 5,662 inserts and 5,662 deletes. Median indexing spans included change stream batch at about 300 us, indexing batch at about 146 us, document insert at about 168 us, Lucene update documents at about 54 us, Lucene delete documents at about 3 us, and periodic Lucene commit at about 20 ms for the few commit spans observed.
+
+### What To Look At In Jaeger
+
+For a search trace, start at the root stream span and then expand `mongot.search.command`. The most useful attributes are:
+
+| Attribute | Why It Matters |
+| --- | --- |
+| `mongot.operation.id` | Correlates the root command and child spans for one MongoT operation. |
+| `db.namespace`, `mongodb.database.name`, `mongodb.collection.name` | Identifies the source namespace. |
+| `mongot.search.index.name` | Separates text and vector sub-pipelines, especially in `$rankFusion` workloads. |
+| `mongot.query.document` | Full input BSON, useful for understanding the exact query sent by the client. |
+| `mongot.lucene.query.class`, `mongot.lucene.query` | Shows the Lucene query object that MongoT built from the BSON request. |
+| `mongot.result.sample.count`, `mongot.result.sample.*` | Shows sampled BSON response documents after Lucene hits are materialized. |
+| `mongot.indexing.event.type` | Distinguishes insert/update/delete work in asynchronous indexing traces. |
 
 # Dependencies
 This split is based on the actual `//:mongot_community` packaging rules plus Bazel dependency scopes. The first table covers dependencies that are bundled into the deployed mongot app or its deploy artifact set. The second table covers dependencies that are build-time, test-only, annotation-processor, or auxiliary tooling dependencies and are not bundled into the deployed app.
