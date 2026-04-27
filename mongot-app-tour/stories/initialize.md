@@ -37,7 +37,7 @@ MongoT again uses the Java driver as an internal client:
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above. MongoT uses its own MongoDB Java driver clients here.
+These JSON documents use representative values. The command shapes match the code paths above.
 
 ### MongoT -> mongod: create metadata index
 
