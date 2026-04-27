@@ -130,7 +130,3 @@ These JSON documents use representative values. The command shapes match the cod
 ```
 
 A `nextBatch` can contain many documents. This example shows the first few and a later document from the same batch shape.
-
-## Accuracy note
-
-The Java driver sees this as an aggregate command sent to mongod. MongoT only sees the derived `vectorSearch` command sent by mongod.

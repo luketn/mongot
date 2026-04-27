@@ -211,7 +211,3 @@ A first text batch can contain many documents. This example shows the first few 
 ```
 
 A vector branch batch can contain many documents. This example shows the first few and a later document from the same batch shape.
-
-## Accuracy note
-
-Rank fusion is a mongod-owned composition step. MongoT runs branch searches; it is not the component that fuses the final ranking.

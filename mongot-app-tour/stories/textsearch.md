@@ -153,7 +153,3 @@ A `nextBatch` can contain many documents. This example shows the first few and a
   "cursorsUnknown": []
 }
 ```
-
-## Accuracy note
-
-The client driver connects to mongod only. The first MongoT-facing command is created by mongod after aggregation planning reaches `$search`.

@@ -242,7 +242,3 @@ The authoritative index catalog can contain multiple entries, including indexes 
   "ok": 1.0
 }
 ```
-
-## Accuracy note
-
-This scenario includes active communication with mongod: MongoT reads MongoDB metadata and opens replication cursors.

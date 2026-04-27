@@ -168,7 +168,3 @@ These JSON documents use representative values. The command shapes match the cod
   }
 }
 ```
-
-## Accuracy note
-
-MongoT is not on the client write path. It sees writes after mongod records them and exposes them through the change stream cursor.

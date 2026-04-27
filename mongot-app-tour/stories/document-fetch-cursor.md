@@ -150,7 +150,3 @@ The `nextBatch` contains hit ids and scores for mongod's source-document lookup.
   "cursorsUnknown": []
 }
 ```
-
-## Accuracy note
-
-There is no Java driver second query to MongoT or MongoDB for the projected fields. The client driver sends aggregate work to mongod. mongod performs any required source document fetch as part of its own execution. Cursor cleanup can be a `killCursors` command when mongod already has enough MongoT hits.
