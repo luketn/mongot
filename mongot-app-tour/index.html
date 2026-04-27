@@ -650,7 +650,6 @@
       combined: "stories/combined.md",
       "document-fetch-cursor": "stories/document-fetch-cursor.md",
       mutations: "stories/mutations.md",
-      "all-together": "stories/all-together.md",
       shutdown: "stories/shutdown.md"
     });
 
@@ -1604,9 +1603,42 @@
         ? runtimeTimeline.phases
         : EMPTY_RUNTIME_TIMELINE.phases;
       const duration = runtimeTimeline.duration || DEFAULT_RUNTIME_TIMELINE_DURATION;
-      return phases.find(
+      const matchedPhase = phases.find(
         phase => timeSec >= phase.start && (timeSec < phase.end || phase.end === duration)
-      ) || phases[phases.length - 1] || EMPTY_RUNTIME_TIMELINE.phases[0];
+      );
+      if (matchedPhase) {
+        return matchedPhase;
+      }
+
+      const firstPhase = phases[0] || EMPTY_RUNTIME_TIMELINE.phases[0];
+      const lastPhase = phases[phases.length - 1] || firstPhase;
+      if (timeSec < firstPhase.start) {
+        return {
+          id: "intro-pause",
+          label: "Intro Pause",
+          focusKey: firstPhase.focusKey || "config",
+          start: 0,
+          end: firstPhase.start,
+          description: "",
+          classes: [],
+          streams: []
+        };
+      }
+
+      if (timeSec >= lastPhase.end) {
+        return {
+          id: "outro-pause",
+          label: "Outro Pause",
+          focusKey: lastPhase.focusKey || "lifecycle",
+          start: lastPhase.end,
+          end: duration,
+          description: "",
+          classes: [],
+          streams: []
+        };
+      }
+
+      return lastPhase || EMPTY_RUNTIME_TIMELINE.phases[0];
     }
 
     function getRuntimeTimelinePhases(runtimeTimelineDefinition) {
@@ -1673,8 +1705,9 @@
       const phaseIndex = phases.findIndex(candidatePhase => candidatePhase.id === phase.id);
       const previousPhase = phaseIndex > 0 ? phases[phaseIndex - 1] : null;
       const nextPhase = phaseIndex >= 0 && phaseIndex < phases.length - 1 ? phases[phaseIndex + 1] : null;
-      const previousEdges = previousPhase ? runtimePhaseEdgeSet(previousPhase) : null;
-      const nextEdges = nextPhase ? runtimePhaseEdgeSet(nextPhase) : null;
+      const timelineDuration = runtimeTimelineDefinition?.duration || DEFAULT_RUNTIME_TIMELINE_DURATION;
+      const previousEdges = previousPhase ? runtimePhaseEdgeSet(previousPhase) : phase.start > 0 ? new Set() : null;
+      const nextEdges = nextPhase ? runtimePhaseEdgeSet(nextPhase) : phase.end < timelineDuration ? new Set() : null;
       const localTime = timeSec - phase.start;
       const duration = phase.end - phase.start;
       const streams = (phase.streams || [])
