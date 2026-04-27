@@ -126,24 +126,6 @@
       pointer-events: none;
     }
 
-    .metric-pulse {
-      position: relative;
-      overflow: hidden;
-    }
-
-    .metric-pulse::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.1) 45%, transparent 100%);
-      transform: translateX(-130%);
-      animation: shimmer 6s linear infinite;
-    }
-
-    @keyframes shimmer {
-      to { transform: translateX(130%); }
-    }
-
     .graph-frame {
       height: 100%;
       min-height: 0;
@@ -425,7 +407,6 @@
       Box,
       Button,
       Chip,
-      Collapse,
       CssBaseline,
       Dialog,
       DialogContent,
@@ -467,21 +448,6 @@
       { id: "top:trace", name: "com.xgen.mongot.trace", short: "trace", description: "OpenTelemetry tracing helpers, exporters, sampling toggles, and trace parsing utilities. With DETAILED_TRACE_SPANS enabled, spans include full input BSON, Lucene query shape, sampled BSON results, and indexing update details.", complexity: 3, links: [] },
       { id: "top:util", name: "com.xgen.mongot.util", short: "util", description: "Shared foundation code: BSON/proto conversion, concurrency helpers, collections, versioning, and general utilities.", complexity: 8, links: ["com.xgen.proto", "com.xgen.mongot.metrics", "com.xgen.mongot.logging"] },
       { id: "top:proto", name: "com.xgen.proto", short: "proto", description: "BSON-aware protobuf runtime plus code-generation plugin for BSON-capable protobuf messages.", complexity: 4, links: [] }
-    ];
-
-    const indexPackages = [
-      { id: "index:analyzer", name: "com.xgen.mongot.index.analyzer", short: "analyzer", description: "Analyzer builders, providers, factories, and language-specific tokenization plumbing.", complexity: 6, links: ["com.xgen.mongot.index.definition", "com.xgen.mongot.index.lucene", "com.xgen.mongot.index.path", "com.xgen.mongot.index.query"] },
-      { id: "index:autoembedding", name: "com.xgen.mongot.index.autoembedding", short: "autoembedding", description: "Auto-embedding and materialized-view helpers that derive generated fields and coordinate embedding-oriented metadata.", complexity: 4, links: ["com.xgen.mongot.index.definition", "com.xgen.mongot.index.mongodb", "com.xgen.mongot.index.status", "com.xgen.mongot.index.version", "com.xgen.mongot.index.analyzer", "com.xgen.mongot.index.query"] },
-      { id: "index:blobstore", name: "com.xgen.mongot.index.blobstore", short: "blobstore", description: "Snapshotting hooks for persisting and restoring index state through blob storage.", complexity: 2, links: ["com.xgen.mongot.index.version"] },
-      { id: "index:definition", name: "com.xgen.mongot.index.definition", short: "definition", description: "Core schema model for search, vector, and view indexes, including field definitions, options, and validation logic.", complexity: 8, links: ["com.xgen.mongot.index.version", "com.xgen.mongot.index.analyzer", "com.xgen.mongot.index.query", "com.xgen.mongot.index.lucene", "com.xgen.mongot.index.path"] },
-      { id: "index:ingestion", name: "com.xgen.mongot.index.ingestion", short: "ingestion", description: "BSON document processing, field extraction, and ingestion-time transforms that feed Lucene indexing. Mutation traces show this work inside build document block before Lucene updateDocuments.", complexity: 5, links: ["com.xgen.mongot.index.definition", "com.xgen.mongot.index.lucene"] },
-      { id: "index:lucene", name: "com.xgen.mongot.index.lucene", short: "lucene", description: "The biggest execution layer: Lucene-backed indexing, search, highlighting, result shaping, commit management, and searcher orchestration. The trace runs separate text collect hits, exact vector candidate collection, BSON materialization, updateDocuments, deleteDocuments, commit, and refresh spans.", complexity: 10, links: ["com.xgen.mongot.index.query", "com.xgen.mongot.index.definition", "com.xgen.mongot.index.analyzer", "com.xgen.mongot.index.path", "com.xgen.mongot.index.ingestion", "com.xgen.mongot.index.version", "com.xgen.mongot.index.synonym", "com.xgen.mongot.index.status", "com.xgen.mongot.index.blobstore"] },
-      { id: "index:mongodb", name: "com.xgen.mongot.index.mongodb", short: "mongodb", description: "Narrow MongoDB-facing helpers for materialized-view writes and index-related state propagation.", complexity: 2, links: ["com.xgen.mongot.index.lucene", "com.xgen.mongot.index.status", "com.xgen.mongot.index.version"] },
-      { id: "index:path", name: "com.xgen.mongot.index.path", short: "path", description: "Shared path abstractions for dotted field-path parsing and traversal.", complexity: 2, links: [] },
-      { id: "index:query", name: "com.xgen.mongot.index.query", short: "query", description: "Query AST, operators, collectors, pagination, score shaping, and translation into Lucene execution. The reports expose BSON parse time and the generated Lucene query string/class on the build query span.", complexity: 9, links: ["com.xgen.mongot.index.path", "com.xgen.mongot.index.definition", "com.xgen.mongot.index.lucene"] },
-      { id: "index:status", name: "com.xgen.mongot.index.status", short: "status", description: "Index and synonym status enums and models used to expose lifecycle and readiness state.", complexity: 2, links: [] },
-      { id: "index:synonym", name: "com.xgen.mongot.index.synonym", short: "synonym", description: "Synonym mapping models, registries, and status tracking integrated with Lucene query behavior.", complexity: 3, links: ["com.xgen.mongot.index.status", "com.xgen.mongot.index.definition"] },
-      { id: "index:version", name: "com.xgen.mongot.index.version", short: "version", description: "Index format identifiers, generation metadata, and compatibility checks.", complexity: 3, links: [] }
     ];
 
     const bundledDependencies = [
@@ -851,6 +817,42 @@
     }
 
     const dependencyGroupTotals = groupTotals(bundledDependencies);
+    const LIBRARY_GROUP_SECONDS = 5;
+    const LIBRARY_GROUP_DESCRIPTIONS = Object.freeze({
+      "Cloud Integration": "Storage, cloud SDK, identity, and transfer libraries that support snapshot, blob-store, and cloud integration surfaces.",
+      Lucene: "The embedded search-engine payload: core Lucene, query parsing, analyzers, and language-specific dictionaries used by text and vector search.",
+      Compression: "Native and Java compression libraries used around storage, transport, archives, and efficient binary payload handling.",
+      "Utilities/Runtime": "General-purpose runtime support for collections, caching, math, I/O, resiliency, and helper APIs used across MongoT.",
+      "Security/Crypto": "Cryptographic providers and TLS/security support that sit underneath secure networking and credential flows.",
+      Logging: "Structured logging facades, bridges, and backends that route Java runtime logs into the expected logging surface.",
+      Monitoring: "Metrics, tracing, OS inspection, and exporter dependencies used to observe MongoT health and runtime behavior.",
+      Serialization: "JSON, YAML, and Java type binding libraries used for configuration, metadata, and wire-format-adjacent parsing.",
+      "HTTP/Networking": "HTTP client primitives used by cloud, service, and network integrations.",
+      "CLI/Runtime": "Command-line runtime support used by operational entrypoints and tooling surfaces.",
+      "Data Access": "The MongoDB Java driver dependency used by MongoT-owned metadata and replication clients when they talk to mongod."
+    });
+    const libraryGroups = Object.freeze(
+      Object.entries(dependencyGroupTotals)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, totalSize], index) => {
+          const dependencies = bundledDependencies
+            .filter(dep => dep.group === name)
+            .sort((a, b) => b.sizeMb - a.sizeMb);
+          return {
+            id: `library:${name}`,
+            nodeId: `group:${name}`,
+            name,
+            index,
+            start: index * LIBRARY_GROUP_SECONDS,
+            end: (index + 1) * LIBRARY_GROUP_SECONDS,
+            totalSize,
+            count: dependencies.length,
+            dependencies,
+            description: LIBRARY_GROUP_DESCRIPTIONS[name] || `${name} libraries bundled into the deployed MongoT application.`
+          };
+        })
+    );
+    const libraryTimelineDuration = libraryGroups.length * LIBRARY_GROUP_SECONDS;
 
     const STYLE_PRESETS = {
       aurora: {
@@ -1327,9 +1329,7 @@
     function getViewAnchorId(view, data) {
       const preferredId = view === "system"
         ? "top:index"
-        : view === "index"
-          ? "index:lucene"
-          : "root:runtime";
+        : "root:runtime";
       if (data.nodes.some(node => node.id === preferredId)) {
         return preferredId;
       }
@@ -1867,42 +1867,6 @@
       return { nodes, edges };
     }
 
-    function makeIndexGraph(searchTerm, minComplexity, preset) {
-      const kept = indexPackages.filter(pkg =>
-        pkg.complexity >= minComplexity &&
-        (searchTerm === "" ||
-          pkg.name.toLowerCase().includes(searchTerm) ||
-          pkg.description.toLowerCase().includes(searchTerm) ||
-          pkg.short.toLowerCase().includes(searchTerm))
-      );
-      const names = new Set(kept.map(pkg => pkg.name));
-      const nodes = kept.map(pkg => ({
-        id: pkg.id,
-        label: pkg.short,
-        title: pkg.name,
-        value: pkg.complexity * 8 + pkg.links.length * 2 + 12,
-        color: getNodeColor("index", pkg, preset),
-        item: pkg
-      }));
-      const nameToId = Object.fromEntries(kept.map(pkg => [pkg.name, pkg.id]));
-      const edges = [];
-      kept.forEach(pkg => {
-        pkg.links.forEach(link => {
-          if (names.has(link)) {
-            edges.push({
-              id: `${pkg.id}->${nameToId[link]}`,
-              from: pkg.id,
-              to: nameToId[link],
-              arrows: "to",
-              width: pkg.short === "lucene" ? 3.2 : 1.4,
-              color: { color: preset.edgeIndex, highlight: preset.hot }
-            });
-          }
-        });
-      });
-      return { nodes, edges };
-    }
-
     function makeDependencyGraph(searchTerm, minSize, groupFilter, preset) {
       const deps = bundledDependencies.filter(dep => {
         const matchesText =
@@ -1966,9 +1930,6 @@
         if (view === "system") {
           return makeTopGraph(searchTerm.toLowerCase(), threshold, preset);
         }
-        if (view === "index") {
-          return makeIndexGraph(searchTerm.toLowerCase(), threshold, preset);
-        }
         return makeDependencyGraph(searchTerm.toLowerCase(), threshold, groupFilter, preset);
       }, [view, searchTerm, threshold, groupFilter, preset]);
     }
@@ -1980,11 +1941,16 @@
       const orbitFrameRef = React.useRef(null);
       const overlayFrameRef = React.useRef(null);
       const orbitModelRef = React.useRef(null);
+      const selectedIdRef = React.useRef(selectedId);
       const timelineStateRef = React.useRef({ view, motionMode, timelineClock, preset, runtimeTimelineDefinition });
 
       React.useEffect(() => {
         timelineStateRef.current = { view, motionMode, timelineClock, preset, runtimeTimelineDefinition };
       }, [motionMode, preset, runtimeTimelineDefinition, timelineClock, view]);
+
+      React.useEffect(() => {
+        selectedIdRef.current = selectedId;
+      }, [selectedId]);
 
       React.useEffect(() => {
         if (!graphRef.current) {
@@ -2106,7 +2072,11 @@
           data.edges.map(edge => ({
             ...edge,
             width: (edge.width || 1) + effects.edgeBoost,
-            smooth: { enabled: true, type: isOrbitMode || isStoryOrderedMode ? "continuous" : "dynamic", roundness: isOrbitMode || isStoryOrderedMode ? 0.22 : 0.38 }
+            smooth: {
+              enabled: true,
+              type: isOrbitMode || isStoryOrderedMode ? "continuous" : "dynamic",
+              roundness: isOrbitMode || isStoryOrderedMode ? 0.22 : 0.38
+            }
           }))
         );
 
@@ -2153,6 +2123,22 @@
         networkRef.current = network;
         window.__mongotNetwork = network;
         window.__mongotEffects = effects;
+
+        const focusLibrarySelection = duration => {
+          if (view !== "deps") {
+            return;
+          }
+          const id = selectedIdRef.current;
+          if (!id || !data.nodes.some(node => node.id === id)) {
+            return;
+          }
+          network.selectNodes([id], false);
+          network.focus(id, {
+            scale: id.startsWith("group:") ? 1 : 1.16,
+            animation: { duration, easingFunction: "easeInOutCubic" }
+          });
+        };
+        let libraryFocusTimerId = null;
 
         if (isStoryOrderedMode) {
           network.fit({ animation: { duration: 440, easingFunction: "easeInOutCubic" } });
@@ -2227,11 +2213,22 @@
             animation: { duration: 440, easingFunction: "easeInOutCubic" }
           });
         } else if (!layoutFrozen && !isStoryOrderedMode) {
+          if (view === "deps") {
+            network.once("stabilizationIterationsDone", () => {
+              network.setOptions({ physics: false });
+              libraryFocusTimerId = window.setTimeout(() => {
+                focusLibrarySelection(520);
+              }, 120);
+            });
+          }
           network.stabilize(layoutMode === "spread" ? 240 : 180);
         }
 
         return () => {
           stopOrbit();
+          if (libraryFocusTimerId) {
+            window.clearTimeout(libraryFocusTimerId);
+          }
           networkRef.current = null;
           network.destroy();
         };
@@ -2441,6 +2438,13 @@
           }
           return;
         }
+        if (view === "deps") {
+          networkRef.current.focus(selectedId, {
+            scale: selectedId.startsWith("group:") ? 1 : 1.16,
+            animation: { duration: 520, easingFunction: "easeInOutCubic" }
+          });
+          return;
+        }
         networkRef.current.focus(selectedId, { scale: 1.25, animation: { duration: 420, easingFunction: "easeInOutCubic" } });
       }, [selectedId, data.nodes, layoutMode, motionMode, view]);
 
@@ -2452,71 +2456,15 @@
       );
     }
 
-    function StatCard({ label, value, tone }) {
-      return (
-        <Paper className="glass metric-pulse" sx={{ px: 1.5, py: 0.8, borderRadius: 3, minWidth: { xs: 124, xl: 156 } }}>
-          <Typography sx={{ color: "rgba(236,244,255,0.72)", fontSize: 11.5, lineHeight: 1.1 }}>{label}</Typography>
-          <Typography sx={{ color: tone, fontSize: 21, fontWeight: 700, lineHeight: 1 }}>{value}</Typography>
-        </Paper>
-      );
-    }
-
-    function PanelHeader({ eyebrow, title, subtitle, open, onToggle, action }) {
-      return (
-        <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
-          <Box sx={{ minWidth: 0 }}>
-            {eyebrow && (
-              <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: title || subtitle ? 0.5 : 0 }}>
-                {eyebrow}
-              </Typography>
-            )}
-            {title && (
-              <Typography sx={{ fontWeight: 700, lineHeight: 1.1 }}>
-                {title}
-              </Typography>
-            )}
-            {subtitle && (
-              <Typography sx={{ color: "var(--muted)", fontSize: 13.5, mt: title ? 0.5 : 0 }}>
-                {subtitle}
-              </Typography>
-            )}
-          </Box>
-          <Stack direction="row" spacing={0.8} alignItems="center" sx={{ flexShrink: 0 }}>
-            {action}
-            {onToggle && (
-              <IconButton
-                size="small"
-                onClick={onToggle}
-                sx={{
-                  color: "var(--text)",
-                  border: "1px solid var(--line)",
-                  background: "rgba(255,255,255,0.04)",
-                  "&:hover": { background: "rgba(255,255,255,0.1)" }
-                }}
-              >
-                <span className="material-icons" style={{ fontSize: 18 }}>
-                  {open ? "expand_less" : "expand_more"}
-                </span>
-              </IconButton>
-            )}
-          </Stack>
-        </Stack>
-      );
-    }
-
     function App() {
       const [view, setView] = React.useState("system");
       const [selectedId, setSelectedId] = React.useState("top:index");
       const [stylePresetId, setStylePresetId] = React.useState("plumRelay");
       const [nodeStyleId, setNodeStyleId] = React.useState("radarBloom");
       const [effectsId, setEffectsId] = React.useState("crisp");
-      const [layoutMode, setLayoutMode] = React.useState("story");
-      const [spacingPresetId, setSpacingPresetId] = React.useState("balanced");
-      const [layoutFrozen, setLayoutFrozen] = React.useState(false);
-      const [compactLabels, setCompactLabels] = React.useState(true);
-      const [motionMode, setMotionMode] = React.useState("timeline");
       const [runtimeTimelineDefinition, setRuntimeTimelineDefinition] = React.useState(EMPTY_RUNTIME_TIMELINE);
       const [timelineClock, setTimelineClock] = React.useState(0);
+      const [libraryClock, setLibraryClock] = React.useState(0);
       const [timelinePlaying, setTimelinePlaying] = React.useState(true);
       const [timelineSpeed, setTimelineSpeed] = React.useState(1);
       const [timelineLoop, setTimelineLoop] = React.useState(true);
@@ -2525,27 +2473,33 @@
       const [storyDetailMarkdown, setStoryDetailMarkdown] = React.useState("");
       const [storyDetailStatus, setStoryDetailStatus] = React.useState("idle");
       const [settingsOpen, setSettingsOpen] = React.useState(false);
-      const [controlsOpen, setControlsOpen] = React.useState(false);
-      const [viewerFullscreen, setViewerFullscreen] = React.useState(false);
       const lastTimelineFocusRef = React.useRef("");
-      const viewerShellRef = React.useRef(null);
       const storyPanelRef = React.useRef(null);
       const storyItemRefs = React.useRef({});
+      const libraryPanelRef = React.useRef(null);
+      const libraryItemRefs = React.useRef({});
       const stylePreset = STYLE_PRESETS[stylePresetId];
       const nodeStyle = NODE_STYLES[nodeStyleId];
       const effects = EFFECT_PRESETS[effectsId];
-      const spacingPreset = SPACING_PRESETS[spacingPresetId];
+      const layoutMode = "story";
+      const layoutFrozen = false;
+      const compactLabels = true;
+      const motionMode = view === "system" ? "timeline" : "ambient";
+      const spacingPreset = SPACING_PRESETS.balanced;
 
       const baseThreshold = view === "deps" ? 0 : 1;
       const data = useGraphData(view, "", baseThreshold, "All", stylePreset);
-      const orbitAnchorId = React.useMemo(() => getViewAnchorId(view, data), [view, data]);
-      const orbitAnchorLabel = React.useMemo(() => {
-        const anchorNode = data.nodes.find(node => node.id === orbitAnchorId);
-        return anchorNode?.item?.short || anchorNode?.label || "anchor";
-      }, [data.nodes, orbitAnchorId]);
       const runtimeTimelineDuration = runtimeTimelineDefinition.duration || DEFAULT_RUNTIME_TIMELINE_DURATION;
       const effectiveTimelineClock = Math.min(timelineClock, runtimeTimelineDuration);
-      const timelineLoopPauseActive = timelineLoop && timelinePlaying && timelineClock >= runtimeTimelineDuration;
+      const effectiveLibraryClock = Math.min(libraryClock, libraryTimelineDuration);
+      const activeDuration = view === "deps" ? libraryTimelineDuration : runtimeTimelineDuration;
+      const activeClock = view === "deps" ? effectiveLibraryClock : effectiveTimelineClock;
+      const activeLoopPause = timelineLoop && timelinePlaying && (view === "deps" ? libraryClock >= libraryTimelineDuration : timelineClock >= runtimeTimelineDuration);
+      const activePlaybackLabel = activeLoopPause
+        ? "Restart pause"
+        : timelinePlaying
+          ? `Playing ${timelineSpeed}x`
+          : "Paused";
       const activeRuntimeTimeline = React.useMemo(
         () => getActiveRuntimeStreams(runtimeTimelineDefinition, effectiveTimelineClock),
         [runtimeTimelineDefinition, effectiveTimelineClock]
@@ -2560,6 +2514,8 @@
         : null;
       const isTimelineView = view === "system" && motionMode === "timeline";
       const showStoryPanel = isTimelineView;
+      const showLibraryPanel = view === "deps";
+      const currentLibraryGroup = libraryGroups[Math.min(libraryGroups.length - 1, Math.floor(Math.min(effectiveLibraryClock, Math.max(0, libraryTimelineDuration - 0.001)) / LIBRARY_GROUP_SECONDS))] || libraryGroups[0];
       const issueViewerCommand = commandType => {
         setViewerCommand({ type: commandType, issuedAt: `${commandType}-${Date.now()}` });
       };
@@ -2601,11 +2557,10 @@
       }, []);
 
       React.useEffect(() => {
-        const fallback = view === "system" ? "top:index" : view === "index" ? "index:lucene" : "group:Cloud Integration";
+        const fallback = view === "system" ? "top:index" : currentLibraryGroup?.nodeId || "group:Cloud Integration";
         setSelectedId(fallback);
-        setLayoutFrozen(false);
         setStoryDetailId(null);
-      }, [view]);
+      }, [currentLibraryGroup?.nodeId, view]);
 
       React.useEffect(() => {
         if (!storyDetailId) {
@@ -2649,40 +2604,35 @@
       }, [storyDetailId]);
 
       React.useEffect(() => {
-        if (view !== "system" && motionMode === "timeline") {
-          setMotionMode("ambient");
-          setTimelinePlaying(false);
-        }
-      }, [motionMode, view]);
-
-      React.useEffect(() => {
         if (data.nodes.length === 0) {
           return;
         }
         const hasSelected = data.nodes.some(node => node.id === selectedId);
         if (!hasSelected) {
-          setSelectedId(data.nodes[0].id);
+          setSelectedId(view === "deps" ? currentLibraryGroup?.nodeId || data.nodes[0].id : data.nodes[0].id);
         }
-      }, [data.nodes, selectedId]);
+      }, [currentLibraryGroup?.nodeId, data.nodes, selectedId, view]);
 
       React.useEffect(() => {
-        if (motionMode !== "timeline" || !timelinePlaying || view !== "system") {
+        const playbackDuration = view === "deps" ? libraryTimelineDuration : runtimeTimelineDuration;
+        const setPlaybackClock = view === "deps" ? setLibraryClock : setTimelineClock;
+        if ((view !== "system" && view !== "deps") || !timelinePlaying || playbackDuration <= 0) {
           return undefined;
         }
 
         const intervalId = window.setInterval(() => {
           React.startTransition(() => {
-            setTimelineClock(current => {
+            setPlaybackClock(current => {
               const next = current + (0.033 * timelineSpeed);
               if (timelineLoop) {
-                const loopCycleDuration = runtimeTimelineDuration + LOOP_RESTART_PAUSE_SECONDS;
+                const loopCycleDuration = playbackDuration + LOOP_RESTART_PAUSE_SECONDS;
                 if (next >= loopCycleDuration) {
-                  return (next - loopCycleDuration) % runtimeTimelineDuration;
+                  return (next - loopCycleDuration) % playbackDuration;
                 }
                 return next;
               }
-              if (next >= runtimeTimelineDuration) {
-                return runtimeTimelineDuration;
+              if (next >= playbackDuration) {
+                return playbackDuration;
               }
               return next;
             });
@@ -2690,16 +2640,22 @@
         }, 33);
 
         return () => window.clearInterval(intervalId);
-      }, [motionMode, runtimeTimelineDuration, timelineLoop, timelinePlaying, timelineSpeed, view]);
+      }, [runtimeTimelineDuration, timelineLoop, timelinePlaying, timelineSpeed, view]);
 
       React.useEffect(() => {
-        if (!timelineLoop && timelinePlaying && view === "system" && motionMode === "timeline" && timelineClock >= runtimeTimelineDuration) {
+        if (timelineLoop || !timelinePlaying) {
+          return;
+        }
+        if (view === "system" && timelineClock >= runtimeTimelineDuration) {
           setTimelinePlaying(false);
         }
-      }, [motionMode, runtimeTimelineDuration, timelineClock, timelineLoop, timelinePlaying, view]);
+        if (view === "deps" && libraryClock >= libraryTimelineDuration) {
+          setTimelinePlaying(false);
+        }
+      }, [libraryClock, runtimeTimelineDuration, timelineClock, timelineLoop, timelinePlaying, view]);
 
       React.useEffect(() => {
-        if (view !== "system" || motionMode !== "timeline") {
+        if (!isTimelineView) {
           lastTimelineFocusRef.current = "";
           return;
         }
@@ -2712,7 +2668,7 @@
 
         lastTimelineFocusRef.current = focusToken;
         setSelectedId(focusId);
-      }, [currentTimelinePhase.focusKey, currentTimelinePhase.id, motionMode, view]);
+      }, [currentTimelinePhase.focusKey, currentTimelinePhase.id, isTimelineView]);
 
       React.useEffect(() => {
         if (!showStoryPanel) {
@@ -2737,31 +2693,43 @@
       }, [currentTimelinePhase.id, showStoryPanel, timelinePlaying]);
 
       React.useEffect(() => {
-        const syncFullscreen = () => {
-          setViewerFullscreen(Boolean(document.fullscreenElement || document.webkitFullscreenElement));
-        };
+        if (!showLibraryPanel || !currentLibraryGroup) {
+          return undefined;
+        }
 
-        document.addEventListener("fullscreenchange", syncFullscreen);
-        document.addEventListener("webkitfullscreenchange", syncFullscreen);
-        syncFullscreen();
+        const scrollFrame = window.requestAnimationFrame(() => {
+          const panel = libraryPanelRef.current;
+          const item = libraryItemRefs.current[currentLibraryGroup.id];
+          if (!panel || !item) {
+            return;
+          }
 
-        return () => {
-          document.removeEventListener("fullscreenchange", syncFullscreen);
-          document.removeEventListener("webkitfullscreenchange", syncFullscreen);
-        };
-      }, []);
+          const targetTop = item.offsetTop - (panel.clientHeight / 2) + (item.offsetHeight / 2);
+          panel.scrollTo({
+            top: Math.max(0, targetTop),
+            behavior: timelinePlaying ? "smooth" : "auto"
+          });
+        });
+
+        return () => window.cancelAnimationFrame(scrollFrame);
+      }, [currentLibraryGroup?.id, showLibraryPanel, timelinePlaying]);
 
       React.useEffect(() => {
+        if (view === "deps") {
+          return undefined;
+        }
         const timerId = window.setTimeout(() => {
           issueViewerCommand("fit");
         }, 200);
         return () => window.clearTimeout(timerId);
-      }, [controlsOpen, showStoryPanel, spacingPresetId, storyDetailId, viewerFullscreen]);
+      }, [showLibraryPanel, showStoryPanel, storyDetailId, view]);
 
       React.useEffect(() => {
-        if (!isTimelineView) {
+        if (view !== "system" && view !== "deps") {
           return undefined;
         }
+        const playbackDuration = view === "deps" ? libraryTimelineDuration : runtimeTimelineDuration;
+        const setPlaybackClock = view === "deps" ? setLibraryClock : setTimelineClock;
 
         const isEditableTarget = target => {
           if (!target || !(target instanceof HTMLElement)) {
@@ -2773,7 +2741,7 @@
 
         const scanTimeline = delta => {
           setTimelinePlaying(false);
-          setTimelineClock(current => Math.max(0, Math.min(runtimeTimelineDuration, current + delta)));
+          setPlaybackClock(current => Math.max(0, Math.min(playbackDuration, current + delta)));
         };
 
         const handleKeydown = event => {
@@ -2788,9 +2756,6 @@
               setTimelinePlaying(false);
               return;
             }
-            if (!timelineLoop && timelineClock >= runtimeTimelineDuration) {
-              setTimelineClock(0);
-            }
             setTimelinePlaying(true);
             return;
           }
@@ -2799,7 +2764,7 @@
             event.preventDefault();
             event.stopPropagation();
             setTimelinePlaying(false);
-            setTimelineClock(0);
+            setPlaybackClock(0);
             return;
           }
 
@@ -2821,113 +2786,44 @@
         return () => {
           window.removeEventListener("keydown", handleKeydown, true);
         };
-      }, [isTimelineView, runtimeTimelineDuration, settingsOpen, timelineClock, timelineLoop, timelinePlaying]);
+      }, [runtimeTimelineDuration, settingsOpen, timelinePlaying, view]);
 
-      const metrics = React.useMemo(() => {
-        if (view === "system") {
-          const central = [...topPackages].sort((a, b) => b.links.length - a.links.length)[0];
-          return {
-            one: { label: "Major Packages", value: topPackages.length, tone: stylePreset.support },
-            two: { label: "Highest Complexity", value: "10 / index", tone: stylePreset.hot },
-            three: { label: "Most Linked", value: central.short, tone: stylePreset.cool }
-          };
+      const setActiveClock = nextClock => {
+        if (view === "deps") {
+          setLibraryClock(nextClock);
+        } else {
+          setTimelineClock(nextClock);
         }
-        if (view === "index") {
-          return {
-            one: { label: "Index Subpackages", value: indexPackages.length, tone: stylePreset.warm },
-            two: { label: "Execution Peak", value: "lucene", tone: stylePreset.hot },
-            three: { label: "Query Layer", value: "query", tone: stylePreset.cool }
-          };
-        }
-        const biggestGroup = Object.entries(dependencyGroupTotals).sort((a, b) => b[1] - a[1])[0];
-        return {
-          one: { label: "Bundled Libraries", value: bundledDependencies.length, tone: stylePreset.cool },
-          two: { label: "Largest Group", value: biggestGroup[0], tone: stylePreset.support },
-          three: { label: "Largest Single Lib", value: "aws-crt", tone: stylePreset.warm }
-        };
-      }, [view, stylePreset]);
-
-      const layoutSummary = layoutMode === "story"
-        ? "Story Ordered keeps client, mongod, Server, hot runtime packages, and startup/shutdown support packages in a fixed left-to-right flow."
-        : layoutMode === "orbit"
-          ? `Orbit mode anchors the map around ${orbitAnchorLabel} and spins correlated nodes as satellites.`
-          : layoutMode === "spread"
-            ? "Spread mode adds more breathing room between labels and large nodes."
-            : "Flow mode keeps the graph loose and reactive so you can drag packages around freely.";
-      const layoutModeLabel = layoutMode === "story"
-        ? "story ordered"
-        : layoutMode === "orbit"
-          ? `orbiting ${orbitAnchorLabel}`
-          : layoutMode;
-      const spacingSummary = spacingPreset.summary;
-      const timelinePlaybackLabel = timelineLoopPauseActive
-        ? "Restart pause"
-        : timelinePlaying
-          ? `Playing ${timelineSpeed}x`
-          : "Paused";
-      const animationSummary = motionMode === "timeline"
-        ? `${currentTimelinePhase.label} at ${formatRuntimeClock(effectiveTimelineClock)} of ${formatRuntimeClock(runtimeTimelineDuration)}.`
-        : "Ambient mode shows the architecture without a runtime story overlaid on top.";
+      };
       const toggleTimelinePlayback = () => {
         if (timelinePlaying) {
           setTimelinePlaying(false);
           return;
         }
-        if (!timelineLoop && timelineClock >= runtimeTimelineDuration) {
-          setTimelineClock(0);
+        if (!timelineLoop && activeClock >= activeDuration) {
+          setActiveClock(0);
         }
         setTimelinePlaying(true);
-      };
-      const activateTimelineMode = () => {
-        if (view !== "system") {
-          setView("system");
-        }
-        setMotionMode("timeline");
-        if (!timelineLoop && timelineClock >= runtimeTimelineDuration) {
-          setTimelineClock(0);
-        }
-        setTimelinePlaying(true);
-        setSelectedId(getRuntimeNodeId(getRuntimePhaseAtTime(runtimeTimelineDefinition, effectiveTimelineClock).focusKey || "index"));
       };
       const jumpToRuntimePhase = phase => {
         if (!phase) {
           return;
         }
         setView("system");
-        setMotionMode("timeline");
         setTimelineClock(Math.max(0, Math.min(runtimeTimelineDuration, Number(phase.start) || 0)));
         setSelectedId(getRuntimeNodeId(phase.focusKey || "index"));
       };
-      const pauseTimeline = () => setTimelinePlaying(false);
-      const restartTimeline = () => {
-        setTimelineClock(0);
-        setTimelinePlaying(true);
-      };
-      const toggleViewerFullscreen = async () => {
-        const shell = viewerShellRef.current;
-        if (!shell) {
+      const jumpToLibraryGroup = group => {
+        if (!group) {
           return;
         }
-
-        try {
-          const activeFullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
-          if (activeFullscreenElement) {
-            if (document.exitFullscreen) {
-              await document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) {
-              document.webkitExitFullscreen();
-            }
-            return;
-          }
-
-          if (shell.requestFullscreen) {
-            await shell.requestFullscreen();
-          } else if (shell.webkitRequestFullscreen) {
-            shell.webkitRequestFullscreen();
-          }
-        } catch (error) {
-          console.error("Viewer fullscreen toggle failed", error);
-        }
+        setView("deps");
+        setLibraryClock(Math.max(0, Math.min(libraryTimelineDuration, Number(group.start) || 0)));
+        setSelectedId(group.nodeId);
+      };
+      const restartTimeline = () => {
+        setActiveClock(0);
+        setTimelinePlaying(true);
       };
       return (
         <Box className="app-shell" sx={{ background: stylePreset.shellBackground, minHeight: "100vh" }}>
@@ -2949,12 +2845,7 @@
                 <Stack direction="row" spacing={0.8} alignItems="center" flexWrap="wrap" useFlexGap>
                   <Tabs
                     value={view}
-                    onChange={(event, next) => {
-                      setView(next);
-                      if (next === "system") {
-                        setMotionMode("timeline");
-                      }
-                    }}
+                    onChange={(event, next) => setView(next)}
                     variant="scrollable"
                     allowScrollButtonsMobile
                     sx={{
@@ -2974,14 +2865,12 @@
                       }
                     }}
                   >
-                    <Tab value="system" label="Animation" />
-                    <Tab value="index" label="Index Core" />
+                    <Tab value="system" label="Packages" />
                     <Tab value="deps" label="Libraries" />
                   </Tabs>
                   <Button
                     variant="contained"
                     onClick={toggleTimelinePlayback}
-                    disabled={view !== "system"}
                     startIcon={<span className="material-icons" style={{ fontSize: 18 }}>{timelinePlaying ? "pause" : "play_arrow"}</span>}
                     sx={{ minHeight: 38, borderRadius: 999, color: "#08111d", background: stylePreset.cool, "&:hover": { background: stylePreset.cool } }}
                   >
@@ -2991,18 +2880,77 @@
                     aria-label="Restart animation"
                     title="Restart animation"
                     onClick={restartTimeline}
-                    disabled={view !== "system"}
                     sx={{ width: 38, height: 38, color: "var(--text)", border: "1px solid var(--line)" }}
                   >
                     <span className="material-icons" style={{ fontSize: 18 }}>replay</span>
                   </IconButton>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", md: 260, xl: 320 }, px: 0.5 }}>
+                    <Typography className="mini-note" sx={{ minWidth: 42 }}>
+                      {formatRuntimeClock(activeClock)}
+                    </Typography>
+                    <Slider
+                      aria-label="Playback position"
+                      value={activeClock}
+                      min={0}
+                      max={activeDuration}
+                      step={0.25}
+                      onChange={(event, next) => {
+                        setActiveClock(Array.isArray(next) ? next[0] : next);
+                        setTimelinePlaying(false);
+                      }}
+                      sx={{
+                        color: stylePreset.cool,
+                        flex: 1,
+                        minWidth: 110,
+                        "& .MuiSlider-thumb": { boxShadow: "0 0 0 6px rgba(255,255,255,0.08)" }
+                      }}
+                    />
+                    <Typography className="mini-note" sx={{ minWidth: 42 }}>
+                      {formatRuntimeClock(activeDuration)}
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant={timelineLoop ? "contained" : "outlined"}
+                    onClick={() => setTimelineLoop(current => !current)}
+                    startIcon={<span className="material-icons" style={{ fontSize: 17 }}>repeat</span>}
+                    sx={{
+                      minHeight: 38,
+                      borderRadius: 999,
+                      color: timelineLoop ? "#08111d" : "var(--text)",
+                      background: timelineLoop ? stylePreset.support : "transparent",
+                      borderColor: "var(--line)",
+                      "&:hover": { background: timelineLoop ? stylePreset.support : "rgba(255,255,255,0.08)" }
+                    }}
+                  >
+                    Loop
+                  </Button>
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    {[0.5, 1, 2].map(speed => (
+                      <Button
+                        key={speed}
+                        size="small"
+                        variant={timelineSpeed === speed ? "contained" : "outlined"}
+                        onClick={() => setTimelineSpeed(speed)}
+                        sx={{
+                          minWidth: 0,
+                          minHeight: 34,
+                          px: 1.15,
+                          borderRadius: 999,
+                          color: timelineSpeed === speed ? "#08111d" : "var(--text)",
+                          background: timelineSpeed === speed ? stylePreset.hot : "transparent",
+                          borderColor: "var(--line)",
+                          "&:hover": { background: timelineSpeed === speed ? stylePreset.hot : "rgba(255,255,255,0.08)" }
+                        }}
+                      >
+                        {speed}x
+                      </Button>
+                    ))}
+                  </Stack>
                 </Stack>
               </Stack>
 
               <Stack direction="row" spacing={1} alignItems="center" justifyContent={{ xs: "flex-start", xl: "flex-end" }} flexWrap="wrap" useFlexGap>
-                <StatCard {...metrics.one} />
-                <StatCard {...metrics.two} />
-                <StatCard {...metrics.three} />
                 <IconButton
                   aria-label="Open settings"
                   title="Settings"
@@ -3025,314 +2973,12 @@
           <Grid container spacing={0} sx={{ flex: 1, minHeight: 0 }}>
             <Grid item xs={12} sx={{ minWidth: 0, minHeight: 0, height: "100%", flexGrow: "1 !important" }}>
               <Stack
-                ref={viewerShellRef}
                 className="viewer-shell"
                 sx={{ minHeight: 0 }}
               >
-                <Paper
-                  className="glass"
-                  sx={{
-                    borderRadius: 6,
-                    p: 1.35,
-                    background: stylePreset.panelBackground
-                  }}
-                >
-                  <Stack spacing={1.15}>
-                    <PanelHeader
-                      eyebrow="Viewer"
-                      title="Layout and playback controls"
-                      subtitle={controlsOpen ? "Keep this open while arranging the graph, or collapse it for more canvas." : null}
-                      open={controlsOpen}
-                      onToggle={() => setControlsOpen(current => !current)}
-                      action={(
-                        <Stack direction="row" spacing={0.8}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={toggleViewerFullscreen}
-                            sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                          >
-                            {viewerFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => setSettingsOpen(true)}
-                            sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                          >
-                            Settings
-                          </Button>
-                        </Stack>
-                      )}
-                    />
-
-                    <Collapse in={controlsOpen}>
-                      <Stack spacing={1.15}>
-                        <Stack direction={{ xs: "column", md: "row" }} spacing={1.2} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
-                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                            <Chip label={`${data.nodes.length} nodes`} size="small" sx={chipStyles} />
-                            <Chip label={`${data.edges.length} edges`} size="small" sx={chipStyles} />
-                            <Chip label={view === "deps" ? "grouped by bundle role" : "imports shown as arrows"} size="small" sx={chipStyles} />
-                            <Chip label={layoutModeLabel} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
-                            <Chip label={`room ${spacingPreset.label.toLowerCase()}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
-                            <Chip label={motionMode === "timeline" ? "runtime timeline" : "ambient motion"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
-                          </Stack>
-                          {layoutMode !== "flow" && (
-                            <Typography className="mini-note">{layoutSummary}</Typography>
-                          )}
-                        </Stack>
-
-                        <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
-                          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                            {[
-                              { id: "story", label: "Story Ordered" },
-                              { id: "flow", label: "Flow" },
-                              { id: "spread", label: "Spread" },
-                              { id: "orbit", label: "Orbit" }
-                            ].map(option => (
-                              <Button
-                                key={option.id}
-                                size="small"
-                                variant={layoutMode === option.id ? "contained" : "outlined"}
-                                onClick={() => {
-                                  setLayoutMode(option.id);
-                                  setLayoutFrozen(false);
-                                }}
-                                sx={{
-                                  borderRadius: 999,
-                                  minWidth: 0,
-                                  color: layoutMode === option.id ? "#08111d" : "var(--text)",
-                                  background: layoutMode === option.id ? stylePreset.warm : "rgba(8, 17, 29, 0.28)",
-                                  borderColor: "var(--line)",
-                                  "&:hover": {
-                                    borderColor: stylePreset.warm,
-                                    background: layoutMode === option.id ? stylePreset.warm : "rgba(255,255,255,0.08)"
-                                  }
-                                }}
-                              >
-                                {option.label}
-                              </Button>
-                            ))}
-                          </Stack>
-
-                          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => issueViewerCommand("fit")}
-                              sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                            >
-                              Fit View
-                            </Button>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => issueViewerCommand("anchor")}
-                              sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                            >
-                              Center {orbitAnchorLabel}
-                            </Button>
-                            {layoutMode !== "orbit" && layoutMode !== "story" && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={() => issueViewerCommand("stabilize")}
-                                sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                              >
-                                Settle
-                              </Button>
-                            )}
-                            {layoutMode !== "story" && (
-                              <Button
-                                size="small"
-                                variant={layoutFrozen ? "contained" : "outlined"}
-                                onClick={() => setLayoutFrozen(current => !current)}
-                                sx={{
-                                  borderRadius: 999,
-                                  color: layoutFrozen ? "#08111d" : "var(--text)",
-                                  background: layoutFrozen ? stylePreset.cool : "transparent",
-                                  borderColor: "var(--line)"
-                                }}
-                              >
-                                {layoutMode === "orbit" ? (layoutFrozen ? "Resume Orbit" : "Pause Orbit") : (layoutFrozen ? "Unfreeze" : "Freeze")}
-                              </Button>
-                            )}
-                            <Button
-                              size="small"
-                              variant={compactLabels ? "contained" : "outlined"}
-                              onClick={() => setCompactLabels(current => !current)}
-                              sx={{
-                                borderRadius: 999,
-                                color: compactLabels ? "#08111d" : "var(--text)",
-                                background: compactLabels ? stylePreset.support : "transparent",
-                                borderColor: "var(--line)"
-                              }}
-                            >
-                              {compactLabels ? "Labels: Compact" : "Labels: Full"}
-                            </Button>
-                          </Stack>
-                        </Stack>
-
-                        <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
-                          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                            {Object.values(SPACING_PRESETS).map(option => (
-                              <Button
-                                key={option.id}
-                                size="small"
-                                variant={spacingPresetId === option.id ? "contained" : "outlined"}
-                                onClick={() => {
-                                  setSpacingPresetId(option.id);
-                                  setLayoutFrozen(false);
-                                }}
-                                sx={{
-                                  borderRadius: 999,
-                                  minWidth: 0,
-                                  color: spacingPresetId === option.id ? "#08111d" : "var(--text)",
-                                  background: spacingPresetId === option.id ? stylePreset.support : "transparent",
-                                  borderColor: "var(--line)"
-                                }}
-                              >
-                                {option.label}
-                              </Button>
-                            ))}
-                          </Stack>
-                          <Typography className="mini-note">{spacingSummary}</Typography>
-                        </Stack>
-
-                        <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
-                          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                            <Button
-                              size="small"
-                              variant={motionMode === "ambient" ? "contained" : "outlined"}
-                              onClick={() => {
-                                setMotionMode("ambient");
-                                setTimelinePlaying(false);
-                              }}
-                              sx={{
-                                borderRadius: 999,
-                                minWidth: 0,
-                                color: motionMode === "ambient" ? "#08111d" : "var(--text)",
-                                background: motionMode === "ambient" ? stylePreset.support : "rgba(8, 17, 29, 0.28)",
-                                borderColor: "var(--line)"
-                              }}
-                            >
-                              Ambient
-                            </Button>
-                            <Button
-                              size="small"
-                              variant={motionMode === "timeline" ? "contained" : "outlined"}
-                              onClick={activateTimelineMode}
-                              sx={{
-                                borderRadius: 999,
-                                minWidth: 0,
-                                color: motionMode === "timeline" ? "#08111d" : "var(--text)",
-                                background: motionMode === "timeline" ? stylePreset.cool : "rgba(8, 17, 29, 0.28)",
-                                borderColor: "var(--line)"
-                              }}
-                            >
-                              Timeline
-                            </Button>
-                          </Stack>
-
-                          {isTimelineView && (
-                            <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                              <Button
-                                size="small"
-                                variant={timelinePlaying ? "contained" : "outlined"}
-                                onClick={toggleTimelinePlayback}
-                                sx={{
-                                  borderRadius: 999,
-                                  color: timelinePlaying ? "#08111d" : "var(--text)",
-                                  background: timelinePlaying ? stylePreset.warm : "transparent",
-                                  borderColor: "var(--line)"
-                                }}
-                              >
-                                {timelinePlaying ? "Pause Timeline" : "Play Timeline"}
-                              </Button>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={restartTimeline}
-                                sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                              >
-                                Restart
-                              </Button>
-                              {[
-                                { id: "once", label: "Once", active: !timelineLoop, onClick: () => setTimelineLoop(false) },
-                                { id: "loop", label: "Loop", active: timelineLoop, onClick: () => setTimelineLoop(true) }
-                              ].map(option => (
-                                <Button
-                                  key={option.id}
-                                  size="small"
-                                  variant={option.active ? "contained" : "outlined"}
-                                  onClick={option.onClick}
-                                  sx={{
-                                    borderRadius: 999,
-                                    minWidth: 0,
-                                    color: option.active ? "#08111d" : "var(--text)",
-                                    background: option.active ? stylePreset.support : "transparent",
-                                    borderColor: "var(--line)"
-                                  }}
-                                >
-                                  {option.label}
-                                </Button>
-                              ))}
-                              {[1, 2, 4].map(speed => (
-                                <Button
-                                  key={speed}
-                                  size="small"
-                                  variant={timelineSpeed === speed ? "contained" : "outlined"}
-                                  onClick={() => setTimelineSpeed(speed)}
-                                  sx={{
-                                    borderRadius: 999,
-                                    minWidth: 0,
-                                    color: timelineSpeed === speed ? "#08111d" : "var(--text)",
-                                    background: timelineSpeed === speed ? stylePreset.hot : "transparent",
-                                    borderColor: "var(--line)"
-                                  }}
-                                >
-                                  {speed}x
-                                </Button>
-                              ))}
-                            </Stack>
-                          )}
-                        </Stack>
-
-                        {isTimelineView && (
-                          <Stack spacing={0.7}>
-                            <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
-                              <Chip label={`${formatRuntimeClock(effectiveTimelineClock)} / ${formatRuntimeClock(runtimeTimelineDuration)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
-                              <Chip label={timelineLoopPauseActive ? `${LOOP_RESTART_PAUSE_SECONDS}s restart pause` : timelineLoop ? "Looping enabled" : "Stops at the end"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
-                            </Stack>
-                            <Slider
-                              value={effectiveTimelineClock}
-                              min={0}
-                              max={runtimeTimelineDuration}
-                              step={0.25}
-                              onChange={(event, next) => {
-                                setTimelineClock(Array.isArray(next) ? next[0] : next);
-                                pauseTimeline();
-                              }}
-                              sx={{
-                                color: stylePreset.cool,
-                                width: "100%",
-                                "& .MuiSlider-thumb": { boxShadow: "0 0 0 6px rgba(255,255,255,0.08)" }
-                              }}
-                            />
-                            <Typography className="mini-note">{animationSummary}</Typography>
-                          </Stack>
-                        )}
-                      </Stack>
-                    </Collapse>
-                  </Stack>
-                </Paper>
-
                 <Box
                   className="viewer-stage"
-                  sx={{
-                    minHeight: 0,
-                    height: viewerFullscreen ? "100%" : "auto"
-                  }}
+                  sx={{ minHeight: 0 }}
                 >
                   <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} alignItems="stretch" sx={{ flex: 1, minHeight: 0 }}>
                     {showStoryPanel && (
@@ -3358,7 +3004,7 @@
                                 Stories
                               </Typography>
                               <Typography sx={{ fontWeight: 700 }}>
-                                {timelinePlaybackLabel}
+                                {activePlaybackLabel}
                               </Typography>
                             </Box>
                             <Chip label={`${formatRuntimeClock(effectiveTimelineClock)} / ${formatRuntimeClock(runtimeTimelineDuration)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
@@ -3466,6 +3112,110 @@
                                             borderColor: resolveTimelineColor(stream.colorKey, stylePreset),
                                             background: hexToRgba(resolveTimelineColor(stream.colorKey, stylePreset), 0.1)
                                           }}
+                                        />
+                                      ))}
+                                    </Stack>
+                                  )}
+                                </Stack>
+                              </Box>
+                            );
+                          })}
+                        </Stack>
+                      </Paper>
+                    )}
+
+                    {showLibraryPanel && currentLibraryGroup && (
+                      <Paper
+                        ref={libraryPanelRef}
+                        className="glass hidden-scrollbar"
+                        sx={{
+                          borderRadius: 0,
+                          p: 1.4,
+                          width: { xs: "100%", lg: 380 },
+                          height: { xs: "auto", lg: "100%" },
+                          maxHeight: { xs: "none", lg: "100%" },
+                          overflow: "auto",
+                          background: stylePreset.panelBackground,
+                          borderColor: hexToRgba(stylePreset.cool, 0.26),
+                          flexShrink: 0
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                            <Box>
+                              <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.4 }}>
+                                Library Groups
+                              </Typography>
+                              <Typography sx={{ fontWeight: 700 }}>
+                                {activePlaybackLabel}
+                              </Typography>
+                            </Box>
+                            <Chip label={`${formatRuntimeClock(effectiveLibraryClock)} / ${formatRuntimeClock(libraryTimelineDuration)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
+                          </Stack>
+
+                          {libraryGroups.map((group, index) => {
+                            const isActiveGroup = group.id === currentLibraryGroup.id;
+                            const topDependencies = group.dependencies.slice(0, isActiveGroup ? 4 : 2);
+                            return (
+                              <Box
+                                ref={element => {
+                                  if (element) {
+                                    libraryItemRefs.current[group.id] = element;
+                                  } else {
+                                    delete libraryItemRefs.current[group.id];
+                                  }
+                                }}
+                                key={group.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => jumpToLibraryGroup(group)}
+                                onKeyDown={event => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    jumpToLibraryGroup(group);
+                                  }
+                                }}
+                                sx={{
+                                  borderRadius: 3,
+                                  p: 1.15,
+                                  cursor: "pointer",
+                                  border: `1px solid ${isActiveGroup ? stylePreset.warm : "var(--line)"}`,
+                                  background: isActiveGroup
+                                    ? `linear-gradient(180deg, ${hexToRgba(stylePreset.warm, 0.16)}, ${hexToRgba(stylePreset.cool, 0.07)})`
+                                    : "rgba(255,255,255,0.035)",
+                                  boxShadow: isActiveGroup ? `0 0 0 1px ${hexToRgba(stylePreset.warm, 0.18)}` : "none",
+                                  "&:hover": {
+                                    borderColor: stylePreset.warm,
+                                    background: isActiveGroup ? hexToRgba(stylePreset.warm, 0.17) : "rgba(255,255,255,0.07)"
+                                  }
+                                }}
+                              >
+                                <Stack spacing={0.75}>
+                                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                                    <Typography sx={{ fontWeight: 700, lineHeight: 1.15, minWidth: 0 }}>
+                                      {index + 1}. {group.name}
+                                    </Typography>
+                                    <Chip
+                                      label={`${formatRuntimeClock(group.start)}-${formatRuntimeClock(group.end)}`}
+                                      size="small"
+                                      sx={{ ...chipStyles, borderColor: isActiveGroup ? stylePreset.warm : "var(--line)", flexShrink: 0 }}
+                                    />
+                                  </Stack>
+                                  <Typography sx={{ color: isActiveGroup ? "rgba(236,244,255,0.88)" : "var(--muted)", fontSize: 12.6, lineHeight: 1.45 }}>
+                                    {group.description}
+                                  </Typography>
+                                  <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
+                                    <Chip label={`${group.count} libraries`} size="small" sx={chipStyles} />
+                                    <Chip label={titleCaseSize(group.totalSize)} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
+                                  </Stack>
+                                  {topDependencies.length > 0 && (
+                                    <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
+                                      {topDependencies.map(dep => (
+                                        <Chip
+                                          key={dep.id}
+                                          label={dep.name.split(":")[1] || dep.name}
+                                          size="small"
+                                          sx={classChipStyles}
                                         />
                                       ))}
                                     </Stack>
