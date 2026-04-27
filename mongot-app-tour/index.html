@@ -513,8 +513,7 @@
       system: [
         { key: "top:config", title: "MongoT Bootstrap", body: "MongoT wires config, catalog, tracing, metrics, lifecycle managers, cursors, and the server package before it can serve search streams.", classes: ["MongotCommunity", "CommunityMongotBootstrapper", "DefaultConfigManager"] },
         { key: "top:index", title: "Index Ready", body: "Lifecycle prepares Lucene readers and durable replication state. Metrics and traces are active before request traffic enters the graph.", classes: ["DefaultLifecycleManager", "IndexLifecycleManager", "InitializedLuceneSearchIndex"] },
-        { key: "top:mongod", title: "Client to mongod Dispatch", body: "The client uses the MongoDB Java driver to send aggregate/getMore to mongod. The driver never opens a direct MongoT connection; mongod owns the $search gRPC command stream.", classes: ["MongoCollectionImpl", "AggregateOperationImpl", "SyncOperationHelper", "GrpcStreamingServer"] },
-        { key: "top:server", title: "Search Command Streams", body: "Text, vector, and rank-fusion requests move from MongoT Server through Cursor into the index package, with observability emitted alongside the work.", classes: ["SearchCommand", "LuceneSearchIndexReader", "LuceneVectorSearchManager"] },
+        { key: "top:server", title: "Search Request Boundary", body: "The client sends aggregate/getMore to mongod only. mongod owns the $search gRPC stream into MongoT Server, then MongoT routes through Cursor into the index package.", classes: ["MongoCollectionImpl", "GrpcStreamingServer", "SearchCommand", "LuceneSearchIndexReader"] },
         { key: "top:cursor", title: "Document Fetch + getMore", body: "When Stored Source does not contain requested fields, mongod fetches the missing document data. getMore keeps the same client to mongod to MongoT boundary.", classes: ["IdLookupFactory", "ProjectFactory", "CommandCursor", "CommandBatchCursorHelper"] },
         { key: "top:replication", title: "Indexed Updates", body: "Insert/delete activity writes to mongod first. MongoT observes those changes later through replication and updates Lucene asynchronously.", classes: ["MongoDbReplicationManager", "ChangeStreamManager", "IndexingWorkScheduler"] },
         { key: "top:lifecycle", title: "Shutdown", body: "Shutdown drains command streams and cursors, closes lifecycle/index resources, and lets logging, tracing, and metrics finish cleanly.", classes: ["DefaultLifecycleManager", "IndexLifecycleManager", "CursorManager", "GrpcStreamingServer"] }
@@ -1380,6 +1379,13 @@
       ) || phases[phases.length - 1] || EMPTY_RUNTIME_TIMELINE.phases[0];
     }
 
+    function getRuntimeTimelinePhases(runtimeTimelineDefinition) {
+      const runtimeTimeline = runtimeTimelineDefinition || EMPTY_RUNTIME_TIMELINE;
+      return Array.isArray(runtimeTimeline.phases) && runtimeTimeline.phases.length > 0
+        ? runtimeTimeline.phases
+        : EMPTY_RUNTIME_TIMELINE.phases;
+    }
+
     function getTimelineStreamModulation(stream, localTime, phaseDuration) {
       switch (stream.modulation) {
         case "burst":
@@ -1398,23 +1404,41 @@
       }
     }
 
-    function getTimelineEnvelope(phase, timeSec) {
-      const ramp = Math.min(0.95, Math.max(0.45, (phase.end - phase.start) * 0.12));
-      const intro = smoothstep(phase.start, phase.start + ramp, timeSec);
-      const outro = 1 - smoothstep(phase.end - ramp, phase.end, timeSec);
+    function getTimelineTransitionDuration(phase) {
+      return Math.min(1.35, Math.max(0.65, (phase.end - phase.start) * 0.18));
+    }
+
+    function getTimelineEnvelope(phase, timeSec, isFirstPhase = false, isLastPhase = false) {
+      const transition = getTimelineTransitionDuration(phase);
+      const introStart = isFirstPhase ? phase.start : phase.start - transition;
+      const introEnd = isFirstPhase ? phase.start + transition * 0.65 : phase.start + transition * 0.35;
+      const outroStart = isLastPhase ? phase.end - transition * 0.65 : phase.end - transition * 0.35;
+      const outroEnd = isLastPhase ? phase.end : phase.end + transition;
+      const intro = smoothstep(introStart, introEnd, timeSec);
+      const outro = 1 - smoothstep(outroStart, outroEnd, timeSec);
       return clamp(intro * outro, 0, 1);
     }
 
     function getActiveRuntimeStreams(runtimeTimelineDefinition, timeSec) {
       const phase = getRuntimePhaseAtTime(runtimeTimelineDefinition, timeSec);
-      const localTime = timeSec - phase.start;
-      const duration = phase.end - phase.start;
-      const envelope = getTimelineEnvelope(phase, timeSec);
-      const streams = phase.streams
-        .map(stream => ({
-          ...stream,
-          alpha: clamp(stream.intensity * envelope * getTimelineStreamModulation(stream, localTime, duration), 0, 1)
-        }))
+      const phases = getRuntimeTimelinePhases(runtimeTimelineDefinition);
+      const streams = phases
+        .flatMap((candidatePhase, phaseIndex) => {
+          const transition = getTimelineTransitionDuration(candidatePhase);
+          const isFirstPhase = phaseIndex === 0;
+          const isLastPhase = phaseIndex === phases.length - 1;
+          if (timeSec < candidatePhase.start - (isFirstPhase ? 0 : transition) || timeSec > candidatePhase.end + (isLastPhase ? 0 : transition)) {
+            return [];
+          }
+          const localTime = timeSec - candidatePhase.start;
+          const duration = candidatePhase.end - candidatePhase.start;
+          const envelope = getTimelineEnvelope(candidatePhase, timeSec, isFirstPhase, isLastPhase);
+          return (candidatePhase.streams || []).map(stream => ({
+            ...stream,
+            phaseId: candidatePhase.id,
+            alpha: clamp(stream.intensity * envelope * getTimelineStreamModulation(stream, localTime, duration), 0, 1)
+          }));
+        })
         .filter(stream => stream.alpha > 0.08);
       return { phase, streams };
     }
@@ -3433,6 +3457,7 @@
                           {runtimeTimelinePhases.map((phase, index) => {
                             const isActivePhase = phase.id === currentTimelinePhase.id;
                             const phaseClasses = Array.isArray(phase.classes) ? phase.classes : [];
+                            const phaseActiveStreams = timelineActiveStreams.filter(stream => !stream.phaseId || stream.phaseId === phase.id);
                             return (
                               <Box
                                 ref={element => {
@@ -3488,9 +3513,9 @@
                                       ))}
                                     </Stack>
                                   )}
-                                  {isActivePhase && timelineActiveStreams.length > 0 && (
+                                  {isActivePhase && phaseActiveStreams.length > 0 && (
                                     <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
-                                      {timelineActiveStreams.map(stream => (
+                                      {phaseActiveStreams.map(stream => (
                                         <Chip
                                           key={stream.id}
                                           label={stream.label}

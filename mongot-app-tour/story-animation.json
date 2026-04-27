@@ -268,149 +268,25 @@
       ]
     },
     {
-      "id": "client-dispatch",
-      "label": "Client to mongod Dispatch",
-      "focusKey": "mongod",
-      "start": 12,
-      "end": 20,
-      "description": "The client uses the MongoDB Java driver and sends aggregate/getMore to mongod only. mongod owns aggregation execution; when the pipeline reaches $search, mongod opens the gRPC command stream into MongoT.",
-      "classes": [
-        "MongoCollectionImpl",
-        "AggregateOperationImpl",
-        "SyncOperationHelper",
-        "GrpcStreamingServer"
-      ],
-      "streams": [
-        {
-          "id": "client-to-mongod",
-          "label": "aggregate command",
-          "colorKey": "cool",
-          "width": 3.3,
-          "intensity": 0.96,
-          "tempo": 1.45,
-          "particles": 4,
-          "modulation": "surge",
-          "edges": [
-            [
-              "client",
-              "mongod"
-            ]
-          ]
-        },
-        {
-          "id": "mongod-to-mongot",
-          "label": "gRPC search command",
-          "colorKey": "warm",
-          "width": 3.8,
-          "intensity": 1,
-          "tempo": 1.7,
-          "particles": 5,
-          "modulation": "burst",
-          "edges": [
-            [
-              "mongod",
-              "server"
-            ],
-            [
-              "server",
-              "cursor"
-            ],
-            [
-              "server",
-              "trace"
-            ]
-          ]
-        },
-        {
-          "id": "client-dispatch-replication-trickle",
-          "label": "change stream trickle",
-          "colorKey": "cool",
-          "width": 1.45,
-          "intensity": 0.34,
-          "tempo": 0.72,
-          "particles": 1,
-          "modulation": "ping",
-          "edges": [
-            [
-              "mongod",
-              "replication"
-            ],
-            [
-              "replication",
-              "index"
-            ]
-          ]
-        },
-        {
-          "id": "client-dispatch-support-trickle",
-          "label": "support package trickle",
-          "colorKey": "support",
-          "width": 1.35,
-          "intensity": 0.3,
-          "tempo": 0.68,
-          "particles": 1,
-          "modulation": "ping",
-          "edges": [
-            [
-              "server",
-              "util"
-            ],
-            [
-              "server",
-              "featureflag"
-            ],
-            [
-              "server",
-              "logging"
-            ],
-            [
-              "server",
-              "catalog"
-            ]
-          ]
-        },
-        {
-          "id": "client-dispatch-observability",
-          "label": "metrics + traces",
-          "colorKey": "support",
-          "width": 1.8,
-          "intensity": 0.48,
-          "tempo": 0.95,
-          "particles": 2,
-          "modulation": "ping",
-          "edges": [
-            [
-              "server",
-              "metrics"
-            ],
-            [
-              "server",
-              "trace"
-            ]
-          ]
-        }
-      ]
-    },
-    {
       "id": "textsearch",
       "label": "Text Search",
       "focusKey": "server",
-      "start": 20,
-      "end": 27,
-      "description": "A text $search follows the same boundary: client aggregate to mongod, mongod gRPC to MongoT, then SearchCommand, cursor, and Lucene text execution.",
+      "start": 12,
+      "end": 22,
+      "description": "A text $search makes the boundary concrete: the Java driver sends aggregate to mongod only, mongod opens the gRPC stream to MongoT Server, and MongoT routes through Cursor into Lucene text execution.",
       "classes": [
+        "MongoCollectionImpl",
+        "GrpcStreamingServer",
         "SearchCommand",
-        "SearchQuery",
-        "LuceneSearchIndexReader",
-        "LuceneSearchBatchProducer"
+        "LuceneSearchIndexReader"
       ],
       "streams": [
         {
           "id": "text-boundary",
-          "label": "client -> mongod -> mongot",
+          "label": "aggregate + gRPC search",
           "colorKey": "warm",
-          "width": 3.6,
-          "intensity": 0.96,
+          "width": 3.8,
+          "intensity": 1,
           "tempo": 1.9,
           "particles": 5,
           "modulation": "burst",
@@ -535,8 +411,8 @@
       "id": "vectorsearch",
       "label": "Vector Search",
       "focusKey": "index",
-      "start": 27,
-      "end": 34,
+      "start": 22,
+      "end": 30,
       "description": "The client prepares vector input before aggregate. MongoT receives the vector search through mongod and spends command time in vector query build and candidate collection.",
       "classes": [
         "VectorSearchOperator",
@@ -675,8 +551,8 @@
       "id": "combined",
       "label": "Rank Fusion",
       "focusKey": "mongod",
-      "start": 34,
-      "end": 41,
+      "start": 30,
+      "end": 38,
       "description": "$rankFusion is not one monolithic MongoT request. mongod runs the fusion and opens separate MongoT streams for the text/default and vector/vector_caption sub-pipelines.",
       "classes": [
         "AggregateOperationImpl",
@@ -823,8 +699,8 @@
       "id": "document-fetch-cursor",
       "label": "Document Fetch + getMore",
       "focusKey": "cursor",
-      "start": 41,
-      "end": 48,
+      "start": 38,
+      "end": 47,
       "description": "If requested fields are not returned from Lucene Stored Source, mongod fetches them from matched MongoDB documents. Cursor continuation follows the same boundary: client getMore goes to mongod, and mongod coordinates any continued MongoT result streaming.",
       "classes": [
         "IdLookupFactory",
@@ -995,7 +871,7 @@
       "id": "mutations",
       "label": "Inserts + Deletes",
       "focusKey": "replication",
-      "start": 48,
+      "start": 47,
       "end": 53,
       "description": "Mutation requests write to mongod first. MongoT sees the changes later through change streams, then emits decode, document event, Lucene update/delete, commit, and refresh spans.",
       "classes": [
