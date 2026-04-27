@@ -8,20 +8,17 @@ MongoT resolves the target Lucene index, converts the BSON vector query into int
 
 ## Example client operation
 
-```java
-List<Double> embedding = List.of(0.12, -0.03, 0.44, 0.18);
-
-collection.aggregate(List.of(
-    new Document("$vectorSearch",
-        new Document("index", "vector_caption")
-            .append("path", "captionEmbedding")
-            .append("queryVector", embedding)
-            .append("numCandidates", 50)
-            .append("limit", 25)),
-    new Document("$project",
-        new Document("caption", 1)
-            .append("score", new Document("$meta", "vectorSearchScore")))
-));
+```javascript
+collection.aggregate([
+  {
+    "$vectorSearch": {
+      path: "captionEmbedding",
+      queryVector: [0.12, -0.03, 0.44, 0.18],
+      numCandidates: 50,
+      limit: 25
+    }
+  }
+]);
 ```
 
 ## Walkthrough
@@ -60,11 +57,11 @@ collection.aggregate(List.of(
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above. The vector command body is summarized in markdown by replacing the full vector with `queryVectorSummary`.
+These examples use real message field names. Long arrays may be shortened with ellipses; no replacement fields are introduced.
 
-### mongod -> MongoT: gRPC vectorSearch command body summary
+### mongod -> MongoT: gRPC vectorSearch command body
 
-```json
+```jsonc
 {
   "vectorSearch": "image",
   "collectionUUID": {
@@ -75,24 +72,20 @@ These JSON documents use representative values. The command shapes match the cod
   },
   "index": "vector_caption",
   "path": "captionEmbedding",
-  "queryVectorSummary": {
-    "length": 768,
-    "first8": [
-      -0.018413003534078598,
-      0.039294157177209854,
-      -0.1552632749080658,
-      0.028887825086712837,
-      0.022704750299453735,
-      0.05024779215455055,
-      0.019792508333921432,
-      0.012846584431827068
-    ],
-    "last3": [
-      0.017677120864391327,
-      -0.044313110411167145,
-      -0.008208148181438446
-    ]
-  },
+  "queryVector": [
+    -0.018413003534078598,
+    0.039294157177209854,
+    -0.1552632749080658,
+    0.028887825086712837,
+    0.022704750299453735,
+    0.05024779215455055,
+    0.019792508333921432,
+    0.012846584431827068,
+    // ... 757 more vector values ...
+    0.017677120864391327,
+    -0.044313110411167145,
+    -0.008208148181438446
+  ],
   "numCandidates": 50,
   "limit": 25,
   "$db": "clientDb"
@@ -101,7 +94,7 @@ These JSON documents use representative values. The command shapes match the cod
 
 ### MongoT -> mongod: vector result batch
 
-```json
+```jsonc
 {
   "cursor": {
     "id": 0,
@@ -119,6 +112,7 @@ These JSON documents use representative values. The command shapes match the cod
         "_id": 334699,
         "$vectorSearchScore": 0.9083335995674133
       },
+      // ... additional result documents ...
       {
         "_id": 423875,
         "$vectorSearchScore": 0.8838289976119995
@@ -128,5 +122,3 @@ These JSON documents use representative values. The command shapes match the cod
   "ok": 1
 }
 ```
-
-A `nextBatch` can contain many documents. This example shows the first few and a later document from the same batch shape.

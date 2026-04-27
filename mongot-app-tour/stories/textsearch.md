@@ -6,18 +6,17 @@ A generic application client uses the MongoDB Java driver to send an aggregate c
 
 ## Example client operation
 
-```java
-collection.aggregate(List.of(
-    new Document("$search",
-        new Document("index", "default")
-            .append("text", new Document("path", "caption")
-                .append("query", "motorcycle"))),
-    new Document("$project",
-        new Document("_id", 1)
-            .append("caption", 1)
-            .append("score", new Document("$meta", "searchScore"))),
-    new Document("$limit", 25)
-));
+```javascript
+collection.aggregate([
+  {
+    "$search": {
+      text: {
+        path: "caption",
+        query: "motorcycle"
+      }
+    }
+  }
+]);
 ```
 
 ## Walkthrough
@@ -62,7 +61,7 @@ collection.aggregate(List.of(
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above. Long result arrays are shortened in the markdown.
+These examples use real message field names. Long arrays may be shortened with ellipses; no replacement fields are introduced.
 
 ### mongod -> MongoT: gRPC search command body
 
@@ -91,7 +90,7 @@ These JSON documents use representative values. The command shapes match the cod
 
 ### MongoT -> mongod: first search batch
 
-```json
+```jsonc
 {
   "cursor": {
     "id": 1757498206156953391,
@@ -109,6 +108,7 @@ These JSON documents use representative values. The command shapes match the cod
         "_id": 469139,
         "$searchScore": 2.7823147773742676
       },
+      // ... additional result documents ...
       {
         "_id": 115741,
         "$searchScore": 2.284923791885376
@@ -125,8 +125,6 @@ These JSON documents use representative values. The command shapes match the cod
   "ok": 1
 }
 ```
-
-A `nextBatch` can contain many documents. This example shows the first few and a later document from the same batch shape.
 
 ### mongod -> MongoT: cursor cleanup
 

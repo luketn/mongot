@@ -6,27 +6,43 @@ This scenario covers a query where mongod combines more than one search-producin
 
 ## Example client operation
 
-```java
-collection.aggregate(List.of(
-    new Document("$rankFusion",
-        new Document("input",
-            new Document("pipelines",
-                new Document("text", List.of(
-                    new Document("$search",
-                        new Document("index", "default")
-                            .append("text", new Document("path", "caption")
-                                .append("query", "motorcycle")))))
-                    .append("vector", List.of(
-                        new Document("$vectorSearch",
-                            new Document("index", "vector_caption")
-                                .append("path", "captionEmbedding")
-                                .append("queryVector", List.of(0.31, -0.11, 0.07))
-                                .append("numCandidates", 50)
-                                .append("limit", 20)))))))
-            .append("combination", new Document("weights",
-                new Document("text", 0.6).append("vector", 0.4)))),
-    new Document("$limit", 10)
-));
+```javascript
+collection.aggregate([
+  {
+    "$rankFusion": {
+      input: {
+        pipelines: {
+          text: [
+            {
+              "$search": {
+                text: {
+                  path: "caption",
+                  query: "motorcycle"
+                }
+              }
+            }
+          ],
+          vector: [
+            {
+              "$vectorSearch": {
+                path: "captionEmbedding",
+                queryVector: [0.31, -0.11, 0.07],
+                numCandidates: 50,
+                limit: 20
+              }
+            }
+          ]
+        }
+      },
+      combination: {
+        weights: {
+          text: 0.6,
+          vector: 0.4
+        }
+      }
+    }
+  }
+]);
 ```
 
 ## Walkthrough
@@ -64,7 +80,7 @@ collection.aggregate(List.of(
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above. `$rankFusion` can produce one text `search` stream, one vector `vectorSearch` stream, and MongoT `getMore` commands on the text stream. The vector command body is summarized in markdown by replacing the full `queryVector` field with `queryVectorSummary`.
+These examples use real message field names. Long arrays may be shortened with ellipses; no replacement fields are introduced. `$rankFusion` can produce one text `search` stream, one vector `vectorSearch` stream, and MongoT `getMore` commands on the text stream.
 
 ### mongod -> MongoT: text branch
 
@@ -93,7 +109,7 @@ These JSON documents use representative values. The command shapes match the cod
 
 ### MongoT -> mongod: text branch first batch
 
-```json
+```jsonc
 {
   "cursor": {
     "id": 1757498206156953394,
@@ -111,6 +127,7 @@ These JSON documents use representative values. The command shapes match the cod
         "_id": 469139,
         "$searchScore": 2.7823147773742676
       },
+      // ... additional result documents ...
       {
         "_id": 565387,
         "$searchScore": 2.2113354206085205
@@ -128,8 +145,6 @@ These JSON documents use representative values. The command shapes match the cod
 }
 ```
 
-A first text batch can contain many documents. This example shows the first few and a later document from the same batch shape.
-
 ### mongod -> MongoT: text branch getMore
 
 ```json
@@ -143,9 +158,9 @@ A first text batch can contain many documents. This example shows the first few 
 }
 ```
 
-### mongod -> MongoT: vector branch command body summary
+### mongod -> MongoT: vector branch command body
 
-```json
+```jsonc
 {
   "vectorSearch": "image",
   "collectionUUID": {
@@ -156,24 +171,20 @@ A first text batch can contain many documents. This example shows the first few 
   },
   "index": "vector_caption",
   "path": "captionEmbedding",
-  "queryVectorSummary": {
-    "length": 768,
-    "first8": [
-      -0.018413003534078598,
-      0.039294157177209854,
-      -0.1552632749080658,
-      0.028887825086712837,
-      0.022704750299453735,
-      0.05024779215455055,
-      0.019792508333921432,
-      0.012846584431827068
-    ],
-    "last3": [
-      0.017677120864391327,
-      -0.044313110411167145,
-      -0.008208148181438446
-    ]
-  },
+  "queryVector": [
+    -0.018413003534078598,
+    0.039294157177209854,
+    -0.1552632749080658,
+    0.028887825086712837,
+    0.022704750299453735,
+    0.05024779215455055,
+    0.019792508333921432,
+    0.012846584431827068,
+    // ... 757 more vector values ...
+    0.017677120864391327,
+    -0.044313110411167145,
+    -0.008208148181438446
+  ],
   "numCandidates": 50,
   "limit": 20,
   "$db": "clientDb"
@@ -182,7 +193,7 @@ A first text batch can contain many documents. This example shows the first few 
 
 ### MongoT -> mongod: vector branch response
 
-```json
+```jsonc
 {
   "cursor": {
     "id": 0,
@@ -200,6 +211,7 @@ A first text batch can contain many documents. This example shows the first few 
         "_id": 334699,
         "$vectorSearchScore": 0.9083335995674133
       },
+      // ... additional result documents ...
       {
         "_id": 560943,
         "$vectorSearchScore": 0.8861563801765442
@@ -209,5 +221,3 @@ A first text batch can contain many documents. This example shows the first few 
   "ok": 1
 }
 ```
-
-A vector branch batch can contain many documents. This example shows the first few and a later document from the same batch shape.

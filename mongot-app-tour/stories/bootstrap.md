@@ -43,7 +43,7 @@ The direct evidence is [MongoClientBuilder.buildNonReplicationWithDefaults](http
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above.
+These examples use real message field names. Long arrays or large objects may be shortened with ellipses; no replacement fields are introduced.
 
 ### MongoT -> mongod: buildInfo
 
@@ -181,7 +181,7 @@ These JSON documents use representative values. The command shapes match the cod
 
 ### mongod -> MongoT: authoritative search index catalog response
 
-```json
+```jsonc
 {
   "cursor": {
     "id": 0,
@@ -227,6 +227,7 @@ These JSON documents use representative values. The command shapes match the cod
               "hasPerson": {
                 "type": "boolean"
               }
+              // ... additional mapped fields ...
             }
           },
           "indexFeatureVersion": 4,
@@ -276,15 +277,15 @@ These JSON documents use representative values. The command shapes match the cod
               "vehicle"
             ]
           }
+          // ... additional customer definition fields ...
         }
       }
+      // ... additional index catalog entries ...
     ]
   },
   "ok": 1.0
 }
 ```
-
-An `indexCatalog` response can contain multiple index definitions. This example shows one entry and the fields relevant to the stored-source discussion.
 
 ### MongoT -> mongod: server state update
 

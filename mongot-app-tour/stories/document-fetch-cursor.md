@@ -8,22 +8,25 @@ This document-fetch path does not require the Java driver to issue a second quer
 
 ## Example client operation
 
-```java
-AggregateIterable<Document> results = collection.aggregate(List.of(
-    new Document("$search",
-        new Document("index", "default")
-            .append("text", new Document("path", "caption")
-                .append("query", "public domain observatory"))),
-    new Document("$project",
-        new Document("caption", 1)
-            .append("licenseName", 1)
-            .append("licenseUrl", 1)
-            .append("score", new Document("$meta", "searchScore")))
-)).batchSize(20);
-
-for (Document result : results) {
-    // The driver cursor is still client -> mongod. MongoT is not contacted by the client driver.
-}
+```javascript
+collection.aggregate([
+  {
+    "$search": {
+      text: {
+        path: "caption",
+        query: "public domain observatory"
+      }
+    }
+  },
+  {
+    "$project": {
+      caption: 1,
+      licenseName: 1,
+      licenseUrl: 1,
+      score: { "$meta": "searchScore" }
+    }
+  }
+]);
 ```
 
 ## Walkthrough
@@ -63,7 +66,7 @@ for (Document result : results) {
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above. The client projection asks for `caption`, `licenseName`, and `licenseUrl`; the Stored Source includes `caption` but not `licenseName` or `licenseUrl`.
+These examples use real message field names. Long arrays may be shortened with ellipses; no replacement fields are introduced. The client projection asks for `caption`, `licenseName`, and `licenseUrl`; the Stored Source includes `caption` but not `licenseName` or `licenseUrl`.
 
 ### mongod -> MongoT: search command
 
@@ -92,7 +95,7 @@ These JSON documents use representative values. The command shapes match the cod
 
 ### MongoT -> mongod: id-oriented search batch
 
-```json
+```jsonc
 {
   "cursor": {
     "id": 3500069593100182908,
@@ -110,6 +113,7 @@ These JSON documents use representative values. The command shapes match the cod
         "_id": 10643,
         "$searchScore": 0.10923357307910919
       }
+      // ... additional hit documents ...
     ]
   },
   "vars": {
@@ -122,8 +126,6 @@ These JSON documents use representative values. The command shapes match the cod
   "ok": 1
 }
 ```
-
-The `nextBatch` contains hit ids and scores for mongod's source-document lookup. This example shows the first few hits.
 
 ### mongod -> MongoT: cursor cleanup
 

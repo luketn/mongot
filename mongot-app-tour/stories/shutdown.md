@@ -32,7 +32,7 @@ Only MongoT-owned Java driver clients are involved. The application Java driver 
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above. Shutdown produces final heartbeat, metadata, change-stream cleanup, and session cleanup messages; the entries below show the important shapes.
+These examples use real message field names. Long arrays may be shortened with ellipses; no replacement fields are introduced. Shutdown produces final heartbeat, metadata, change-stream cleanup, and session cleanup messages.
 
 ### MongoT -> mongod: update server state
 

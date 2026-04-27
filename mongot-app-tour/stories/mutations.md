@@ -8,14 +8,18 @@ The replication stream continues after startup, even when the workload is mostly
 
 ## Example client operation
 
-```java
-collection.insertOne(new Document("_id", new ObjectId())
-    .append("caption", "public observatory image")
-    .append("licenseName", "CC BY"));
+```javascript
+await collection.insertOne({
+  caption: "public observatory image",
+  licenseName: "CC BY"
+});
 
-collection.updateOne(Filters.eq("_id", insertedId), Updates.set("caption", "updated caption"));
+await collection.updateOne(
+  { caption: "public observatory image" },
+  { "$set": { caption: "updated caption" } }
+);
 
-collection.deleteOne(Filters.eq("_id", insertedId));
+await collection.deleteOne({ caption: "updated caption" });
 ```
 
 ## Walkthrough
@@ -48,7 +52,7 @@ The application Java driver talks to mongod. MongoT's own Java driver connection
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above. They show MongoT's change stream cursor traffic after client writes have already gone to mongod.
+These examples use real message field names. Long arrays may be shortened with ellipses; no replacement fields are introduced. They show MongoT's change stream cursor traffic after client writes have already gone to mongod.
 
 ### MongoT -> mongod: change stream getMore
 

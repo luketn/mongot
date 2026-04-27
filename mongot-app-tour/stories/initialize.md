@@ -37,7 +37,7 @@ MongoT again uses the Java driver as an internal client:
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above.
+These examples use real message field names. Long arrays may be shortened with ellipses; no replacement fields are introduced.
 
 ### MongoT -> mongod: create metadata index
 

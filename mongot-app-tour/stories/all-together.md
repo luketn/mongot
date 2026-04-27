@@ -6,18 +6,23 @@ This scenario summarizes the system in steady state: clients send ordinary Mongo
 
 ## Example client operation
 
-```java
-collection.aggregate(List.of(
-    new Document("$search",
-        new Document("index", "default")
-            .append("compound", new Document("must", List.of(
-                new Document("text", new Document("path", "caption")
-                    .append("query", "lunar mission")))))),
-    new Document("$project",
-        new Document("caption", 1)
-            .append("licenseName", 1)
-            .append("score", new Document("$meta", "searchScore")))
-)).batchSize(20);
+```javascript
+collection.aggregate([
+  {
+    "$search": {
+      compound: {
+        must: [
+          {
+            text: {
+              path: "caption",
+              query: "lunar mission"
+            }
+          }
+        ]
+      }
+    }
+  }
+]);
 ```
 
 ## Walkthrough
@@ -66,7 +71,7 @@ The application Java driver still only speaks MongoDB wire protocol to mongod:
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above. This summary combines search command traffic, MongoT cursor continuation, background replication polling, and shutdown cleanup.
+These examples use real message field names. Long arrays may be shortened with ellipses; no replacement fields are introduced. This section combines search command traffic, MongoT cursor continuation, background replication polling, and shutdown cleanup.
 
 ### mongod -> MongoT: search command
 
@@ -95,7 +100,7 @@ These JSON documents use representative values. The command shapes match the cod
 
 ### MongoT -> mongod: search response
 
-```json
+```jsonc
 {
   "cursor": {
     "id": 1757498206156953391,
@@ -109,6 +114,7 @@ These JSON documents use representative values. The command shapes match the cod
         "_id": 544713,
         "$searchScore": 2.9424455165863037
       }
+      // ... additional result documents ...
     ]
   },
   "vars": {
