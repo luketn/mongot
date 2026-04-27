@@ -511,11 +511,13 @@
 
     const STORIES = {
       system: [
-        { key: "top:client", title: "Client Boundary", body: "The client uses the MongoDB Java driver, but the driver only opens MongoDB server connections. It sends aggregate/getMore to mongod, never directly to MongoT.", classes: ["MongoCollectionImpl", "AggregateIterableImpl", "AggregateOperationImpl"] },
-        { key: "top:mongod", title: "mongod Owns $search Dispatch", body: "mongod receives the aggregate pipeline, runs aggregation, and opens the gRPC search command stream into MongoT for $search sub-pipelines.", classes: ["AggregateOperationImpl", "SyncOperationHelper", "ClusterBinding"] },
-        { key: "top:server", title: "MongoT Command Stream Entry", body: "MongoT starts at the server package: gRPC command stream handling, SearchCommand parsing, cursor creation, and response serialization.", classes: ["GrpcStreamingServer", "ServerCallHandler", "SearchCommand"] },
-        { key: "top:index", title: "Measured Search Engine", body: "The index package is where traces break into concrete work: parse BSON, build Lucene query, collect hits or vector candidates, materialize BSON, and shape results.", classes: ["LuceneSearchIndexReader", "LuceneSearchBatchProducer", "ProjectFactory"] },
-        { key: "top:replication", title: "Indexed Updates", body: "Insert/delete activity is not a child of the client request trace. MongoT sees it asynchronously through replication and change streams.", classes: ["MongoDbReplicationManager", "ChangeStreamManager", "IndexingWorkScheduler"] }
+        { key: "top:config", title: "MongoT Bootstrap", body: "MongoT wires config, catalog, tracing, metrics, lifecycle managers, cursors, and the server package before it can serve search streams.", classes: ["MongotCommunity", "CommunityMongotBootstrapper", "DefaultConfigManager"] },
+        { key: "top:index", title: "Index Ready", body: "Lifecycle prepares Lucene readers and durable replication state. Metrics and traces are active before request traffic enters the graph.", classes: ["DefaultLifecycleManager", "IndexLifecycleManager", "InitializedLuceneSearchIndex"] },
+        { key: "top:mongod", title: "Client to mongod Dispatch", body: "The client uses the MongoDB Java driver to send aggregate/getMore to mongod. The driver never opens a direct MongoT connection; mongod owns the $search gRPC command stream.", classes: ["MongoCollectionImpl", "AggregateOperationImpl", "SyncOperationHelper", "GrpcStreamingServer"] },
+        { key: "top:server", title: "Search Command Streams", body: "Text, vector, and rank-fusion requests move from MongoT Server through Cursor into the index package, with observability emitted alongside the work.", classes: ["SearchCommand", "LuceneSearchIndexReader", "LuceneVectorSearchManager"] },
+        { key: "top:cursor", title: "Document Fetch + getMore", body: "When Stored Source does not contain requested fields, mongod fetches the missing document data. getMore keeps the same client to mongod to MongoT boundary.", classes: ["IdLookupFactory", "ProjectFactory", "CommandCursor", "CommandBatchCursorHelper"] },
+        { key: "top:replication", title: "Indexed Updates", body: "Insert/delete activity writes to mongod first. MongoT observes those changes later through replication and updates Lucene asynchronously.", classes: ["MongoDbReplicationManager", "ChangeStreamManager", "IndexingWorkScheduler"] },
+        { key: "top:lifecycle", title: "Shutdown", body: "Shutdown drains command streams and cursors, closes lifecycle/index resources, and lets logging, tracing, and metrics finish cleanly.", classes: ["DefaultLifecycleManager", "IndexLifecycleManager", "CursorManager", "GrpcStreamingServer"] }
       ],
       index: [
         { key: "index:query", title: "BSON To Query", body: "The query layer turns the `$search` BSON body into typed MongoT query objects. In the 25-VU runs, parse BSON was visible in every search command and grows for vector/rank-fusion payloads.", classes: ["SearchQuery", "OperatorQuery", "SearchQueryFactory"] },
@@ -1220,11 +1222,49 @@
       };
     }
 
+    const STORY_ORDERED_NODE_POSITIONS = {
+      "top:client": { x: -760, y: 0 },
+      "top:mongod": { x: -510, y: 0 },
+      "top:server": { x: -230, y: 0 },
+      "top:cursor": { x: 35, y: -155 },
+      "top:index": { x: 45, y: 70 },
+      "top:replication": { x: 45, y: 300 },
+      "top:embedding": { x: 320, y: -240 },
+      "top:metrics": { x: 325, y: -75 },
+      "top:trace": { x: 325, y: 95 },
+      "top:catalog": { x: 325, y: 260 },
+      "top:catalogservice": { x: 585, y: -210 },
+      "top:config": { x: 585, y: -35 },
+      "top:lifecycle": { x: 585, y: 140 },
+      "top:monitor": { x: 585, y: 315 },
+      "top:community": { x: 850, y: -300 },
+      "top:featureflag": { x: 850, y: -150 },
+      "top:util": { x: 850, y: 0 },
+      "top:logging": { x: 850, y: 150 },
+      "top:blobstore": { x: 850, y: 300 },
+      "top:proto": { x: 1080, y: 30 }
+    };
+
+    function getStoryOrderedNodePosition(nodeId, spacingScale = 1) {
+      const position = STORY_ORDERED_NODE_POSITIONS[nodeId];
+      if (!position) {
+        return null;
+      }
+      const scale = clamp(spacingScale || 1, 0.9, 1.35);
+      return {
+        x: position.x * scale,
+        y: position.y * scale
+      };
+    }
+
     const RUNTIME_PACKAGE_IDS = {
       client: "top:client",
       mongod: "top:mongod",
+      blobstore: "top:blobstore",
+      catalog: "top:catalog",
       community: "top:community",
       config: "top:config",
+      featureflag: "top:featureflag",
       metrics: "top:metrics",
       monitor: "top:monitor",
       catalogservice: "top:catalogservice",
@@ -1235,10 +1275,12 @@
       replication: "top:replication",
       index: "top:index",
       logging: "top:logging",
-      trace: "top:trace"
+      trace: "top:trace",
+      util: "top:util",
+      proto: "top:proto"
     };
 
-    const DEFAULT_RUNTIME_TIMELINE_DURATION = 64;
+    const DEFAULT_RUNTIME_TIMELINE_DURATION = 60;
     const EMPTY_RUNTIME_TIMELINE = {
       duration: DEFAULT_RUNTIME_TIMELINE_DURATION,
       phases: [
@@ -1682,6 +1724,7 @@
         };
 
         const isOrbitMode = layoutMode === "orbit";
+        const isStoryOrderedMode = layoutMode === "story" && view === "system";
         const isTimelineSystem = view === "system" && motionMode === "timeline";
         const safeSpacingScale = clamp(spacingScale || 1, 0.88, 1.6);
         const repulsionScale = 0.88 + safeSpacingScale * 0.24;
@@ -1692,7 +1735,7 @@
           : null;
         orbitModelRef.current = orbitModel;
 
-        const physicsOptions = isOrbitMode || layoutFrozen
+        const physicsOptions = isOrbitMode || isStoryOrderedMode || layoutFrozen
           ? false
           : view === "deps"
             ? layoutMode === "spread"
@@ -1727,6 +1770,7 @@
             const selectedGlow = hexToRgba(node.color, effects.selectedGlowAlpha);
             const isSvgNode = nodeStyle.kind === "svg";
             const labelBackground = compactLabels ? "rgba(8, 17, 29, 0.82)" : "rgba(8, 17, 29, 0.66)";
+            const storyPosition = isStoryOrderedMode ? getStoryOrderedNodePosition(node.id, safeSpacingScale) : null;
             return {
               id: node.id,
               label: formatNodeLabel(node.label, view, compactLabels),
@@ -1734,6 +1778,9 @@
               title: node.title || node.item?.name || node.label,
               shape: isSvgNode ? "image" : nodeStyle.shape,
               image: isSvgNode ? getNodeStyleImage(nodeStyle.id, node.color, preset) : undefined,
+              x: storyPosition?.x,
+              y: storyPosition?.y,
+              fixed: storyPosition ? { x: true, y: true } : undefined,
               borderWidth: 1.5 + effects.borderBoost,
               borderWidthSelected: 3 + effects.borderBoost,
               color: {
@@ -1784,7 +1831,7 @@
           data.edges.map(edge => ({
             ...edge,
             width: (edge.width || 1) + effects.edgeBoost,
-            smooth: { enabled: true, type: isOrbitMode ? "continuous" : "dynamic", roundness: isOrbitMode ? 0.22 : 0.38 }
+            smooth: { enabled: true, type: isOrbitMode || isStoryOrderedMode ? "continuous" : "dynamic", roundness: isOrbitMode || isStoryOrderedMode ? 0.22 : 0.38 }
           }))
         );
 
@@ -1798,10 +1845,10 @@
               multiselect: false,
               navigationButtons: true,
               keyboard: !isTimelineSystem,
-              dragNodes: !isOrbitMode
+              dragNodes: !isOrbitMode && !isStoryOrderedMode
             },
             layout: {
-              improvedLayout: true
+              improvedLayout: !isStoryOrderedMode
             },
             physics: physicsOptions,
             nodes: {
@@ -1832,7 +1879,9 @@
         window.__mongotNetwork = network;
         window.__mongotEffects = effects;
 
-        if (isTimelineSystem && !isOrbitMode) {
+        if (isStoryOrderedMode) {
+          network.fit({ animation: { duration: 440, easingFunction: "easeInOutCubic" } });
+        } else if (isTimelineSystem && !isOrbitMode) {
           network.once("stabilizationIterationsDone", () => {
             network.setOptions({ physics: false });
             const focusId = selectedId && data.nodes.some(node => node.id === selectedId)
@@ -1902,7 +1951,7 @@
             scale: orbitModel.fitScale,
             animation: { duration: 440, easingFunction: "easeInOutCubic" }
           });
-        } else if (!layoutFrozen) {
+        } else if (!layoutFrozen && !isStoryOrderedMode) {
           network.stabilize(layoutMode === "spread" ? 240 : 180);
         }
 
@@ -2084,7 +2133,7 @@
           return;
         }
 
-        if (command.type === "stabilize" && layoutMode !== "orbit" && !layoutFrozen) {
+        if (command.type === "stabilize" && layoutMode !== "orbit" && layoutMode !== "story" && !layoutFrozen) {
           network.stabilize(layoutMode === "spread" ? 240 : 180);
           network.fit({ animation: { duration: 340, easingFunction: "easeInOutCubic" } });
         }
@@ -2202,7 +2251,7 @@
       const [stylePresetId, setStylePresetId] = React.useState("plumRelay");
       const [nodeStyleId, setNodeStyleId] = React.useState("radarBloom");
       const [effectsId, setEffectsId] = React.useState("crisp");
-      const [layoutMode, setLayoutMode] = React.useState("flow");
+      const [layoutMode, setLayoutMode] = React.useState("story");
       const [spacingPresetId, setSpacingPresetId] = React.useState("balanced");
       const [layoutFrozen, setLayoutFrozen] = React.useState(false);
       const [compactLabels, setCompactLabels] = React.useState(true);
@@ -2524,11 +2573,18 @@
         label: node.item?.name || node.label,
         id: node.id
       })), [data.nodes]);
-      const layoutSummary = layoutMode === "orbit"
-        ? `Orbit mode anchors the map around ${orbitAnchorLabel} and spins correlated nodes as satellites.`
-        : layoutMode === "spread"
-          ? "Spread mode adds more breathing room between labels and large nodes."
-          : "Flow mode keeps the graph loose and reactive so you can drag packages around freely.";
+      const layoutSummary = layoutMode === "story"
+        ? "Story Ordered keeps client, mongod, Server, hot runtime packages, and startup/shutdown support packages in a fixed left-to-right flow."
+        : layoutMode === "orbit"
+          ? `Orbit mode anchors the map around ${orbitAnchorLabel} and spins correlated nodes as satellites.`
+          : layoutMode === "spread"
+            ? "Spread mode adds more breathing room between labels and large nodes."
+            : "Flow mode keeps the graph loose and reactive so you can drag packages around freely.";
+      const layoutModeLabel = layoutMode === "story"
+        ? "story ordered"
+        : layoutMode === "orbit"
+          ? `orbiting ${orbitAnchorLabel}`
+          : layoutMode;
       const spacingSummary = spacingPreset.summary;
       const animationSummary = motionMode === "timeline"
         ? `${currentTimelinePhase.label} at ${formatRuntimeClock(timelineClock)} of ${formatRuntimeClock(runtimeTimelineDuration)}.`
@@ -2560,8 +2616,7 @@
         }
         setView("system");
         setMotionMode("timeline");
-        setTimelinePlaying(false);
-        setTimelineClock(phase.start || 0);
+        setTimelineClock(Math.max(0, Math.min(runtimeTimelineDuration, Number(phase.start) || 0)));
         setSelectedId(getRuntimeNodeId(phase.focusKey || "index"));
       };
       const pauseTimeline = () => setTimelinePlaying(false);
@@ -3084,7 +3139,7 @@
                             <Chip label={`${data.nodes.length} nodes`} size="small" sx={chipStyles} />
                             <Chip label={`${data.edges.length} edges`} size="small" sx={chipStyles} />
                             <Chip label={view === "deps" ? "grouped by bundle role" : "imports shown as arrows"} size="small" sx={chipStyles} />
-                            <Chip label={layoutMode === "orbit" ? `orbiting ${orbitAnchorLabel}` : layoutMode} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
+                            <Chip label={layoutModeLabel} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
                             <Chip label={`room ${spacingPreset.label.toLowerCase()}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
                             <Chip label={motionMode === "timeline" ? "runtime timeline" : "ambient motion"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
                           </Stack>
@@ -3096,6 +3151,7 @@
                         <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
                           <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
                             {[
+                              { id: "story", label: "Story Ordered" },
                               { id: "flow", label: "Flow" },
                               { id: "spread", label: "Spread" },
                               { id: "orbit", label: "Orbit" }
@@ -3142,7 +3198,7 @@
                             >
                               Center {orbitAnchorLabel}
                             </Button>
-                            {layoutMode !== "orbit" && (
+                            {layoutMode !== "orbit" && layoutMode !== "story" && (
                               <Button
                                 size="small"
                                 variant="outlined"
@@ -3152,19 +3208,21 @@
                                 Settle
                               </Button>
                             )}
-                            <Button
-                              size="small"
-                              variant={layoutFrozen ? "contained" : "outlined"}
-                              onClick={() => setLayoutFrozen(current => !current)}
-                              sx={{
-                                borderRadius: 999,
-                                color: layoutFrozen ? "#08111d" : "var(--text)",
-                                background: layoutFrozen ? stylePreset.cool : "transparent",
-                                borderColor: "var(--line)"
-                              }}
-                            >
-                              {layoutMode === "orbit" ? (layoutFrozen ? "Resume Orbit" : "Pause Orbit") : (layoutFrozen ? "Unfreeze" : "Freeze")}
-                            </Button>
+                            {layoutMode !== "story" && (
+                              <Button
+                                size="small"
+                                variant={layoutFrozen ? "contained" : "outlined"}
+                                onClick={() => setLayoutFrozen(current => !current)}
+                                sx={{
+                                  borderRadius: 999,
+                                  color: layoutFrozen ? "#08111d" : "var(--text)",
+                                  background: layoutFrozen ? stylePreset.cool : "transparent",
+                                  borderColor: "var(--line)"
+                                }}
+                              >
+                                {layoutMode === "orbit" ? (layoutFrozen ? "Resume Orbit" : "Pause Orbit") : (layoutFrozen ? "Unfreeze" : "Freeze")}
+                              </Button>
+                            )}
                             <Button
                               size="small"
                               variant={compactLabels ? "contained" : "outlined"}

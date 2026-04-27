@@ -1,5 +1,5 @@
 {
-  "duration": 64,
+  "duration": 60,
   "phases": [
     {
       "id": "bootstrap",
@@ -7,10 +7,11 @@
       "focusKey": "config",
       "start": 0,
       "end": 6,
-      "description": "MongoT startup wires config, tracing, metrics, catalog service, lifecycle managers, cursor management, and the gRPC server before search traffic arrives.",
+      "description": "MongoT startup wires local runtime services and opens MongoDB-facing metadata/sync-source clients. It refreshes server info and starts the metadata service before search traffic arrives.",
       "classes": [
-        "MongotCommunity",
         "CommunityMongotBootstrapper",
+        "MongoDbMetadataClient",
+        "DefaultMetadataService",
         "DefaultConfigManager",
         "GrpcStreamingServer"
       ],
@@ -50,6 +51,78 @@
               "trace"
             ]
           ]
+        },
+        {
+          "id": "bootstrap-mongodb",
+          "label": "metadata MongoDB client",
+          "colorKey": "cool",
+          "width": 2.2,
+          "intensity": 0.64,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "surge",
+          "edges": [
+            [
+              "config",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "catalogservice"
+            ],
+            [
+              "mongod",
+              "server"
+            ]
+          ]
+        },
+        {
+          "id": "bootstrap-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "config",
+              "util"
+            ],
+            [
+              "config",
+              "featureflag"
+            ],
+            [
+              "config",
+              "logging"
+            ],
+            [
+              "monitor",
+              "metrics"
+            ]
+          ]
+        },
+        {
+          "id": "bootstrap-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "config",
+              "metrics"
+            ],
+            [
+              "config",
+              "trace"
+            ]
+          ]
         }
       ]
     },
@@ -58,13 +131,14 @@
       "label": "Index Ready",
       "focusKey": "index",
       "start": 6,
-      "end": 13,
-      "description": "Lifecycle initializes index generations, replication establishes durable state, and Lucene-backed readers become available for command streams.",
+      "end": 12,
+      "description": "MongoT reads authoritative index metadata from MongoDB, initializes index generations, starts replication, and makes Lucene-backed readers available for command streams.",
       "classes": [
+        "DefaultAuthoritativeIndexCatalog",
         "DefaultLifecycleManager",
         "IndexLifecycleManager",
-        "InitializedLuceneSearchIndex",
-        "MongoDbReplicationManager"
+        "MongoDbReplicationManager",
+        "ChangeStreamMongoCursorClient"
       ],
       "streams": [
         {
@@ -114,21 +188,97 @@
               "index"
             ]
           ]
+        },
+        {
+          "id": "initialize-metadata-read",
+          "label": "read index metadata",
+          "colorKey": "cool",
+          "width": 2.4,
+          "intensity": 0.72,
+          "tempo": 1.05,
+          "particles": 3,
+          "modulation": "surge",
+          "edges": [
+            [
+              "catalogservice",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "catalogservice"
+            ],
+            [
+              "catalogservice",
+              "lifecycle"
+            ],
+            [
+              "lifecycle",
+              "replication"
+            ]
+          ]
+        },
+        {
+          "id": "initialize-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "index",
+              "blobstore"
+            ],
+            [
+              "index",
+              "util"
+            ],
+            [
+              "lifecycle",
+              "monitor"
+            ],
+            [
+              "config",
+              "featureflag"
+            ]
+          ]
+        },
+        {
+          "id": "initialize-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "lifecycle",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
         }
       ]
     },
     {
-      "id": "boundary",
-      "label": "Client Boundary",
-      "focusKey": "client",
-      "start": 13,
-      "end": 19,
-      "description": "The client uses the MongoDB Java driver, but the driver only opens MongoDB server connections. It sends aggregate/getMore to mongod; it does not connect to MongoT.",
+      "id": "client-dispatch",
+      "label": "Client to mongod Dispatch",
+      "focusKey": "mongod",
+      "start": 12,
+      "end": 20,
+      "description": "The client uses the MongoDB Java driver and sends aggregate/getMore to mongod only. mongod owns aggregation execution; when the pipeline reaches $search, mongod opens the gRPC command stream into MongoT.",
       "classes": [
         "MongoCollectionImpl",
-        "AggregateIterableImpl",
         "AggregateOperationImpl",
-        "ClusterBinding"
+        "SyncOperationHelper",
+        "GrpcStreamingServer"
       ],
       "streams": [
         {
@@ -146,23 +296,7 @@
               "mongod"
             ]
           ]
-        }
-      ]
-    },
-    {
-      "id": "mongod-dispatch",
-      "label": "mongod Dispatch",
-      "focusKey": "mongod",
-      "start": 19,
-      "end": 25,
-      "description": "mongod owns aggregation execution. When the pipeline reaches $search, mongod opens the gRPC command stream into MongoT.",
-      "classes": [
-        "SyncOperationHelper",
-        "ReadBinding",
-        "CommandCursor",
-        "CommandBatchCursorHelper"
-      ],
-      "streams": [
+        },
         {
           "id": "mongod-to-mongot",
           "label": "gRPC search command",
@@ -176,22 +310,78 @@
             [
               "mongod",
               "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "server",
+              "trace"
             ]
           ]
         },
         {
-          "id": "server-command",
-          "label": "command dispatch",
+          "id": "client-dispatch-replication-trickle",
+          "label": "change stream trickle",
+          "colorKey": "cool",
+          "width": 1.45,
+          "intensity": 0.34,
+          "tempo": 0.72,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "mongod",
+              "replication"
+            ],
+            [
+              "replication",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "client-dispatch-support-trickle",
+          "label": "support package trickle",
           "colorKey": "support",
-          "width": 2.4,
-          "intensity": 0.7,
-          "tempo": 1.1,
-          "particles": 3,
-          "modulation": "ramp",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
           "edges": [
             [
               "server",
-              "cursor"
+              "util"
+            ],
+            [
+              "server",
+              "featureflag"
+            ],
+            [
+              "server",
+              "logging"
+            ],
+            [
+              "server",
+              "catalog"
+            ]
+          ]
+        },
+        {
+          "id": "client-dispatch-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "server",
+              "metrics"
             ],
             [
               "server",
@@ -205,9 +395,9 @@
       "id": "textsearch",
       "label": "Text Search",
       "focusKey": "server",
-      "start": 25,
-      "end": 33,
-      "description": "Text-only load reached 554 req/s. The full path is Java aggregate to mongod, mongod gRPC to MongoT, then SearchCommand, cursor, and Lucene text execution.",
+      "start": 20,
+      "end": 27,
+      "description": "A text $search follows the same boundary: client aggregate to mongod, mongod gRPC to MongoT, then SearchCommand, cursor, and Lucene text execution.",
       "classes": [
         "SearchCommand",
         "SearchQuery",
@@ -262,6 +452,82 @@
               "trace"
             ]
           ]
+        },
+        {
+          "id": "textsearch-replication-trickle",
+          "label": "change stream trickle",
+          "colorKey": "cool",
+          "width": 1.45,
+          "intensity": 0.34,
+          "tempo": 0.72,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "mongod",
+              "replication"
+            ],
+            [
+              "replication",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "textsearch-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "index",
+              "util"
+            ],
+            [
+              "index",
+              "featureflag"
+            ],
+            [
+              "cursor",
+              "catalog"
+            ],
+            [
+              "server",
+              "logging"
+            ]
+          ]
+        },
+        {
+          "id": "textsearch-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "server",
+              "metrics"
+            ],
+            [
+              "server",
+              "trace"
+            ],
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
         }
       ]
     },
@@ -269,9 +535,9 @@
       "id": "vectorsearch",
       "label": "Vector Search",
       "focusKey": "index",
-      "start": 33,
-      "end": 41,
-      "description": "The client builds the embedding before the aggregate. MongoT then sees the vector search from mongod and spends command time in vector query build and candidate collection.",
+      "start": 27,
+      "end": 34,
+      "description": "The client prepares vector input before aggregate. MongoT receives the vector search through mongod and spends command time in vector query build and candidate collection.",
       "classes": [
         "VectorSearchOperator",
         "LuceneVectorSearchManager",
@@ -326,6 +592,82 @@
               "metrics"
             ]
           ]
+        },
+        {
+          "id": "vectorsearch-replication-trickle",
+          "label": "change stream trickle",
+          "colorKey": "cool",
+          "width": 1.45,
+          "intensity": 0.34,
+          "tempo": 0.72,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "mongod",
+              "replication"
+            ],
+            [
+              "replication",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "vectorsearch-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "index",
+              "util"
+            ],
+            [
+              "index",
+              "featureflag"
+            ],
+            [
+              "index",
+              "embedding"
+            ],
+            [
+              "server",
+              "logging"
+            ]
+          ]
+        },
+        {
+          "id": "vectorsearch-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "server",
+              "metrics"
+            ],
+            [
+              "server",
+              "trace"
+            ],
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
         }
       ]
     },
@@ -333,8 +675,8 @@
       "id": "combined",
       "label": "Rank Fusion",
       "focusKey": "mongod",
-      "start": 41,
-      "end": 49,
+      "start": 34,
+      "end": 41,
       "description": "$rankFusion is not one monolithic MongoT request. mongod runs the fusion and opens separate MongoT streams for the text/default and vector/vector_caption sub-pipelines.",
       "classes": [
         "AggregateOperationImpl",
@@ -398,21 +740,97 @@
               "trace"
             ]
           ]
+        },
+        {
+          "id": "combined-replication-trickle",
+          "label": "change stream trickle",
+          "colorKey": "cool",
+          "width": 1.45,
+          "intensity": 0.34,
+          "tempo": 0.72,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "mongod",
+              "replication"
+            ],
+            [
+              "replication",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "combined-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "server",
+              "util"
+            ],
+            [
+              "index",
+              "featureflag"
+            ],
+            [
+              "index",
+              "embedding"
+            ],
+            [
+              "cursor",
+              "catalog"
+            ]
+          ]
+        },
+        {
+          "id": "combined-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "server",
+              "metrics"
+            ],
+            [
+              "server",
+              "trace"
+            ],
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
         }
       ]
     },
     {
-      "id": "document-fetch",
-      "label": "Document Fetch",
-      "focusKey": "mongod",
-      "start": 49,
-      "end": 56,
-      "description": "If the client query includes fields that are not returned from Lucene Stored Source, MongoT still returns hit ids and scores. mongod then fetches the missing data from the matched MongoDB documents.",
+      "id": "document-fetch-cursor",
+      "label": "Document Fetch + getMore",
+      "focusKey": "cursor",
+      "start": 41,
+      "end": 48,
+      "description": "If requested fields are not returned from Lucene Stored Source, mongod fetches them from matched MongoDB documents. Cursor continuation follows the same boundary: client getMore goes to mongod, and mongod coordinates any continued MongoT result streaming.",
       "classes": [
         "IdLookupFactory",
         "ProjectFactory",
-        "SearchResult",
-        "CommandCursor"
+        "CommandCursor",
+        "CommandBatchCursorHelper"
       ],
       "streams": [
         {
@@ -470,6 +888,106 @@
               "client"
             ]
           ]
+        },
+        {
+          "id": "cursor-getmore",
+          "label": "getMore continuation",
+          "colorKey": "support",
+          "width": 2.7,
+          "intensity": 0.76,
+          "tempo": 1.45,
+          "particles": 3,
+          "modulation": "surge",
+          "edges": [
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ]
+          ]
+        },
+        {
+          "id": "document-fetch-cursor-replication-trickle",
+          "label": "change stream trickle",
+          "colorKey": "cool",
+          "width": 1.45,
+          "intensity": 0.34,
+          "tempo": 0.72,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "mongod",
+              "replication"
+            ],
+            [
+              "replication",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "document-fetch-cursor-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "cursor",
+              "catalog"
+            ],
+            [
+              "index",
+              "util"
+            ],
+            [
+              "server",
+              "logging"
+            ],
+            [
+              "server",
+              "featureflag"
+            ]
+          ]
+        },
+        {
+          "id": "document-fetch-cursor-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "server",
+              "metrics"
+            ],
+            [
+              "server",
+              "trace"
+            ],
+            [
+              "cursor",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
         }
       ]
     },
@@ -477,8 +995,8 @@
       "id": "mutations",
       "label": "Inserts + Deletes",
       "focusKey": "replication",
-      "start": 56,
-      "end": 62,
+      "start": 48,
+      "end": 53,
       "description": "Mutation requests write to mongod first. MongoT sees the changes later through change streams, then emits decode, document event, Lucene update/delete, commit, and refresh spans.",
       "classes": [
         "ChangeStreamManager",
@@ -530,30 +1048,86 @@
               "trace"
             ]
           ]
+        },
+        {
+          "id": "mutations-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "replication",
+              "util"
+            ],
+            [
+              "replication",
+              "featureflag"
+            ],
+            [
+              "replication",
+              "monitor"
+            ],
+            [
+              "index",
+              "blobstore"
+            ],
+            [
+              "replication",
+              "logging"
+            ]
+          ]
+        },
+        {
+          "id": "mutations-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "replication",
+              "metrics"
+            ],
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
         }
       ]
     },
     {
-      "id": "summary",
-      "label": "Runtime Rule",
-      "focusKey": "mongod",
-      "start": 62,
-      "end": 64,
-      "description": "Remember the boundary: Java driver to mongod, mongod to MongoT. MongoT is the search sidecar behind mongod's aggregation execution.",
+      "id": "all-together",
+      "label": "Everything Together",
+      "focusKey": "server",
+      "start": 53,
+      "end": 57,
+      "description": "For a few seconds, the whole runtime is active: client commands enter mongod, mongod streams search to MongoT, MongoT advances cursors and Lucene work, replication feeds updates, and metrics/tracing observe the path.",
       "classes": [
-        "MongoCollectionImpl",
-        "ClusterBinding",
         "GrpcStreamingServer",
-        "SearchCommand"
+        "SearchCommand",
+        "CursorManager",
+        "MongoDbReplicationManager"
       ],
       "streams": [
         {
-          "id": "summary-boundary",
-          "label": "java -> mongod -> mongot",
-          "colorKey": "support",
-          "width": 3.8,
-          "intensity": 0.98,
-          "tempo": 1.9,
+          "id": "together-request",
+          "label": "request path",
+          "colorKey": "warm",
+          "width": 3.6,
+          "intensity": 1,
+          "tempo": 2.1,
           "particles": 5,
           "modulation": "burst",
           "edges": [
@@ -564,6 +1138,226 @@
             [
               "mongod",
               "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "together-background",
+          "label": "background update path",
+          "colorKey": "hot",
+          "width": 2.7,
+          "intensity": 0.84,
+          "tempo": 1.7,
+          "particles": 4,
+          "modulation": "burst",
+          "edges": [
+            [
+              "mongod",
+              "replication"
+            ],
+            [
+              "replication",
+              "index"
+            ],
+            [
+              "config",
+              "lifecycle"
+            ],
+            [
+              "catalogservice",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "all-together-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "config",
+              "featureflag"
+            ],
+            [
+              "index",
+              "blobstore"
+            ],
+            [
+              "server",
+              "logging"
+            ],
+            [
+              "monitor",
+              "metrics"
+            ],
+            [
+              "index",
+              "util"
+            ]
+          ]
+        },
+        {
+          "id": "all-together-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "server",
+              "metrics"
+            ],
+            [
+              "server",
+              "trace"
+            ],
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shutdown",
+      "label": "Shutdown",
+      "focusKey": "lifecycle",
+      "start": 57,
+      "end": 60,
+      "description": "Shutdown reverses the startup shape: MongoT stops accepting new command streams, drains cursors and background work, closes Lucene/index lifecycle resources, and lets metrics/logging/tracing finish cleanly.",
+      "classes": [
+        "DefaultLifecycleManager",
+        "IndexLifecycleManager",
+        "CursorManager",
+        "GrpcStreamingServer"
+      ],
+      "streams": [
+        {
+          "id": "shutdown-drain",
+          "label": "drain command streams",
+          "colorKey": "cool",
+          "width": 3,
+          "intensity": 0.86,
+          "tempo": 1.15,
+          "particles": 3,
+          "modulation": "fade",
+          "edges": [
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "shutdown-lifecycle",
+          "label": "lifecycle closes runtime",
+          "colorKey": "warm",
+          "width": 3.2,
+          "intensity": 0.92,
+          "tempo": 1.05,
+          "particles": 3,
+          "modulation": "fade",
+          "edges": [
+            [
+              "server",
+              "lifecycle"
+            ],
+            [
+              "lifecycle",
+              "index"
+            ],
+            [
+              "lifecycle",
+              "replication"
+            ],
+            [
+              "lifecycle",
+              "metrics"
+            ],
+            [
+              "trace",
+              "logging"
+            ]
+          ]
+        },
+        {
+          "id": "shutdown-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "lifecycle",
+              "logging"
+            ],
+            [
+              "lifecycle",
+              "monitor"
+            ],
+            [
+              "lifecycle",
+              "blobstore"
+            ],
+            [
+              "server",
+              "util"
+            ]
+          ]
+        },
+        {
+          "id": "shutdown-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "lifecycle",
+              "metrics"
+            ],
+            [
+              "server",
+              "trace"
+            ],
+            [
+              "trace",
+              "logging"
             ]
           ]
         }
