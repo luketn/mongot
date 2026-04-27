@@ -201,6 +201,8 @@ The diagrams below add the runtime detail learned from client load-test runs cap
 
 Text search uses the command-stream path, then creates a cursor backed by a Lucene search batch producer. In the measured text-only run, the median root stream span was `8.9 ms` and the median initial `mongot.search.command` span was `890 us`.
 
+On the mongod side, `$search` is parsed by [`DocumentSourceSearch::createFromBson`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_search.cpp#L128), rewritten by [`DocumentSourceSearch::desugar`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_search.cpp#L166), and then executed by establishing a MongoT cursor through [`search_helpers::establishSearchCursors`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/search_helper.cpp#L438) and [`mongot_cursor::establishCursorsForSearchStage`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L225). The command body is built in [`mongot_cursor::getRemoteCommandRequestForSearchQuery`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L49), [`mongot_cursor::getRemoteCommandRequest`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L187) targets the configured MongoT address, and [`mongot_cursor::establishCursors`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L197) creates the `TaskExecutorCursor` that invokes MongoT.
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -256,6 +258,8 @@ sequenceDiagram
 
 Vector search follows the same command-stream skeleton but the dominant command-phase work is vector candidate collection over the `vector_caption` index and `captionEmbedding` vector field. In the measured vector-only run, the median root stream span was `10.0 ms`, the command span was `2.8 ms`, and vector candidate collection was about `1.9 ms` median.
 
+On the mongod side, `$vectorSearch` is parsed by [`DocumentSourceVectorSearch::createFromBson`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_vector_search.cpp#L177). The executable stage is created by [`documentSourceVectorSearchToStageFn`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/exec/agg/search/vector_search_stage.cpp#L39), and [`VectorSearchStage::doGetNext`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/exec/agg/search/vector_search_stage.cpp#L138) establishes the MongoT cursor through [`search_helpers::establishVectorSearchCursor`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/vector_search_helper.cpp#L74). The vector command body is built in [`getRemoteCommandRequestForVectorSearchQuery`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/vector_search_helper.cpp#L41), which delegates to [`mongot_cursor::getRemoteCommandRequest`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L187) to target the configured MongoT address.
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -301,6 +305,8 @@ sequenceDiagram
 ### 5.3 Combined Text And Vector With `$rankFusion`
 
 The combined workload is not one monolithic MongoT search. The client builds a `$rankFusion` aggregation, and MongoT sees separate search streams for the text and vector sub-pipelines. The two sub-pipelines share the same root operation name, so `mongot.search.index.name` is the attribute that separates `default` from `vector_caption` traces.
+
+On the mongod side, `$rankFusion` is parsed by [`DocumentSourceRankFusion::createFromBson`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/document_source_rank_fusion.cpp#L270). [`parseAndValidateRankedSelectionPipelines`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/document_source_rank_fusion.cpp#L216) parses each branch, [`HybridSearchPipelineBuilder::constructDesugaredOutput`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/hybrid_search_pipeline_builder.cpp#L112) expands them into ordinary pipeline stages, and [`RankFusionPipelineBuilder::buildScoreAndMergeStages`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/rank_fusion_pipeline_builder.cpp#L425) performs the final fusion after the individual search branches return.
 
 ```mermaid
 sequenceDiagram
@@ -349,6 +355,8 @@ This workload uses text search, but the client query asks for fields that are no
 The `_id` handoff is server-side. When the requested response cannot be satisfied from Stored Source, MongoT's Lucene projection path uses `IdLookupFactory`: it returns each hit's root `_id` and leaves document materialization to `mongod`. The mongod-side search pipeline then uses those ids to fetch the matched MongoDB documents and apply the final aggregation projection before returning cursor batches to the driver. MongoT itself is not opening a separate query back to mongod for the missing fields.
 
 So "Document Fetch" means the client-visible projection requires fields outside the stored-source-only response shape used by the lighter workload. That forces full-document materialization inside MongoDB's aggregation/search execution path. The measured effect was mostly outside the initial MongoT command span: HTTP and app-reported MongoDB time increased, while the median `mongot.search.command` stayed around `863 us`.
+
+The mongod decision point is [`search_helpers::promoteStoredSourceOrAddIdLookup`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/search_helper.cpp#L709): stored source is promoted directly when available, otherwise mongod inserts [`DocumentSourceInternalSearchIdLookUp`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_internal_search_id_lookup.cpp#L65). Cursor continuation back to MongoT uses [`MongotTaskExecutorCursorGetMoreStrategy::createGetMoreRequest`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L60), with [`_getNextDocsRequested`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L136) adjusting `docsRequested` from id-lookup success metrics.
 
 ```mermaid
 sequenceDiagram

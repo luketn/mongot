@@ -2,9 +2,13 @@
 
 ## Scenario
 
-MongoT starts as its own Java process. It does not wait for a client query before it creates its local runtime. The startup path wires configuration, logging, metrics, tracing, metadata clients, catalog services, index lifecycle services, replication services, cursor management, and the gRPC command server that mongod will use later.
+MongoT starts as its own Java process from the public static void main of the MongotCommunity class.
 
-MongoT creates its own MongoDB Java driver clients during bootstrap. This is not the application client's driver connection. In community bootstrap, [CommunityMongotBootstrapper](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/config/provider/community/CommunityMongotBootstrapper.java#L201) passes a sync-source config into [MongoDbMetadataClient](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/util/mongodb/MongoDbMetadataClient.java#L36), and [MongoDbMetadataClient.createMongoClients](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/util/mongodb/MongoDbMetadataClient.java#L51) creates internal `com.mongodb.client.MongoClient` instances for metadata and server-info reads.
+The startup path wires configuration, logging, metrics, tracing, metadata clients, catalog services, index lifecycle services, replication services, cursor management, and the gRPC command server that mongod will use later.
+
+MongoTCommunity handles command line arguments, which are passed to [CommunityMongotBootstrapper](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/config/provider/community/CommunityMongotBootstrapper.java), which does the main work of reading the config and setting everything up.
+
+MongoT creates its own MongoDB Java driver client during bootstrap (not to be confused with clients which may use Java drivers to connect to MongoD from the other side). The MongoT client for MongoD is in [MongoDbMetadataClient](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/util/mongodb/MongoDbMetadataClient.java#L36), and in [MongoDbMetadataClient.createMongoClients](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/util/mongodb/MongoDbMetadataClient.java#L51), which creates internal `com.mongodb.client.MongoClient` instances for metadata and server-info reads.
 
 ## Walkthrough
 
@@ -15,10 +19,6 @@ MongoT creates its own MongoDB Java driver clients during bootstrap. This is not
 5. The metadata client calls [MongoDbDatabase.getServerInfo](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/util/mongodb/MongoDbDatabase.java#L43), which reads MongoDB build and replica-set information from mongod.
 6. Catalog and metadata services are created in [DefaultMetadataService.create](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/catalogservice/DefaultMetadataService.java#L50).
 7. The gRPC server is constructed in [GrpcStreamingServer.create](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/server/grpc/GrpcStreamingServer.java#L140). It registers command streams for search and vector search, but those streams are not used until mongod sends work.
-
-## Example client operation
-
-There is no application query in this scenario. MongoT is starting up before a client sends an aggregate command.
 
 ## Driver path
 

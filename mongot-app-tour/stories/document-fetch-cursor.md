@@ -31,14 +31,29 @@ for (Document result : results) {
 ## Walkthrough
 
 1. The client sends one aggregate command to mongod through [AggregateOperationImpl.getCommand](https://github.com/mongodb/mongo-java-driver/blob/main/driver-core/src/main/com/mongodb/internal/operation/AggregateOperationImpl.java#L216).
-2. mongod sends a gRPC `search` command to MongoT.
-3. [ProjectFactory.build](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/ProjectFactory.java#L25) chooses how MongoT should shape returned fields.
-4. If stored source is not being returned, [IdLookupFactory](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/IdLookupFactory.java#L13) returns id-oriented documents. This lets mongod fetch requested fields from the matched collection documents.
-5. [SearchCommand.getBatch](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/server/command/search/SearchCommand.java#L317) prepares the batch and cursor response.
-6. The Java driver receives a cursor from mongod. If the client continues iteration, [CommandBatchCursorHelper.getMoreCommandDocument](https://github.com/mongodb/mongo-java-driver/blob/main/driver-core/src/main/com/mongodb/internal/operation/CommandBatchCursorHelper.java#L49) builds a `getMore` command to mongod.
-7. mongod advances its pipeline cursor and sends a MongoT `getMore` command over the gRPC stream.
-8. [GetMoreCommand.run](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/server/command/search/GetMoreCommand.java#L56) asks [MongotCursorManagerImpl](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/cursor/MongotCursorManagerImpl.java#L43) for the next batch.
-9. [MongotCursor.getNextBatch](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/cursor/MongotCursor.java#L90) advances the batch producer.
+2. mongod parses `$search` in [DocumentSourceSearch::createFromBson](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_search.cpp#L128).
+3. [DocumentSourceSearch::desugar](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_search.cpp#L166) creates the internal MongoT remote stage.
+4. [search_helpers::promoteStoredSourceOrAddIdLookup](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/search_helper.cpp#L709) decides whether mongod can promote returned `storedSource` fields or must add [DocumentSourceInternalSearchIdLookUp](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_internal_search_id_lookup.cpp#L65).
+5. [mongot_cursor::getRemoteCommandRequestForSearchQuery](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L49) builds the `search` command sent to MongoT, [mongot_cursor::getRemoteCommandRequest](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L187) targets the configured MongoT address, and [mongot_cursor::establishCursors](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L197) creates the MongoT cursor.
+6. [ProjectFactory.build](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/ProjectFactory.java#L25) chooses how MongoT should shape returned fields.
+7. If stored source is not being returned, [IdLookupFactory](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/IdLookupFactory.java#L13) returns id-oriented documents. This lets mongod's internal id lookup fetch requested fields from the matched collection documents.
+8. [SearchCommand.getBatch](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/server/command/search/SearchCommand.java#L317) prepares the batch and cursor response.
+9. The Java driver receives a cursor from mongod. If the client continues iteration, [CommandBatchCursorHelper.getMoreCommandDocument](https://github.com/mongodb/mongo-java-driver/blob/main/driver-core/src/main/com/mongodb/internal/operation/CommandBatchCursorHelper.java#L49) builds a `getMore` command to mongod.
+10. mongod advances its pipeline cursor. [MongotTaskExecutorCursorGetMoreStrategy::createGetMoreRequest](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L60) builds the MongoT `getMore` command.
+11. For id lookup queries, [MongotTaskExecutorCursorGetMoreStrategy::_getNextDocsRequested](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L136) adjusts the next `docsRequested` value based on how many MongoDB documents the id-lookup stage actually returned.
+12. [GetMoreCommand.run](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/server/command/search/GetMoreCommand.java#L56) asks [MongotCursorManagerImpl](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/cursor/MongotCursorManagerImpl.java#L43) for the next batch.
+13. [MongotCursor.getNextBatch](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/cursor/MongotCursor.java#L90) advances the batch producer.
+
+## MongoDB server classes involved
+
+- [DocumentSourceSearch::createFromBson](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_search.cpp#L128) parses `$search`.
+- [DocumentSourceSearch::desugar](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_search.cpp#L166) creates the internal MongoT remote stage.
+- [search_helpers::promoteStoredSourceOrAddIdLookup](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/search_helper.cpp#L709) chooses stored-source promotion or id lookup.
+- [DocumentSourceInternalSearchIdLookUp](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_internal_search_id_lookup.cpp#L65) represents mongod's source-document lookup stage for MongoT hit ids.
+- [mongot_cursor::establishCursorsForSearchStage](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L225) establishes the initial MongoT search cursor.
+- [mongot_cursor::getRemoteCommandRequest](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L187) points the initial search and later getMore command path at the configured MongoT address.
+- [MongotTaskExecutorCursorGetMoreStrategy::createGetMoreRequest](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L60) builds MongoT `getMore` requests.
+- [MongotTaskExecutorCursorGetMoreStrategy::_getNextDocsRequested](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L136) updates `docsRequested` using id-lookup success metrics.
 
 ## MongoT classes involved
 
