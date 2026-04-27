@@ -249,7 +249,7 @@
       "focusKey": "server",
       "start": 12,
       "end": 22,
-      "description": "A text $search makes the boundary concrete: the Java driver sends aggregate to mongod only, mongod opens the gRPC stream to MongoT Server, and MongoT routes through Cursor into Lucene text execution.",
+      "description": "The client performs an aggregate $search query on MongoD through the driver. MongoD opens the gRPC stream to MongoT, and MongoT routes through Cursor into Lucene text execution.",
       "classes": [
         "ServerCallHandler",
         "GrpcStreamingServer",
@@ -389,7 +389,7 @@
       "focusKey": "index",
       "start": 22,
       "end": 30,
-      "description": "The client prepares vector input before aggregate. MongoT receives the vector search through mongod and spends command time in vector query build and candidate collection.",
+      "description": "The Client performs vector embedding on the search text, then performs an aggregate $vectorSearch on MongoD. MongoT builds a vector query and performs the search on the Lucene index.",
       "classes": [
         "VectorSearchOperator",
         "LuceneVectorSearchManager",
@@ -529,7 +529,7 @@
       "focusKey": "mongod",
       "start": 30,
       "end": 38,
-      "description": "$rankFusion is not one monolithic MongoT request. mongod runs the fusion and opens separate MongoT streams for the text/default and vector/vector_caption sub-pipelines.",
+      "description": "$rankFusion combines lexical text and vector semantic searches, combining the ranked score of the two resultsets. mongod runs the fusion and opens separate MongoT streams for the text/default and vector/vector_caption sub-pipelines.",
       "classes": [
         "GrpcStreamingServer",
         "SearchCommand",
@@ -677,7 +677,7 @@
       "focusKey": "cursor",
       "start": 38,
       "end": 47,
-      "description": "If requested fields are not returned from Lucene Stored Source, MongoT returns hit ids and scores, mongod fetches the missing fields from matched MongoDB documents, then mongod may clean up the MongoT cursor.",
+      "description": "If requested fields are not returned from Lucene Stored Source, MongoT returns hit ids and scores, mongod fetches the missing fields from matched MongoDB documents before returning the data to the client.",
       "classes": [
         "IdLookupFactory",
         "ProjectFactory",
@@ -850,7 +850,7 @@
       "focusKey": "replication",
       "start": 47,
       "end": 53,
-      "description": "Insert, update, and delete requests write to mongod first. MongoT sees the changes later through change streams, then emits decode, document event, Lucene update/delete, commit, and refresh spans.",
+      "description": "Insert, update, and delete requests write to mongod first. MongoT sees the changes in an eventually-consistent manner through change stream watchers on the indexed collections. Changes observed are reflected in the Lucene index.",
       "classes": [
         "ChangeStreamManager",
         "DecodingWorkScheduler",
