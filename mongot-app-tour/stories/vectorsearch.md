@@ -41,7 +41,7 @@ collection.aggregate(List.of(
 ## MongoDB server classes involved
 
 - [DocumentSourceVectorSearch::createFromBson](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_vector_search.cpp#L177) parses the public `$vectorSearch` stage.
-- [DocumentSourceVectorSearch::desugar](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_vector_search.cpp#L208) appends stored-source or id-lookup handling when needed.
+- [DocumentSourceVectorSearch::desugar](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_vector_search.cpp#L208) rewrites `$vectorSearch` from public stage syntax into internal execution stages and appends stored-source or id-lookup handling when needed.
 - [documentSourceVectorSearchToStageFn](https://github.com/mongodb/mongo/blob/master/src/mongo/db/exec/agg/search/vector_search_stage.cpp#L39) creates the executable vector search stage.
 - [VectorSearchStage::doGetNext](https://github.com/mongodb/mongo/blob/master/src/mongo/db/exec/agg/search/vector_search_stage.cpp#L138) establishes the MongoT cursor on first execution.
 - [search_helpers::establishVectorSearchCursor](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/vector_search_helper.cpp#L74) creates the vector search remote cursor.
