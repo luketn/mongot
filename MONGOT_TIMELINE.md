@@ -195,7 +195,7 @@ sequenceDiagram
 
 ## 5. Detailed Trace and Load Test Views
 
-The diagrams below add the runtime detail learned from the Atlas Search Coco load-test runs captured with `DETAILED_TRACE_SPANS=true`. The broad package flows above show ownership and lifecycle; these diagrams show the shape of individual traced requests and update batches.
+The diagrams below add the runtime detail learned from client load-test runs captured with `DETAILED_TRACE_SPANS=true`. The broad package flows above show ownership and lifecycle; these diagrams show the shape of individual traced requests and update batches.
 
 ### 5.1 Text Search Trace
 
@@ -204,7 +204,7 @@ Text search uses the command-stream path, then creates a cursor backed by a Luce
 ```mermaid
 sequenceDiagram
     autonumber
-    participant app as "java: Atlas Search Coco app"
+    participant app as "java: client app"
     participant driver as "java: MongoDB Java driver"
     participant mongod as "mongod: aggregation executor"
     participant server as "mongot: gRPC command stream"
@@ -249,7 +249,7 @@ sequenceDiagram
         mongod-->>driver: aggregate cursor batch
     end
     deactivate server
-    driver-->>app: image search response
+    driver-->>app: search response
 ```
 
 ### 5.2 Vector Search Trace
@@ -259,23 +259,23 @@ Vector search follows the same command-stream skeleton but the dominant command-
 ```mermaid
 sequenceDiagram
     autonumber
-    participant app as "java: Atlas Search Coco app"
+    participant app as "java: client app"
     participant embedding as "external: embedding provider / LM Studio"
     participant driver as "java: MongoDB Java driver"
     participant mongod as "mongod: aggregation executor"
     participant server as "mongot: gRPC command stream"
-    participant command as "mongot: SearchCommand"
+    participant command as "mongot: VectorSearchCommand"
     participant query as "mongot: index.query"
     participant cursor as "mongot: cursor"
     participant lucene as "mongot: index.lucene vector reader"
 
     app->>embedding: build query embedding
     embedding-->>app: 768-dimension query vector
-    app->>driver: aggregate with $search vectorSearch
+    app->>driver: aggregate with vector search
     driver->>mongod: aggregate command
-    mongod->>server: gRPC command stream vector search
+    mongod->>server: gRPC vectorSearch command stream
     activate server
-    server->>command: mongot.search.command
+    server->>command: mongot.vector_search.command
     activate command
     command->>query: parse BSON vectorSearch
     query-->>command: VectorSearchOperator / materialized criteria
@@ -300,12 +300,12 @@ sequenceDiagram
 
 ### 5.3 Combined Text And Vector With `$rankFusion`
 
-The combined workload is not one monolithic MongoT search. The Java app builds a `$rankFusion` aggregation, and MongoT sees separate search streams for the text and vector sub-pipelines. The two sub-pipelines share the same root operation name, so `mongot.search.index.name` is the attribute that separates `default` from `vector_caption` traces.
+The combined workload is not one monolithic MongoT search. The client builds a `$rankFusion` aggregation, and MongoT sees separate search streams for the text and vector sub-pipelines. The two sub-pipelines share the same root operation name, so `mongot.search.index.name` is the attribute that separates `default` from `vector_caption` traces.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant app as "java: Atlas Search Coco app"
+    participant app as "java: client app"
     participant driver as "java: MongoDB Java driver"
     participant mongod as "mongod: aggregation executor"
     participant text as "mongot: text stream - index=default"
@@ -342,28 +342,28 @@ Measured component split from the combined run:
 | Text | `default` | 15.1 ms | 851 us | Text/facet query, Lucene text hit collection, BSON materialization. |
 | Vector | `vector_caption` | 24.2 ms | 4.3 ms | Exact vector candidate collection dominates command time. |
 
-### 5.4 Text Search With License Fields
+### 5.4 Document Fetch For Missing Stored Source Fields
 
-The license-fields workload uses text search, but `includeLicense=true` changes which fields the Java app asks MongoDB to return. This is not the Java MongoDB driver receiving a batch of `_id`s from MongoT and issuing a second client-side query. The Java driver builds one `aggregate` command, sends it to `mongod`, and then iterates the MongoDB cursor with normal `getMore` commands when more result batches are needed.
+This workload uses text search, but the client query asks for fields that are not returned from Lucene Stored Source. This is not the Java MongoDB driver receiving a batch of `_id`s from MongoT and issuing a second client-side query. The Java driver builds one `aggregate` command, sends it to `mongod`, and then iterates the MongoDB cursor with normal `getMore` commands when more result batches are needed.
 
-The `_id` handoff is server-side. When `$search` is not using `returnStoredSource`, MongoT's Lucene projection path uses `IdLookupFactory`: it returns each hit's root `_id` and leaves `storedSource` empty. The mongod-side search pipeline then uses those ids to perform the internal id-lookup/materialization from the MongoDB collection before the final aggregation projection is returned to the driver. MongoT itself is not opening a separate query back to mongod for the license fields.
+The `_id` handoff is server-side. When the requested response cannot be satisfied from Stored Source, MongoT's Lucene projection path uses `IdLookupFactory`: it returns each hit's root `_id` and leaves document materialization to `mongod`. The mongod-side search pipeline then uses those ids to fetch the matched MongoDB documents and apply the final aggregation projection before returning cursor batches to the driver. MongoT itself is not opening a separate query back to mongod for the missing fields.
 
-So "app projection / license fields" means the application-level response projection now requires `licenseName` and `licenseUrl`, which are outside the stored-source-only response shape used by the lighter workload. That forces full-document materialization inside MongoDB's aggregation/search execution path. The measured effect was mostly outside the initial MongoT command span: HTTP and app-reported MongoDB time increased, while the median `mongot.search.command` stayed around `863 us`.
+So "Document Fetch" means the client-visible projection requires fields outside the stored-source-only response shape used by the lighter workload. That forces full-document materialization inside MongoDB's aggregation/search execution path. The measured effect was mostly outside the initial MongoT command span: HTTP and app-reported MongoDB time increased, while the median `mongot.search.command` stayed around `863 us`.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant app as "java: Atlas Search Coco app"
+    participant app as "java: client app"
     participant driver as "java: MongoDB Java driver"
     participant mongod as "mongod: aggregation executor"
     participant server as "mongot: gRPC command stream"
     participant command as "mongot: SearchCommand"
     participant lucene as "mongot: index.lucene"
     participant idLookup as "mongod: id lookup / materialization"
-    participant appProject as "java: app projection / license fields"
+    participant appProject as "java: client projection"
 
-    app->>driver: search request includeLicense=true
-    driver->>mongod: aggregate with $search + license projection
+    app->>driver: aggregate with $search + non-stored fields
+    driver->>mongod: aggregate command
     mongod->>server: gRPC command stream search
     activate server
     server->>command: mongot.search.command
@@ -375,10 +375,10 @@ sequenceDiagram
     server-->>mongod: search response batches
     deactivate server
     mongod->>idLookup: materialize matching collection documents by _id
-    idLookup-->>mongod: documents with licenseName/licenseUrl
+    idLookup-->>mongod: matched MongoDB documents
     mongod-->>driver: aggregate cursor batches
     driver-->>appProject: documents available from MongoDB cursor
-    appProject-->>app: response with licenseName/licenseUrl
+    appProject-->>app: response with requested fields
 ```
 
 ### 5.5 Async Insert/Delete Indexing Trace
@@ -389,7 +389,7 @@ Insert/delete API calls do not become children of the client request trace insid
 sequenceDiagram
     autonumber
     participant k6 as "k6: mutation workload"
-    participant app as "java: Atlas Search Coco API"
+    participant app as "java: client API"
     participant mongod as "mongod: MongoDB collection"
     participant change as "mongot: replication.steadystate"
     participant decode as "mongot: DecodingWorkScheduler"
@@ -398,10 +398,10 @@ sequenceDiagram
     participant lucene as "mongot: Lucene IndexWriter"
     participant refresh as "mongot: SearcherManager refresh"
 
-    k6->>app: POST /image/add synthetic image
-    app->>mongod: insert image document
-    k6->>app: DELETE /image/delete?id=generated
-    app->>mongod: delete same image document
+    k6->>app: create synthetic document
+    app->>mongod: insert document
+    k6->>app: delete synthetic document
+    app->>mongod: delete same document
     mongod-->>change: change stream batch
     activate change
     change->>decode: mongot.indexing.decode_batch
@@ -479,51 +479,51 @@ This flowchart is a compact view of what changed across the load-test scenarios.
 
 ```mermaid
 flowchart LR
-    root["Atlas Search Coco load tests<br/>25 VUs for search scenarios"]
+    root["Client load tests<br/>25 VUs for search scenarios"]
     text["Text only<br/>166,253 requests<br/>554 req/s<br/>HTTP p50 39.2 ms<br/>MongoT stream p50 8.9 ms<br/>command p50 890 us"]
     vector["Vector only<br/>56,594 requests<br/>189 req/s<br/>HTTP p50 124 ms<br/>MongoT stream p50 10.0 ms<br/>command p50 2.8 ms<br/>vector collect p50 1.9 ms"]
     both["Text + vector<br/>23,388 requests<br/>77.8 req/s<br/>HTTP p50 268 ms<br/>MongoT stream p50 37.8 ms<br/>rankFusion splits into text and vector streams"]
-    license["Text + license fields<br/>67,688 requests<br/>225 req/s<br/>HTTP p50 87.0 ms<br/>MongoT stream p50 11.9 ms<br/>command p50 863 us"]
+    documentFetch["Document fetch<br/>67,688 requests<br/>225 req/s<br/>HTTP p50 87.0 ms<br/>MongoT stream p50 11.9 ms<br/>command p50 863 us"]
     mutations["Synthetic inserts/deletes<br/>11,324 mutation requests<br/>37.7 ops/s with 1 VU<br/>20,444 indexing trace hits<br/>async change stream to Lucene writer"]
 
     root --> text
     root --> vector
     root --> both
-    root --> license
+    root --> documentFetch
     root --> mutations
 
     text --> textLesson["Mostly sub-ms command work;<br/>BSON materialization visible"]
     vector --> vectorLesson["Lucene vector candidate collection<br/>dominates command phase"]
     both --> bothLesson["Two MongoT search streams:<br/>default + vector_caption"]
-    license --> licenseLesson["End-to-end app/MongoDB time rises;<br/>MongoT command stays sub-ms"]
+    documentFetch --> documentFetchLesson["End-to-end client/MongoDB time rises;<br/>MongoT command stays sub-ms"]
     mutations --> mutationLesson["Not a child of client trace;<br/>correlate by run window and indexing attributes"]
 ```
 
 ## Animation Scenario
 
-The tour app animation should treat this as a compressed runtime story with multiple concurrent streams:
+The compressed runtime model can be described as multiple concurrent streams:
 
 | Virtual Time | Phase | Main Streams |
 | --- | --- | --- |
-| `0s-6s` | Bootstrap | `community -> config -> metrics/monitor/catalogservice/cursor/server` |
-| `6s-18s` | Initialize | `config -> lifecycle -> index -> replication` |
-| `18s-34s` | Initial sync | `replication.initialsync -> index` plus buffered write capture |
-| `34s-44s` | Stable state | `replication.steadystate -> index` with config and metadata polling in the background |
-| `44s-59s` | Atlas Search load | `server -> cursor -> index` Atlas Search flow with steady-state replication continuing behind it |
-| `59s-74s` | Vector Search load | `server -> embedding -> index` Vector Search flow with steady-state replication continuing behind it |
-| `74s-78s` | Atlas Search taper | The Atlas Search path remains active, but at visibly reduced intensity |
-| `78s-82s` | Vector Search taper | The Vector Search path remains active, but at visibly reduced intensity |
-| `82s-90s` | Shutdown | `community -> server/metrics/config -> lifecycle -> replication -> catalogservice/logging` |
+| `0s-6s` | MongoT Bootstrap | `community -> config -> server/cursor/catalogservice/metrics/trace`, plus metadata MongoDB client setup |
+| `6s-12s` | Index Ready | `config -> lifecycle -> index -> replication`, plus authoritative metadata reads from `mongod` |
+| `12s-22s` | Text Search | `client -> mongod -> server -> cursor -> index`, with Lucene text collection and replication trickle in the background |
+| `22s-30s` | Vector Search | `client -> mongod -> server -> cursor -> index`, with `VectorSearchCommand` and vector candidate collection |
+| `30s-38s` | Rank Fusion | `mongod` opens separate MongoT streams for text/default and vector/vector_caption sub-pipelines |
+| `38s-47s` | Document Fetch + getMore | MongoT returns hit ids/scores; `mongod` fetches fields missing from Stored Source and coordinates getMore |
+| `47s-53s` | Inserts + Deletes | client writes to `mongod`; MongoT observes change streams and updates Lucene asynchronously |
+| `53s-57s` | Everything Together | request path, background replication, support package trickle, metrics, and traces run together |
+| `57s-60s` | Shutdown | `server/cursor/index/replication/lifecycle` drain and close while metrics/tracing/logging finish |
 
 ### Edge Groups to Animate
 
 - Bootstrap and initialize:
   - `community -> config`
-  - `config -> metrics`
-  - `config -> monitor`
   - `config -> catalogservice`
   - `config -> cursor`
   - `config -> server`
+  - `config -> logging`, `config -> metrics`, and `config -> trace` as a low-intensity observability trickle
+  - `config -> featureflag`
   - `config -> lifecycle`
 - Index creation and initial replication:
   - `lifecycle -> index`
@@ -534,23 +534,31 @@ The tour app animation should treat this as a compressed runtime story with mult
   - `catalogservice -> config`
   - `replication -> index`
   - `monitor -> config`
-- Atlas Search load:
+- Text search load:
   - `server -> cursor`
   - `cursor -> index`
 - Vector Search load:
-  - `server -> embedding`
-  - `embedding -> index`
+  - `server -> cursor`
+  - `cursor -> index`
+  - `index -> trace`
+- Document fetch and cursor continuation:
+  - `index -> cursor`
+  - `cursor -> server`
+  - `server -> mongod`
+  - `mongod -> client`
+- Async updates:
+  - `mongod -> replication`
+  - `replication -> index`
 - Shutdown:
-  - `community -> server`
-  - `community -> metrics`
-  - `community -> config`
-  - `config -> lifecycle`
+  - `mongod -> server`
+  - `server -> cursor`
+  - `cursor -> index`
+  - `server -> lifecycle`
   - `lifecycle -> replication`
-  - `community -> catalogservice`
-  - `community -> logging`
+  - `lifecycle -> metrics`
 
 ### Notes
 
-- The package graph is import-oriented, so a few animation edges represent runtime call direction rather than the static import arrow direction.
+- The package graph is import-oriented, so a few runtime edges represent call direction rather than the static import arrow direction.
 - The steady-state and config-monitor streams are genuinely concurrent in code.
-- The `44s-74s` query-load window is intentionally split into separate Atlas Search and Vector Search slices so the visualization can show the Lucene/cursor path and the embedding/vector path independently.
+- The 60-second runtime uses edge-level continuity: in the final second of each phase, only stream edges that do not appear in the next phase fade out. Shared replication, metrics, tracing, support, and request-path edges stay continuous across phase boundaries.

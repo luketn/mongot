@@ -2,7 +2,7 @@
 
 Complexity is a subjective `1-10` score based on package size, internal breadth, and how central the package appears in the codebase. Linked packages are other major packages directly imported from that package's source.
 
-The package descriptions now include the runtime picture learned from detailed OpenTelemetry traces gathered with `DETAILED_TRACE_SPANS=true` against Atlas Search Coco. Those traces show the main search stream, the initial command span, Lucene execution spans, BSON materialization, cursor/getMore work, and asynchronous indexing updates from MongoDB change streams.
+The package descriptions now include the runtime picture learned from detailed OpenTelemetry traces gathered with `DETAILED_TRACE_SPANS=true` against a generic client workload. Those traces show the main search stream, the initial command span, Lucene execution spans, BSON materialization, cursor/getMore work, and asynchronous indexing updates from MongoDB change streams.
 
 | Package | Description | Complexity | Linked Major Packages |
 | --- | --- | ---: | --- |
@@ -20,7 +20,7 @@ The package descriptions now include the runtime picture learned from detailed O
 | `com.xgen.mongot.metrics` | Metrics abstractions plus FTDC collection/reporting infrastructure. | 4 | `com.xgen.mongot.util`, `com.xgen.mongot.index` |
 | `com.xgen.mongot.monitor` | Disk and replication-state monitoring, gates, and hysteresis controls used to protect service behavior under stress. | 3 | `com.xgen.mongot.util`, `com.xgen.mongot.config`, `com.xgen.mongot.metrics` |
 | `com.xgen.mongot.replication` | MongoDB replication pipeline, including initial sync, steady-state change-stream processing, durability, and indexing work scheduling. Mutation traces show this path as change stream batch, decode batch, decoded document event, indexing batch, Lucene writer update/delete, commit, and searcher refresh. | 9 | `com.xgen.mongot.util`, `com.xgen.mongot.index`, `com.xgen.mongot.metrics`, `com.xgen.mongot.embedding`, `com.xgen.mongot.logging`, `com.xgen.mongot.featureflag`, `com.xgen.mongot.catalog`, `com.xgen.mongot.cursor`, `com.xgen.mongot.monitor` |
-| `com.xgen.mongot.server` | External server surface: gRPC/command handling, protocol plumbing, request routing, and streaming responses. Search root spans are named by namespace and operation, such as `mongodb.CommandService/atlasSearchCoco.image/search`, so traces can be correlated back to the Java client request shape. | 8 | `com.xgen.mongot.util`, `com.xgen.mongot.index`, `com.xgen.mongot.cursor`, `com.xgen.mongot.config`, `com.xgen.mongot.catalogservice`, `com.xgen.mongot.catalog`, `com.xgen.mongot.embedding`, `com.xgen.mongot.metrics`, `com.xgen.mongot.featureflag`, `com.xgen.mongot.trace` |
+| `com.xgen.mongot.server` | External server surface: gRPC/command handling, protocol plumbing, request routing, and streaming responses. Search root spans are named by namespace and operation, such as `mongodb.CommandService/<database>.<collection>/search`, so traces can be correlated back to the client request shape without implying that the Java driver connects to MongoT directly. | 8 | `com.xgen.mongot.util`, `com.xgen.mongot.index`, `com.xgen.mongot.cursor`, `com.xgen.mongot.config`, `com.xgen.mongot.catalogservice`, `com.xgen.mongot.catalog`, `com.xgen.mongot.embedding`, `com.xgen.mongot.metrics`, `com.xgen.mongot.featureflag`, `com.xgen.mongot.trace` |
 | `com.xgen.mongot.trace` | OpenTelemetry tracing helpers, payload attribute guards, detailed-span toggles, and trace parsing utilities. With detailed tracing enabled, important spans include full input BSON, Lucene query string/class, sampled BSON result documents, index/update event metadata, and operation ids for correlation. | 3 | None |
 | `com.xgen.mongot.util` | Shared foundation code used across mongot: BSON/proto conversion, concurrency helpers, collections, versioning, and general utilities. | 8 | `com.xgen.proto`, `com.xgen.mongot.metrics`, `com.xgen.mongot.logging` |
 | `com.xgen.proto` | BSON-aware protobuf runtime plus code-generation plugin for BSON-capable protobuf messages. | 4 | None |
@@ -51,37 +51,37 @@ The detailed trace runs add a useful second lens to the package map: package str
 For search workloads, the root MongoT span is the gRPC command stream. It is named by namespace and operation, for example:
 
 ```text
-mongodb.CommandService/atlasSearchCoco.image/search
+mongodb.CommandService/<database>.<collection>/search
 ```
 
-That root stream includes the initial `mongot.search.command` span, response-stream handling, client consumption, and later cursor/getMore activity in the same stream. The command span is the best view of the initial MongoT command work; the stream span is the better end-to-end MongoT latency view.
+That root stream includes the initial command span (`mongot.search.command` for text search or `mongot.vector_search.command` for vector search), response-stream handling, client consumption, and later cursor/getMore activity in the same stream. The command span is the best view of the initial MongoT command work; the stream span is the better end-to-end MongoT latency view.
 
 The main package flow for text and vector search is:
 
 | Phase | Main Package(s) | Important Span(s) | What It Means |
 | --- | --- | --- | --- |
 | Stream entry | `com.xgen.mongot.server` | `mongodb.CommandService/<namespace>/<operation>` | gRPC command stream lifecycle, command dispatch, response observer work, and stream close/cleanup. |
-| Command handling | `com.xgen.mongot.server`, `com.xgen.mongot.trace` | `mongot.search.command` | Search command root with operation id, namespace, command name, full input BSON, and top-level command attributes. |
-| Query context | `com.xgen.mongot.server.command.search`, `com.xgen.mongot.featureflag` | `mongot.search.prepare_query_context` | Resolves query optimization flags and dynamic feature state before parsing. |
-| BSON parse | `com.xgen.mongot.index.query` | `mongot.search.parse_query_bson`, `Query.fromBson` | Converts incoming `$search` BSON into MongoT query model objects. This is not Lucene execution. |
+| Command handling | `com.xgen.mongot.server`, `com.xgen.mongot.trace` | `mongot.search.command`, `mongot.vector_search.command` | Command root with operation id, namespace, command name, full input BSON, and top-level command attributes. |
+| Query context | `com.xgen.mongot.server.command.search`, `com.xgen.mongot.featureflag` | `mongot.search.prepare_query_context`, `mongot.vector_search.validate_query` | Resolves query optimization flags and dynamic feature state before Lucene execution. |
+| BSON parse | `com.xgen.mongot.index.query` | `mongot.search.parse_query_bson`, `mongot.vector_search.parse_query`, `Query.fromBson` | Converts incoming search/vector BSON into MongoT query model objects. This is not Lucene execution. |
 | Catalog lookup | `com.xgen.mongot.catalog`, `com.xgen.mongot.index` | `mongot.search.lookup_index_catalog` | Resolves the named search/vector index from MongoT's initialized in-memory catalog. |
 | Cursor setup | `com.xgen.mongot.cursor` | `mongot.search.create_and_register_cursor`, `mongot.cursor.*` | Creates cursor state, registers cursor/index mappings, and wires the batch producer. |
 | Query build | `com.xgen.mongot.index.query`, `com.xgen.mongot.index.lucene` | `mongot.lucene.build_query` | Builds Lucene `Query` objects and records the Lucene query class/string. This constructs the query but does not execute it. |
 | Text search execution | `com.xgen.mongot.index.lucene` | `mongot.lucene.collect_initial_top_docs` | Actual Lucene text/facet execution through `IndexSearcher.search(Query, CollectorManager)`. |
 | Vector search execution | `com.xgen.mongot.index.lucene` | `mongot.lucene.vector_collect_candidates` | Actual vector candidate collection over the vector field, returning Lucene top-doc candidates before BSON conversion. |
-| Result materialization | `com.xgen.mongot.index.lucene`, `com.xgen.mongot.index.query.pushdown.project` | `mongot.lucene.materialize_bson_documents` | Converts Lucene hits into BSON response documents, reading stored fields or projected document data as needed. |
+| Result materialization | `com.xgen.mongot.index.lucene`, `com.xgen.mongot.index.query.pushdown.project` | `mongot.lucene.materialize_bson_documents` | Converts Lucene hits into BSON response documents. When Stored Source cannot satisfy the request, MongoT returns hit ids/scores and mongod performs the document fetch. |
 | Response build | `com.xgen.mongot.server.command.search`, `com.xgen.mongot.cursor` | `mongot.search.prepare_response_document`, `mongot.search.encode_response_bson` | Builds and serializes the command response, cursor wrapper, and metadata variables. |
 
 ### Search Scenario Findings
 
-These measurements came from Atlas Search Coco k6 runs with 25 VUs for search scenarios and detailed trace spans enabled:
+These measurements came from client k6 runs with 25 VUs for search scenarios and detailed trace spans enabled:
 
 | Scenario | Requests | Throughput | HTTP Median | MongoT Stream Median | Initial Command Median | Main Runtime Lesson |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | Text Search Only | 166,253 | 554 req/s | 39.2 ms | 8.9 ms | 890 us | Stored-source text search spent most command time in BSON materialization, then parse/build/collect work. |
 | Vector Search Only | 56,594 | 189 req/s | 124 ms | 10.0 ms | 2.8 ms | Vector candidate collection dominated the command span at roughly 1.9 ms median. |
 | Both Vector And Text | 23,388 | 77.8 req/s | 268 ms | 37.8 ms | 2.2 ms | `$rankFusion` creates separate text and vector MongoT search streams; the vector sub-pipeline had a higher command median than the text sub-pipeline. |
-| Text Search With License Fields | 67,688 | 225 req/s | 87.0 ms | 11.9 ms | 863 us | Requesting license fields raised end-to-end app/MongoDB latency, while MongoT's initial command stayed sub-millisecond. |
+| Document Fetch | 67,688 | 225 req/s | 87.0 ms | 11.9 ms | 863 us | Requesting fields outside Lucene Stored Source raised end-to-end client/MongoDB latency, while MongoT's initial command stayed sub-millisecond. |
 
 For combined text/vector search, the trace component split is especially important. The root operation name is the same for both sub-pipelines, but `mongot.search.index.name` separates them:
 
@@ -106,11 +106,11 @@ The package flow for updates is:
 | Lucene update/delete | `com.xgen.mongot.index.lucene.writer` | `mongot.lucene.index_writer.update_documents`, `mongot.lucene.index_writer.delete_documents` | Calls Lucene `IndexWriter.updateDocuments` for inserts/updates or `IndexWriter.deleteDocuments` for deletes. |
 | Commit and refresh | `com.xgen.mongot.index.lucene` | `mongot.lucene.index_writer.commit`, `mongot.lucene.maybe_refresh_searcher_manager` | Commits writer changes and refreshes the searcher manager so new segments become visible to search. |
 
-The clean synthetic mutation run used one VU because the Coco `/image/add` endpoint allocates ids with `nextImageId()` before insertion, which races under concurrent inserts. The final run produced 5,662 inserts and 5,662 deletes. Median indexing spans included change stream batch at about 300 us, indexing batch at about 146 us, document insert at about 168 us, Lucene update documents at about 54 us, Lucene delete documents at about 3 us, and periodic Lucene commit at about 20 ms for the few commit spans observed.
+The clean synthetic mutation run used one VU because the test API allocated ids before insertion, which raced under concurrent inserts. The final run produced 5,662 inserts and 5,662 deletes. Median indexing spans included change stream batch at about 300 us, indexing batch at about 146 us, document insert at about 168 us, Lucene update documents at about 54 us, Lucene delete documents at about 3 us, and periodic Lucene commit at about 20 ms for the few commit spans observed.
 
 ### What To Look At In Jaeger
 
-For a search trace, start at the root stream span and then expand `mongot.search.command`. The most useful attributes are:
+For a search trace, start at the root stream span and then expand `mongot.search.command` or `mongot.vector_search.command`. The most useful attributes are:
 
 | Attribute | Why It Matters |
 | --- | --- |

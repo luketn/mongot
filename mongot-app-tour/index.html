@@ -332,6 +332,110 @@
       font-size: 13.5px;
     }
 
+    .story-detail-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .markdown-view {
+      color: rgba(236,244,255,0.9);
+      font-size: 13.5px;
+      line-height: 1.56;
+    }
+
+    .markdown-view h1,
+    .markdown-view h2,
+    .markdown-view h3 {
+      color: var(--text);
+      line-height: 1.16;
+      margin: 0 0 10px;
+      letter-spacing: 0;
+    }
+
+    .markdown-view h1 {
+      font-size: 24px;
+      margin-bottom: 16px;
+    }
+
+    .markdown-view h2 {
+      font-size: 16px;
+      margin-top: 22px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(155, 192, 255, 0.14);
+    }
+
+    .markdown-view h3 {
+      font-size: 14px;
+      margin-top: 18px;
+      color: rgba(236,244,255,0.92);
+    }
+
+    .markdown-view p {
+      margin: 0 0 12px;
+      color: rgba(236,244,255,0.86);
+    }
+
+    .markdown-view ul,
+    .markdown-view ol {
+      margin: 0 0 14px 20px;
+      padding: 0;
+    }
+
+    .markdown-view li {
+      margin: 6px 0;
+      color: rgba(236,244,255,0.84);
+    }
+
+    .markdown-view a {
+      color: #ffcc66;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255, 204, 102, 0.32);
+    }
+
+    .markdown-view a:hover {
+      color: #ffe3a3;
+      border-bottom-color: rgba(255, 227, 163, 0.72);
+    }
+
+    .markdown-view code {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      color: #f8e7b0;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 6px;
+      padding: 1px 5px;
+    }
+
+    .markdown-view pre {
+      overflow: auto;
+      max-width: 100%;
+      margin: 0 0 14px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(105, 192, 255, 0.16);
+      background: rgba(3, 9, 16, 0.82);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .markdown-view pre code {
+      display: block;
+      padding: 0;
+      color: #d8e7ff;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      white-space: pre;
+      line-height: 1.52;
+    }
+
+    .markdown-view hr {
+      border: 0;
+      border-top: 1px solid rgba(155, 192, 255, 0.14);
+      margin: 18px 0;
+    }
+
     .legend-dot {
       width: 10px;
       height: 10px;
@@ -404,7 +508,7 @@
       { id: "top:metrics", name: "com.xgen.mongot.metrics", short: "metrics", description: "Metrics abstractions plus FTDC collection and reporting infrastructure.", complexity: 4, links: ["com.xgen.mongot.util", "com.xgen.mongot.index"] },
       { id: "top:monitor", name: "com.xgen.mongot.monitor", short: "monitor", description: "Disk and replication-state monitoring, gates, and hysteresis controls.", complexity: 3, links: ["com.xgen.mongot.util", "com.xgen.mongot.config", "com.xgen.mongot.metrics"] },
       { id: "top:replication", name: "com.xgen.mongot.replication", short: "replication", description: "MongoDB replication pipeline: initial sync, steady-state change streams, durability, and indexing work scheduling. Insert/delete traces now expose change stream batch, decode batch, document event, indexing batch, Lucene writer, commit, and searcher refresh work.", complexity: 9, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.metrics", "com.xgen.mongot.embedding", "com.xgen.mongot.logging", "com.xgen.mongot.featureflag", "com.xgen.mongot.catalog", "com.xgen.mongot.cursor", "com.xgen.mongot.monitor"] },
-      { id: "top:server", name: "com.xgen.mongot.server", short: "server", description: "MongoT's gRPC command-stream surface. It accepts search commands from mongod, not from the Java driver directly, then routes into SearchCommand, cursors, index readers, tracing, and response serialization.", complexity: 8, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.cursor", "com.xgen.mongot.config", "com.xgen.mongot.catalogservice", "com.xgen.mongot.catalog", "com.xgen.mongot.embedding", "com.xgen.mongot.metrics", "com.xgen.mongot.featureflag", "com.xgen.mongot.trace"] },
+      { id: "top:server", name: "com.xgen.mongot.server", short: "server", description: "MongoT's gRPC command-stream surface. It accepts search commands from mongod, not from the Java driver directly, then routes into SearchCommand or VectorSearchCommand, cursors, index readers, tracing, and response serialization.", complexity: 8, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.cursor", "com.xgen.mongot.config", "com.xgen.mongot.catalogservice", "com.xgen.mongot.catalog", "com.xgen.mongot.embedding", "com.xgen.mongot.metrics", "com.xgen.mongot.featureflag", "com.xgen.mongot.trace"] },
       { id: "top:trace", name: "com.xgen.mongot.trace", short: "trace", description: "OpenTelemetry tracing helpers, exporters, sampling toggles, and trace parsing utilities. With DETAILED_TRACE_SPANS enabled, spans include full input BSON, Lucene query shape, sampled BSON results, and indexing update details.", complexity: 3, links: [] },
       { id: "top:util", name: "com.xgen.mongot.util", short: "util", description: "Shared foundation code: BSON/proto conversion, concurrency helpers, collections, versioning, and general utilities.", complexity: 8, links: ["com.xgen.proto", "com.xgen.mongot.metrics", "com.xgen.mongot.logging"] },
       { id: "top:proto", name: "com.xgen.proto", short: "proto", description: "BSON-aware protobuf runtime plus code-generation plugin for BSON-capable protobuf messages.", complexity: 4, links: [] }
@@ -509,14 +613,284 @@
       { id: "dep:mongodb-driver", name: "org.mongodb:mongodb-driver-sync", group: "Data Access", sizeMb: 0.156, website: "https://www.mongodb.com/docs/drivers/java/sync/current/", description: "Official synchronous MongoDB Java driver." }
     ];
 
+    const SOURCE_BASE = "https://github.com/mongodb/mongot/blob/main/";
+    const sourceUrl = (path, line) => `${SOURCE_BASE}${path}#L${line}`;
+    const SOURCE_LINKS = Object.freeze({
+      ChangeStreamManager: sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/steadystate/changestream/ChangeStreamManager.java", 47),
+      ChangeStreamMongoCursorClient: sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/common/ChangeStreamMongoCursorClient.java", 37),
+      CommunityMongotBootstrapper: sourceUrl("src/main/java/com/xgen/mongot/config/provider/community/CommunityMongotBootstrapper.java", 105),
+      DecodingWorkScheduler: sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/common/DecodingWorkScheduler.java", 44),
+      DefaultAuthoritativeIndexCatalog: sourceUrl("src/main/java/com/xgen/mongot/catalogservice/DefaultAuthoritativeIndexCatalog.java", 18),
+      DefaultConfigManager: sourceUrl("src/main/java/com/xgen/mongot/config/manager/DefaultConfigManager.java", 68),
+      DefaultLifecycleManager: sourceUrl("src/main/java/com/xgen/mongot/lifecycle/DefaultLifecycleManager.java", 42),
+      DefaultMetadataService: sourceUrl("src/main/java/com/xgen/mongot/catalogservice/DefaultMetadataService.java", 9),
+      GetMoreCommand: sourceUrl("src/main/java/com/xgen/mongot/server/command/search/GetMoreCommand.java", 30),
+      GrpcStreamingServer: sourceUrl("src/main/java/com/xgen/mongot/server/grpc/GrpcStreamingServer.java", 47),
+      IdLookupFactory: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/IdLookupFactory.java", 19),
+      IndexLifecycleManager: sourceUrl("src/main/java/com/xgen/mongot/lifecycle/IndexLifecycleManager.java", 41),
+      IndexingWorkScheduler: sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/common/IndexingWorkScheduler.java", 51),
+      InitializedLuceneSearchIndex: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/InitializedLuceneSearchIndex.java", 50),
+      LuceneSearchIndexReader: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/LuceneSearchIndexReader.java", 85),
+      LuceneSearchManager: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/LuceneSearchManager.java", 8),
+      LuceneVectorSearchBatchProducer: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/LuceneVectorSearchBatchProducer.java", 26),
+      LuceneVectorSearchManager: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/LuceneVectorSearchManager.java", 30),
+      MongoDbMetadataClient: sourceUrl("src/main/java/com/xgen/mongot/util/mongodb/MongoDbMetadataClient.java", 23),
+      MongoDbReplicationManager: sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/MongoDbReplicationManager.java", 66),
+      MongotCommunity: sourceUrl("src/main/java/com/xgen/mongot/community/MongotCommunity.java", 20),
+      MongotCursorManagerImpl: sourceUrl("src/main/java/com/xgen/mongot/cursor/MongotCursorManagerImpl.java", 43),
+      OperatorQuery: sourceUrl("src/main/java/com/xgen/mongot/index/query/OperatorQuery.java", 11),
+      ProjectFactory: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/ProjectFactory.java", 15),
+      RootDocumentBuilder: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/document/single/RootDocumentBuilder.java", 29),
+      SearchCommand: sourceUrl("src/main/java/com/xgen/mongot/server/command/search/SearchCommand.java", 67),
+      SearchIndexDefinition: sourceUrl("src/main/java/com/xgen/mongot/index/definition/SearchIndexDefinition.java", 48),
+      SearchQuery: sourceUrl("src/main/java/com/xgen/mongot/index/query/SearchQuery.java", 22),
+      SearchQueryFactory: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/query/SearchQueryFactory.java", 40),
+      ServerCallHandler: sourceUrl("src/main/java/com/xgen/mongot/server/grpc/ServerCallHandler.java", 35),
+      SingleLuceneIndexWriter: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/writer/SingleLuceneIndexWriter.java", 71),
+      StoredDocumentBuilder: sourceUrl("src/main/java/com/xgen/mongot/index/ingestion/stored/StoredDocumentBuilder.java", 13),
+      StoredSourceDefinition: sourceUrl("src/main/java/com/xgen/mongot/index/definition/StoredSourceDefinition.java", 24),
+      VectorIndexDefinition: sourceUrl("src/main/java/com/xgen/mongot/index/definition/VectorIndexDefinition.java", 26),
+      VectorSearchCommand: sourceUrl("src/main/java/com/xgen/mongot/server/command/search/VectorSearchCommand.java", 101),
+      VectorSearchOperator: sourceUrl("src/main/java/com/xgen/mongot/index/query/operators/VectorSearchOperator.java", 20),
+      "Lucene text collect": sourceUrl("src/main/java/com/xgen/mongot/index/lucene/LuceneSearchIndexReader.java", 688),
+      "Lucene vector candidates": sourceUrl("src/main/java/com/xgen/mongot/index/lucene/LuceneVectorSearchManager.java", 50),
+      "aggregate + gRPC search": sourceUrl("src/main/java/com/xgen/mongot/server/grpc/ServerCallHandler.java", 82),
+      "background update path": sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/MongoDbReplicationManager.java", 646),
+      "catalog definitions": sourceUrl("src/main/java/com/xgen/mongot/catalogservice/DefaultAuthoritativeIndexCatalog.java", 82),
+      "change stream to Lucene": sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/common/IndexingWorkScheduler.java", 159),
+      "change stream trickle": sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/common/ChangeStreamMongoCursorClient.java", 98),
+      "config fan-out": sourceUrl("src/main/java/com/xgen/mongot/config/provider/community/CommunityMongotBootstrapper.java", 121),
+      "drain command streams": sourceUrl("src/main/java/com/xgen/mongot/server/grpc/GrpcStreamingServer.java", 315),
+      "getMore continuation": sourceUrl("src/main/java/com/xgen/mongot/server/command/search/GetMoreCommand.java", 56),
+      "hit ids and scores": sourceUrl("src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/IdLookupFactory.java", 28),
+      "index lifecycle": sourceUrl("src/main/java/com/xgen/mongot/lifecycle/IndexLifecycleManager.java", 150),
+      "lifecycle closes runtime": sourceUrl("src/main/java/com/xgen/mongot/lifecycle/DefaultLifecycleManager.java", 296),
+      "metadata MongoDB client": sourceUrl("src/main/java/com/xgen/mongot/util/mongodb/MongoDbMetadataClient.java", 101),
+      "metrics + traces": sourceUrl("src/main/java/com/xgen/mongot/trace/Tracing.java", 243),
+      "mongod change stream source": sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/common/ChangeStreamMongoCursorClient.java", 114),
+      "mongod fetches documents": sourceUrl("src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/IdLookupFactory.java", 16),
+      "read index metadata": sourceUrl("src/main/java/com/xgen/mongot/catalogservice/DefaultAuthoritativeIndexCatalog.java", 86),
+      "request path": sourceUrl("src/main/java/com/xgen/mongot/server/command/search/SearchCommand.java", 129),
+      "support package trickle": sourceUrl("src/main/java/com/xgen/mongot/util/GlobalMetricFactory.java", 137),
+      "text sub-pipeline": sourceUrl("src/main/java/com/xgen/mongot/server/command/search/SearchCommand.java", 129),
+      "vector aggregate path": sourceUrl("src/main/java/com/xgen/mongot/server/command/search/VectorSearchCommand.java", 231),
+      "vector sub-pipeline": sourceUrl("src/main/java/com/xgen/mongot/server/command/search/VectorSearchCommand.java", 231)
+    });
+
+    function getSourceLink(label) {
+      return SOURCE_LINKS[label] || null;
+    }
+
+    function SourceChip({ label, sx, ...props }) {
+      const href = getSourceLink(label);
+      return (
+        <Chip
+          {...props}
+          component={href ? "a" : "div"}
+          href={href || undefined}
+          target={href ? "_blank" : undefined}
+          rel={href ? "noreferrer" : undefined}
+          clickable={Boolean(href)}
+          label={label}
+          title={href ? `Open source for ${label}` : label}
+          onClick={event => {
+            if (href) {
+              event.stopPropagation();
+            }
+            props.onClick?.(event);
+          }}
+          onKeyDown={event => {
+            if (href) {
+              event.stopPropagation();
+            }
+            props.onKeyDown?.(event);
+          }}
+          sx={{
+            ...sx,
+            ...(href ? {
+              cursor: "pointer",
+              textDecoration: "none",
+              "&:hover": {
+                borderColor: "#ffbe6b",
+                background: "rgba(255, 190, 107, 0.12)"
+              }
+            } : {})
+          }}
+        />
+      );
+    }
+
+    const STORY_DETAIL_FILES = Object.freeze({
+      bootstrap: "stories/bootstrap.md",
+      initialize: "stories/initialize.md",
+      textsearch: "stories/textsearch.md",
+      vectorsearch: "stories/vectorsearch.md",
+      combined: "stories/combined.md",
+      "document-fetch-cursor": "stories/document-fetch-cursor.md",
+      mutations: "stories/mutations.md",
+      "all-together": "stories/all-together.md",
+      shutdown: "stories/shutdown.md"
+    });
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value).replaceAll("`", "&#96;");
+    }
+
+    function renderInlineMarkdown(rawValue) {
+      const codePlaceholders = [];
+      const raw = String(rawValue).replace(/`([^`]+)`/g, (match, code) => {
+        const token = `@@INLINE_CODE_${codePlaceholders.length}@@`;
+        codePlaceholders.push(`<code>${escapeHtml(code)}</code>`);
+        return token;
+      });
+
+      let html = escapeHtml(raw);
+      html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, href) => {
+        const normalizedHref = href.replaceAll("&amp;", "&");
+        return `<a href="${escapeAttribute(normalizedHref)}" target="_blank" rel="noreferrer">${label}</a>`;
+      });
+      codePlaceholders.forEach((replacement, index) => {
+        html = html.replaceAll(`@@INLINE_CODE_${index}@@`, replacement);
+      });
+      return html;
+    }
+
+    function markdownToHtml(markdown) {
+      const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+      const html = [];
+      let paragraph = [];
+      let listType = null;
+      let inCodeBlock = false;
+      let codeBlock = [];
+      let codeLanguage = "";
+
+      const closeList = () => {
+        if (listType) {
+          html.push(`</${listType}>`);
+          listType = null;
+        }
+      };
+
+      const flushParagraph = () => {
+        if (paragraph.length > 0) {
+          closeList();
+          html.push(`<p>${renderInlineMarkdown(paragraph.join(" "))}</p>`);
+          paragraph = [];
+        }
+      };
+
+      const openList = nextType => {
+        flushParagraph();
+        if (listType && listType !== nextType) {
+          closeList();
+        }
+        if (!listType) {
+          html.push(`<${nextType}>`);
+          listType = nextType;
+        }
+      };
+
+      const flushCodeBlock = () => {
+        const languageClass = codeLanguage ? ` class="language-${escapeAttribute(codeLanguage)}"` : "";
+        html.push(`<pre><code${languageClass}>${escapeHtml(codeBlock.join("\n"))}</code></pre>`);
+        codeBlock = [];
+        codeLanguage = "";
+      };
+
+      lines.forEach(line => {
+        const fenceMatch = line.match(/^```([A-Za-z0-9_-]*)\s*$/);
+        if (fenceMatch) {
+          if (inCodeBlock) {
+            inCodeBlock = false;
+            flushCodeBlock();
+          } else {
+            flushParagraph();
+            closeList();
+            inCodeBlock = true;
+            codeLanguage = fenceMatch[1] || "";
+            codeBlock = [];
+          }
+          return;
+        }
+
+        if (inCodeBlock) {
+          codeBlock.push(line);
+          return;
+        }
+
+        const trimmed = line.trim();
+        if (!trimmed) {
+          flushParagraph();
+          closeList();
+          return;
+        }
+
+        if (/^-{3,}$/.test(trimmed)) {
+          flushParagraph();
+          closeList();
+          html.push("<hr />");
+          return;
+        }
+
+        const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+        if (headingMatch) {
+          flushParagraph();
+          closeList();
+          const level = headingMatch[1].length;
+          html.push(`<h${level}>${renderInlineMarkdown(headingMatch[2])}</h${level}>`);
+          return;
+        }
+
+        const unorderedMatch = line.match(/^\s*-\s+(.+)$/);
+        if (unorderedMatch) {
+          openList("ul");
+          html.push(`<li>${renderInlineMarkdown(unorderedMatch[1])}</li>`);
+          return;
+        }
+
+        const orderedMatch = line.match(/^\s*\d+\.\s+(.+)$/);
+        if (orderedMatch) {
+          openList("ol");
+          html.push(`<li>${renderInlineMarkdown(orderedMatch[1])}</li>`);
+          return;
+        }
+
+        closeList();
+        paragraph.push(trimmed);
+      });
+
+      if (inCodeBlock) {
+        flushCodeBlock();
+      }
+      flushParagraph();
+      closeList();
+
+      return html.join("\n");
+    }
+
+    function MarkdownView({ markdown }) {
+      const html = React.useMemo(() => markdownToHtml(markdown), [markdown]);
+      return <Box className="markdown-view" dangerouslySetInnerHTML={{ __html: html }} />;
+    }
+
     const STORIES = {
       system: [
         { key: "top:config", title: "MongoT Bootstrap", body: "MongoT wires config, catalog, tracing, metrics, lifecycle managers, cursors, and the server package before it can serve search streams.", classes: ["MongotCommunity", "CommunityMongotBootstrapper", "DefaultConfigManager"] },
         { key: "top:index", title: "Index Ready", body: "Lifecycle prepares Lucene readers and durable replication state. Metrics and traces are active before request traffic enters the graph.", classes: ["DefaultLifecycleManager", "IndexLifecycleManager", "InitializedLuceneSearchIndex"] },
-        { key: "top:server", title: "Search Request Boundary", body: "The client sends aggregate/getMore to mongod only. mongod owns the $search gRPC stream into MongoT Server, then MongoT routes through Cursor into the index package.", classes: ["MongoCollectionImpl", "GrpcStreamingServer", "SearchCommand", "LuceneSearchIndexReader"] },
-        { key: "top:cursor", title: "Document Fetch + getMore", body: "When Stored Source does not contain requested fields, mongod fetches the missing document data. getMore keeps the same client to mongod to MongoT boundary.", classes: ["IdLookupFactory", "ProjectFactory", "CommandCursor", "CommandBatchCursorHelper"] },
+        { key: "top:server", title: "Search Request Boundary", body: "The client sends aggregate/getMore to mongod only. mongod owns the $search gRPC stream into MongoT Server, then MongoT routes through Cursor into the index package.", classes: ["ServerCallHandler", "GrpcStreamingServer", "SearchCommand", "LuceneSearchIndexReader"] },
+        { key: "top:cursor", title: "Document Fetch + getMore", body: "When Stored Source does not contain requested fields, mongod fetches the missing document data. getMore keeps the same client to mongod to MongoT boundary.", classes: ["IdLookupFactory", "ProjectFactory", "GetMoreCommand", "MongotCursorManagerImpl"] },
         { key: "top:replication", title: "Indexed Updates", body: "Insert/delete activity writes to mongod first. MongoT observes those changes later through replication and updates Lucene asynchronously.", classes: ["MongoDbReplicationManager", "ChangeStreamManager", "IndexingWorkScheduler"] },
-        { key: "top:lifecycle", title: "Shutdown", body: "Shutdown drains command streams and cursors, closes lifecycle/index resources, and lets logging, tracing, and metrics finish cleanly.", classes: ["DefaultLifecycleManager", "IndexLifecycleManager", "CursorManager", "GrpcStreamingServer"] }
+        { key: "top:lifecycle", title: "Shutdown", body: "Shutdown drains command streams and cursors, closes lifecycle/index resources, and lets logging, tracing, and metrics finish cleanly.", classes: ["DefaultLifecycleManager", "IndexLifecycleManager", "MongotCursorManagerImpl", "GrpcStreamingServer"] }
       ],
       index: [
         { key: "index:query", title: "BSON To Query", body: "The query layer turns the `$search` BSON body into typed MongoT query objects. In the 25-VU runs, parse BSON was visible in every search command and grows for vector/rank-fusion payloads.", classes: ["SearchQuery", "OperatorQuery", "SearchQueryFactory"] },
@@ -1228,19 +1602,19 @@
       "top:cursor": { x: 35, y: -155 },
       "top:index": { x: 45, y: 70 },
       "top:replication": { x: 45, y: 300 },
-      "top:embedding": { x: 320, y: -240 },
-      "top:metrics": { x: 325, y: -75 },
-      "top:trace": { x: 325, y: 95 },
-      "top:catalog": { x: 325, y: 260 },
-      "top:catalogservice": { x: 585, y: -210 },
-      "top:config": { x: 585, y: -35 },
-      "top:lifecycle": { x: 585, y: 140 },
-      "top:monitor": { x: 585, y: 315 },
-      "top:community": { x: 850, y: -300 },
-      "top:featureflag": { x: 850, y: -150 },
-      "top:util": { x: 850, y: 0 },
-      "top:logging": { x: 850, y: 150 },
-      "top:blobstore": { x: 850, y: 300 },
+      "top:embedding": { x: 320, y: -260 },
+      "top:metrics": { x: 325, y: -95 },
+      "top:trace": { x: 325, y: 65 },
+      "top:logging": { x: 325, y: 225 },
+      "top:catalog": { x: 325, y: 375 },
+      "top:catalogservice": { x: 585, y: -230 },
+      "top:config": { x: 585, y: -70 },
+      "top:lifecycle": { x: 585, y: 90 },
+      "top:monitor": { x: 585, y: 250 },
+      "top:community": { x: 850, y: -270 },
+      "top:featureflag": { x: 850, y: -110 },
+      "top:util": { x: 850, y: 50 },
+      "top:blobstore": { x: 850, y: 210 },
       "top:proto": { x: 1080, y: 30 }
     };
 
@@ -1280,6 +1654,7 @@
     };
 
     const DEFAULT_RUNTIME_TIMELINE_DURATION = 60;
+    const LOOP_RESTART_PAUSE_SECONDS = 3;
     const EMPTY_RUNTIME_TIMELINE = {
       duration: DEFAULT_RUNTIME_TIMELINE_DURATION,
       phases: [
@@ -1404,40 +1779,61 @@
       }
     }
 
-    function getTimelineTransitionDuration(phase) {
-      return Math.min(1.35, Math.max(0.65, (phase.end - phase.start) * 0.18));
+    const STORY_EDGE_FADE_SECONDS = 1;
+
+    function runtimeEdgeKey(edge) {
+      return Array.isArray(edge) ? `${edge[0]}->${edge[1]}` : "";
     }
 
-    function getTimelineEnvelope(phase, timeSec, isFirstPhase = false, isLastPhase = false) {
-      const transition = getTimelineTransitionDuration(phase);
-      const introStart = isFirstPhase ? phase.start : phase.start - transition;
-      const introEnd = isFirstPhase ? phase.start + transition * 0.65 : phase.start + transition * 0.35;
-      const outroStart = isLastPhase ? phase.end - transition * 0.65 : phase.end - transition * 0.35;
-      const outroEnd = isLastPhase ? phase.end : phase.end + transition;
-      const intro = smoothstep(introStart, introEnd, timeSec);
-      const outro = 1 - smoothstep(outroStart, outroEnd, timeSec);
-      return clamp(intro * outro, 0, 1);
+    function runtimePhaseEdgeSet(phase) {
+      const keys = new Set();
+      (phase?.streams || []).forEach(stream => {
+        (stream.edges || []).forEach(edge => keys.add(runtimeEdgeKey(edge)));
+      });
+      return keys;
+    }
+
+    function getRuntimeEdgeFade(edge, phase, previousEdges, nextEdges, timeSec) {
+      const key = runtimeEdgeKey(edge);
+      let fade = 1;
+
+      if (previousEdges) {
+        if (!previousEdges.has(key)) {
+          fade *= smoothstep(phase.start, phase.start + STORY_EDGE_FADE_SECONDS, timeSec);
+        }
+      }
+
+      if (nextEdges) {
+        if (!nextEdges.has(key)) {
+          fade *= 1 - smoothstep(phase.end - STORY_EDGE_FADE_SECONDS, phase.end, timeSec);
+        }
+      }
+
+      return clamp(fade, 0, 1);
     }
 
     function getActiveRuntimeStreams(runtimeTimelineDefinition, timeSec) {
       const phase = getRuntimePhaseAtTime(runtimeTimelineDefinition, timeSec);
       const phases = getRuntimeTimelinePhases(runtimeTimelineDefinition);
-      const streams = phases
-        .flatMap((candidatePhase, phaseIndex) => {
-          const transition = getTimelineTransitionDuration(candidatePhase);
-          const isFirstPhase = phaseIndex === 0;
-          const isLastPhase = phaseIndex === phases.length - 1;
-          if (timeSec < candidatePhase.start - (isFirstPhase ? 0 : transition) || timeSec > candidatePhase.end + (isLastPhase ? 0 : transition)) {
-            return [];
-          }
-          const localTime = timeSec - candidatePhase.start;
-          const duration = candidatePhase.end - candidatePhase.start;
-          const envelope = getTimelineEnvelope(candidatePhase, timeSec, isFirstPhase, isLastPhase);
-          return (candidatePhase.streams || []).map(stream => ({
+      const phaseIndex = phases.findIndex(candidatePhase => candidatePhase.id === phase.id);
+      const previousPhase = phaseIndex > 0 ? phases[phaseIndex - 1] : null;
+      const nextPhase = phaseIndex >= 0 && phaseIndex < phases.length - 1 ? phases[phaseIndex + 1] : null;
+      const previousEdges = previousPhase ? runtimePhaseEdgeSet(previousPhase) : null;
+      const nextEdges = nextPhase ? runtimePhaseEdgeSet(nextPhase) : null;
+      const localTime = timeSec - phase.start;
+      const duration = phase.end - phase.start;
+      const streams = (phase.streams || [])
+        .map(stream => {
+          const edgeFades = (stream.edges || []).map(edge =>
+            getRuntimeEdgeFade(edge, phase, previousEdges, nextEdges, timeSec)
+          );
+          const maxEdgeFade = edgeFades.length > 0 ? Math.max(...edgeFades) : 1;
+          return {
             ...stream,
-            phaseId: candidatePhase.id,
-            alpha: clamp(stream.intensity * envelope * getTimelineStreamModulation(stream, localTime, duration), 0, 1)
-          }));
+            phaseId: phase.id,
+            edgeFades,
+            alpha: clamp(stream.intensity * maxEdgeFade * getTimelineStreamModulation(stream, localTime, duration), 0, 1)
+          };
         })
         .filter(stream => stream.alpha > 0.08);
       return { phase, streams };
@@ -2022,6 +2418,12 @@
         const drawStream = (network, stream, clock, streamIndex, activePreset) => {
           const color = resolveTimelineColor(stream.colorKey, activePreset);
           stream.edges.forEach(([fromKey, toKey], edgeIndex) => {
+            const edgeFade = stream.edgeFades?.[edgeIndex] ?? 1;
+            const drawAlpha = stream.alpha * edgeFade;
+            if (drawAlpha <= 0.04) {
+              return;
+            }
+
             const fromId = getRuntimeNodeId(fromKey);
             const toId = getRuntimeNodeId(toKey);
             const from = getNetworkNodeDomPosition(network, fromId);
@@ -2033,16 +2435,16 @@
             const distance = Math.hypot(to.x - from.x, to.y - from.y);
             const bend = edgeCurveBias(fromId, toId, stream.id, edgeIndex) + distance * 0.03;
             const control = getCurveControlPoint(from, to, bend);
-            const width = stream.width + stream.alpha * 1.4;
+            const width = stream.width + drawAlpha * 1.4;
             const dashDrift = clock * (32 + stream.tempo * 38);
 
             context.save();
             context.lineCap = "round";
             context.lineJoin = "round";
-            context.shadowBlur = 18 + stream.alpha * 22;
-            context.shadowColor = hexToRgba(color, 0.22 + stream.alpha * 0.32);
+            context.shadowBlur = 18 + drawAlpha * 22;
+            context.shadowColor = hexToRgba(color, 0.22 + drawAlpha * 0.32);
             drawCurve(from, control, to);
-            context.strokeStyle = hexToRgba(color, 0.14 + stream.alpha * 0.12);
+            context.strokeStyle = hexToRgba(color, 0.14 + drawAlpha * 0.12);
             context.lineWidth = width + 5.5;
             context.stroke();
             context.restore();
@@ -2051,38 +2453,38 @@
             context.lineCap = "round";
             context.lineJoin = "round";
             drawCurve(from, control, to);
-            context.strokeStyle = hexToRgba(color, 0.22 + stream.alpha * 0.16);
+            context.strokeStyle = hexToRgba(color, 0.22 + drawAlpha * 0.16);
             context.lineWidth = width + 1.8;
             context.stroke();
 
             context.setLineDash([12 + width * 1.6, 10 + width * 1.25]);
             context.lineDashOffset = -dashDrift - edgeIndex * 18 - streamIndex * 9;
             drawCurve(from, control, to);
-            context.strokeStyle = hexToRgba(color, 0.84 * stream.alpha);
+            context.strokeStyle = hexToRgba(color, 0.84 * drawAlpha);
             context.lineWidth = width;
             context.stroke();
 
             context.setLineDash([2.5, 17 + width * 1.3]);
             context.lineDashOffset = -(dashDrift * 2.2) - edgeIndex * 11;
             drawCurve(from, control, to);
-            context.strokeStyle = hexToRgba("#f7fbff", 0.92 * stream.alpha);
+            context.strokeStyle = hexToRgba("#f7fbff", 0.92 * drawAlpha);
             context.lineWidth = Math.max(1.2, width * 0.28);
             context.stroke();
             context.restore();
 
-            const pulseCount = Math.max(1, Math.round(stream.particles + stream.alpha * 2));
+            const pulseCount = Math.max(1, Math.round(stream.particles + drawAlpha * 2));
             for (let pulseIndex = 0; pulseIndex < pulseCount; pulseIndex += 1) {
               const t = ((clock * stream.tempo * 0.13) + (pulseIndex / pulseCount) + edgeIndex * 0.17) % 1;
               const point = pointOnQuadraticBezier(from, control, to, t);
               context.save();
-              context.shadowBlur = 12 + stream.alpha * 8;
-              context.shadowColor = hexToRgba(color, 0.34 + stream.alpha * 0.32);
+              context.shadowBlur = 12 + drawAlpha * 8;
+              context.shadowColor = hexToRgba(color, 0.34 + drawAlpha * 0.32);
               context.beginPath();
-              context.fillStyle = hexToRgba("#f7fbff", 0.18 + stream.alpha * 0.22);
+              context.fillStyle = hexToRgba("#f7fbff", 0.18 + drawAlpha * 0.22);
               context.arc(point.x, point.y, width * 0.88 + 1.6, 0, Math.PI * 2);
               context.fill();
               context.beginPath();
-              context.fillStyle = hexToRgba(color, 0.56 + stream.alpha * 0.28);
+              context.fillStyle = hexToRgba(color, 0.56 + drawAlpha * 0.28);
               context.arc(point.x, point.y, width * 0.38 + 1, 0, Math.PI * 2);
               context.fill();
               context.restore();
@@ -2286,6 +2688,9 @@
       const [timelineSpeed, setTimelineSpeed] = React.useState(1);
       const [timelineLoop, setTimelineLoop] = React.useState(true);
       const [viewerCommand, setViewerCommand] = React.useState(null);
+      const [storyDetailId, setStoryDetailId] = React.useState(null);
+      const [storyDetailMarkdown, setStoryDetailMarkdown] = React.useState("");
+      const [storyDetailStatus, setStoryDetailStatus] = React.useState("idle");
       const [settingsOpen, setSettingsOpen] = React.useState(false);
       const [sidebarOpen, setSidebarOpen] = React.useState(false);
       const [controlsOpen, setControlsOpen] = React.useState(false);
@@ -2317,19 +2722,31 @@
         return anchorNode?.item?.short || anchorNode?.label || "anchor";
       }, [data.nodes, orbitAnchorId]);
       const runtimeTimelineDuration = runtimeTimelineDefinition.duration || DEFAULT_RUNTIME_TIMELINE_DURATION;
+      const effectiveTimelineClock = Math.min(timelineClock, runtimeTimelineDuration);
+      const timelineLoopPauseActive = timelineLoop && timelinePlaying && timelineClock >= runtimeTimelineDuration;
       const activeRuntimeTimeline = React.useMemo(
-        () => getActiveRuntimeStreams(runtimeTimelineDefinition, timelineClock),
-        [runtimeTimelineDefinition, timelineClock]
+        () => getActiveRuntimeStreams(runtimeTimelineDefinition, effectiveTimelineClock),
+        [runtimeTimelineDefinition, effectiveTimelineClock]
       );
       const currentTimelinePhase = activeRuntimeTimeline.phase;
       const timelineActiveStreams = activeRuntimeTimeline.streams;
       const runtimeTimelinePhases = Array.isArray(runtimeTimelineDefinition.phases)
         ? runtimeTimelineDefinition.phases
         : EMPTY_RUNTIME_TIMELINE.phases;
+      const selectedStoryDetailPhase = storyDetailId
+        ? runtimeTimelinePhases.find(phase => phase.id === storyDetailId) || null
+        : null;
       const isTimelineView = view === "system" && motionMode === "timeline";
       const showStoryPanel = isTimelineView;
       const issueViewerCommand = commandType => {
         setViewerCommand({ type: commandType, issuedAt: `${commandType}-${Date.now()}` });
+      };
+      const openStoryDetail = phase => {
+        if (!phase) {
+          return;
+        }
+        setStoryDetailId(phase.id);
+        jumpToRuntimePhase(phase);
       };
 
       React.useEffect(() => {
@@ -2368,7 +2785,49 @@
         setGroupFilter("All");
         setStoryIndex(0);
         setLayoutFrozen(false);
+        setStoryDetailId(null);
       }, [view]);
+
+      React.useEffect(() => {
+        if (!storyDetailId) {
+          setStoryDetailMarkdown("");
+          setStoryDetailStatus("idle");
+          return undefined;
+        }
+
+        const detailPath = STORY_DETAIL_FILES[storyDetailId];
+        if (!detailPath) {
+          setStoryDetailMarkdown(`# Detail unavailable\n\nNo Markdown file is registered for story id \`${storyDetailId}\`.`);
+          setStoryDetailStatus("error");
+          return undefined;
+        }
+
+        let cancelled = false;
+        setStoryDetailStatus("loading");
+        fetch(detailPath, { cache: "no-store" })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Failed to load ${detailPath} (${response.status})`);
+            }
+            return response.text();
+          })
+          .then(text => {
+            if (!cancelled) {
+              setStoryDetailMarkdown(text);
+              setStoryDetailStatus("ready");
+            }
+          })
+          .catch(error => {
+            if (!cancelled) {
+              setStoryDetailMarkdown(`# Detail unavailable\n\n${error?.message || "Unable to load story detail."}`);
+              setStoryDetailStatus("error");
+            }
+          });
+
+        return () => {
+          cancelled = true;
+        };
+      }, [storyDetailId]);
 
       React.useEffect(() => {
         if (view !== "system" && motionMode === "timeline") {
@@ -2403,8 +2862,15 @@
           React.startTransition(() => {
             setTimelineClock(current => {
               const next = current + (0.033 * timelineSpeed);
+              if (timelineLoop) {
+                const loopCycleDuration = runtimeTimelineDuration + LOOP_RESTART_PAUSE_SECONDS;
+                if (next >= loopCycleDuration) {
+                  return (next - loopCycleDuration) % runtimeTimelineDuration;
+                }
+                return next;
+              }
               if (next >= runtimeTimelineDuration) {
-                return timelineLoop ? next % runtimeTimelineDuration : runtimeTimelineDuration;
+                return runtimeTimelineDuration;
               }
               return next;
             });
@@ -2478,7 +2944,7 @@
           issueViewerCommand("fit");
         }, 200);
         return () => window.clearTimeout(timerId);
-      }, [controlsOpen, showStoryPanel, sidebarOpen, spacingPresetId, viewerFullscreen]);
+      }, [controlsOpen, showStoryPanel, sidebarOpen, spacingPresetId, storyDetailId, viewerFullscreen]);
 
       React.useEffect(() => {
         if (!isTimelineView) {
@@ -2610,8 +3076,13 @@
           ? `orbiting ${orbitAnchorLabel}`
           : layoutMode;
       const spacingSummary = spacingPreset.summary;
+      const timelinePlaybackLabel = timelineLoopPauseActive
+        ? "Restart pause"
+        : timelinePlaying
+          ? `Playing ${timelineSpeed}x`
+          : "Paused";
       const animationSummary = motionMode === "timeline"
-        ? `${currentTimelinePhase.label} at ${formatRuntimeClock(timelineClock)} of ${formatRuntimeClock(runtimeTimelineDuration)}.`
+        ? `${currentTimelinePhase.label} at ${formatRuntimeClock(effectiveTimelineClock)} of ${formatRuntimeClock(runtimeTimelineDuration)}.`
         : "Ambient mode shows the architecture without a runtime story overlaid on top.";
       const toggleTimelinePlayback = () => {
         if (timelinePlaying) {
@@ -2632,7 +3103,7 @@
           setTimelineClock(0);
         }
         setTimelinePlaying(true);
-        setSelectedId(getRuntimeNodeId(getRuntimePhaseAtTime(runtimeTimelineDefinition, timelineClock).focusKey || "index"));
+        setSelectedId(getRuntimeNodeId(getRuntimePhaseAtTime(runtimeTimelineDefinition, effectiveTimelineClock).focusKey || "index"));
       };
       const jumpToRuntimePhase = phase => {
         if (!phase) {
@@ -3025,7 +3496,7 @@
                                 {Array.isArray(story.classes) && story.classes.length > 0 && (
                                   <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
                                     {story.classes.slice(0, 4).map(className => (
-                                      <Chip key={`${story.key}-${className}`} label={className} size="small" sx={classChipStyles} />
+                                      <SourceChip key={`${story.key}-${className}`} label={className} size="small" sx={classChipStyles} />
                                     ))}
                                   </Stack>
                                 )}
@@ -3391,11 +3862,11 @@
                         {isTimelineView && (
                           <Stack spacing={0.7}>
                             <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
-                              <Chip label={`${formatRuntimeClock(timelineClock)} / ${formatRuntimeClock(runtimeTimelineDuration)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
-                              <Chip label={timelineLoop ? "Looping enabled" : "Stops at the end"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
+                              <Chip label={`${formatRuntimeClock(effectiveTimelineClock)} / ${formatRuntimeClock(runtimeTimelineDuration)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
+                              <Chip label={timelineLoopPauseActive ? `${LOOP_RESTART_PAUSE_SECONDS}s restart pause` : timelineLoop ? "Looping enabled" : "Stops at the end"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
                             </Stack>
                             <Slider
-                              value={timelineClock}
+                              value={effectiveTimelineClock}
                               min={0}
                               max={runtimeTimelineDuration}
                               step={0.25}
@@ -3448,10 +3919,10 @@
                                 Stories
                               </Typography>
                               <Typography sx={{ fontWeight: 700 }}>
-                                {timelinePlaying ? `Playing ${timelineSpeed}x` : "Paused"}
+                                {timelinePlaybackLabel}
                               </Typography>
                             </Box>
-                            <Chip label={`${formatRuntimeClock(timelineClock)} / ${formatRuntimeClock(runtimeTimelineDuration)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
+                            <Chip label={`${formatRuntimeClock(effectiveTimelineClock)} / ${formatRuntimeClock(runtimeTimelineDuration)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
                           </Stack>
 
                           {runtimeTimelinePhases.map((phase, index) => {
@@ -3494,13 +3965,44 @@
                               >
                                 <Stack spacing={0.75}>
                                   <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                                    <Typography sx={{ fontWeight: 700, lineHeight: 1.15 }}>
-                                      {index + 1}. {phase.label}
-                                    </Typography>
+                                    <Stack direction="row" spacing={0.6} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+                                      <Typography sx={{ fontWeight: 700, lineHeight: 1.15, minWidth: 0 }}>
+                                        {index + 1}. {phase.label}
+                                      </Typography>
+                                      <IconButton
+                                        size="small"
+                                        aria-label={`Open detailed notes for ${phase.label}`}
+                                        title={`Open detailed notes for ${phase.label}`}
+                                        onClick={event => {
+                                          event.stopPropagation();
+                                          openStoryDetail(phase);
+                                        }}
+                                        onKeyDown={event => {
+                                          event.stopPropagation();
+                                        }}
+                                        sx={{
+                                          width: 26,
+                                          height: 26,
+                                          color: storyDetailId === phase.id ? stylePreset.warm : "var(--muted)",
+                                          border: `1px solid ${storyDetailId === phase.id ? stylePreset.warm : "rgba(255,255,255,0.12)"}`,
+                                          background: storyDetailId === phase.id ? hexToRgba(stylePreset.warm, 0.12) : "rgba(255,255,255,0.035)",
+                                          flexShrink: 0,
+                                          "&:hover": {
+                                            color: "var(--text)",
+                                            borderColor: stylePreset.warm,
+                                            background: hexToRgba(stylePreset.warm, 0.14)
+                                          }
+                                        }}
+                                      >
+                                        <span className="material-icons" style={{ fontSize: 17 }}>
+                                          more_horiz
+                                        </span>
+                                      </IconButton>
+                                    </Stack>
                                     <Chip
                                       label={`${formatRuntimeClock(phase.start)}-${formatRuntimeClock(phase.end)}`}
                                       size="small"
-                                      sx={{ ...chipStyles, borderColor: isActivePhase ? stylePreset.warm : "var(--line)" }}
+                                      sx={{ ...chipStyles, borderColor: isActivePhase ? stylePreset.warm : "var(--line)", flexShrink: 0 }}
                                     />
                                   </Stack>
                                   <Typography sx={{ color: isActivePhase ? "rgba(236,244,255,0.88)" : "var(--muted)", fontSize: 12.6, lineHeight: 1.45 }}>
@@ -3509,14 +4011,14 @@
                                   {phaseClasses.length > 0 && (
                                     <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
                                       {phaseClasses.slice(0, isActivePhase ? 4 : 2).map(className => (
-                                        <Chip key={`${phase.id}-${className}`} label={className} size="small" sx={classChipStyles} />
+                                        <SourceChip key={`${phase.id}-${className}`} label={className} size="small" sx={classChipStyles} />
                                       ))}
                                     </Stack>
                                   )}
                                   {isActivePhase && phaseActiveStreams.length > 0 && (
                                     <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
                                       {phaseActiveStreams.map(stream => (
-                                        <Chip
+                                        <SourceChip
                                           key={stream.id}
                                           label={stream.label}
                                           size="small"
@@ -3537,6 +4039,76 @@
                       </Paper>
                     )}
 
+                    {showStoryPanel && selectedStoryDetailPhase && (
+                      <Paper
+                        className="glass story-detail-panel"
+                        sx={{
+                          borderRadius: 0,
+                          width: { xs: "100%", lg: 520, xl: 560 },
+                          height: { xs: "auto", lg: "100%" },
+                          maxHeight: { xs: "none", lg: "100%" },
+                          overflow: "hidden",
+                          background: stylePreset.panelBackground,
+                          borderColor: hexToRgba(stylePreset.hot, 0.24),
+                          flexShrink: 0
+                        }}
+                      >
+                        <Stack
+                          direction="row"
+                          spacing={1.2}
+                          alignItems="flex-start"
+                          justifyContent="space-between"
+                          sx={{ p: 1.35, borderBottom: "1px solid rgba(155, 192, 255, 0.14)" }}
+                        >
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.45 }}>
+                              Story Detail
+                            </Typography>
+                            <Typography sx={{ fontWeight: 700, lineHeight: 1.18 }}>
+                              {selectedStoryDetailPhase.label}
+                            </Typography>
+                          </Box>
+                          <IconButton
+                            size="small"
+                            aria-label="Close story detail"
+                            title="Close story detail"
+                            onClick={() => setStoryDetailId(null)}
+                            sx={{
+                              color: "var(--text)",
+                              border: "1px solid var(--line)",
+                              background: "rgba(255,255,255,0.04)",
+                              flexShrink: 0,
+                              "&:hover": { background: "rgba(255,255,255,0.1)" }
+                            }}
+                          >
+                            <span className="material-icons" style={{ fontSize: 18 }}>
+                              close
+                            </span>
+                          </IconButton>
+                        </Stack>
+
+                        {storyDetailStatus === "loading" && (
+                          <LinearProgress
+                            sx={{
+                              height: 2,
+                              background: "rgba(255,255,255,0.08)",
+                              "& .MuiLinearProgress-bar": { background: stylePreset.warm }
+                            }}
+                          />
+                        )}
+
+                        <Box sx={{ flex: 1, minHeight: 0, overflow: "auto", p: 1.6 }}>
+                          {storyDetailStatus === "loading" && !storyDetailMarkdown ? (
+                            <Typography sx={{ color: "var(--muted)", fontSize: 13.5 }}>
+                              Loading story detail...
+                            </Typography>
+                          ) : (
+                            <MarkdownView markdown={storyDetailMarkdown} />
+                          )}
+                        </Box>
+                      </Paper>
+                    )}
+
                     <Paper className="glass graph-frame" sx={{ flex: 1, minWidth: 0, minHeight: 0 }}>
                       <Box sx={{ position: "absolute", inset: 0, background: stylePreset.graphBackground }} />
                       <GraphView
@@ -3552,7 +4124,7 @@
                         compactLabels={compactLabels}
                         command={viewerCommand}
                         motionMode={motionMode}
-                        timelineClock={timelineClock}
+                        timelineClock={effectiveTimelineClock}
                         runtimeTimelineDefinition={runtimeTimelineDefinition}
                         spacingScale={spacingPreset.scale}
                       />

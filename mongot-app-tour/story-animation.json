@@ -41,14 +41,6 @@
             [
               "config",
               "catalogservice"
-            ],
-            [
-              "config",
-              "metrics"
-            ],
-            [
-              "config",
-              "trace"
             ]
           ]
         },
@@ -98,22 +90,6 @@
               "config",
               "logging"
             ],
-            [
-              "monitor",
-              "metrics"
-            ]
-          ]
-        },
-        {
-          "id": "bootstrap-observability",
-          "label": "metrics + traces",
-          "colorKey": "support",
-          "width": 1.8,
-          "intensity": 0.48,
-          "tempo": 0.95,
-          "particles": 2,
-          "modulation": "ping",
-          "edges": [
             [
               "config",
               "metrics"
@@ -275,7 +251,7 @@
       "end": 22,
       "description": "A text $search makes the boundary concrete: the Java driver sends aggregate to mongod only, mongod opens the gRPC stream to MongoT Server, and MongoT routes through Cursor into Lucene text execution.",
       "classes": [
-        "MongoCollectionImpl",
+        "ServerCallHandler",
         "GrpcStreamingServer",
         "SearchCommand",
         "LuceneSearchIndexReader"
@@ -555,9 +531,9 @@
       "end": 38,
       "description": "$rankFusion is not one monolithic MongoT request. mongod runs the fusion and opens separate MongoT streams for the text/default and vector/vector_caption sub-pipelines.",
       "classes": [
-        "AggregateOperationImpl",
+        "GrpcStreamingServer",
         "SearchCommand",
-        "LuceneSearchIndexReader",
+        "VectorSearchCommand",
         "LuceneVectorSearchManager"
       ],
       "streams": [
@@ -705,8 +681,8 @@
       "classes": [
         "IdLookupFactory",
         "ProjectFactory",
-        "CommandCursor",
-        "CommandBatchCursorHelper"
+        "GetMoreCommand",
+        "MongotCursorManagerImpl"
       ],
       "streams": [
         {
@@ -883,7 +859,7 @@
       "streams": [
         {
           "id": "mutation-write",
-          "label": "client writes to mongod",
+          "label": "mongod change stream source",
           "colorKey": "cool",
           "width": 2.6,
           "intensity": 0.72,
@@ -993,7 +969,7 @@
       "classes": [
         "GrpcStreamingServer",
         "SearchCommand",
-        "CursorManager",
+        "MongotCursorManagerImpl",
         "MongoDbReplicationManager"
       ],
       "streams": [
@@ -1125,7 +1101,7 @@
       "classes": [
         "DefaultLifecycleManager",
         "IndexLifecycleManager",
-        "CursorManager",
+        "MongotCursorManagerImpl",
         "GrpcStreamingServer"
       ],
       "streams": [
