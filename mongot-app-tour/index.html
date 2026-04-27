@@ -284,45 +284,6 @@
       overflow-wrap: anywhere;
     }
 
-    .node-pill {
-      border-radius: 999px;
-      padding: 6px 10px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.04);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin: 0 8px 8px 0;
-      cursor: pointer;
-      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-    }
-
-    .node-pill:hover {
-      transform: translateY(-1px);
-      border-color: var(--line-strong);
-      background: rgba(255,255,255,0.08);
-    }
-
-    .tour-card {
-      border-radius: 18px;
-      padding: 16px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.03);
-      cursor: pointer;
-      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-    }
-
-    .tour-card:hover {
-      transform: translateY(-2px);
-      border-color: var(--line-strong);
-      background: rgba(255,255,255,0.06);
-    }
-
-    .tour-card.active {
-      border-color: rgba(255, 190, 107, 0.55);
-      background: linear-gradient(180deg, rgba(255, 190, 107, 0.12), rgba(255,255,255,0.04));
-    }
-
     .boundary-note {
       border-radius: 18px;
       padding: 12px 14px;
@@ -336,6 +297,15 @@
       display: flex;
       flex-direction: column;
       min-height: 0;
+    }
+
+    .hidden-scrollbar {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .hidden-scrollbar::-webkit-scrollbar {
+      display: none;
     }
 
     .markdown-view {
@@ -436,14 +406,6 @@
       margin: 18px 0;
     }
 
-    .legend-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      display: inline-block;
-      margin-right: 8px;
-    }
-
     @media (max-width: 1199px) {
       .app-shell {
         padding: 0;
@@ -460,25 +422,19 @@
 
   <script type="text/babel">
     const {
-      Alert,
-      Autocomplete,
       Box,
       Button,
-      Card,
       Chip,
       Collapse,
       CssBaseline,
       Dialog,
       DialogContent,
       DialogTitle,
-      Divider,
       FormControl,
       Grid,
       IconButton,
-      InputAdornment,
       InputLabel,
       LinearProgress,
-      Link,
       MenuItem,
       Paper,
       Select,
@@ -486,7 +442,6 @@
       Stack,
       Tab,
       Tabs,
-      TextField,
       ThemeProvider,
       Typography
     } = MaterialUI;
@@ -884,90 +839,6 @@
       return <Box className="markdown-view" dangerouslySetInnerHTML={{ __html: html }} />;
     }
 
-    const STORIES = {
-      system: [
-        { key: "top:config", title: "MongoT Bootstrap", body: "MongoT wires config, catalog, tracing, metrics, lifecycle managers, cursors, and the server package before it can serve search streams.", classes: ["MongotCommunity", "CommunityMongotBootstrapper", "DefaultConfigManager"] },
-        { key: "top:index", title: "Index Ready", body: "Lifecycle prepares Lucene readers and durable replication state. Metrics and traces are active before request traffic enters the graph.", classes: ["DefaultLifecycleManager", "IndexLifecycleManager", "InitializedLuceneSearchIndex"] },
-        { key: "top:server", title: "Search Request Boundary", body: "The client sends aggregate/getMore to mongod only. mongod owns the $search gRPC stream into MongoT Server, then MongoT routes through Cursor into the index package.", classes: ["ServerCallHandler", "GrpcStreamingServer", "SearchCommand", "LuceneSearchIndexReader"] },
-        { key: "top:cursor", title: "Document Fetch", body: "When Stored Source does not contain requested fields, mongod fetches the missing document data after MongoT returns hit ids and scores. Captured runs ended with mongod cleaning up the MongoT cursor.", classes: ["IdLookupFactory", "ProjectFactory", "SearchCommand", "KillCursorsCommand"] },
-        { key: "top:replication", title: "Indexed Updates", body: "Insert, update, and delete activity writes to mongod first. MongoT observes those changes later through replication and updates Lucene asynchronously.", classes: ["MongoDbReplicationManager", "ChangeStreamManager", "IndexingWorkScheduler"] },
-        { key: "top:lifecycle", title: "Shutdown", body: "Shutdown drains command streams and cursors, closes lifecycle/index resources, and lets logging, tracing, and metrics finish cleanly.", classes: ["DefaultLifecycleManager", "IndexLifecycleManager", "MongotCursorManagerImpl", "GrpcStreamingServer"] }
-      ],
-      index: [
-        { key: "index:query", title: "BSON To Query", body: "The query layer turns the `$search` BSON body into typed MongoT query objects. In the 25-VU runs, parse BSON was visible in every search command and grows for vector/rank-fusion payloads.", classes: ["SearchQuery", "OperatorQuery", "SearchQueryFactory"] },
-        { key: "index:lucene", title: "Lucene Execution", body: "Lucene spans distinguish actual library calls from setup: text collect hits, exact vector candidate collection, materialize BSON, updateDocuments, deleteDocuments, commit, and searcher refresh.", classes: ["LuceneSearchIndexReader", "LuceneSearchManager", "LuceneVectorSearchManager"] },
-        { key: "index:ingestion", title: "Document Blocks", body: "For updates, ingestion builds Lucene document blocks from MongoDB BSON before `IndexWriter.updateDocuments` replaces the indexed block.", classes: ["RootDocumentBuilder", "StoredDocumentBuilder", "SingleLuceneIndexWriter"] },
-        { key: "index:definition", title: "Index Shape", body: "The text index uses `caption` plus boolean/token facet fields. The vector index uses `captionEmbedding`, 768 dimensions, cosine similarity, and stored-source image fields.", classes: ["SearchIndexDefinition", "VectorIndexDefinition", "StoredSourceDefinition"] }
-      ],
-      deps: [
-        { key: "group:Cloud Integration", title: "Cloud Reach", body: "The runtime payload is cloud-heavy, with AWS, GCP, and Azure libraries grouped into a large storage and credential surface.", classes: ["S3", "Storage", "BlobClient"] },
-        { key: "group:Lucene", title: "Search Payload", body: "Lucene is the next major dependency cluster. The analyzers are large because international text support ships with real data and dictionaries.", classes: ["IndexSearcher", "IndexWriter", "Analyzer"] },
-        { key: "group:Monitoring", title: "Observe Everything", body: "Micrometer, OpenTelemetry, and OSHI show how much runtime support exists around monitoring and machine introspection.", classes: ["MeterRegistry", "Tracer", "SystemInfo"] },
-        { key: "group:Serialization", title: "Config and Wire Formats", body: "Jackson and SnakeYAML give MongoT its config and serialization vocabulary across APIs, metadata, and tooling.", classes: ["ObjectMapper", "BsonDocument", "Yaml"] }
-      ]
-    };
-
-    const TRACE_SCENARIO_FINDINGS = [
-      {
-        label: "Text",
-        throughput: "554 req/s",
-        http: "39.2 ms",
-        stream: "8.9 ms",
-        command: "890 us",
-        detail: "Java driver sends aggregate to mongod; mongod opens the MongoT gRPC search stream for `default` text search."
-      },
-      {
-        label: "Vector",
-        throughput: "189 req/s",
-        http: "124 ms",
-        stream: "10.0 ms",
-        command: "2.8 ms",
-        detail: "The client builds the embedding before aggregate; mongod then calls MongoT for `vector_caption` vector search."
-      },
-      {
-        label: "Both",
-        throughput: "77.8 req/s",
-        http: "268 ms",
-        stream: "37.8 ms",
-        command: "2.2 ms",
-        detail: "$rankFusion runs in mongod and emits separate MongoT streams for text/default and vector/vector_caption sub-pipelines."
-      },
-      {
-        label: "Document Fetch",
-        throughput: "225 req/s",
-        http: "87.0 ms",
-        stream: "11.9 ms",
-        command: "863 us",
-        detail: "When requested fields are not available from Lucene Stored Source, MongoT returns hit ids/scores and mongod fetches the missing fields from matched documents."
-      },
-      {
-        label: "Mutations",
-        throughput: "37.7 ops/s",
-        http: "5.4 ms",
-        stream: "async",
-        command: "indexing",
-        detail: "Client writes go to mongod; MongoT observes them later through change streams and updates Lucene asynchronously."
-      }
-    ];
-
-    const VIEW_META = {
-      system: {
-        label: "Runtime Animation",
-        blurb: "Client, mongod, and MongoT command-stream boundaries over the package graph.",
-        accent: "#69c0ff"
-      },
-      index: {
-        label: "Index Core",
-        blurb: "One level deeper into `com.xgen.mongot.index`.",
-        accent: "#ffbe6b"
-      },
-      deps: {
-        label: "Runtime Payload",
-        blurb: "Bundled libraries grouped by responsibility and aggregate weight.",
-        accent: "#80f0c4"
-      }
-    };
-
     function titleCaseSize(sizeMb) {
       return sizeMb >= 1 ? `${sizeMb.toFixed(1)} MB` : `${Math.round(sizeMb * 1024)} KB`;
     }
@@ -1234,23 +1105,6 @@
               background: "#102033",
               color: "#ecf4ff",
               border: "1px solid rgba(155, 192, 255, 0.16)"
-            }
-          }
-        },
-        MuiAutocomplete: {
-          styleOverrides: {
-            paper: {
-              background: "#102033",
-              color: "#ecf4ff",
-              border: "1px solid rgba(155, 192, 255, 0.16)"
-            },
-            option: {
-              '&[aria-selected="true"]': {
-                backgroundColor: "rgba(105, 192, 255, 0.16)"
-              },
-              '&.Mui-focused': {
-                backgroundColor: "rgba(255, 190, 107, 0.14)"
-              }
             }
           }
         },
@@ -2607,24 +2461,6 @@
       );
     }
 
-    function NavigatorPanelIcon({ open }) {
-      const stroke = open ? "currentColor" : "#ffc53d";
-      return (
-        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{ display: "block" }}>
-          <rect x="4" y="4" width="16" height="16" rx="2.5" fill="none" stroke={stroke} strokeWidth="2.2" />
-          <path d="M9 5.5v13" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" />
-          <path
-            d={open ? "M16 8.5l-3.5 3.5 3.5 3.5" : "M13 8.5l3.5 3.5-3.5 3.5"}
-            fill="none"
-            stroke={stroke}
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      );
-    }
-
     function PanelHeader({ eyebrow, title, subtitle, open, onToggle, action }) {
       return (
         <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
@@ -2670,11 +2506,7 @@
 
     function App() {
       const [view, setView] = React.useState("system");
-      const [searchTerm, setSearchTerm] = React.useState("");
-      const [threshold, setThreshold] = React.useState(1);
-      const [groupFilter, setGroupFilter] = React.useState("All");
       const [selectedId, setSelectedId] = React.useState("top:index");
-      const [storyIndex, setStoryIndex] = React.useState(0);
       const [stylePresetId, setStylePresetId] = React.useState("plumRelay");
       const [nodeStyleId, setNodeStyleId] = React.useState("radarBloom");
       const [effectsId, setEffectsId] = React.useState("crisp");
@@ -2693,13 +2525,7 @@
       const [storyDetailMarkdown, setStoryDetailMarkdown] = React.useState("");
       const [storyDetailStatus, setStoryDetailStatus] = React.useState("idle");
       const [settingsOpen, setSettingsOpen] = React.useState(false);
-      const [sidebarOpen, setSidebarOpen] = React.useState(false);
       const [controlsOpen, setControlsOpen] = React.useState(false);
-      const [focusOpen, setFocusOpen] = React.useState(true);
-      const [filtersOpen, setFiltersOpen] = React.useState(true);
-      const [guidedStopsOpen, setGuidedStopsOpen] = React.useState(true);
-      const [traceFindingsOpen, setTraceFindingsOpen] = React.useState(true);
-      const [legendOpen, setLegendOpen] = React.useState(true);
       const [viewerFullscreen, setViewerFullscreen] = React.useState(false);
       const lastTimelineFocusRef = React.useRef("");
       const viewerShellRef = React.useRef(null);
@@ -2710,13 +2536,8 @@
       const effects = EFFECT_PRESETS[effectsId];
       const spacingPreset = SPACING_PRESETS[spacingPresetId];
 
-      const data = useGraphData(view, searchTerm, threshold, groupFilter, stylePreset);
-
-      const currentStories = STORIES[view];
-      const selectedItem = React.useMemo(
-        () => data.nodes.find(node => node.id === selectedId)?.item || null,
-        [data.nodes, selectedId]
-      );
+      const baseThreshold = view === "deps" ? 0 : 1;
+      const data = useGraphData(view, "", baseThreshold, "All", stylePreset);
       const orbitAnchorId = React.useMemo(() => getViewAnchorId(view, data), [view, data]);
       const orbitAnchorLabel = React.useMemo(() => {
         const anchorNode = data.nodes.find(node => node.id === orbitAnchorId);
@@ -2782,9 +2603,6 @@
       React.useEffect(() => {
         const fallback = view === "system" ? "top:index" : view === "index" ? "index:lucene" : "group:Cloud Integration";
         setSelectedId(fallback);
-        setThreshold(view === "deps" ? 0 : 1);
-        setGroupFilter("All");
-        setStoryIndex(0);
         setLayoutFrozen(false);
         setStoryDetailId(null);
       }, [view]);
@@ -2836,13 +2654,6 @@
           setTimelinePlaying(false);
         }
       }, [motionMode, view]);
-
-      React.useEffect(() => {
-        const story = currentStories[storyIndex];
-        if (story) {
-          setSelectedId(story.key);
-        }
-      }, [storyIndex, currentStories]);
 
       React.useEffect(() => {
         if (data.nodes.length === 0) {
@@ -2945,7 +2756,7 @@
           issueViewerCommand("fit");
         }, 200);
         return () => window.clearTimeout(timerId);
-      }, [controlsOpen, showStoryPanel, sidebarOpen, spacingPresetId, storyDetailId, viewerFullscreen]);
+      }, [controlsOpen, showStoryPanel, spacingPresetId, storyDetailId, viewerFullscreen]);
 
       React.useEffect(() => {
         if (!isTimelineView) {
@@ -3036,34 +2847,6 @@
         };
       }, [view, stylePreset]);
 
-      const detailConnections = React.useMemo(() => {
-        if (!selectedItem) return [];
-        if (view === "deps") {
-          if (selectedItem.kind === "root") {
-            return Object.keys(dependencyGroupTotals).sort((a, b) => dependencyGroupTotals[b] - dependencyGroupTotals[a]).map(group => ({
-              label: `${group} • ${titleCaseSize(dependencyGroupTotals[group])}`,
-              target: `group:${group}`
-            }));
-          }
-          if (selectedItem.kind === "group") {
-            return bundledDependencies
-              .filter(dep => dep.group === selectedItem.group)
-              .sort((a, b) => b.sizeMb - a.sizeMb)
-              .map(dep => ({ label: `${dep.name} • ${titleCaseSize(dep.sizeMb)}`, target: dep.id }));
-          }
-          return [{ label: `${selectedItem.group} cluster`, target: `group:${selectedItem.group}` }];
-        }
-        return (selectedItem.links || []).map(link => {
-          const collection = view === "system" ? topPackages : indexPackages;
-          const match = collection.find(item => item.name === link);
-          return { label: link, target: match?.id };
-        });
-      }, [selectedItem, view]);
-
-      const autocompleteOptions = React.useMemo(() => data.nodes.map(node => ({
-        label: node.item?.name || node.label,
-        id: node.id
-      })), [data.nodes]);
       const layoutSummary = layoutMode === "story"
         ? "Story Ordered keeps client, mongod, Server, hot runtime packages, and startup/shutdown support packages in a fixed left-to-right flow."
         : layoutMode === "orbit"
@@ -3146,11 +2929,6 @@
           console.error("Viewer fullscreen toggle failed", error);
         }
       };
-      const sidebarGridSize = 12;
-      const sidebarXl = 4;
-      const viewerGridSize = 12;
-      const viewerXl = sidebarOpen ? 8 : 12;
-
       return (
         <Box className="app-shell" sx={{ background: stylePreset.shellBackground, minHeight: "100vh" }}>
           <Paper className="glass hero" sx={{ background: stylePreset.panelBackground }}>
@@ -3169,24 +2947,6 @@
                   MongoT runtime, animated.
                 </Typography>
                 <Stack direction="row" spacing={0.8} alignItems="center" flexWrap="wrap" useFlexGap>
-                  <IconButton
-                    aria-label={sidebarOpen ? "Close navigator" : "Open navigator"}
-                    title={sidebarOpen ? "Close navigator" : "Open navigator"}
-                    onClick={() => setSidebarOpen(current => !current)}
-                    sx={{
-                      width: 38,
-                      height: 38,
-                      border: "1px solid var(--line)",
-                      color: stylePreset.warm,
-                      background: sidebarOpen ? hexToRgba(stylePreset.warm, 0.22) : "rgba(255,255,255,0.04)",
-                      "&:hover": {
-                        borderColor: stylePreset.warm,
-                        background: hexToRgba(stylePreset.warm, 0.22)
-                      }
-                    }}
-                  >
-                    <NavigatorPanelIcon open={sidebarOpen} />
-                  </IconButton>
                   <Tabs
                     value={view}
                     onChange={(event, next) => {
@@ -3263,329 +3023,7 @@
           </Paper>
 
           <Grid container spacing={0} sx={{ flex: 1, minHeight: 0 }}>
-            {sidebarOpen && (
-            <Grid
-              item
-              xs={sidebarGridSize}
-              xl={sidebarXl}
-            >
-              <Paper
-                className="glass"
-                sx={{
-                  borderRadius: 6,
-                  p: 2.2,
-                  height: "100%",
-                  background: stylePreset.panelBackground,
-                  display: "flex",
-                  alignItems: "stretch",
-                  justifyContent: "flex-start"
-                }}
-              >
-                <Stack
-                  spacing={1.8}
-                  sx={{
-                    width: "100%",
-                    alignItems: "stretch",
-                    overflow: "visible"
-                  }}
-                >
-                  <PanelHeader
-                    eyebrow="Navigator"
-                    title={`${VIEW_META[view].label} details`}
-                    subtitle="This panel follows the selected top tab."
-                    open={sidebarOpen}
-                  />
-
-                  <Collapse in={sidebarOpen}>
-                    <Stack spacing={2.2}>
-                      <Paper sx={{ p: 1.8, borderRadius: 4, background: "rgba(255,255,255,0.04)", border: "1px solid var(--line)" }}>
-                        <Typography sx={{ fontWeight: 700, mb: 0.5 }}>{VIEW_META[view].label}</Typography>
-                        <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>{VIEW_META[view].blurb}</Typography>
-                      </Paper>
-
-                      <Box>
-                        <PanelHeader
-                          eyebrow="Focus"
-                          title={selectedItem ? selectedItem.name : "No node selected"}
-                          subtitle={selectedItem ? selectedItem.description : "Select a node to inspect it."}
-                          open={focusOpen}
-                          onToggle={() => setFocusOpen(current => !current)}
-                        />
-                        <Collapse in={focusOpen}>
-                          <Stack spacing={1.4} sx={{ mt: 1.2 }}>
-                            {selectedItem ? (
-                              <>
-                                {view !== "deps" ? (
-                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                    <Chip label={`Complexity ${selectedItem.complexity}/10`} sx={chipStyles} />
-                                    <Chip label={`${(selectedItem.links || []).length} outgoing links`} sx={chipStyles} />
-                                  </Stack>
-                                ) : (
-                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                    {selectedItem.totalSize && <Chip label={titleCaseSize(selectedItem.totalSize)} sx={chipStyles} />}
-                                    {selectedItem.sizeMb && <Chip label={titleCaseSize(selectedItem.sizeMb)} sx={chipStyles} />}
-                                    {selectedItem.group && <Chip label={selectedItem.group} sx={chipStyles} />}
-                                  </Stack>
-                                )}
-
-                                {view !== "deps" && (
-                                  <Box>
-                                    <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
-                                      Complexity Signal
-                                    </Typography>
-                                    <LinearProgress
-                                      variant="determinate"
-                                      value={(selectedItem.complexity / 10) * 100}
-                                      sx={{
-                                        height: 12,
-                                        borderRadius: 999,
-                                        backgroundColor: "rgba(255,255,255,0.08)",
-                                        "& .MuiLinearProgress-bar": {
-                                          background: `linear-gradient(90deg, ${stylePreset.support}, ${stylePreset.hot})`
-                                        }
-                                      }}
-                                    />
-                                  </Box>
-                                )}
-
-                                {selectedItem.website && (
-                                  <Alert severity="info" sx={{ borderRadius: 3, background: "rgba(105,192,255,0.08)", color: "var(--text)", border: "1px solid var(--line)" }}>
-                                    <Link href={selectedItem.website} target="_blank" rel="noreferrer" color="inherit" underline="hover">
-                                      Open upstream project
-                                    </Link>
-                                  </Alert>
-                                )}
-
-                                <Box>
-                                  <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
-                                    Connected Next Steps
-                                  </Typography>
-                                  {detailConnections.length > 0 ? (
-                                    <Box>
-                                      {detailConnections.map(connection => (
-                                        <Box
-                                          key={`${selectedId}-${connection.label}`}
-                                          className="node-pill"
-                                          onClick={() => connection.target && setSelectedId(connection.target)}
-                                          style={{ opacity: connection.target ? 1 : 0.74, cursor: connection.target ? "pointer" : "default" }}
-                                        >
-                                          <span className="material-icons" style={{ fontSize: 16, color: stylePreset.warm }}>north_east</span>
-                                          <span className="codeish" style={{ fontSize: 12 }}>{connection.label}</span>
-                                        </Box>
-                                      ))}
-                                    </Box>
-                                  ) : (
-                                    <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>This node is more terminal than connective in the selected view.</Typography>
-                                  )}
-                                </Box>
-                              </>
-                            ) : (
-                              <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>Select a node to inspect it.</Typography>
-                            )}
-                          </Stack>
-                        </Collapse>
-                      </Box>
-
-                      <Divider sx={{ borderColor: "var(--line)" }} />
-
-                      <Box>
-                        <PanelHeader
-                          eyebrow="Filters"
-                          title="Search, jump, and threshold"
-                          subtitle="Trim the graph or jump directly to a package."
-                          open={filtersOpen}
-                          onToggle={() => setFiltersOpen(current => !current)}
-                        />
-                        <Collapse in={filtersOpen}>
-                          <Stack spacing={1.5} sx={{ mt: 1.2 }}>
-                            <TextField
-                              fullWidth
-                              value={searchTerm}
-                              onChange={event => setSearchTerm(event.target.value)}
-                              placeholder={view === "deps" ? "Search library, group, or detail" : "Search package or concept"}
-                              InputProps={{
-                                startAdornment: (
-                                  <InputAdornment position="start">
-                                    <span className="material-icons" style={{ fontSize: 20, color: "#9eb0c8" }}>search</span>
-                                  </InputAdornment>
-                                )
-                              }}
-                              sx={textFieldStyles}
-                            />
-
-                            <Autocomplete
-                              size="small"
-                              options={autocompleteOptions}
-                              value={autocompleteOptions.find(option => option.id === selectedId) || null}
-                              onChange={(event, option) => option && setSelectedId(option.id)}
-                              renderInput={(params) => (
-                                <TextField
-                                  {...params}
-                                  label="Jump To Node"
-                                  sx={textFieldStyles}
-                                />
-                              )}
-                              sx={{
-                                "& .MuiAutocomplete-popupIndicator, & .MuiAutocomplete-clearIndicator": { color: "#9eb0c8" }
-                              }}
-                            />
-
-                            <Box>
-                              <Typography sx={{ fontSize: 13, color: "var(--muted)", mb: 1 }}>
-                                {view === "deps" ? "Minimum library size" : "Minimum complexity"}
-                              </Typography>
-                              <Slider
-                                value={threshold}
-                                min={view === "deps" ? 0 : 1}
-                                max={view === "deps" ? 2 : 10}
-                                step={view === "deps" ? 0.05 : 1}
-                                onChange={(event, next) => setThreshold(next)}
-                                valueLabelDisplay="auto"
-                                valueLabelFormat={value => view === "deps" ? titleCaseSize(value) : value}
-                                sx={{
-                                  color: stylePreset.support,
-                                  "& .MuiSlider-thumb": { boxShadow: "0 0 0 6px rgba(255,255,255,0.08)" }
-                                }}
-                              />
-                            </Box>
-
-                            {view === "deps" && (
-                              <FormControl fullWidth>
-                                <InputLabel sx={{ color: "#9eb0c8" }}>Dependency Group</InputLabel>
-                                <Select
-                                  value={groupFilter}
-                                  label="Dependency Group"
-                                  onChange={event => setGroupFilter(event.target.value)}
-                                  sx={selectStyles}
-                                >
-                                  <MenuItem value="All">All groups</MenuItem>
-                                  {Object.keys(dependencyGroupTotals)
-                                    .sort((a, b) => dependencyGroupTotals[b] - dependencyGroupTotals[a])
-                                    .map(group => (
-                                      <MenuItem key={group} value={group}>{group}</MenuItem>
-                                    ))}
-                                </Select>
-                              </FormControl>
-                            )}
-                          </Stack>
-                        </Collapse>
-                      </Box>
-
-                      <Divider sx={{ borderColor: "var(--line)" }} />
-
-                      <Box>
-                        <PanelHeader
-                          eyebrow="Guided Stops"
-                          title="Curated path through this view"
-                          subtitle="Select a stop to focus the graph and narrative."
-                          open={guidedStopsOpen}
-                          onToggle={() => setGuidedStopsOpen(current => !current)}
-                        />
-                        <Collapse in={guidedStopsOpen}>
-                          <Stack spacing={1} sx={{ mt: 1.2 }}>
-                            {currentStories.map((story, index) => (
-                              <Box
-                                key={story.key}
-                                className={`tour-card ${storyIndex === index ? "active" : ""}`}
-                                onClick={() => {
-                                  setStoryIndex(index);
-                                  setSelectedId(story.key);
-                                }}
-                              >
-                                <Typography sx={{ fontWeight: 700 }}>{story.title}</Typography>
-                                <Typography sx={{ color: "var(--muted)", mt: 0.4, fontSize: 14 }}>{story.body}</Typography>
-                                {Array.isArray(story.classes) && story.classes.length > 0 && (
-                                  <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
-                                    {story.classes.slice(0, 4).map(className => (
-                                      <SourceChip key={`${story.key}-${className}`} label={className} size="small" sx={classChipStyles} />
-                                    ))}
-                                  </Stack>
-                                )}
-                              </Box>
-                            ))}
-                          </Stack>
-                        </Collapse>
-                      </Box>
-
-                      <Divider sx={{ borderColor: "var(--line)" }} />
-
-                      <Box>
-                        <PanelHeader
-                          eyebrow="Trace Findings"
-                          title="Measured client load paths"
-                          subtitle="Five k6 scenarios with detailed MongoT spans."
-                          open={traceFindingsOpen}
-                          onToggle={() => setTraceFindingsOpen(current => !current)}
-                        />
-                        <Collapse in={traceFindingsOpen}>
-                          <Stack spacing={1} sx={{ mt: 1.2 }}>
-                            {TRACE_SCENARIO_FINDINGS.map(finding => (
-                              <Paper
-                                key={finding.label}
-                                sx={{
-                                  p: 1.35,
-                                  borderRadius: 3,
-                                  background: "rgba(255,255,255,0.04)",
-                                  border: "1px solid var(--line)"
-                                }}
-                              >
-                                <Stack spacing={0.8}>
-                                  <Stack direction="row" spacing={0.8} alignItems="center" justifyContent="space-between">
-                                    <Typography sx={{ fontWeight: 700 }}>{finding.label}</Typography>
-                                    <Chip label={finding.throughput} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
-                                  </Stack>
-                                  <Stack direction="row" spacing={0.7} flexWrap="wrap" useFlexGap>
-                                    <Chip label={`HTTP ${finding.http}`} size="small" sx={chipStyles} />
-                                    <Chip label={`stream ${finding.stream}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
-                                    <Chip label={`command ${finding.command}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
-                                  </Stack>
-                                  <Typography sx={{ color: "var(--muted)", fontSize: 13.2 }}>
-                                    {finding.detail}
-                                  </Typography>
-                                </Stack>
-                              </Paper>
-                            ))}
-                          </Stack>
-                        </Collapse>
-                      </Box>
-
-                      <Divider sx={{ borderColor: "var(--line)" }} />
-
-                      <Box>
-                        <PanelHeader
-                          eyebrow="Legend"
-                          title="What the colours mean"
-                          subtitle="The palette shifts with the current preset, but the roles stay stable."
-                          open={legendOpen}
-                          onToggle={() => setLegendOpen(current => !current)}
-                        />
-                        <Collapse in={legendOpen}>
-                          <Box sx={{ mt: 1.2 }}>
-                            {view !== "deps" ? (
-                              <Stack spacing={0.8}>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.hot }} />hot path / high complexity</Typography>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.warm }} />broad coordination layer</Typography>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.cool }} />specialized subsystem</Typography>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.support }} />supporting package</Typography>
-                              </Stack>
-                            ) : (
-                              <Stack spacing={0.8}>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.root }} />runtime bundle root</Typography>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.group }} />dependency group hub</Typography>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.support }} />individual bundled library</Typography>
-                              </Stack>
-                            )}
-                          </Box>
-                        </Collapse>
-                      </Box>
-                    </Stack>
-                  </Collapse>
-                </Stack>
-              </Paper>
-            </Grid>
-            )}
-
-            <Grid item xs={viewerGridSize} xl={viewerXl} sx={{ minWidth: 0, minHeight: 0, height: "100%", flexGrow: sidebarOpen ? undefined : "1 !important" }}>
+            <Grid item xs={12} sx={{ minWidth: 0, minHeight: 0, height: "100%", flexGrow: "1 !important" }}>
               <Stack
                 ref={viewerShellRef}
                 className="viewer-shell"
@@ -3900,7 +3338,7 @@
                     {showStoryPanel && (
                       <Paper
                         ref={storyPanelRef}
-                        className="glass"
+                        className="glass hidden-scrollbar"
                         sx={{
                           borderRadius: 0,
                           p: 1.4,
@@ -4098,7 +3536,7 @@
                           />
                         )}
 
-                        <Box sx={{ flex: 1, minHeight: 0, overflow: "auto", p: 1.6 }}>
+                        <Box className="hidden-scrollbar" sx={{ flex: 1, minHeight: 0, overflow: "auto", p: 1.6 }}>
                           {storyDetailStatus === "loading" && !storyDetailMarkdown ? (
                             <Typography sx={{ color: "var(--muted)", fontSize: 13.5 }}>
                               Loading story detail...
