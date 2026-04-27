@@ -2,11 +2,7 @@
 
 ## Scenario
 
-MongoT shuts down by draining command streams, closing cursors and lifecycle services, stopping replication, updating server state, and releasing runtime resources. The client is not the source of this scenario. This represents process shutdown or controlled service termination.
-
-## Example client operation
-
-There is no client query in this scenario. Existing client commands may finish or fail depending on where they are in the shutdown drain, but the shutdown sequence itself is MongoT runtime work.
+MongoT shuts down by draining command streams, closing cursors and lifecycle services, stopping replication, updating server state, and releasing runtime resources. This represents process shutdown or controlled service termination.
 
 ## Walkthrough
 
@@ -36,32 +32,40 @@ Only MongoT-owned Java driver clients are involved. The application Java driver 
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above.
+These JSON documents use representative values. The command shapes match the code paths above. Shutdown produces final heartbeat, metadata, change-stream cleanup, and session cleanup messages; the entries below show the important shapes.
 
 ### MongoT -> mongod: update server state
 
 ```json
 {
   "update": "serverState",
+  "ordered": true,
+  "txnNumber": 58,
   "updates": [
     {
       "q": {
-        "serverId": {
-          "$oid": "66f100000000000000000001"
+        "_id": {
+          "$oid": "69ec2d86a722ed3e1957e639"
         }
       },
       "u": {
         "$set": {
-          "state": "SHUTTING_DOWN",
-          "lastHeartbeat": {
-            "$date": "2026-04-27T00:00:00Z"
-          }
+          "shutdown": true
         }
-      },
-      "upsert": false
+      }
     }
   ],
   "$db": "__mdb_internal_search"
+}
+```
+
+### mongod -> MongoT: shutdown state response
+
+```json
+{
+  "n": 1,
+  "nModified": 1,
+  "ok": 1.0
 }
 ```
 
@@ -69,41 +73,50 @@ These JSON documents use representative values. The command shapes match the cod
 
 ```json
 {
-  "killCursors": "images",
+  "killCursors": "image",
   "cursors": [
-    {
-      "$numberLong": "842000001"
-    }
+    131035085312391959
   ],
-  "$db": "sample_assets"
+  "$db": "clientDb"
 }
 ```
 
-### MongoT -> mongod: final server state
+### mongod -> MongoT: killCursors response
 
 ```json
 {
-  "update": "serverState",
-  "updates": [
-    {
-      "q": {
-        "serverId": {
-          "$oid": "66f100000000000000000001"
-        }
-      },
-      "u": {
-        "$set": {
-          "state": "STOPPED",
-          "shutdownComplete": true
-        }
-      },
-      "upsert": false
-    }
+  "cursorsKilled": [
+    131035085312391959
   ],
-  "$db": "__mdb_internal_search"
+  "cursorsNotFound": [],
+  "cursorsAlive": [],
+  "cursorsUnknown": [],
+  "ok": 1.0
 }
 ```
 
-## Accuracy note
+### MongoT -> mongod: end sessions
 
-Shutdown is not a query path. It documents the lifecycle endpoint after startup, ready state, query handling, replication, and steady-state operation.
+```json
+{
+  "endSessions": [
+    {
+      "id": {
+        "$binary": {
+          "base64": "RzQ6zVLlTmGXu5EonbG/mQ==",
+          "subType": "04"
+        }
+      }
+    }
+  ],
+  "$db": "admin"
+}
+```
+
+### mongod -> MongoT: end sessions response
+
+```json
+{
+  "ok": 1.0
+}
+```

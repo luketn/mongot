@@ -81,7 +81,7 @@ These measurements came from client k6 runs with 25 VUs for search scenarios and
 | Text Search Only | 166,253 | 554 req/s | 39.2 ms | 8.9 ms | 890 us | Stored-source text search spent most command time in BSON materialization, then parse/build/collect work. |
 | Vector Search Only | 56,594 | 189 req/s | 124 ms | 10.0 ms | 2.8 ms | Vector candidate collection dominated the command span at roughly 1.9 ms median. |
 | Both Vector And Text | 23,388 | 77.8 req/s | 268 ms | 37.8 ms | 2.2 ms | `$rankFusion` creates separate text and vector MongoT search streams; the vector sub-pipeline had a higher command median than the text sub-pipeline. |
-| Document Fetch | 67,688 | 225 req/s | 87.0 ms | 11.9 ms | 863 us | Requesting fields outside Lucene Stored Source raised end-to-end client/MongoDB latency, while MongoT's initial command stayed sub-millisecond. |
+| Document Fetch | 67,688 | 225 req/s | 87.0 ms | 11.9 ms | 863 us | Requesting fields outside Lucene Stored Source raised end-to-end client/MongoDB latency, while MongoT's initial command stayed sub-millisecond because the source-document fetch is mongod-owned. |
 
 For combined text/vector search, the trace component split is especially important. The root operation name is the same for both sub-pipelines, but `mongot.search.index.name` separates them:
 

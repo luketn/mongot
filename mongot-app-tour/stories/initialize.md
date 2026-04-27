@@ -4,7 +4,7 @@
 
 After the basic runtime is created, MongoT makes the search indexes usable. It initializes metadata collections, reads the authoritative index catalog from mongod, starts index lifecycle managers, and establishes the low-volume replication streams that keep Lucene indexes current.
 
-Replication, metrics, and tracing remain active after initialization. Those subsystems do not disappear once indexes are ready; they keep running while query scenarios execute.
+Replication, metrics, and tracing remain active after initialization and keep running while query scenarios execute.
 
 ## Walkthrough
 
@@ -15,10 +15,6 @@ Replication, metrics, and tracing remain active after initialization. Those subs
 5. [MongoDbReplicationManager](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/replication/mongodb/MongoDbReplicationManager.java#L66) prepares change-stream based replication.
 6. [ChangeStreamMongoCursorClient.openCursor](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/replication/mongodb/common/ChangeStreamMongoCursorClient.java#L114) opens a change stream against mongod, usually with an initial empty batch.
 7. [ChangeStreamMongoCursorClient.tryNext](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/replication/mongodb/common/ChangeStreamMongoCursorClient.java#L150) continues polling with `getMore`.
-
-## Example client operation
-
-There is no application query in this scenario. The activity is MongoT setup and synchronization work.
 
 ## Driver path
 
@@ -41,7 +37,7 @@ MongoT again uses the Java driver as an internal client:
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above.
+These JSON documents use representative values. The command shapes match the code paths above. MongoT uses its own MongoDB Java driver clients here.
 
 ### MongoT -> mongod: create metadata index
 
@@ -51,13 +47,25 @@ These JSON documents use representative values. The command shapes match the cod
   "indexes": [
     {
       "key": {
-        "serverId": 1
+        "_id.serverId": 1
       },
-      "name": "serverId_1",
+      "name": "_id.serverId_1",
       "background": true
     }
   ],
   "$db": "__mdb_internal_search"
+}
+```
+
+### mongod -> MongoT: create metadata index response
+
+```json
+{
+  "numIndexesBefore": 3,
+  "numIndexesAfter": 3,
+  "commitQuorum": "votingMembers",
+  "note": "all indexes already exist",
+  "ok": 1.0
 }
 ```
 
@@ -66,12 +74,40 @@ These JSON documents use representative values. The command shapes match the cod
 ```json
 {
   "find": "serverState",
+  "readConcern": {
+    "level": "majority"
+  },
   "filter": {
-    "serverId": {
-      "$oid": "66f100000000000000000001"
+    "_id": {
+      "$oid": "69ec2d86a722ed3e1957e639"
     }
   },
   "$db": "__mdb_internal_search"
+}
+```
+
+### mongod -> MongoT: read server state response
+
+```json
+{
+  "cursor": {
+    "id": 0,
+    "ns": "__mdb_internal_search.serverState",
+    "firstBatch": [
+      {
+        "_id": {
+          "$oid": "69ec2d86a722ed3e1957e639"
+        },
+        "serverName": "69ec2d86a722ed3e1957e639",
+        "lastHeartbeatTs": {
+          "$date": "2026-04-27T03:28:29.065Z"
+        },
+        "ready": false,
+        "shutdown": false
+      }
+    ]
+  },
+  "ok": 1.0
 }
 ```
 
@@ -80,18 +116,25 @@ These JSON documents use representative values. The command shapes match the cod
 ```json
 {
   "update": "serverState",
+  "ordered": true,
+  "txnNumber": 1,
   "updates": [
     {
       "q": {
-        "serverId": {
-          "$oid": "66f100000000000000000001"
+        "_id": {
+          "$oid": "69ec2d86a722ed3e1957e639"
         }
       },
       "u": {
-        "$set": {
-          "state": "STARTING",
-          "host": "localhost:28000"
-        }
+        "_id": {
+          "$oid": "69ec2d86a722ed3e1957e639"
+        },
+        "serverName": "69ec2d86a722ed3e1957e639",
+        "lastHeartbeatTs": {
+          "$date": "2026-04-27T03:47:29.064Z"
+        },
+        "ready": false,
+        "shutdown": false
       },
       "upsert": true
     }
@@ -100,42 +143,77 @@ These JSON documents use representative values. The command shapes match the cod
 }
 ```
 
+### mongod -> MongoT: upsert server state response
+
+```json
+{
+  "n": 1,
+  "nModified": 1,
+  "ok": 1.0
+}
+```
+
 ### MongoT -> mongod: read authoritative index catalog
 
 ```json
 {
   "find": "indexCatalog",
+  "readConcern": {
+    "level": "majority"
+  },
   "filter": {
-    "collectionUUID": {
-      "$uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-    }
   },
   "$db": "__mdb_internal_search"
 }
 ```
 
+The authoritative index catalog can contain multiple entries, including indexes like `clientDb.documents/default` and `clientDb.documents/vector_caption`.
+
 ### MongoT -> mongod: open change stream
 
 ```json
 {
-  "aggregate": "movies",
+  "aggregate": "image",
+  "readConcern": {
+    "level": "majority"
+  },
   "pipeline": [
     {
       "$changeStream": {
         "fullDocument": "updateLookup",
-        "showMigrationEvents": true
+        "showMigrationEvents": true,
+        "startAfter": {
+          "_data": "8269EED7BC000000012B0429296E1404"
+        }
       }
     },
     {
       "$addFields": {
-        "_mdb_meta": "metadata fields added by MongoT"
+        "fullDocument.69ec2f48a722ed3e1957e64d._id": "$fullDocument._id"
       }
     }
   ],
+  "maxTimeMS": 1000,
   "cursor": {
     "batchSize": 0
   },
-  "$db": "sample_mflix"
+  "$db": "clientDb"
+}
+```
+
+### mongod -> MongoT: change stream open response
+
+```json
+{
+  "cursor": {
+    "firstBatch": [],
+    "postBatchResumeToken": {
+      "_data": "8269EED7BC000000012B0429296E1404"
+    },
+    "id": 131035085312391959,
+    "ns": "clientDb.documents"
+  },
+  "ok": 1.0
 }
 ```
 
@@ -143,16 +221,28 @@ These JSON documents use representative values. The command shapes match the cod
 
 ```json
 {
-  "getMore": {
-    "$numberLong": "842000001"
+  "getMore": 131035085312391959,
+  "collection": "image",
+  "$db": "clientDb"
+}
+```
+
+### mongod -> MongoT: empty change stream poll response
+
+```json
+{
+  "cursor": {
+    "nextBatch": [],
+    "postBatchResumeToken": {
+      "_data": "8269EEDC51000000022B0429296E1404"
+    },
+    "id": 131035085312391959,
+    "ns": "clientDb.documents"
   },
-  "collection": "movies",
-  "batchSize": 1000,
-  "maxTimeMS": 1000,
-  "$db": "sample_mflix"
+  "ok": 1.0
 }
 ```
 
 ## Accuracy note
 
-This scenario includes active communication with mongod. It is MongoT reading MongoDB metadata and opening replication cursors, not mongod sending a search command yet.
+This scenario includes active communication with mongod: MongoT reads MongoDB metadata and opens replication cursors.

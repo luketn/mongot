@@ -14,15 +14,15 @@ collection.aggregate(List.of(
                 new Document("text", List.of(
                     new Document("$search",
                         new Document("index", "default")
-                            .append("text", new Document("path", "plot")
-                                .append("query", "mars habitat")))))
+                            .append("text", new Document("path", "caption")
+                                .append("query", "motorcycle")))))
                     .append("vector", List.of(
                         new Document("$vectorSearch",
-                            new Document("index", "plot_vector")
-                                .append("path", "plotEmbedding")
+                            new Document("index", "vector_caption")
+                                .append("path", "captionEmbedding")
                                 .append("queryVector", List.of(0.31, -0.11, 0.07))
-                                .append("numCandidates", 200)
-                                .append("limit", 50)))))))
+                                .append("numCandidates", 50)
+                                .append("limit", 20)))))))
             .append("combination", new Document("weights",
                 new Document("text", 0.6).append("vector", 0.4)))),
     new Document("$limit", 10)
@@ -64,122 +64,153 @@ collection.aggregate(List.of(
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above.
-
-### Client Java driver -> mongod: rank fusion aggregate
-
-```json
-{
-  "aggregate": "movies",
-  "pipeline": [
-    {
-      "$rankFusion": {
-        "input": {
-          "pipelines": {
-            "text": [
-              {
-                "$search": {
-                  "index": "default",
-                  "text": {
-                    "path": "plot",
-                    "query": "mars habitat"
-                  }
-                }
-              }
-            ],
-            "vector": [
-              {
-                "$vectorSearch": {
-                  "index": "plot_vector",
-                  "path": "plotEmbedding",
-                  "queryVector": [0.31, -0.11, 0.07],
-                  "numCandidates": 200,
-                  "limit": 50
-                }
-              }
-            ]
-          }
-        },
-        "combination": {
-          "weights": {
-            "text": 0.6,
-            "vector": 0.4
-          }
-        }
-      }
-    },
-    {
-      "$limit": 10
-    }
-  ],
-  "cursor": {},
-  "$db": "sample_mflix"
-}
-```
+These JSON documents use representative values. The command shapes match the code paths above. `$rankFusion` can produce one text `search` stream, one vector `vectorSearch` stream, and MongoT `getMore` commands on the text stream. The vector command body is summarized in markdown by replacing the full `queryVector` field with `queryVectorSummary`.
 
 ### mongod -> MongoT: text branch
 
 ```json
 {
-  "search": "movies",
-  "$db": "sample_mflix",
+  "search": "image",
   "collectionUUID": {
-    "$uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    "$binary": {
+      "base64": "NDqH4tFIQ/aO6fC90aniKQ==",
+      "subType": "04"
+    }
   },
   "query": {
     "index": "default",
     "text": {
-      "path": "plot",
-      "query": "mars habitat"
+      "path": "caption",
+      "query": "motorcycle"
     }
   },
   "cursorOptions": {
-    "docsRequested": 50
-  }
-}
-```
-
-### mongod -> MongoT: vector branch
-
-```json
-{
-  "vectorSearch": "movies",
-  "$db": "sample_mflix",
-  "collectionUUID": {
-    "$uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    "batchSize": 108
   },
-  "index": "plot_vector",
-  "path": "plotEmbedding",
-  "queryVector": [0.31, -0.11, 0.07],
-  "numCandidates": 200,
-  "limit": 50,
-  "cursorOptions": {
-    "docsRequested": 50
-  }
+  "$db": "clientDb"
 }
 ```
 
-### MongoT -> mongod: branch batch response
+### MongoT -> mongod: text branch first batch
 
 ```json
 {
   "cursor": {
-    "id": {
-      "$numberLong": "726493811484"
-    },
-    "ns": "sample_mflix.movies",
+    "id": 1757498206156953394,
+    "ns": "clientDb.documents",
     "nextBatch": [
       {
-        "_id": {
-          "$oid": "66f100000000000000000030"
-        },
-        "score": 7.81
+        "_id": 443005,
+        "$searchScore": 2.9424455165863037
+      },
+      {
+        "_id": 544713,
+        "$searchScore": 2.9424455165863037
+      },
+      {
+        "_id": 469139,
+        "$searchScore": 2.7823147773742676
+      },
+      {
+        "_id": 565387,
+        "$searchScore": 2.2113354206085205
+      }
+    ]
+  },
+  "vars": {
+    "SEARCH_META": {
+      "count": {
+        "lowerBound": 1458
+      }
+    }
+  },
+  "ok": 1
+}
+```
+
+A first text batch can contain many documents. This example shows the first few and a later document from the same batch shape.
+
+### mongod -> MongoT: text branch getMore
+
+```json
+{
+  "getMore": 1757498206156953394,
+  "collection": "image",
+  "cursorOptions": {
+    "batchSize": 162
+  },
+  "$db": "clientDb"
+}
+```
+
+### mongod -> MongoT: vector branch command body summary
+
+```json
+{
+  "vectorSearch": "image",
+  "collectionUUID": {
+    "$binary": {
+      "base64": "NDqH4tFIQ/aO6fC90aniKQ==",
+      "subType": "04"
+    }
+  },
+  "index": "vector_caption",
+  "path": "captionEmbedding",
+  "queryVectorSummary": {
+    "length": 768,
+    "first8": [
+      -0.018413003534078598,
+      0.039294157177209854,
+      -0.1552632749080658,
+      0.028887825086712837,
+      0.022704750299453735,
+      0.05024779215455055,
+      0.019792508333921432,
+      0.012846584431827068
+    ],
+    "last3": [
+      0.017677120864391327,
+      -0.044313110411167145,
+      -0.008208148181438446
+    ]
+  },
+  "numCandidates": 50,
+  "limit": 20,
+  "$db": "clientDb"
+}
+```
+
+### MongoT -> mongod: vector branch response
+
+```json
+{
+  "cursor": {
+    "id": 0,
+    "ns": "clientDb.documents",
+    "nextBatch": [
+      {
+        "_id": 391895,
+        "$vectorSearchScore": 1.0
+      },
+      {
+        "_id": 382554,
+        "$vectorSearchScore": 0.9136942625045776
+      },
+      {
+        "_id": 334699,
+        "$vectorSearchScore": 0.9083335995674133
+      },
+      {
+        "_id": 560943,
+        "$vectorSearchScore": 0.8861563801765442
       }
     ]
   },
   "ok": 1
 }
 ```
+
+A vector branch batch can contain many documents. This example shows the first few and a later document from the same batch shape.
 
 ## Accuracy note
 

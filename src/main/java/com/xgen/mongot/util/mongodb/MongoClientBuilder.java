@@ -244,6 +244,11 @@ public class MongoClientBuilder {
     this.maxConnections.ifPresent(
         size -> settings.applyToConnectionPoolSettings(builder -> builder.maxSize(size)));
 
+    var diagnosticMessageLogger = MongodMongotMessageLogger.get();
+    if (diagnosticMessageLogger.isActive()) {
+      settings.addCommandListener(diagnosticMessageLogger.commandListener());
+    }
+
     settings.applyToConnectionPoolSettings(
         builder ->
             builder.addConnectionPoolListener(

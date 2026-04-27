@@ -2,7 +2,7 @@
 
 This timeline is derived from the package tour plus the actual bootstrap, config, lifecycle, replication, cursor, and server code paths.
 
-Arrows are package-level flows, backed by representative classes such as:
+Arrows are package-level flows, backed by classes such as:
 
 - `community`: `MongotCommunity`, `CommunityMongotBootstrapper`
 - `config`: `DefaultConfigManager`, `CommunityConfigUpdater`, `PeriodicConfigMonitor`
@@ -13,7 +13,7 @@ Arrows are package-level flows, backed by representative classes such as:
 - `index`: initialized index creation plus Lucene-backed readers/writers
 - `catalogservice`: authoritative catalog and metadata service
 
-The startup, indexing, steady-state, and shutdown flows below are grounded in code. The later Atlas Search and Vector Search load stages are modeled from the serving paths so their different dependencies stay visible in the graph, not from a captured production trace.
+The startup, indexing, steady-state, and shutdown flows below are grounded in code. The later Atlas Search and Vector Search load stages are modeled from the serving paths so their different dependencies stay visible in the graph, not from a production trace.
 
 ## 1. Bootstrap, Control Plane, and Service Initialization
 
@@ -195,7 +195,7 @@ sequenceDiagram
 
 ## 5. Detailed Trace and Load Test Views
 
-The diagrams below add the runtime detail learned from client load-test runs captured with `DETAILED_TRACE_SPANS=true`. The broad package flows above show ownership and lifecycle; these diagrams show the shape of individual traced requests and update batches.
+The diagrams below add the runtime detail learned from client load-test runs recorded with `DETAILED_TRACE_SPANS=true`. The broad package flows above show ownership and lifecycle; these diagrams show the shape of individual traced requests and update batches.
 
 ### 5.1 Text Search Trace
 
@@ -350,13 +350,13 @@ Measured component split from the combined run:
 
 ### 5.4 Document Fetch For Missing Stored Source Fields
 
-This workload uses text search, but the client query asks for fields that are not returned from Lucene Stored Source. This is not the Java MongoDB driver receiving a batch of `_id`s from MongoT and issuing a second client-side query. The Java driver builds one `aggregate` command, sends it to `mongod`, and then iterates the MongoDB cursor with normal `getMore` commands when more result batches are needed.
+This workload uses text search, but the client query asks for fields that are not returned from Lucene Stored Source. This is not the Java MongoDB driver receiving a batch of `_id`s from MongoT and issuing a second client-side query. The Java driver builds one `aggregate` command and sends it to `mongod`; any client cursor continuation is still client-to-mongod.
 
 The `_id` handoff is server-side. When the requested response cannot be satisfied from Stored Source, MongoT's Lucene projection path uses `IdLookupFactory`: it returns each hit's root `_id` and leaves document materialization to `mongod`. The mongod-side search pipeline then uses those ids to fetch the matched MongoDB documents and apply the final aggregation projection before returning cursor batches to the driver. MongoT itself is not opening a separate query back to mongod for the missing fields.
 
 So "Document Fetch" means the client-visible projection requires fields outside the stored-source-only response shape used by the lighter workload. That forces full-document materialization inside MongoDB's aggregation/search execution path. The measured effect was mostly outside the initial MongoT command span: HTTP and app-reported MongoDB time increased, while the median `mongot.search.command` stayed around `863 us`.
 
-The mongod decision point is [`search_helpers::promoteStoredSourceOrAddIdLookup`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/search_helper.cpp#L709): stored source is promoted directly when available, otherwise mongod inserts [`DocumentSourceInternalSearchIdLookUp`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_internal_search_id_lookup.cpp#L65). Cursor continuation back to MongoT uses [`MongotTaskExecutorCursorGetMoreStrategy::createGetMoreRequest`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L60), with [`_getNextDocsRequested`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L136) adjusting `docsRequested` from id-lookup success metrics.
+The mongod decision point is [`search_helpers::promoteStoredSourceOrAddIdLookup`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/search_helper.cpp#L709): stored source is promoted directly when available, otherwise mongod inserts [`DocumentSourceInternalSearchIdLookUp`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_internal_search_id_lookup.cpp#L65). Document fetch does not inherently mean MongoT `getMore`; mongod can request a large enough MongoT batch and then send `killCursors`. MongoT `getMore` remains a real cursor-continuation path through [`MongotTaskExecutorCursorGetMoreStrategy::createGetMoreRequest`](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L60), and it is used by workloads that need continued MongoT cursor batches.
 
 ```mermaid
 sequenceDiagram
@@ -380,10 +380,12 @@ sequenceDiagram
     lucene-->>command: first batch of hit ids / scores
     command-->>server: encoded BSON response
     deactivate command
-    server-->>mongod: search response batches
+    server-->>mongod: search response batch of hit ids / scores
     deactivate server
     mongod->>idLookup: materialize matching collection documents by _id
     idLookup-->>mongod: matched MongoDB documents
+    mongod->>server: killCursors when enough MongoT hits are buffered
+    server-->>mongod: cursorsKilled
     mongod-->>driver: aggregate cursor batches
     driver-->>appProject: documents available from MongoDB cursor
     appProject-->>app: response with requested fields
@@ -506,67 +508,3 @@ flowchart LR
     documentFetch --> documentFetchLesson["End-to-end client/MongoDB time rises;<br/>MongoT command stays sub-ms"]
     mutations --> mutationLesson["Not a child of client trace;<br/>correlate by run window and indexing attributes"]
 ```
-
-## Animation Scenario
-
-The compressed runtime model can be described as multiple concurrent streams:
-
-| Virtual Time | Phase | Main Streams |
-| --- | --- | --- |
-| `0s-6s` | MongoT Bootstrap | `community -> config -> server/cursor/catalogservice/metrics/trace`, plus metadata MongoDB client setup |
-| `6s-12s` | Index Ready | `config -> lifecycle -> index -> replication`, plus authoritative metadata reads from `mongod` |
-| `12s-22s` | Text Search | `client -> mongod -> server -> cursor -> index`, with Lucene text collection and replication trickle in the background |
-| `22s-30s` | Vector Search | `client -> mongod -> server -> cursor -> index`, with `VectorSearchCommand` and vector candidate collection |
-| `30s-38s` | Rank Fusion | `mongod` opens separate MongoT streams for text/default and vector/vector_caption sub-pipelines |
-| `38s-47s` | Document Fetch + getMore | MongoT returns hit ids/scores; `mongod` fetches fields missing from Stored Source and coordinates getMore |
-| `47s-53s` | Inserts + Deletes | client writes to `mongod`; MongoT observes change streams and updates Lucene asynchronously |
-| `53s-57s` | Everything Together | request path, background replication, support package trickle, metrics, and traces run together |
-| `57s-60s` | Shutdown | `server/cursor/index/replication/lifecycle` drain and close while metrics/tracing/logging finish |
-
-### Edge Groups to Animate
-
-- Bootstrap and initialize:
-  - `community -> config`
-  - `config -> catalogservice`
-  - `config -> cursor`
-  - `config -> server`
-  - `config -> logging`, `config -> metrics`, and `config -> trace` as a low-intensity observability trickle
-  - `config -> featureflag`
-  - `config -> lifecycle`
-- Index creation and initial replication:
-  - `lifecycle -> index`
-  - `lifecycle -> replication`
-  - `replication -> index`
-- Stable state:
-  - `config -> catalogservice`
-  - `catalogservice -> config`
-  - `replication -> index`
-  - `monitor -> config`
-- Text search load:
-  - `server -> cursor`
-  - `cursor -> index`
-- Vector Search load:
-  - `server -> cursor`
-  - `cursor -> index`
-  - `index -> trace`
-- Document fetch and cursor continuation:
-  - `index -> cursor`
-  - `cursor -> server`
-  - `server -> mongod`
-  - `mongod -> client`
-- Async updates:
-  - `mongod -> replication`
-  - `replication -> index`
-- Shutdown:
-  - `mongod -> server`
-  - `server -> cursor`
-  - `cursor -> index`
-  - `server -> lifecycle`
-  - `lifecycle -> replication`
-  - `lifecycle -> metrics`
-
-### Notes
-
-- The package graph is import-oriented, so a few runtime edges represent call direction rather than the static import arrow direction.
-- The steady-state and config-monitor streams are genuinely concurrent in code.
-- The 60-second runtime uses edge-level continuity: in the final second of each phase, only stream edges that do not appear in the next phase fade out. Shared replication, metrics, tracing, support, and request-path edges stay continuous across phase boundaries.

@@ -10,12 +10,13 @@ A generic application client uses the MongoDB Java driver to send an aggregate c
 collection.aggregate(List.of(
     new Document("$search",
         new Document("index", "default")
-            .append("text", new Document("path", "plot")
-                .append("query", "space adventure"))),
+            .append("text", new Document("path", "caption")
+                .append("query", "motorcycle"))),
     new Document("$project",
-        new Document("title", 1)
+        new Document("_id", 1)
+            .append("caption", 1)
             .append("score", new Document("$meta", "searchScore"))),
-    new Document("$limit", 10)
+    new Document("$limit", 25)
 ));
 ```
 
@@ -61,59 +62,30 @@ collection.aggregate(List.of(
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above.
-
-### Client Java driver -> mongod: aggregate
-
-```json
-{
-  "aggregate": "movies",
-  "pipeline": [
-    {
-      "$search": {
-        "index": "default",
-        "text": {
-          "path": "plot",
-          "query": "space adventure"
-        }
-      }
-    },
-    {
-      "$project": {
-        "title": 1,
-        "score": {
-          "$meta": "searchScore"
-        }
-      }
-    },
-    {
-      "$limit": 10
-    }
-  ],
-  "cursor": {},
-  "$db": "sample_mflix"
-}
-```
+These JSON documents use representative values. The command shapes match the code paths above. Long result arrays are shortened in the markdown.
 
 ### mongod -> MongoT: gRPC search command body
 
 ```json
 {
-  "search": "movies",
-  "$db": "sample_mflix",
+  "search": "image",
   "collectionUUID": {
-    "$uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    "$binary": {
+      "base64": "NDqH4tFIQ/aO6fC90aniKQ==",
+      "subType": "04"
+    }
   },
   "query": {
     "index": "default",
     "text": {
-      "path": "plot",
-      "query": "space adventure"
+      "path": "caption",
+      "query": "motorcycle"
     }
   },
   "cursorOptions": {
-    "docsRequested": 20
-  }
+    "batchSize": 27
+  },
+  "$db": "clientDb"
 }
 ```
 
@@ -122,27 +94,63 @@ These JSON documents use representative values. The command shapes match the cod
 ```json
 {
   "cursor": {
-    "id": {
-      "$numberLong": "726493811483"
-    },
-    "ns": "sample_mflix.movies",
+    "id": 1757498206156953391,
+    "ns": "clientDb.documents",
     "nextBatch": [
       {
-        "_id": {
-          "$oid": "66f100000000000000000010"
-        },
-        "score": 12.34
+        "_id": 443005,
+        "$searchScore": 2.9424455165863037
+      },
+      {
+        "_id": 544713,
+        "$searchScore": 2.9424455165863037
+      },
+      {
+        "_id": 469139,
+        "$searchScore": 2.7823147773742676
+      },
+      {
+        "_id": 115741,
+        "$searchScore": 2.284923791885376
       }
     ]
   },
   "vars": {
     "SEARCH_META": {
       "count": {
-        "lowerBound": 1
+        "lowerBound": 1458
       }
     }
   },
   "ok": 1
+}
+```
+
+A `nextBatch` can contain many documents. This example shows the first few and a later document from the same batch shape.
+
+### mongod -> MongoT: cursor cleanup
+
+```json
+{
+  "killCursors": "image",
+  "cursors": [
+    1757498206156953391
+  ],
+  "$db": "clientDb"
+}
+```
+
+### MongoT -> mongod: cursor cleanup response
+
+```json
+{
+  "ok": 1.0,
+  "cursorsKilled": [
+    1757498206156953391
+  ],
+  "cursorsNotFound": [],
+  "cursorsAlive": [],
+  "cursorsUnknown": []
 }
 ```
 

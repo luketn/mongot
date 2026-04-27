@@ -1,12 +1,10 @@
-# Document Fetch and getMore
+# Document Fetch
 
 ## Scenario
 
-This scenario covers two related behaviors that happen after the first MongoT search batch.
+This scenario covers a text search where the client asks for fields that are not returned from Lucene Stored Source. MongoT returns ids and scores, and mongod fetches the matched source documents from MongoDB storage before applying the client projection. That document fetch is inside mongod's execution plan. It is not the Java driver issuing a second query.
 
-First, if the client asks for fields that are not returned from Lucene stored source fields, MongoT can return ids and scores while mongod fetches the matched source documents from MongoDB storage. That document fetch is inside mongod's execution plan. It is not the Java driver issuing a second query.
-
-Second, if the client consumes more results than the first batch contains, the Java driver sends `getMore` to mongod. mongod then sends its own `getMore` command to MongoT to continue the MongoT cursor.
+This document-fetch path does not require the Java driver to issue a second query. mongod can request enough MongoT hits, perform the document fetch inside mongod, and then send `killCursors` to MongoT. MongoT `getMore` is still a real command-stream path, but it belongs to cursor continuation workloads rather than being the defining feature of document fetch.
 
 ## Example client operation
 
@@ -24,7 +22,7 @@ AggregateIterable<Document> results = collection.aggregate(List.of(
 )).batchSize(20);
 
 for (Document result : results) {
-    // Iteration may cause driver getMore commands to mongod.
+    // The driver cursor is still client -> mongod. MongoT is not contacted by the client driver.
 }
 ```
 
@@ -38,11 +36,9 @@ for (Document result : results) {
 6. [ProjectFactory.build](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/ProjectFactory.java#L25) chooses how MongoT should shape returned fields.
 7. If stored source is not being returned, [IdLookupFactory](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/IdLookupFactory.java#L13) returns id-oriented documents. This lets mongod's internal id lookup fetch requested fields from the matched collection documents.
 8. [SearchCommand.getBatch](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/server/command/search/SearchCommand.java#L317) prepares the batch and cursor response.
-9. The Java driver receives a cursor from mongod. If the client continues iteration, [CommandBatchCursorHelper.getMoreCommandDocument](https://github.com/mongodb/mongo-java-driver/blob/main/driver-core/src/main/com/mongodb/internal/operation/CommandBatchCursorHelper.java#L49) builds a `getMore` command to mongod.
-10. mongod advances its pipeline cursor. [MongotTaskExecutorCursorGetMoreStrategy::createGetMoreRequest](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L60) builds the MongoT `getMore` command.
-11. For id lookup queries, [MongotTaskExecutorCursorGetMoreStrategy::_getNextDocsRequested](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L136) adjusts the next `docsRequested` value based on how many MongoDB documents the id-lookup stage actually returned.
-12. [GetMoreCommand.run](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/server/command/search/GetMoreCommand.java#L56) asks [MongotCursorManagerImpl](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/cursor/MongotCursorManagerImpl.java#L43) for the next batch.
-13. [MongotCursor.getNextBatch](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/cursor/MongotCursor.java#L90) advances the batch producer.
+9. mongod performs the id lookup and projection internally. The client-visible cursor is still a mongod cursor.
+10. mongod can then call [KillCursorsCommand](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/server/command/search/KillCursorsCommand.java#L33) to clean up the MongoT cursor after it has enough hits.
+11. If a MongoT cursor does need continuation in another workload, [MongotTaskExecutorCursorGetMoreStrategy::createGetMoreRequest](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L60) builds the MongoT `getMore` command and [GetMoreCommand.run](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/server/command/search/GetMoreCommand.java#L56) advances [MongotCursor](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/cursor/MongotCursor.java#L90).
 
 ## MongoDB server classes involved
 
@@ -51,9 +47,9 @@ for (Document result : results) {
 - [search_helpers::promoteStoredSourceOrAddIdLookup](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/search_helper.cpp#L709) chooses stored-source promotion or id lookup.
 - [DocumentSourceInternalSearchIdLookUp](https://github.com/mongodb/mongo/blob/master/src/mongo/db/pipeline/search/document_source_internal_search_id_lookup.cpp#L65) represents mongod's source-document lookup stage for MongoT hit ids.
 - [mongot_cursor::establishCursorsForSearchStage](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L225) establishes the initial MongoT search cursor.
-- [mongot_cursor::getRemoteCommandRequest](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L187) points the initial search and later getMore command path at the configured MongoT address.
-- [MongotTaskExecutorCursorGetMoreStrategy::createGetMoreRequest](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L60) builds MongoT `getMore` requests.
-- [MongotTaskExecutorCursorGetMoreStrategy::_getNextDocsRequested](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L136) updates `docsRequested` using id-lookup success metrics.
+- [mongot_cursor::getRemoteCommandRequest](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor.cpp#L187) points the initial search and conditional later cursor commands at the configured MongoT address.
+- [MongotTaskExecutorCursorGetMoreStrategy::createGetMoreRequest](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L60) builds MongoT `getMore` requests when a MongoT cursor continues.
+- [MongotTaskExecutorCursorGetMoreStrategy::_getNextDocsRequested](https://github.com/mongodb/mongo/blob/master/src/mongo/db/query/search/mongot_cursor_getmore_strategy.cpp#L136) updates `docsRequested` using id-lookup success metrics when that continuation path is used.
 
 ## MongoT classes involved
 
@@ -61,65 +57,36 @@ for (Document result : results) {
 - [ProjectFactory](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/ProjectFactory.java#L25) chooses stored-source or id lookup behavior.
 - [IdLookupFactory](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/IdLookupFactory.java#L13) builds id-based projection output.
 - [MongotCursorManagerImpl](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/cursor/MongotCursorManagerImpl.java#L43) finds and owns cursor state.
-- [GetMoreCommand](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/server/command/search/GetMoreCommand.java#L56) handles MongoT cursor continuation.
+- [KillCursorsCommand](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/server/command/search/KillCursorsCommand.java#L33) handles the cleanup command in this scenario.
+- [GetMoreCommand](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/server/command/search/GetMoreCommand.java#L56) handles conditional MongoT cursor continuation in other search workloads.
 - [MongotCursor](https://github.com/mongodb/mongot/blob/main/src/main/java/com/xgen/mongot/cursor/MongotCursor.java#L90) obtains the next batch from the producer.
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above.
-
-### Client Java driver -> mongod: aggregate requesting non-stored fields
-
-```json
-{
-  "aggregate": "images",
-  "pipeline": [
-    {
-      "$search": {
-        "index": "default",
-        "text": {
-          "path": "caption",
-          "query": "public domain observatory"
-        }
-      }
-    },
-    {
-      "$project": {
-        "caption": 1,
-        "licenseName": 1,
-        "licenseUrl": 1,
-        "score": {
-          "$meta": "searchScore"
-        }
-      }
-    }
-  ],
-  "cursor": {
-    "batchSize": 20
-  },
-  "$db": "sample_assets"
-}
-```
+These JSON documents use representative values. The command shapes match the code paths above. The client projection asks for `caption`, `licenseName`, and `licenseUrl`; the Stored Source includes `caption` but not `licenseName` or `licenseUrl`.
 
 ### mongod -> MongoT: search command
 
 ```json
 {
-  "search": "images",
-  "$db": "sample_assets",
+  "search": "image",
   "collectionUUID": {
-    "$uuid": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
+    "$binary": {
+      "base64": "NDqH4tFIQ/aO6fC90aniKQ==",
+      "subType": "04"
+    }
   },
   "query": {
     "index": "default",
     "text": {
       "path": "caption",
-      "query": "public domain observatory"
+      "query": "a"
     }
   },
   "cursorOptions": {
-    "docsRequested": 20
-  }
+    "batchSize": 10640
+  },
+  "$db": "clientDb"
 }
 ```
 
@@ -128,82 +95,62 @@ These JSON documents use representative values. The command shapes match the cod
 ```json
 {
   "cursor": {
-    "id": {
-      "$numberLong": "726493811485"
-    },
-    "ns": "sample_assets.images",
+    "id": 3500069593100182908,
+    "ns": "clientDb.documents",
     "nextBatch": [
       {
-        "_id": {
-          "$oid": "66f100000000000000000040"
-        },
-        "score": 10.52
+        "_id": 72466,
+        "$searchScore": 0.10923357307910919
+      },
+      {
+        "_id": 190722,
+        "$searchScore": 0.10923357307910919
+      },
+      {
+        "_id": 10643,
+        "$searchScore": 0.10923357307910919
       }
     ]
+  },
+  "vars": {
+    "SEARCH_META": {
+      "count": {
+        "lowerBound": 103203
+      }
+    }
   },
   "ok": 1
 }
 ```
 
-### mongod internal document fetch
+The `nextBatch` contains hit ids and scores for mongod's source-document lookup. This example shows the first few hits.
+
+### mongod -> MongoT: cursor cleanup
 
 ```json
 {
-  "internalPlan": "fetch source collection documents by RecordId or _id for MongoT matches",
-  "collection": "sample_assets.images",
-  "fieldsNeededByClient": ["caption", "licenseName", "licenseUrl"],
-  "notAClientDriverCommand": true
+  "killCursors": "image",
+  "cursors": [
+    3500069593100182908
+  ],
+  "$db": "clientDb"
 }
 ```
 
-### Client Java driver -> mongod: getMore
+### MongoT -> mongod: cursor cleanup response
 
 ```json
 {
-  "getMore": {
-    "$numberLong": "551200001"
-  },
-  "collection": "images",
-  "batchSize": 20,
-  "$db": "sample_assets"
-}
-```
-
-### mongod -> MongoT: gRPC getMore command body
-
-```json
-{
-  "getMore": {
-    "$numberLong": "726493811485"
-  },
-  "cursorOptions": {
-    "docsRequested": 20
-  }
-}
-```
-
-### MongoT -> mongod: next search batch
-
-```json
-{
-  "cursor": {
-    "id": {
-      "$numberLong": "726493811485"
-    },
-    "ns": "sample_assets.images",
-    "nextBatch": [
-      {
-        "_id": {
-          "$oid": "66f100000000000000000041"
-        },
-        "score": 9.88
-      }
-    ]
-  },
-  "ok": 1
+  "ok": 1.0,
+  "cursorsKilled": [
+    3500069593100182908
+  ],
+  "cursorsNotFound": [],
+  "cursorsAlive": [],
+  "cursorsUnknown": []
 }
 ```
 
 ## Accuracy note
 
-There is no Java driver second query to MongoT or MongoDB for the projected fields. The client driver sends aggregate and later `getMore` to mongod. mongod performs any required source document fetch as part of its own execution.
+There is no Java driver second query to MongoT or MongoDB for the projected fields. The client driver sends aggregate work to mongod. mongod performs any required source document fetch as part of its own execution. Cursor cleanup can be a `killCursors` command when mongod already has enough MongoT hits.

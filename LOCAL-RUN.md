@@ -65,6 +65,22 @@ DETAILED_TRACE_SPANS=true ./bazel-bin/src/main/java/com/xgen/mongot/community/Mo
 The explicit Java 21 launcher avoids Java 25 module-access failures with the local OpenTelemetry
 agent.
 
+### Diagnostic MongoD/MongoT Message Capture
+
+For short documentation captures, set `MONGOT_MONGOD_MESSAGE_LOG_JSONL` to a JSONL output path:
+
+```bash
+JAVABIN=$(/usr/libexec/java_home -v 21)/bin/java \
+MONGOT_MONGOD_MESSAGE_LOG_JSONL=/tmp/mongot-mongod-messages.jsonl \
+./bazel-bin/src/main/java/com/xgen/mongot/community/MongotCommunity \
+  --config mongot-dev.yml --internalListAllIndexesForTesting
+```
+
+This is intentionally disabled by default and flushes every event, so it is very slow. It records
+MongoT-owned Java driver command events to mongod and mongod/MongoT gRPC command-stream payloads,
+one JSON object per line. Use `true` or `1` to write `mongod-mongot-messages.jsonl` in the current
+directory; use `false`, `0`, or leave it unset to disable capture.
+
 ### From IntelliJ
 
 See [INTELLIJ-QUICKSTART.md](INTELLIJ-QUICKSTART.md) for full setup, including how to add the OpenTelemetry agent flags to your run configuration.

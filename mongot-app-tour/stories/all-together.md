@@ -66,71 +66,30 @@ The application Java driver still only speaks MongoDB wire protocol to mongod:
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above.
-
-### Client Java driver -> mongod: aggregate
-
-```json
-{
-  "aggregate": "images",
-  "pipeline": [
-    {
-      "$search": {
-        "index": "default",
-        "compound": {
-          "must": [
-            {
-              "text": {
-                "path": "caption",
-                "query": "lunar mission"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "$project": {
-        "caption": 1,
-        "licenseName": 1,
-        "score": {
-          "$meta": "searchScore"
-        }
-      }
-    }
-  ],
-  "cursor": {
-    "batchSize": 20
-  },
-  "$db": "sample_assets"
-}
-```
+These JSON documents use representative values. The command shapes match the code paths above. This summary combines search command traffic, MongoT cursor continuation, background replication polling, and shutdown cleanup.
 
 ### mongod -> MongoT: search command
 
 ```json
 {
-  "search": "images",
-  "$db": "sample_assets",
+  "search": "image",
   "collectionUUID": {
-    "$uuid": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
+    "$binary": {
+      "base64": "NDqH4tFIQ/aO6fC90aniKQ==",
+      "subType": "04"
+    }
   },
   "query": {
     "index": "default",
-    "compound": {
-      "must": [
-        {
-          "text": {
-            "path": "caption",
-            "query": "lunar mission"
-          }
-        }
-      ]
+    "text": {
+      "path": "caption",
+      "query": "motorcycle"
     }
   },
   "cursorOptions": {
-    "docsRequested": 20
-  }
+    "batchSize": 27
+  },
+  "$db": "clientDb"
 }
 ```
 
@@ -139,18 +98,25 @@ These JSON documents use representative values. The command shapes match the cod
 ```json
 {
   "cursor": {
-    "id": {
-      "$numberLong": "726493811486"
-    },
-    "ns": "sample_assets.images",
+    "id": 1757498206156953391,
+    "ns": "clientDb.documents",
     "nextBatch": [
       {
-        "_id": {
-          "$oid": "66f100000000000000000060"
-        },
-        "score": 14.11
+        "_id": 443005,
+        "$searchScore": 2.9424455165863037
+      },
+      {
+        "_id": 544713,
+        "$searchScore": 2.9424455165863037
       }
     ]
+  },
+  "vars": {
+    "SEARCH_META": {
+      "count": {
+        "lowerBound": 1458
+      }
+    }
   },
   "ok": 1
 }
@@ -160,26 +126,9 @@ These JSON documents use representative values. The command shapes match the cod
 
 ```json
 {
-  "getMore": {
-    "$numberLong": "842000001"
-  },
-  "collection": "images",
-  "batchSize": 1000,
-  "maxTimeMS": 1000,
-  "$db": "sample_assets"
-}
-```
-
-### Client Java driver -> mongod: cursor getMore
-
-```json
-{
-  "getMore": {
-    "$numberLong": "551200001"
-  },
-  "collection": "images",
-  "batchSize": 20,
-  "$db": "sample_assets"
+  "getMore": 131035085312391959,
+  "collection": "image",
+  "$db": "clientDb"
 }
 ```
 
@@ -187,15 +136,23 @@ These JSON documents use representative values. The command shapes match the cod
 
 ```json
 {
-  "getMore": {
-    "$numberLong": "726493811486"
-  },
+  "getMore": 1757498206156953394,
+  "collection": "image",
   "cursorOptions": {
-    "docsRequested": 20
-  }
+    "batchSize": 162
+  },
+  "$db": "clientDb"
 }
 ```
 
-## Accuracy note
+### mongod -> MongoT: search cursor cleanup
 
-This scenario is a steady-state summary, not a new independent workflow. It documents how command handling, cursor continuation, replication, and observability run together.
+```json
+{
+  "killCursors": "image",
+  "cursors": [
+    1757498206156953393
+  ],
+  "$db": "clientDb"
+}
+```

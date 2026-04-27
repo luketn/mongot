@@ -673,15 +673,16 @@
     },
     {
       "id": "document-fetch-cursor",
-      "label": "Document Fetch + getMore",
+      "label": "Document Fetch",
       "focusKey": "cursor",
       "start": 38,
       "end": 47,
-      "description": "If requested fields are not returned from Lucene Stored Source, mongod fetches them from matched MongoDB documents. Cursor continuation follows the same boundary: client getMore goes to mongod, and mongod coordinates any continued MongoT result streaming.",
+      "description": "If requested fields are not returned from Lucene Stored Source, MongoT returns hit ids and scores, mongod fetches the missing fields from matched MongoDB documents, then mongod may clean up the MongoT cursor.",
       "classes": [
         "IdLookupFactory",
         "ProjectFactory",
-        "GetMoreCommand",
+        "SearchCommand",
+        "KillCursorsCommand",
         "MongotCursorManagerImpl"
       ],
       "streams": [
@@ -742,8 +743,8 @@
           ]
         },
         {
-          "id": "cursor-getmore",
-          "label": "getMore continuation",
+          "id": "document-fetch-cleanup",
+          "label": "cursor cleanup",
           "colorKey": "support",
           "width": 2.7,
           "intensity": 0.76,
@@ -845,11 +846,11 @@
     },
     {
       "id": "mutations",
-      "label": "Inserts + Deletes",
+      "label": "Writes + Change Streams",
       "focusKey": "replication",
       "start": 47,
       "end": 53,
-      "description": "Mutation requests write to mongod first. MongoT sees the changes later through change streams, then emits decode, document event, Lucene update/delete, commit, and refresh spans.",
+      "description": "Insert, update, and delete requests write to mongod first. MongoT sees the changes later through change streams, then emits decode, document event, Lucene update/delete, commit, and refresh spans.",
       "classes": [
         "ChangeStreamManager",
         "DecodingWorkScheduler",

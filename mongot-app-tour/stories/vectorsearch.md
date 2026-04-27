@@ -13,11 +13,11 @@ List<Double> embedding = List.of(0.12, -0.03, 0.44, 0.18);
 
 collection.aggregate(List.of(
     new Document("$vectorSearch",
-        new Document("index", "caption_vector")
+        new Document("index", "vector_caption")
             .append("path", "captionEmbedding")
             .append("queryVector", embedding)
-            .append("numCandidates", 200)
-            .append("limit", 10)),
+            .append("numCandidates", 50)
+            .append("limit", 25)),
     new Document("$project",
         new Document("caption", 1)
             .append("score", new Document("$meta", "vectorSearchScore")))
@@ -60,54 +60,42 @@ collection.aggregate(List.of(
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above.
+These JSON documents use representative values. The command shapes match the code paths above. The vector command body is summarized in markdown by replacing the full vector with `queryVectorSummary`.
 
-### Client Java driver -> mongod: aggregate
-
-```json
-{
-  "aggregate": "images",
-  "pipeline": [
-    {
-      "$vectorSearch": {
-        "index": "caption_vector",
-        "path": "captionEmbedding",
-        "queryVector": [0.12, -0.03, 0.44, 0.18],
-        "numCandidates": 200,
-        "limit": 10
-      }
-    },
-    {
-      "$project": {
-        "caption": 1,
-        "score": {
-          "$meta": "vectorSearchScore"
-        }
-      }
-    }
-  ],
-  "cursor": {},
-  "$db": "sample_assets"
-}
-```
-
-### mongod -> MongoT: gRPC vectorSearch command body
+### mongod -> MongoT: gRPC vectorSearch command body summary
 
 ```json
 {
-  "vectorSearch": "images",
-  "$db": "sample_assets",
+  "vectorSearch": "image",
   "collectionUUID": {
-    "$uuid": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
+    "$binary": {
+      "base64": "NDqH4tFIQ/aO6fC90aniKQ==",
+      "subType": "04"
+    }
   },
-  "index": "caption_vector",
+  "index": "vector_caption",
   "path": "captionEmbedding",
-  "queryVector": [0.12, -0.03, 0.44, 0.18],
-  "numCandidates": 200,
-  "limit": 10,
-  "cursorOptions": {
-    "docsRequested": 20
-  }
+  "queryVectorSummary": {
+    "length": 768,
+    "first8": [
+      -0.018413003534078598,
+      0.039294157177209854,
+      -0.1552632749080658,
+      0.028887825086712837,
+      0.022704750299453735,
+      0.05024779215455055,
+      0.019792508333921432,
+      0.012846584431827068
+    ],
+    "last3": [
+      0.017677120864391327,
+      -0.044313110411167145,
+      -0.008208148181438446
+    ]
+  },
+  "numCandidates": 50,
+  "limit": 25,
+  "$db": "clientDb"
 }
 ```
 
@@ -116,22 +104,32 @@ These JSON documents use representative values. The command shapes match the cod
 ```json
 {
   "cursor": {
-    "id": {
-      "$numberLong": "0"
-    },
-    "ns": "sample_assets.images",
+    "id": 0,
+    "ns": "clientDb.documents",
     "nextBatch": [
       {
-        "_id": {
-          "$oid": "66f100000000000000000020"
-        },
-        "score": 0.9412
+        "_id": 391895,
+        "$vectorSearchScore": 1.0
+      },
+      {
+        "_id": 382554,
+        "$vectorSearchScore": 0.9136942625045776
+      },
+      {
+        "_id": 334699,
+        "$vectorSearchScore": 0.9083335995674133
+      },
+      {
+        "_id": 423875,
+        "$vectorSearchScore": 0.8838289976119995
       }
     ]
   },
   "ok": 1
 }
 ```
+
+A `nextBatch` can contain many documents. This example shows the first few and a later document from the same batch shape.
 
 ## Accuracy note
 

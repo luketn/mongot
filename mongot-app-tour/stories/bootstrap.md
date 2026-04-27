@@ -45,56 +45,6 @@ The direct evidence is [MongoClientBuilder.buildNonReplicationWithDefaults](http
 
 These JSON documents use representative values. The command shapes match the code paths above.
 
-### MongoT Java driver -> mongod: initial hello
-
-```json
-{
-  "hello": 1,
-  "helloOk": true,
-  "client": {
-    "application": {
-      "name": "mongot"
-    },
-    "driver": {
-      "name": "mongo-java-driver|sync",
-      "version": "local"
-    }
-  },
-  "$db": "admin"
-}
-```
-
-### mongod -> MongoT Java driver: initial hello response
-
-```json
-{
-  "isWritablePrimary": true,
-  "topologyVersion": {
-    "processId": {
-      "$oid": "66f10000000000000000a001"
-    },
-    "counter": {
-      "$numberLong": "6"
-    }
-  },
-  "hosts": ["localhost:27017"],
-  "setName": "rs0",
-  "setVersion": 1,
-  "maxBsonObjectSize": 16777216,
-  "maxMessageSizeBytes": 48000000,
-  "maxWriteBatchSize": 100000,
-  "localTime": {
-    "$date": "2026-04-27T00:00:00Z"
-  },
-  "logicalSessionTimeoutMinutes": 30,
-  "connectionId": 42,
-  "minWireVersion": 0,
-  "maxWireVersion": 25,
-  "readOnly": false,
-  "ok": 1
-}
-```
-
 ### MongoT -> mongod: buildInfo
 
 ```json
@@ -108,15 +58,26 @@ These JSON documents use representative values. The command shapes match the cod
 
 ```json
 {
-  "version": "8.0.0",
-  "versionArray": [8, 0, 0, 0],
-  "gitVersion": "example",
+  "version": "8.2.6",
+  "versionArray": [8, 2, 6, 0],
+  "gitVersion": "5d25c835745d06f712320b6cdae9d50b7b43663e",
   "modules": [],
-  "allocator": "tcmalloc",
+  "allocator": "tcmalloc-google",
   "javascriptEngine": "mozjs",
-  "sysInfo": "deprecated",
-  "versionAllocator": "tcmalloc",
-  "ok": 1
+  "sysinfo": "deprecated",
+  "openssl": {
+    "running": "OpenSSL 3.0.2 15 Mar 2022",
+    "compiled": "OpenSSL 3.0.2 15 Mar 2022"
+  },
+  "buildEnvironment": {
+    "distmod": "ubuntu2204",
+    "distarch": "aarch64"
+  },
+  "bits": 64,
+  "debug": false,
+  "maxBsonObjectSize": 16777216,
+  "storageEngines": ["devnull", "wiredTiger"],
+  "ok": 1.0
 }
 ```
 
@@ -136,80 +97,72 @@ These JSON documents use representative values. The command shapes match the cod
   "config": {
     "_id": "rs0",
     "version": 1,
-    "term": 3,
+    "term": 1,
     "members": [
       {
         "_id": 0,
-        "host": "localhost:27017",
+        "host": "host.docker.internal:27017",
+        "arbiterOnly": false,
+        "buildIndexes": true,
+        "hidden": false,
         "priority": 1,
+        "tags": {},
+        "secondaryDelaySecs": 0,
         "votes": 1
       }
     ],
+    "protocolVersion": 1,
+    "writeConcernMajorityJournalDefault": true,
     "settings": {
-      "chainingAllowed": true
+      "chainingAllowed": true,
+      "heartbeatIntervalMillis": 2000,
+      "heartbeatTimeoutSecs": 10,
+      "replicaSetId": {
+        "$oid": "69ec2d4750523e9d353f5639"
+      }
     }
   },
-  "ok": 1
+  "ok": 1.0
 }
 ```
 
-### MongoT -> mongod: list database collections
+### MongoT -> mongod: replica-set status
 
 ```json
 {
-  "listCollections": 1,
-  "filter": {},
-  "cursor": {},
-  "$db": "sample_mflix"
+  "replSetGetStatus": 1,
+  "$db": "admin"
 }
 ```
 
-### mongod -> MongoT: list database collections response
+### mongod -> MongoT: replica-set status response
 
 ```json
 {
-  "cursor": {
-    "id": {
-      "$numberLong": "0"
-    },
-    "ns": "sample_mflix.$cmd.listCollections",
-    "firstBatch": [
-      {
-        "name": "movies",
-        "type": "collection",
-        "options": {},
-        "info": {
-          "readOnly": false,
-          "uuid": {
-            "$uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-          }
-        },
-        "idIndex": {
-          "v": 2,
-          "key": {
-            "_id": 1
-          },
-          "name": "_id_"
-        }
-      },
-      {
-        "name": "movie_search_view",
-        "type": "view",
-        "options": {
-          "viewOn": "movies",
-          "pipeline": [
-            {
-              "$project": {
-                "title": 1,
-                "plot": 1
-              }
-            }
-          ]
-        }
-      }
-    ]
+  "set": "rs0",
+  "date": {
+    "$date": "2026-04-27T03:47:28.583Z"
   },
-  "ok": 1
+  "myState": 1,
+  "term": 1,
+  "syncSourceHost": "",
+  "syncSourceId": -1,
+  "heartbeatIntervalMillis": 2000,
+  "majorityVoteCount": 1,
+  "writeMajorityCount": 1,
+  "votingMembersCount": 1,
+  "writableVotingMembersCount": 1,
+  "members": [
+    {
+      "_id": 0,
+      "name": "host.docker.internal:27017",
+      "health": 1.0,
+      "state": 1,
+      "stateStr": "PRIMARY",
+      "self": true
+    }
+  ],
+  "ok": 1.0
 }
 ```
 
@@ -218,6 +171,9 @@ These JSON documents use representative values. The command shapes match the cod
 ```json
 {
   "find": "indexCatalog",
+  "readConcern": {
+    "level": "majority"
+  },
   "filter": {},
   "$db": "__mdb_internal_search"
 }
@@ -228,51 +184,146 @@ These JSON documents use representative values. The command shapes match the cod
 ```json
 {
   "cursor": {
-    "id": {
-      "$numberLong": "0"
-    },
+    "id": 0,
     "ns": "__mdb_internal_search.indexCatalog",
     "firstBatch": [
       {
         "_id": {
           "collectionUuid": {
-            "$uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+            "$binary": {
+              "base64": "NDqH4tFIQ/aO6fC90aniKQ==",
+              "subType": "04"
+            }
           },
           "indexName": "default"
         },
         "indexId": {
-          "$oid": "66f100000000000000000100"
+          "$oid": "69ec2db7a722ed3e1957e643"
         },
         "schemaVersion": 1,
         "definition": {
-          "type": "search",
           "indexID": {
-            "$oid": "66f100000000000000000100"
+            "$oid": "69ec2db7a722ed3e1957e643"
           },
-          "collectionUUID": {
-            "$uuid": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-          },
-          "lastObservedCollectionName": "movies",
           "name": "default",
-          "database": "sample_mflix",
-          "mappings": {
-            "dynamic": true
+          "database": "clientDb",
+          "lastObservedCollectionName": "image",
+          "collectionUUID": {
+            "$binary": {
+              "base64": "NDqH4tFIQ/aO6fC90aniKQ==",
+              "subType": "04"
+            }
           },
+          "numPartitions": 1,
+          "mappings": {
+            "dynamic": false,
+            "fields": {
+              "caption": {
+                "type": "string",
+                "indexOptions": "offsets",
+                "store": true,
+                "norms": "include"
+              },
+              "hasPerson": {
+                "type": "boolean"
+              }
+            }
+          },
+          "indexFeatureVersion": 4,
           "storedSource": {
-            "include": ["title", "plot"]
+            "include": [
+              "_id",
+              "accessory",
+              "animal",
+              "appliance",
+              "caption",
+              "dateCaptured",
+              "electronic",
+              "food",
+              "furniture",
+              "hasPerson",
+              "height",
+              "indoor",
+              "kitchen",
+              "outdoor",
+              "sports",
+              "url",
+              "vehicle",
+              "width"
+            ]
           }
         },
         "customerDefinition": {
-          "mappings": {
-            "dynamic": true
-          },
           "storedSource": {
-            "include": ["title", "plot"]
+            "include": [
+              "_id",
+              "caption",
+              "url",
+              "height",
+              "width",
+              "dateCaptured",
+              "hasPerson",
+              "accessory",
+              "animal",
+              "appliance",
+              "electronic",
+              "food",
+              "furniture",
+              "indoor",
+              "kitchen",
+              "outdoor",
+              "sports",
+              "vehicle"
+            ]
           }
         }
       }
     ]
   },
-  "ok": 1
+  "ok": 1.0
+}
+```
+
+An `indexCatalog` response can contain multiple index definitions. This example shows one entry and the fields relevant to the stored-source discussion.
+
+### MongoT -> mongod: server state update
+
+```json
+{
+  "update": "serverState",
+  "ordered": true,
+  "txnNumber": 1,
+  "$db": "__mdb_internal_search",
+  "updates": [
+    {
+      "q": {
+        "_id": {
+          "$oid": "69ec2d86a722ed3e1957e639"
+        }
+      },
+      "u": {
+        "_id": {
+          "$oid": "69ec2d86a722ed3e1957e639"
+        },
+        "serverName": "69ec2d86a722ed3e1957e639",
+        "lastHeartbeatTs": {
+          "$date": "2026-04-27T03:47:29.064Z"
+        },
+        "ready": false,
+        "shutdown": false
+      },
+      "upsert": true
+    }
+  ]
+}
+```
+
+### mongod -> MongoT: server state update response
+
+```json
+{
+  "n": 1,
+  "nModified": 1,
+  "ok": 1.0
 }
 ```

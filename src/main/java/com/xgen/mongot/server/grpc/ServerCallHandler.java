@@ -18,6 +18,7 @@ import com.xgen.mongot.server.message.MessageUtils;
 import com.xgen.mongot.trace.Tracing;
 import com.xgen.mongot.util.FutureUtils;
 import com.xgen.mongot.util.mongodb.Errors;
+import com.xgen.mongot.util.mongodb.MongodMongotMessageLogger;
 import io.grpc.stub.StreamObserver;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
@@ -35,6 +36,7 @@ import org.slf4j.LoggerFactory;
 abstract class ServerCallHandler<T> implements StreamObserver<T> {
 
   private static final Logger LOG = LoggerFactory.getLogger(ServerCallHandler.class);
+  private static final AtomicInteger NEXT_STREAM_ID = new AtomicInteger(0);
 
   /**
    * Error labels for load shedding rejection responses. These labels follow the MongoDB wire
@@ -49,7 +51,9 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
   private final MongotCursorManager cursorManager;
   private final CommandManager<T> commandManager;
   private final SearchEnvoyMetadata searchEnvoyMetadata;
+  private final MongodMongotMessageLogger diagnosticMessageLogger;
   private final Stopwatch streamTime = Stopwatch.createStarted();
+  private final int streamId = NEXT_STREAM_ID.incrementAndGet();
   private final AtomicBoolean streamTimerRecorded = new AtomicBoolean(false);
   private final Object waitSpanLock = new Object();
   private final AtomicInteger requestOrdinal = new AtomicInteger(0);
@@ -73,6 +77,7 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
     this.commandExecutor = commandExecutor;
     this.cursorManager = cursorManager;
     this.searchEnvoyMetadata = searchEnvoyMetadata;
+    this.diagnosticMessageLogger = MongodMongotMessageLogger.get();
     this.commandManager = new CommandManager<T>(responseObserver, this::recordStreamTimer);
     this.createdCursorIds = Collections.emptyList();
     startWaitForClientMessageSpan("stream_open");
@@ -87,13 +92,20 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
       this.commandManager.onCommandStart();
       Stopwatch totalTime = Stopwatch.createStarted();
       HandlingContext handlingContext = new HandlingContext();
-      handleMessage(handlingContext, requestMsg)
+      handleMessage(handlingContext, requestMsg, currentRequestOrdinal)
           .whenComplete(
               (replyMsg, cause) -> {
                 if (cause != null) {
                   Throwable unwrapped = FutureUtils.unwrapCause(cause);
+                  T errorMessage = getErrorMessage(requestMsg, cause);
+                  logDiagnosticMessage(
+                      currentRequestOrdinal,
+                      "mongot_to_mongod",
+                      handlingContext.commandName,
+                      true,
+                      errorMessage);
                   this.commandManager.onCommandComplete(
-                      getErrorMessage(requestMsg, cause),
+                      errorMessage,
                       () -> {
                         if (!(unwrapped instanceof InterruptedException)
                             && !(unwrapped instanceof CancelledStreamSkipException)) {
@@ -123,13 +135,17 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
     }
   }
 
-  CompletableFuture<T> handleMessage(HandlingContext handlingContext, T request) {
+  CompletableFuture<T> handleMessage(
+      HandlingContext handlingContext, T request, int currentRequestOrdinal) {
     try {
       ParsedCommand parsedCommand;
       try (var parseSpan = Tracing.detailedSpanGuard("mongot.grpc.parse_command")) {
         parsedCommand = parseCommand(request);
         parseSpan.getSpan().setAttribute("mongot.command.name", parsedCommand.name());
       }
+      handlingContext.commandName = Optional.of(parsedCommand.name());
+      logDiagnosticMessage(
+          currentRequestOrdinal, "mongod_to_mongot", handlingContext.commandName, false, request);
       CommandRegistry.CommandRegistration registration;
       try (var lookupSpan =
           Tracing.detailedSpanGuard("mongot.grpc.lookup_command_registration")) {
@@ -184,7 +200,14 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
             try (var serializeSpan = Tracing.detailedSpanGuard("mongot.grpc.serialize_response")) {
               serializeSpan.getSpan().setAttribute("mongot.command.name", command.name());
               serializeSpan.getSpan().setAttribute("mongot.response.field_count", response.size());
-              return serializeResponse(request, response);
+              T reply = serializeResponse(request, response);
+              logDiagnosticMessage(
+                  currentRequestOrdinal,
+                  "mongot_to_mongod",
+                  Optional.of(command.name()),
+                  false,
+                  reply);
+              return reply;
             }
           });
     } catch (Throwable t) {
@@ -223,7 +246,30 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
 
   abstract T serializeResponse(T request, BsonDocument response);
 
+  abstract BsonDocument diagnosticMessage(T message);
+
+  abstract String diagnosticProtocol();
+
   abstract String traceServiceName();
+
+  private void logDiagnosticMessage(
+      int currentRequestOrdinal,
+      String direction,
+      Optional<String> commandName,
+      boolean error,
+      T message) {
+    if (!this.diagnosticMessageLogger.isActive()) {
+      return;
+    }
+    this.diagnosticMessageLogger.logGrpcMessage(
+        this.streamId,
+        currentRequestOrdinal,
+        direction,
+        diagnosticProtocol(),
+        commandName,
+        error,
+        diagnosticMessage(message));
+  }
 
   private synchronized void captureInitialCommandRegistration(
       CommandRegistry.CommandRegistration registration) {
@@ -346,5 +392,6 @@ abstract class ServerCallHandler<T> implements StreamObserver<T> {
   static class HandlingContext {
     // After command execution, corresponding metrics in the following registration will be updated.
     Optional<CommandRegistry.CommandRegistration> commandRegistration = Optional.empty();
+    Optional<String> commandName = Optional.empty();
   }
 }

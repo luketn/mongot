@@ -1,8 +1,8 @@
-# Inserts and Deletes
+# Writes and Change Streams
 
 ## Scenario
 
-Writes go to mongod, not MongoT. MongoT observes the resulting collection changes through the replication/change-stream path that was established during initialization. Those changes are decoded, scheduled as indexing work, and applied to Lucene index writers.
+Writes go to mongod, not MongoT. MongoT observes the resulting insert, update, and delete events through the replication/change-stream path that was established during initialization. Those changes are decoded, scheduled as indexing work, and applied to Lucene index writers.
 
 The replication stream continues after startup, even when the workload is mostly reads.
 
@@ -13,7 +13,9 @@ collection.insertOne(new Document("_id", new ObjectId())
     .append("caption", "public observatory image")
     .append("licenseName", "CC BY"));
 
-collection.deleteOne(Filters.eq("_id", deletedId));
+collection.updateOne(Filters.eq("_id", insertedId), Updates.set("caption", "updated caption"));
+
+collection.deleteOne(Filters.eq("_id", insertedId));
 ```
 
 ## Walkthrough
@@ -46,82 +48,99 @@ The application Java driver talks to mongod. MongoT's own Java driver connection
 
 ## Command messages
 
-These JSON documents use representative values. The command shapes match the code paths above.
-
-### Client Java driver -> mongod: insert
-
-```json
-{
-  "insert": "images",
-  "documents": [
-    {
-      "_id": {
-        "$oid": "66f100000000000000000050"
-      },
-      "caption": "public observatory image",
-      "licenseName": "CC BY"
-    }
-  ],
-  "$db": "sample_assets"
-}
-```
-
-### Client Java driver -> mongod: delete
-
-```json
-{
-  "delete": "images",
-  "deletes": [
-    {
-      "q": {
-        "_id": {
-          "$oid": "66f100000000000000000050"
-        }
-      },
-      "limit": 1
-    }
-  ],
-  "$db": "sample_assets"
-}
-```
+These JSON documents use representative values. The command shapes match the code paths above. They show MongoT's change stream cursor traffic after client writes have already gone to mongod.
 
 ### MongoT -> mongod: change stream getMore
 
 ```json
 {
-  "getMore": {
-    "$numberLong": "842000001"
-  },
-  "collection": "images",
-  "batchSize": 1000,
-  "maxTimeMS": 1000,
-  "$db": "sample_assets"
+  "getMore": 131035085312391959,
+  "collection": "image",
+  "$db": "clientDb"
 }
 ```
 
-### mongod -> MongoT: change event returned through the cursor
+### mongod -> MongoT: insert change event returned through the cursor
 
 ```json
 {
   "_id": {
-    "_data": "8266F100000000000001"
+    "_data": "8269EEDD0D000000012B042C0100296E5A1004343A87E2D14843F68EE9F0BDD1A9E229463C6F7065726174696F6E54797065003C696E736572740046646F63756D656E744B657900463C5F6964003C636F6465782D636170747572652D3137373732363138333737313200000004"
   },
   "operationType": "insert",
-  "ns": {
-    "db": "sample_assets",
-    "coll": "images"
-  },
-  "documentKey": {
-    "_id": {
-      "$oid": "66f100000000000000000050"
+  "clusterTime": {
+    "$timestamp": {
+      "t": 1777261837,
+      "i": 1
     }
   },
+  "wallTime": {
+    "$date": "2026-04-27T03:50:37.72Z"
+  },
+  "ns": {
+    "db": "clientDb",
+    "coll": "image"
+  },
+  "documentKey": {
+    "_id": "example-write-001"
+  },
   "fullDocument": {
-    "_id": {
-      "$oid": "66f100000000000000000050"
+    "_id": "example-write-001",
+    "caption": "codex temporary motorcycle document",
+    "url": "https://example.invalid/codex",
+    "width": 1,
+    "height": 1,
+    "dateCaptured": {
+      "$date": "2026-04-27T03:50:37.712Z"
     },
-    "caption": "public observatory image",
-    "licenseName": "CC BY"
+    "hasPerson": false,
+    "licenseName": "Diagnostic License",
+    "licenseUrl": "https://example.invalid/license",
+    "69ec2f48a722ed3e1957e64d": {
+      "_id": "example-write-001"
+    }
+  }
+}
+```
+
+### mongod -> MongoT: update change event returned through the cursor
+
+```json
+{
+  "operationType": "update",
+  "clusterTime": {
+    "$timestamp": {
+      "t": 1777261839,
+      "i": 1
+    }
+  },
+  "ns": {
+    "db": "clientDb",
+    "coll": "image"
+  },
+  "documentKey": {
+    "_id": "example-write-001"
+  },
+  "fullDocument": {
+    "_id": "example-write-001",
+    "caption": "codex temporary motorcycle document updated",
+    "url": "https://example.invalid/codex",
+    "width": 1,
+    "height": 1,
+    "dateCaptured": {
+      "$date": "2026-04-27T03:50:37.712Z"
+    },
+    "hasPerson": true,
+    "licenseName": "Diagnostic License",
+    "licenseUrl": "https://example.invalid/license"
+  },
+  "updateDescription": {
+    "updatedFields": {
+      "caption": "codex temporary motorcycle document updated",
+      "hasPerson": true
+    },
+    "removedFields": [],
+    "truncatedArrays": []
   }
 }
 ```
@@ -131,17 +150,21 @@ These JSON documents use representative values. The command shapes match the cod
 ```json
 {
   "_id": {
-    "_data": "8266F100000000000002"
+    "_data": "8269EEDD10000000022B042C0100296E5A1004343A87E2D14843F68EE9F0BDD1A9E229463C6F7065726174696F6E54797065003C64656C6574650046646F63756D656E744B657900463C5F6964003C636F6465782D636170747572652D3137373732363138333737313200000004"
   },
   "operationType": "delete",
+  "clusterTime": {
+    "$timestamp": {
+      "t": 1777261840,
+      "i": 2
+    }
+  },
   "ns": {
-    "db": "sample_assets",
-    "coll": "images"
+    "db": "clientDb",
+    "coll": "image"
   },
   "documentKey": {
-    "_id": {
-      "$oid": "66f100000000000000000050"
-    }
+    "_id": "example-write-001"
   }
 }
 ```
