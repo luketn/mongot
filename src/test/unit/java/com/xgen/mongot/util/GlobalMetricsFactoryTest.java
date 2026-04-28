@@ -7,6 +7,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Optional;
 import org.junit.After;
@@ -91,6 +92,28 @@ public class GlobalMetricsFactoryTest {
     GlobalMetricFactory.incrementUnreachable("TestError");
     Optional<?> maybeRegistry = GlobalMetricFactory.getRegistryForTest();
     assertTrue("Registry should remain uninitialized", maybeRegistry.isEmpty());
+  }
+
+  @Test
+  public void testRecordDetailedTraceSpanBeforeInitDoesNotThrow() {
+    GlobalMetricFactory.recordDetailedTraceSpan("mongot.search.parse_query_bson", 1000);
+    Optional<?> maybeRegistry = GlobalMetricFactory.getRegistryForTest();
+    assertTrue("Registry should remain uninitialized", maybeRegistry.isEmpty());
+  }
+
+  @Test
+  public void testRecordDetailedTraceSpanCreatesTimer() {
+    GlobalMetricFactory.initialize(this.registry);
+
+    GlobalMetricFactory.recordDetailedTraceSpan("mongot.search.parse_query_bson", 1000);
+
+    Timer timer =
+        this.registry
+            .find("trace.detailed.span.duration")
+            .tags("span", "mongot.search.parse_query_bson", "timeUnit", "seconds")
+            .timer();
+    assertNotNull(timer);
+    assertEquals(1, timer.count());
   }
 
   @Test

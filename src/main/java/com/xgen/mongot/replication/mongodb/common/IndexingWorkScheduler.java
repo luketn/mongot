@@ -1,6 +1,7 @@
 package com.xgen.mongot.replication.mongodb.common;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.errorprone.annotations.MustBeClosed;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewNonTransientException;
 import com.xgen.mongot.embedding.exceptions.MaterializedViewTransientException;
@@ -19,10 +20,16 @@ import com.xgen.mongot.util.FutureUtils;
 import com.xgen.mongot.util.concurrent.Executors;
 import com.xgen.mongot.util.concurrent.NamedExecutorService;
 import com.xgen.mongot.util.functionalinterfaces.CheckedRunnable;
+import com.xgen.mongot.trace.Tracing;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.Timer;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.context.Scope;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -157,49 +164,62 @@ public abstract class IndexingWorkScheduler extends Thread {
 
         batch = this.schedulerQueue.remove();
         this.dequeueCounter.increment();
-        this.batchSchedulingTimer.record(batch.elapsed());
+        Duration queueWait = batch.elapsed();
+        this.batchSchedulingTimer.record(queueWait);
+
+        Optional<Span> batchSpan =
+            startSpanFromBatchContext(
+                batch,
+                "mongot.indexing.batch",
+                indexingBatchAttributes(batch, queueWait, this.indexingStrategy));
+
+        CompletableFuture<Void> batchTasksFuture;
+        try (Scope ignored = currentScope(batchSpan)) {
+          batchTasksFuture = getBatchTasksFuture(batch);
+        }
+
+        Timer.Sample sample = Timer.start();
+        // complete the batch's future when the tasks finish running.
+        batchTasksFuture
+            .whenComplete((result, throwable) -> this.concurrentIndexingBatches.release())
+            .whenComplete(
+                (result, throwable) -> {
+                  long durationNs = sample.stop(this.batchTimer);
+                  batch
+                      .indexingMetricsUpdater
+                      .getBatchIndexingTimer()
+                      .record(durationNs, TimeUnit.NANOSECONDS);
+                })
+            .thenComposeAsync(
+                (ignoredNull) -> {
+                  // since ExceededLimitsException is a checked exception we can't throw it in here,
+                  // instead we use compose to replace the current stage with a failed future. Or a
+                  // successful one if we did not exceed limits.
+                  return failedFutureIfExceededLimits(batch);
+                },
+                this.executor)
+            .thenRunAsync(finalize(batch), this.executor)
+            .whenComplete((result, throwable) -> endSpan(batchSpan, throwable))
+            .exceptionally(
+                throwable -> {
+                  LOG.atError()
+                      .addKeyValue("size", batch.size())
+                      .addKeyValue("priority", batch.priority)
+                      .addKeyValue("indexId", batch.generationId.indexId)
+                      .addKeyValue("generationId", batch.generationId)
+                      .addKeyValue(
+                          "commitUserData", batch.commitUserData.map(e -> e.toBson().toString()))
+                      .addKeyValue("sequenceNumber", batch.sequenceNumber)
+                      .addKeyValue("indexingStrategy", this.indexingStrategy.name())
+                      .log("Failed to process a scheduler batch");
+                  handleBatchException(batch, throwable);
+                  return null;
+                });
       } catch (InterruptedException ex) {
         Executors.shutdownOrFail(this.executor);
         this.shutdownFuture.complete(null);
         return;
       }
-
-      Timer.Sample sample = Timer.start();
-      // complete the batch's future when the tasks finish running.
-      getBatchTasksFuture(batch)
-          .whenComplete((result, throwable) -> this.concurrentIndexingBatches.release())
-          .whenComplete(
-              (result, throwable) -> {
-                long durationNs = sample.stop(this.batchTimer);
-                batch
-                    .indexingMetricsUpdater
-                    .getBatchIndexingTimer()
-                    .record(durationNs, TimeUnit.NANOSECONDS);
-              })
-          .thenComposeAsync(
-              (ignoredNull) -> {
-                // since ExceededLimitsException is a checked exception we can't throw it in here,
-                // instead we use compose to replace the current stage with a failed future. Or a
-                // successful one if we did not exceed limits.
-                return failedFutureIfExceededLimits(batch);
-              },
-              this.executor)
-          .thenRunAsync(finalize(batch), this.executor)
-          .exceptionally(
-              throwable -> {
-                LOG.atError()
-                    .addKeyValue("size", batch.size())
-                    .addKeyValue("priority", batch.priority)
-                    .addKeyValue("indexId", batch.generationId.indexId)
-                    .addKeyValue("generationId", batch.generationId)
-                    .addKeyValue(
-                        "commitUserData", batch.commitUserData.map(e -> e.toBson().toString()))
-                    .addKeyValue("sequenceNumber", batch.sequenceNumber)
-                    .addKeyValue("indexingStrategy", this.indexingStrategy.name())
-                    .log("Failed to process a scheduler batch");
-                handleBatchException(batch, throwable);
-                return null;
-              });
     }
   }
 
@@ -352,7 +372,66 @@ public abstract class IndexingWorkScheduler extends Thread {
 
     @Override
     public void run() throws FieldExceededLimitsException {
-      this.indexer.indexDocumentEvent(this.event);
+      try (var ignored =
+          Tracing.detailedSpanGuard(
+              "mongot.indexing.document_event", documentEventAttributes(this.event))) {
+        this.indexer.indexDocumentEvent(this.event);
+      }
     }
+
+    private static Attributes documentEventAttributes(DocumentEvent event) {
+      return Attributes.builder()
+          .put(Tracing.TOGGLE_TRACE, true)
+          .put("mongot.indexing.event.type", event.getEventType().name())
+          .put("mongot.document.id.type", event.getDocumentId().getBsonType().name())
+          .put("mongot.document.has_document", event.getDocument().isPresent())
+          .put(
+              "mongot.document.size_bytes",
+              event.getDocument().map(document -> document.getByteBuffer().remaining()).orElse(0))
+          .put("mongot.indexing.auto_embedding.field_count", event.getAutoEmbeddings().size())
+          .put("mongot.indexing.filter_only_update", event.getFilterFieldUpdates().isPresent())
+          .put(
+              "mongot.indexing.custom_vector_engine_id.present",
+              event.getCustomVectorEngineId().isPresent())
+          .build();
+    }
+  }
+
+  private static Attributes indexingBatchAttributes(
+      IndexingSchedulerBatch batch, Duration queueWait, IndexingStrategy indexingStrategy) {
+    return Attributes.builder()
+        .put(Tracing.TOGGLE_TRACE, true)
+        .put("mongot.index.id", batch.generationId.indexId.toHexString())
+        .put("mongot.index.generation_id", batch.generationId.toString())
+        .put("mongot.indexing.batch.size", batch.size())
+        .put("mongot.indexing.priority", batch.priority.name())
+        .put("mongot.indexing.sequence_number", batch.sequenceNumber)
+        .put("mongot.indexing.strategy", indexingStrategy.name())
+        .put("mongot.indexing.queue_wait_ms", queueWait.toNanos() / 1_000_000.0)
+        .put("mongot.indexing.commit_user_data.present", batch.commitUserData.isPresent())
+        .build();
+  }
+
+  @MustBeClosed
+  private static Scope currentScope(Optional<Span> span) {
+    return span.map(Span::makeCurrent).orElseGet(Scope::noop);
+  }
+
+  private static Optional<Span> startSpanFromBatchContext(
+      IndexingSchedulerBatch batch, String name, Attributes attributes) {
+    try (Scope ignored = batch.otelContext.makeCurrent()) {
+      return Tracing.detailedUnguardedSpan(name, attributes);
+    }
+  }
+
+  private static void endSpan(Optional<Span> span, Throwable throwable) {
+    span.ifPresent(
+        value -> {
+          if (throwable != null) {
+            value.recordException(throwable);
+            value.setStatus(StatusCode.ERROR);
+          }
+          value.end();
+        });
   }
 }

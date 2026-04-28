@@ -42,6 +42,7 @@
     html, body {
       margin: 0;
       min-height: 100%;
+      overflow-x: hidden;
       background:
         radial-gradient(circle at top left, rgba(105, 192, 255, 0.18), transparent 28%),
         radial-gradient(circle at top right, rgba(157, 140, 255, 0.18), transparent 24%),
@@ -91,7 +92,11 @@
     }
 
     .app-shell {
-      padding: 28px;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
 
     .glass {
@@ -104,9 +109,11 @@
     .hero {
       position: relative;
       overflow: hidden;
-      border-radius: 28px;
-      padding: 28px 30px;
-      margin-bottom: 20px;
+      border-radius: 0;
+      padding: 8px 16px;
+      margin-bottom: 0;
+      border-width: 0 0 1px 0;
+      box-shadow: none;
     }
 
     .hero::after {
@@ -119,27 +126,9 @@
       pointer-events: none;
     }
 
-    .metric-pulse {
-      position: relative;
-      overflow: hidden;
-    }
-
-    .metric-pulse::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.1) 45%, transparent 100%);
-      transform: translateX(-130%);
-      animation: shimmer 6s linear infinite;
-    }
-
-    @keyframes shimmer {
-      to { transform: translateX(130%); }
-    }
-
     .graph-frame {
       height: 100%;
-      min-height: 620px;
+      min-height: 0;
       border-radius: 24px;
       position: relative;
       overflow: hidden;
@@ -152,8 +141,9 @@
     .viewer-shell {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
       min-height: 0;
+      height: 100%;
     }
 
     .viewer-shell:fullscreen,
@@ -183,8 +173,9 @@
     .viewer-stage {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
       min-height: 0;
+      flex: 1 1 auto;
     }
 
     .graph-canvas {
@@ -272,62 +263,138 @@
 
     .codeish {
       font-family: "IBM Plex Mono", monospace;
+      overflow-wrap: anywhere;
     }
 
-    .node-pill {
-      border-radius: 999px;
-      padding: 6px 10px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.04);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin: 0 8px 8px 0;
-      cursor: pointer;
-      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-    }
-
-    .node-pill:hover {
-      transform: translateY(-1px);
-      border-color: var(--line-strong);
-      background: rgba(255,255,255,0.08);
-    }
-
-    .tour-card {
+    .boundary-note {
       border-radius: 18px;
-      padding: 16px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.03);
-      cursor: pointer;
-      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+      padding: 12px 14px;
+      border: 1px solid rgba(128, 240, 196, 0.22);
+      background: rgba(128, 240, 196, 0.07);
+      color: rgba(236,244,255,0.82);
+      font-size: 13.5px;
     }
 
-    .tour-card:hover {
-      transform: translateY(-2px);
-      border-color: var(--line-strong);
-      background: rgba(255,255,255,0.06);
+    .story-detail-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
-    .tour-card.active {
-      border-color: rgba(255, 190, 107, 0.55);
-      background: linear-gradient(180deg, rgba(255, 190, 107, 0.12), rgba(255,255,255,0.04));
+    .hidden-scrollbar {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     }
 
-    .legend-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      display: inline-block;
-      margin-right: 8px;
+    .hidden-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .markdown-view {
+      color: rgba(236,244,255,0.9);
+      font-size: 13.5px;
+      line-height: 1.56;
+    }
+
+    .markdown-view h1,
+    .markdown-view h2,
+    .markdown-view h3 {
+      color: var(--text);
+      line-height: 1.16;
+      margin: 0 0 10px;
+      letter-spacing: 0;
+    }
+
+    .markdown-view h1 {
+      font-size: 24px;
+      margin-bottom: 16px;
+    }
+
+    .markdown-view h2 {
+      font-size: 16px;
+      margin-top: 22px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(155, 192, 255, 0.14);
+    }
+
+    .markdown-view h3 {
+      font-size: 14px;
+      margin-top: 18px;
+      color: rgba(236,244,255,0.92);
+    }
+
+    .markdown-view p {
+      margin: 0 0 12px;
+      color: rgba(236,244,255,0.86);
+    }
+
+    .markdown-view ul,
+    .markdown-view ol {
+      margin: 0 0 14px 20px;
+      padding: 0;
+    }
+
+    .markdown-view li {
+      margin: 6px 0;
+      color: rgba(236,244,255,0.84);
+    }
+
+    .markdown-view a {
+      color: #ffcc66;
+      text-decoration: none;
+      border-bottom: 1px solid rgba(255, 204, 102, 0.32);
+    }
+
+    .markdown-view a:hover {
+      color: #ffe3a3;
+      border-bottom-color: rgba(255, 227, 163, 0.72);
+    }
+
+    .markdown-view code {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      color: #f8e7b0;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 6px;
+      padding: 1px 5px;
+    }
+
+    .markdown-view pre {
+      overflow: auto;
+      max-width: 100%;
+      margin: 0 0 14px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(105, 192, 255, 0.16);
+      background: rgba(3, 9, 16, 0.82);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .markdown-view pre code {
+      display: block;
+      padding: 0;
+      color: #d8e7ff;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      white-space: pre;
+      line-height: 1.52;
+    }
+
+    .markdown-view hr {
+      border: 0;
+      border-top: 1px solid rgba(155, 192, 255, 0.14);
+      margin: 18px 0;
     }
 
     @media (max-width: 1199px) {
       .app-shell {
-        padding: 18px;
+        padding: 0;
       }
 
       .graph-frame {
-        min-height: 500px;
+        min-height: 0;
       }
     }
   </style>
@@ -337,25 +404,18 @@
 
   <script type="text/babel">
     const {
-      Alert,
-      Autocomplete,
       Box,
       Button,
-      Card,
       Chip,
-      Collapse,
       CssBaseline,
       Dialog,
       DialogContent,
       DialogTitle,
-      Divider,
       FormControl,
       Grid,
       IconButton,
-      InputAdornment,
       InputLabel,
       LinearProgress,
-      Link,
       MenuItem,
       Paper,
       Select,
@@ -363,45 +423,31 @@
       Stack,
       Tab,
       Tabs,
-      TextField,
       ThemeProvider,
       Typography
     } = MaterialUI;
 
     const topPackages = [
+      { id: "top:client", name: "java.client", short: "client", kind: "external", description: "A generic Java client using the MongoDB Java driver. The driver sends normal MongoDB aggregate/getMore commands to mongod; it has no direct MongoT connection or gRPC command-stream client.", complexity: 5, links: ["mongod"] },
+      { id: "top:mongod", name: "mongod", short: "mongod", kind: "mongod", description: "MongoDB server aggregation executor. It receives the Java driver's aggregate command, runs the pipeline, and is the process that opens the gRPC search command stream to MongoT.", complexity: 8, links: ["com.xgen.mongot.server"] },
       { id: "top:blobstore", name: "com.xgen.mongot.blobstore", short: "blobstore", description: "Minimal blob-storage integration surface; currently mostly a placeholder/error boundary.", complexity: 1, links: ["com.xgen.mongot.util"] },
       { id: "top:catalog", name: "com.xgen.mongot.catalog", short: "catalog", description: "Local index catalog abstractions and implementations used to resolve and search index state.", complexity: 2, links: ["com.xgen.mongot.index"] },
       { id: "top:catalogservice", name: "com.xgen.mongot.catalogservice", short: "catalogservice", description: "Metadata service layer for authoritative index definitions, per-server index stats, and heartbeats.", complexity: 4, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.replication"] },
       { id: "top:community", name: "com.xgen.mongot.community", short: "community", description: "Community-edition entrypoint and bootstrap wiring.", complexity: 1, links: ["com.xgen.mongot.util", "com.xgen.mongot.config", "com.xgen.mongot.logging"] },
       { id: "top:config", name: "com.xgen.mongot.config", short: "config", description: "Configuration models, validation, providers, change planning, and config-management workflow.", complexity: 7, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.replication", "com.xgen.mongot.featureflag", "com.xgen.mongot.metrics", "com.xgen.mongot.catalog", "com.xgen.mongot.catalogservice", "com.xgen.mongot.embedding", "com.xgen.mongot.server", "com.xgen.mongot.monitor", "com.xgen.mongot.cursor", "com.xgen.mongot.lifecycle", "com.xgen.mongot.logging"] },
-      { id: "top:cursor", name: "com.xgen.mongot.cursor", short: "cursor", description: "Cursor domain model, managers, batching, and serialization for paged search results and getMore flows.", complexity: 5, links: ["com.xgen.mongot.index", "com.xgen.mongot.util", "com.xgen.mongot.trace", "com.xgen.mongot.catalog", "com.xgen.mongot.metrics"] },
+      { id: "top:cursor", name: "com.xgen.mongot.cursor", short: "cursor", description: "Cursor domain model, managers, batching, and serialization for paged search results. In traces this is where create/register, first-batch loading, getMore, and batch producer advancement become visible.", complexity: 5, links: ["com.xgen.mongot.index", "com.xgen.mongot.util", "com.xgen.mongot.trace", "com.xgen.mongot.catalog", "com.xgen.mongot.metrics"] },
       { id: "top:embedding", name: "com.xgen.mongot.embedding", short: "embedding", description: "Embedding-provider integration, request context, auto-embedding helpers, and materialized-view support.", complexity: 6, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.metrics", "com.xgen.mongot.replication"] },
       { id: "top:featureflag", name: "com.xgen.mongot.featureflag", short: "featureflag", description: "Static and dynamic feature flag definitions plus runtime flag registry and config.", complexity: 2, links: ["com.xgen.mongot.util", "com.xgen.mongot.index"] },
-      { id: "top:index", name: "com.xgen.mongot.index", short: "index", description: "Core search and vector engine: index definitions, ingestion, Lucene integration, query execution, result shaping, and index status.", complexity: 10, links: ["com.xgen.mongot.util", "com.xgen.mongot.featureflag", "com.xgen.mongot.metrics", "com.xgen.mongot.cursor", "com.xgen.mongot.embedding", "com.xgen.mongot.monitor", "com.xgen.mongot.trace", "com.xgen.mongot.server", "com.xgen.proto", "com.xgen.mongot.blobstore", "com.xgen.mongot.config", "com.xgen.mongot.logging"] },
+      { id: "top:index", name: "com.xgen.mongot.index", short: "index", description: "Core search and vector engine: index definitions, ingestion, Lucene integration, query execution, result shaping, and index status. Detailed traces show this package split into build query, Lucene collect hits, vector candidate collection, materialize BSON, and index writer update/delete spans.", complexity: 10, links: ["com.xgen.mongot.util", "com.xgen.mongot.featureflag", "com.xgen.mongot.metrics", "com.xgen.mongot.cursor", "com.xgen.mongot.embedding", "com.xgen.mongot.monitor", "com.xgen.mongot.trace", "com.xgen.mongot.server", "com.xgen.proto", "com.xgen.mongot.blobstore", "com.xgen.mongot.config", "com.xgen.mongot.logging"] },
       { id: "top:lifecycle", name: "com.xgen.mongot.lifecycle", short: "lifecycle", description: "Startup and shutdown lifecycle coordination, especially around index lifecycle management.", complexity: 3, links: ["com.xgen.mongot.index", "com.xgen.mongot.util", "com.xgen.mongot.replication", "com.xgen.mongot.catalog", "com.xgen.mongot.metrics", "com.xgen.mongot.blobstore", "com.xgen.mongot.monitor"] },
       { id: "top:logging", name: "com.xgen.mongot.logging", short: "logging", description: "Structured logging helpers and JSON log-format customization.", complexity: 1, links: [] },
       { id: "top:metrics", name: "com.xgen.mongot.metrics", short: "metrics", description: "Metrics abstractions plus FTDC collection and reporting infrastructure.", complexity: 4, links: ["com.xgen.mongot.util", "com.xgen.mongot.index"] },
       { id: "top:monitor", name: "com.xgen.mongot.monitor", short: "monitor", description: "Disk and replication-state monitoring, gates, and hysteresis controls.", complexity: 3, links: ["com.xgen.mongot.util", "com.xgen.mongot.config", "com.xgen.mongot.metrics"] },
-      { id: "top:replication", name: "com.xgen.mongot.replication", short: "replication", description: "MongoDB replication pipeline: initial sync, steady-state change streams, durability, and indexing work scheduling.", complexity: 9, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.metrics", "com.xgen.mongot.embedding", "com.xgen.mongot.logging", "com.xgen.mongot.featureflag", "com.xgen.mongot.catalog", "com.xgen.mongot.cursor", "com.xgen.mongot.monitor"] },
-      { id: "top:server", name: "com.xgen.mongot.server", short: "server", description: "External server surface: gRPC and command handling, protocol plumbing, request routing, and streaming responses.", complexity: 8, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.cursor", "com.xgen.mongot.config", "com.xgen.mongot.catalogservice", "com.xgen.mongot.catalog", "com.xgen.mongot.embedding", "com.xgen.mongot.metrics", "com.xgen.mongot.featureflag", "com.xgen.mongot.trace"] },
-      { id: "top:trace", name: "com.xgen.mongot.trace", short: "trace", description: "OpenTelemetry tracing helpers, exporters, sampling toggles, and trace parsing utilities.", complexity: 3, links: [] },
+      { id: "top:replication", name: "com.xgen.mongot.replication", short: "replication", description: "MongoDB replication pipeline: initial sync, steady-state change streams, durability, and indexing work scheduling. Write traces expose change stream batch, decode batch, document event, indexing batch, Lucene writer, commit, and searcher refresh work.", complexity: 9, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.metrics", "com.xgen.mongot.embedding", "com.xgen.mongot.logging", "com.xgen.mongot.featureflag", "com.xgen.mongot.catalog", "com.xgen.mongot.cursor", "com.xgen.mongot.monitor"] },
+      { id: "top:server", name: "com.xgen.mongot.server", short: "server", description: "MongoT's gRPC command-stream surface. It accepts search commands from mongod, not from the Java driver directly, then routes into SearchCommand or VectorSearchCommand, cursors, index readers, tracing, and response serialization.", complexity: 8, links: ["com.xgen.mongot.util", "com.xgen.mongot.index", "com.xgen.mongot.cursor", "com.xgen.mongot.config", "com.xgen.mongot.catalogservice", "com.xgen.mongot.catalog", "com.xgen.mongot.embedding", "com.xgen.mongot.metrics", "com.xgen.mongot.featureflag", "com.xgen.mongot.trace"] },
+      { id: "top:trace", name: "com.xgen.mongot.trace", short: "trace", description: "OpenTelemetry tracing helpers, exporters, sampling toggles, and trace parsing utilities. With DETAILED_TRACE_SPANS enabled, spans include full input BSON, Lucene query shape, sampled BSON results, and indexing update details.", complexity: 3, links: [] },
       { id: "top:util", name: "com.xgen.mongot.util", short: "util", description: "Shared foundation code: BSON/proto conversion, concurrency helpers, collections, versioning, and general utilities.", complexity: 8, links: ["com.xgen.proto", "com.xgen.mongot.metrics", "com.xgen.mongot.logging"] },
       { id: "top:proto", name: "com.xgen.proto", short: "proto", description: "BSON-aware protobuf runtime plus code-generation plugin for BSON-capable protobuf messages.", complexity: 4, links: [] }
-    ];
-
-    const indexPackages = [
-      { id: "index:analyzer", name: "com.xgen.mongot.index.analyzer", short: "analyzer", description: "Analyzer builders, providers, factories, and language-specific tokenization plumbing.", complexity: 6, links: ["com.xgen.mongot.index.definition", "com.xgen.mongot.index.lucene", "com.xgen.mongot.index.path", "com.xgen.mongot.index.query"] },
-      { id: "index:autoembedding", name: "com.xgen.mongot.index.autoembedding", short: "autoembedding", description: "Auto-embedding and materialized-view helpers that derive generated fields and coordinate embedding-oriented metadata.", complexity: 4, links: ["com.xgen.mongot.index.definition", "com.xgen.mongot.index.mongodb", "com.xgen.mongot.index.status", "com.xgen.mongot.index.version", "com.xgen.mongot.index.analyzer", "com.xgen.mongot.index.query"] },
-      { id: "index:blobstore", name: "com.xgen.mongot.index.blobstore", short: "blobstore", description: "Snapshotting hooks for persisting and restoring index state through blob storage.", complexity: 2, links: ["com.xgen.mongot.index.version"] },
-      { id: "index:definition", name: "com.xgen.mongot.index.definition", short: "definition", description: "Core schema model for search, vector, and view indexes, including field definitions, options, and validation logic.", complexity: 8, links: ["com.xgen.mongot.index.version", "com.xgen.mongot.index.analyzer", "com.xgen.mongot.index.query", "com.xgen.mongot.index.lucene", "com.xgen.mongot.index.path"] },
-      { id: "index:ingestion", name: "com.xgen.mongot.index.ingestion", short: "ingestion", description: "BSON document processing, field extraction, and ingestion-time transforms that feed Lucene indexing.", complexity: 5, links: ["com.xgen.mongot.index.definition", "com.xgen.mongot.index.lucene"] },
-      { id: "index:lucene", name: "com.xgen.mongot.index.lucene", short: "lucene", description: "The biggest execution layer: Lucene-backed indexing, search, highlighting, result shaping, commit management, and searcher orchestration.", complexity: 10, links: ["com.xgen.mongot.index.query", "com.xgen.mongot.index.definition", "com.xgen.mongot.index.analyzer", "com.xgen.mongot.index.path", "com.xgen.mongot.index.ingestion", "com.xgen.mongot.index.version", "com.xgen.mongot.index.synonym", "com.xgen.mongot.index.status", "com.xgen.mongot.index.blobstore"] },
-      { id: "index:mongodb", name: "com.xgen.mongot.index.mongodb", short: "mongodb", description: "Narrow MongoDB-facing helpers for materialized-view writes and index-related state propagation.", complexity: 2, links: ["com.xgen.mongot.index.lucene", "com.xgen.mongot.index.status", "com.xgen.mongot.index.version"] },
-      { id: "index:path", name: "com.xgen.mongot.index.path", short: "path", description: "Shared path abstractions for dotted field-path parsing and traversal.", complexity: 2, links: [] },
-      { id: "index:query", name: "com.xgen.mongot.index.query", short: "query", description: "Query AST, operators, collectors, pagination, score shaping, and translation into Lucene execution.", complexity: 9, links: ["com.xgen.mongot.index.path", "com.xgen.mongot.index.definition", "com.xgen.mongot.index.lucene"] },
-      { id: "index:status", name: "com.xgen.mongot.index.status", short: "status", description: "Index and synonym status enums and models used to expose lifecycle and readiness state.", complexity: 2, links: [] },
-      { id: "index:synonym", name: "com.xgen.mongot.index.synonym", short: "synonym", description: "Synonym mapping models, registries, and status tracking integrated with Lucene query behavior.", complexity: 3, links: ["com.xgen.mongot.index.status", "com.xgen.mongot.index.definition"] },
-      { id: "index:version", name: "com.xgen.mongot.index.version", short: "version", description: "Index format identifiers, generation metadata, and compatibility checks.", complexity: 3, links: [] }
     ];
 
     const bundledDependencies = [
@@ -488,44 +534,275 @@
       { id: "dep:mongodb-driver", name: "org.mongodb:mongodb-driver-sync", group: "Data Access", sizeMb: 0.156, website: "https://www.mongodb.com/docs/drivers/java/sync/current/", description: "Official synchronous MongoDB Java driver." }
     ];
 
-    const STORIES = {
-      system: [
-        { key: "top:index", title: "Search Engine Heart", body: "Start at the `index` package. It is the gravitational center of MongoT and fans into config, metrics, server, embedding, and trace concerns." },
-        { key: "top:replication", title: "Replication Conveyor", body: "Follow `replication` next. It is the big operational pipeline that keeps indexes fed with steady-state and initial-sync work." },
-        { key: "top:server", title: "Serving Layer", body: "Then move outward to `server`, where request protocols, routing, and response streaming connect runtime clients to the index engine." },
-        { key: "top:util", title: "Shared Bedrock", body: "Finally, `util` and `proto` show the low-level support that many packages lean on without becoming the product narrative themselves." }
-      ],
-      index: [
-        { key: "index:lucene", title: "Lucene Planet", body: "Inside `com.xgen.mongot.index`, the Lucene layer dominates. It is where ingestion, query execution, highlighting, and result shaping converge." },
-        { key: "index:definition", title: "Schema Contract", body: "The `definition` package sets the contract for search, vector, and view indexes. Many subpackages orbit around it." },
-        { key: "index:query", title: "Query Language", body: "The `query` package translates request semantics into execution primitives and collector behavior." },
-        { key: "index:analyzer", title: "Tokenization Workshop", body: "Analyzers provide the language-specific and field-specific tokenization machinery that makes text search behave well." }
-      ],
-      deps: [
-        { key: "group:Cloud Integration", title: "Cloud Reach", body: "The runtime payload is surprisingly cloud-heavy, with AWS, GCP, and Azure libraries grouped into a large storage and credential surface." },
-        { key: "group:Lucene", title: "Search Payload", body: "Lucene is the next major dependency cluster. The analyzers are large because international text support ships with real data and dictionaries." },
-        { key: "group:Monitoring", title: "Observe Everything", body: "Micrometer, OpenTelemetry, and OSHI show how much runtime support exists around monitoring and machine introspection." },
-        { key: "group:Serialization", title: "Config and Wire Formats", body: "Jackson and SnakeYAML give MongoT its config and serialization vocabulary across APIs, metadata, and tooling." }
-      ]
-    };
+    const SOURCE_BASE = "https://github.com/mongodb/mongot/blob/main/";
+    const sourceUrl = (path, line) => `${SOURCE_BASE}${path}#L${line}`;
+    const SOURCE_LINKS = Object.freeze({
+      ChangeStreamManager: sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/steadystate/changestream/ChangeStreamManager.java", 47),
+      ChangeStreamMongoCursorClient: sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/common/ChangeStreamMongoCursorClient.java", 37),
+      CommunityMongotBootstrapper: sourceUrl("src/main/java/com/xgen/mongot/config/provider/community/CommunityMongotBootstrapper.java", 105),
+      DecodingWorkScheduler: sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/common/DecodingWorkScheduler.java", 44),
+      DefaultAuthoritativeIndexCatalog: sourceUrl("src/main/java/com/xgen/mongot/catalogservice/DefaultAuthoritativeIndexCatalog.java", 18),
+      DefaultConfigManager: sourceUrl("src/main/java/com/xgen/mongot/config/manager/DefaultConfigManager.java", 68),
+      DefaultLifecycleManager: sourceUrl("src/main/java/com/xgen/mongot/lifecycle/DefaultLifecycleManager.java", 42),
+      DefaultMetadataService: sourceUrl("src/main/java/com/xgen/mongot/catalogservice/DefaultMetadataService.java", 9),
+      GetMoreCommand: sourceUrl("src/main/java/com/xgen/mongot/server/command/search/GetMoreCommand.java", 30),
+      KillCursorsCommand: sourceUrl("src/main/java/com/xgen/mongot/server/command/search/KillCursorsCommand.java", 16),
+      GrpcStreamingServer: sourceUrl("src/main/java/com/xgen/mongot/server/grpc/GrpcStreamingServer.java", 47),
+      IdLookupFactory: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/IdLookupFactory.java", 19),
+      IndexLifecycleManager: sourceUrl("src/main/java/com/xgen/mongot/lifecycle/IndexLifecycleManager.java", 41),
+      IndexingWorkScheduler: sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/common/IndexingWorkScheduler.java", 51),
+      InitializedLuceneSearchIndex: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/InitializedLuceneSearchIndex.java", 50),
+      LuceneSearchIndexReader: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/LuceneSearchIndexReader.java", 85),
+      LuceneSearchManager: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/LuceneSearchManager.java", 8),
+      LuceneVectorSearchBatchProducer: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/LuceneVectorSearchBatchProducer.java", 26),
+      LuceneVectorSearchManager: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/LuceneVectorSearchManager.java", 30),
+      MongoDbMetadataClient: sourceUrl("src/main/java/com/xgen/mongot/util/mongodb/MongoDbMetadataClient.java", 23),
+      MongoDbReplicationManager: sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/MongoDbReplicationManager.java", 66),
+      MongotCommunity: sourceUrl("src/main/java/com/xgen/mongot/community/MongotCommunity.java", 20),
+      MongotCursorManagerImpl: sourceUrl("src/main/java/com/xgen/mongot/cursor/MongotCursorManagerImpl.java", 43),
+      OperatorQuery: sourceUrl("src/main/java/com/xgen/mongot/index/query/OperatorQuery.java", 11),
+      ProjectFactory: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/ProjectFactory.java", 15),
+      RootDocumentBuilder: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/document/single/RootDocumentBuilder.java", 29),
+      SearchCommand: sourceUrl("src/main/java/com/xgen/mongot/server/command/search/SearchCommand.java", 67),
+      SearchIndexDefinition: sourceUrl("src/main/java/com/xgen/mongot/index/definition/SearchIndexDefinition.java", 48),
+      SearchQuery: sourceUrl("src/main/java/com/xgen/mongot/index/query/SearchQuery.java", 22),
+      SearchQueryFactory: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/query/SearchQueryFactory.java", 40),
+      ServerCallHandler: sourceUrl("src/main/java/com/xgen/mongot/server/grpc/ServerCallHandler.java", 35),
+      SingleLuceneIndexWriter: sourceUrl("src/main/java/com/xgen/mongot/index/lucene/writer/SingleLuceneIndexWriter.java", 71),
+      StoredDocumentBuilder: sourceUrl("src/main/java/com/xgen/mongot/index/ingestion/stored/StoredDocumentBuilder.java", 13),
+      StoredSourceDefinition: sourceUrl("src/main/java/com/xgen/mongot/index/definition/StoredSourceDefinition.java", 24),
+      VectorIndexDefinition: sourceUrl("src/main/java/com/xgen/mongot/index/definition/VectorIndexDefinition.java", 26),
+      VectorSearchCommand: sourceUrl("src/main/java/com/xgen/mongot/server/command/search/VectorSearchCommand.java", 101),
+      VectorSearchOperator: sourceUrl("src/main/java/com/xgen/mongot/index/query/operators/VectorSearchOperator.java", 20),
+      "Lucene text collect": sourceUrl("src/main/java/com/xgen/mongot/index/lucene/LuceneSearchIndexReader.java", 688),
+      "Lucene vector candidates": sourceUrl("src/main/java/com/xgen/mongot/index/lucene/LuceneVectorSearchManager.java", 50),
+      "aggregate + gRPC search": sourceUrl("src/main/java/com/xgen/mongot/server/grpc/ServerCallHandler.java", 82),
+      "background update path": sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/MongoDbReplicationManager.java", 646),
+      "catalog definitions": sourceUrl("src/main/java/com/xgen/mongot/catalogservice/DefaultAuthoritativeIndexCatalog.java", 82),
+      "change stream to Lucene": sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/common/IndexingWorkScheduler.java", 159),
+      "change stream trickle": sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/common/ChangeStreamMongoCursorClient.java", 98),
+      "config fan-out": sourceUrl("src/main/java/com/xgen/mongot/config/provider/community/CommunityMongotBootstrapper.java", 121),
+      "drain command streams": sourceUrl("src/main/java/com/xgen/mongot/server/grpc/GrpcStreamingServer.java", 315),
+      "cursor cleanup": sourceUrl("src/main/java/com/xgen/mongot/server/command/search/KillCursorsCommand.java", 33),
+      "hit ids and scores": sourceUrl("src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/IdLookupFactory.java", 28),
+      "index lifecycle": sourceUrl("src/main/java/com/xgen/mongot/lifecycle/IndexLifecycleManager.java", 150),
+      "lifecycle closes runtime": sourceUrl("src/main/java/com/xgen/mongot/lifecycle/DefaultLifecycleManager.java", 296),
+      "metadata MongoDB client": sourceUrl("src/main/java/com/xgen/mongot/util/mongodb/MongoDbMetadataClient.java", 101),
+      "metrics + traces": sourceUrl("src/main/java/com/xgen/mongot/trace/Tracing.java", 243),
+      "mongod change stream source": sourceUrl("src/main/java/com/xgen/mongot/replication/mongodb/common/ChangeStreamMongoCursorClient.java", 114),
+      "mongod fetches documents": sourceUrl("src/main/java/com/xgen/mongot/index/lucene/query/pushdown/project/IdLookupFactory.java", 16),
+      "read index metadata": sourceUrl("src/main/java/com/xgen/mongot/catalogservice/DefaultAuthoritativeIndexCatalog.java", 86),
+      "request path": sourceUrl("src/main/java/com/xgen/mongot/server/command/search/SearchCommand.java", 129),
+      "support package trickle": sourceUrl("src/main/java/com/xgen/mongot/util/GlobalMetricFactory.java", 137),
+      "text sub-pipeline": sourceUrl("src/main/java/com/xgen/mongot/server/command/search/SearchCommand.java", 129),
+      "vector aggregate path": sourceUrl("src/main/java/com/xgen/mongot/server/command/search/VectorSearchCommand.java", 231),
+      "vector sub-pipeline": sourceUrl("src/main/java/com/xgen/mongot/server/command/search/VectorSearchCommand.java", 231)
+    });
 
-    const VIEW_META = {
-      system: {
-        label: "System Map",
-        blurb: "Major package boundaries and their import relationships.",
-        accent: "#69c0ff"
-      },
-      index: {
-        label: "Index Core",
-        blurb: "One level deeper into `com.xgen.mongot.index`.",
-        accent: "#ffbe6b"
-      },
-      deps: {
-        label: "Runtime Payload",
-        blurb: "Bundled libraries grouped by responsibility and aggregate weight.",
-        accent: "#80f0c4"
+    function getSourceLink(label) {
+      return SOURCE_LINKS[label] || null;
+    }
+
+    function SourceChip({ label, sx, ...props }) {
+      const href = getSourceLink(label);
+      return (
+        <Chip
+          {...props}
+          component={href ? "a" : "div"}
+          href={href || undefined}
+          target={href ? "_blank" : undefined}
+          rel={href ? "noreferrer" : undefined}
+          clickable={Boolean(href)}
+          label={label}
+          title={href ? `Open source for ${label}` : label}
+          onClick={event => {
+            if (href) {
+              event.stopPropagation();
+            }
+            props.onClick?.(event);
+          }}
+          onKeyDown={event => {
+            if (href) {
+              event.stopPropagation();
+            }
+            props.onKeyDown?.(event);
+          }}
+          sx={{
+            ...sx,
+            ...(href ? {
+              cursor: "pointer",
+              textDecoration: "none",
+              "&:hover": {
+                borderColor: "#ffbe6b",
+                background: "rgba(255, 190, 107, 0.12)"
+              }
+            } : {})
+          }}
+        />
+      );
+    }
+
+    const STORY_DETAIL_FILES = Object.freeze({
+      bootstrap: "stories/bootstrap.md",
+      initialize: "stories/initialize.md",
+      textsearch: "stories/textsearch.md",
+      vectorsearch: "stories/vectorsearch.md",
+      combined: "stories/combined.md",
+      "document-fetch-cursor": "stories/document-fetch-cursor.md",
+      mutations: "stories/mutations.md",
+      shutdown: "stories/shutdown.md"
+    });
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value).replaceAll("`", "&#96;");
+    }
+
+    function renderInlineMarkdown(rawValue) {
+      const codePlaceholders = [];
+      const raw = String(rawValue).replace(/`([^`]+)`/g, (match, code) => {
+        const token = `@@INLINE_CODE_${codePlaceholders.length}@@`;
+        codePlaceholders.push(`<code>${escapeHtml(code)}</code>`);
+        return token;
+      });
+
+      let html = escapeHtml(raw);
+      html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      html = html.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, href) => {
+        const normalizedHref = href.replaceAll("&amp;", "&");
+        return `<a href="${escapeAttribute(normalizedHref)}" target="_blank" rel="noreferrer">${label}</a>`;
+      });
+      codePlaceholders.forEach((replacement, index) => {
+        html = html.replaceAll(`@@INLINE_CODE_${index}@@`, replacement);
+      });
+      return html;
+    }
+
+    function markdownToHtml(markdown) {
+      const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+      const html = [];
+      let paragraph = [];
+      let listType = null;
+      let inCodeBlock = false;
+      let codeBlock = [];
+      let codeLanguage = "";
+
+      const closeList = () => {
+        if (listType) {
+          html.push(`</${listType}>`);
+          listType = null;
+        }
+      };
+
+      const flushParagraph = () => {
+        if (paragraph.length > 0) {
+          closeList();
+          html.push(`<p>${renderInlineMarkdown(paragraph.join(" "))}</p>`);
+          paragraph = [];
+        }
+      };
+
+      const openList = nextType => {
+        flushParagraph();
+        if (listType && listType !== nextType) {
+          closeList();
+        }
+        if (!listType) {
+          html.push(`<${nextType}>`);
+          listType = nextType;
+        }
+      };
+
+      const flushCodeBlock = () => {
+        const languageClass = codeLanguage ? ` class="language-${escapeAttribute(codeLanguage)}"` : "";
+        html.push(`<pre><code${languageClass}>${escapeHtml(codeBlock.join("\n"))}</code></pre>`);
+        codeBlock = [];
+        codeLanguage = "";
+      };
+
+      lines.forEach(line => {
+        const fenceMatch = line.match(/^```([A-Za-z0-9_-]*)\s*$/);
+        if (fenceMatch) {
+          if (inCodeBlock) {
+            inCodeBlock = false;
+            flushCodeBlock();
+          } else {
+            flushParagraph();
+            closeList();
+            inCodeBlock = true;
+            codeLanguage = fenceMatch[1] || "";
+            codeBlock = [];
+          }
+          return;
+        }
+
+        if (inCodeBlock) {
+          codeBlock.push(line);
+          return;
+        }
+
+        const trimmed = line.trim();
+        if (!trimmed) {
+          flushParagraph();
+          closeList();
+          return;
+        }
+
+        if (/^-{3,}$/.test(trimmed)) {
+          flushParagraph();
+          closeList();
+          html.push("<hr />");
+          return;
+        }
+
+        const headingMatch = line.match(/^(#{1,3})\s+(.+)$/);
+        if (headingMatch) {
+          flushParagraph();
+          closeList();
+          const level = headingMatch[1].length;
+          html.push(`<h${level}>${renderInlineMarkdown(headingMatch[2])}</h${level}>`);
+          return;
+        }
+
+        const unorderedMatch = line.match(/^\s*-\s+(.+)$/);
+        if (unorderedMatch) {
+          openList("ul");
+          html.push(`<li>${renderInlineMarkdown(unorderedMatch[1])}</li>`);
+          return;
+        }
+
+        const orderedMatch = line.match(/^\s*\d+\.\s+(.+)$/);
+        if (orderedMatch) {
+          openList("ol");
+          html.push(`<li>${renderInlineMarkdown(orderedMatch[1])}</li>`);
+          return;
+        }
+
+        closeList();
+        paragraph.push(trimmed);
+      });
+
+      if (inCodeBlock) {
+        flushCodeBlock();
       }
-    };
+      flushParagraph();
+      closeList();
+
+      return html.join("\n");
+    }
+
+    function MarkdownView({ markdown }) {
+      const html = React.useMemo(() => markdownToHtml(markdown), [markdown]);
+      return <Box className="markdown-view" dangerouslySetInnerHTML={{ __html: html }} />;
+    }
 
     function titleCaseSize(sizeMb) {
       return sizeMb >= 1 ? `${sizeMb.toFixed(1)} MB` : `${Math.round(sizeMb * 1024)} KB`;
@@ -539,6 +816,42 @@
     }
 
     const dependencyGroupTotals = groupTotals(bundledDependencies);
+    const LIBRARY_GROUP_SECONDS = 5;
+    const LIBRARY_GROUP_DESCRIPTIONS = Object.freeze({
+      "Cloud Integration": "Storage, cloud SDK, identity, and transfer libraries that support snapshot, blob-store, and cloud integration surfaces.",
+      Lucene: "The embedded search-engine payload: core Lucene, query parsing, analyzers, and language-specific dictionaries used by text and vector search.",
+      Compression: "Native and Java compression libraries used around storage, transport, archives, and efficient binary payload handling.",
+      "Utilities/Runtime": "General-purpose runtime support for collections, caching, math, I/O, resiliency, and helper APIs used across MongoT.",
+      "Security/Crypto": "Cryptographic providers and TLS/security support that sit underneath secure networking and credential flows.",
+      Logging: "Structured logging facades, bridges, and backends that route Java runtime logs into the expected logging surface.",
+      Monitoring: "Metrics, tracing, OS inspection, and exporter dependencies used to observe MongoT health and runtime behavior.",
+      Serialization: "JSON, YAML, and Java type binding libraries used for configuration, metadata, and wire-format-adjacent parsing.",
+      "HTTP/Networking": "HTTP client primitives used by cloud, service, and network integrations.",
+      "CLI/Runtime": "Command-line runtime support used by operational entrypoints and tooling surfaces.",
+      "Data Access": "The MongoDB Java driver dependency used by MongoT-owned metadata and replication clients when they talk to mongod."
+    });
+    const libraryGroups = Object.freeze(
+      Object.entries(dependencyGroupTotals)
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, totalSize], index) => {
+          const dependencies = bundledDependencies
+            .filter(dep => dep.group === name)
+            .sort((a, b) => b.sizeMb - a.sizeMb);
+          return {
+            id: `library:${name}`,
+            nodeId: `group:${name}`,
+            name,
+            index,
+            start: index * LIBRARY_GROUP_SECONDS,
+            end: (index + 1) * LIBRARY_GROUP_SECONDS,
+            totalSize,
+            count: dependencies.length,
+            dependencies,
+            description: LIBRARY_GROUP_DESCRIPTIONS[name] || `${name} libraries bundled into the deployed MongoT application.`
+          };
+        })
+    );
+    const libraryTimelineDuration = libraryGroups.length * LIBRARY_GROUP_SECONDS;
 
     const STYLE_PRESETS = {
       aurora: {
@@ -796,23 +1109,6 @@
             }
           }
         },
-        MuiAutocomplete: {
-          styleOverrides: {
-            paper: {
-              background: "#102033",
-              color: "#ecf4ff",
-              border: "1px solid rgba(155, 192, 255, 0.16)"
-            },
-            option: {
-              '&[aria-selected="true"]': {
-                backgroundColor: "rgba(105, 192, 255, 0.16)"
-              },
-              '&.Mui-focused': {
-                backgroundColor: "rgba(255, 190, 107, 0.14)"
-              }
-            }
-          }
-        },
         MuiMenuItem: {
           styleOverrides: {
             root: {
@@ -1032,9 +1328,7 @@
     function getViewAnchorId(view, data) {
       const preferredId = view === "system"
         ? "top:index"
-        : view === "index"
-          ? "index:lucene"
-          : "root:runtime";
+        : "root:runtime";
       if (data.nodes.some(node => node.id === preferredId)) {
         return preferredId;
       }
@@ -1155,9 +1449,49 @@
       };
     }
 
+    const STORY_ORDERED_NODE_POSITIONS = {
+      "top:client": { x: -640, y: 0 },
+      "top:mongod": { x: -445, y: 0 },
+      "top:server": { x: -235, y: 0 },
+      "top:cursor": { x: 10, y: -155 },
+      "top:index": { x: 20, y: 70 },
+      "top:replication": { x: 20, y: 295 },
+      "top:embedding": { x: 275, y: -250 },
+      "top:metrics": { x: 280, y: -95 },
+      "top:trace": { x: 280, y: 65 },
+      "top:logging": { x: 280, y: 225 },
+      "top:catalog": { x: 280, y: 350 },
+      "top:catalogservice": { x: 495, y: -225 },
+      "top:config": { x: 500, y: -70 },
+      "top:lifecycle": { x: 500, y: 90 },
+      "top:monitor": { x: 495, y: 245 },
+      "top:community": { x: 690, y: -235 },
+      "top:featureflag": { x: 705, y: -85 },
+      "top:util": { x: 705, y: 65 },
+      "top:blobstore": { x: 690, y: 215 },
+      "top:proto": { x: 570, y: 335 }
+    };
+
+    function getStoryOrderedNodePosition(nodeId, spacingScale = 1) {
+      const position = STORY_ORDERED_NODE_POSITIONS[nodeId];
+      if (!position) {
+        return null;
+      }
+      const scale = clamp(spacingScale || 1, 0.9, 1.35);
+      return {
+        x: position.x * scale,
+        y: position.y * scale
+      };
+    }
+
     const RUNTIME_PACKAGE_IDS = {
+      client: "top:client",
+      mongod: "top:mongod",
+      blobstore: "top:blobstore",
+      catalog: "top:catalog",
       community: "top:community",
       config: "top:config",
+      featureflag: "top:featureflag",
       metrics: "top:metrics",
       monitor: "top:monitor",
       catalogservice: "top:catalogservice",
@@ -1167,10 +1501,14 @@
       lifecycle: "top:lifecycle",
       replication: "top:replication",
       index: "top:index",
-      logging: "top:logging"
+      logging: "top:logging",
+      trace: "top:trace",
+      util: "top:util",
+      proto: "top:proto"
     };
 
-    const DEFAULT_RUNTIME_TIMELINE_DURATION = 90;
+    const DEFAULT_RUNTIME_TIMELINE_DURATION = 60;
+    const LOOP_RESTART_PAUSE_SECONDS = 3;
     const EMPTY_RUNTIME_TIMELINE = {
       duration: DEFAULT_RUNTIME_TIMELINE_DURATION,
       phases: [
@@ -1201,7 +1539,8 @@
                 ...stream,
                 edges: Array.isArray(stream?.edges) ? stream.edges : []
               }))
-              : []
+              : [],
+            classes: Array.isArray(phase?.classes) ? phase.classes : []
           }))
           .sort((left, right) => left.start - right.start)
         : [];
@@ -1264,9 +1603,49 @@
         ? runtimeTimeline.phases
         : EMPTY_RUNTIME_TIMELINE.phases;
       const duration = runtimeTimeline.duration || DEFAULT_RUNTIME_TIMELINE_DURATION;
-      return phases.find(
+      const matchedPhase = phases.find(
         phase => timeSec >= phase.start && (timeSec < phase.end || phase.end === duration)
-      ) || phases[phases.length - 1] || EMPTY_RUNTIME_TIMELINE.phases[0];
+      );
+      if (matchedPhase) {
+        return matchedPhase;
+      }
+
+      const firstPhase = phases[0] || EMPTY_RUNTIME_TIMELINE.phases[0];
+      const lastPhase = phases[phases.length - 1] || firstPhase;
+      if (timeSec < firstPhase.start) {
+        return {
+          id: "intro-pause",
+          label: "Intro Pause",
+          focusKey: firstPhase.focusKey || "config",
+          start: 0,
+          end: firstPhase.start,
+          description: "",
+          classes: [],
+          streams: []
+        };
+      }
+
+      if (timeSec >= lastPhase.end) {
+        return {
+          id: "outro-pause",
+          label: "Outro Pause",
+          focusKey: lastPhase.focusKey || "lifecycle",
+          start: lastPhase.end,
+          end: duration,
+          description: "",
+          classes: [],
+          streams: []
+        };
+      }
+
+      return lastPhase || EMPTY_RUNTIME_TIMELINE.phases[0];
+    }
+
+    function getRuntimeTimelinePhases(runtimeTimelineDefinition) {
+      const runtimeTimeline = runtimeTimelineDefinition || EMPTY_RUNTIME_TIMELINE;
+      return Array.isArray(runtimeTimeline.phases) && runtimeTimeline.phases.length > 0
+        ? runtimeTimeline.phases
+        : EMPTY_RUNTIME_TIMELINE.phases;
     }
 
     function getTimelineStreamModulation(stream, localTime, phaseDuration) {
@@ -1287,23 +1666,63 @@
       }
     }
 
-    function getTimelineEnvelope(phase, timeSec) {
-      const ramp = Math.min(1.6, Math.max(0.8, (phase.end - phase.start) * 0.18));
-      const intro = smoothstep(phase.start, phase.start + ramp, timeSec);
-      const outro = 1 - smoothstep(phase.end - ramp, phase.end, timeSec);
-      return clamp(intro * outro, 0, 1);
+    const STORY_EDGE_FADE_SECONDS = 1;
+
+    function runtimeEdgeKey(edge) {
+      return Array.isArray(edge) ? `${edge[0]}->${edge[1]}` : "";
+    }
+
+    function runtimePhaseEdgeSet(phase) {
+      const keys = new Set();
+      (phase?.streams || []).forEach(stream => {
+        (stream.edges || []).forEach(edge => keys.add(runtimeEdgeKey(edge)));
+      });
+      return keys;
+    }
+
+    function getRuntimeEdgeFade(edge, phase, previousEdges, nextEdges, timeSec) {
+      const key = runtimeEdgeKey(edge);
+      let fade = 1;
+
+      if (previousEdges) {
+        if (!previousEdges.has(key)) {
+          fade *= smoothstep(phase.start, phase.start + STORY_EDGE_FADE_SECONDS, timeSec);
+        }
+      }
+
+      if (nextEdges) {
+        if (!nextEdges.has(key)) {
+          fade *= 1 - smoothstep(phase.end - STORY_EDGE_FADE_SECONDS, phase.end, timeSec);
+        }
+      }
+
+      return clamp(fade, 0, 1);
     }
 
     function getActiveRuntimeStreams(runtimeTimelineDefinition, timeSec) {
       const phase = getRuntimePhaseAtTime(runtimeTimelineDefinition, timeSec);
+      const phases = getRuntimeTimelinePhases(runtimeTimelineDefinition);
+      const phaseIndex = phases.findIndex(candidatePhase => candidatePhase.id === phase.id);
+      const previousPhase = phaseIndex > 0 ? phases[phaseIndex - 1] : null;
+      const nextPhase = phaseIndex >= 0 && phaseIndex < phases.length - 1 ? phases[phaseIndex + 1] : null;
+      const timelineDuration = runtimeTimelineDefinition?.duration || DEFAULT_RUNTIME_TIMELINE_DURATION;
+      const previousEdges = previousPhase ? runtimePhaseEdgeSet(previousPhase) : phase.start > 0 ? new Set() : null;
+      const nextEdges = nextPhase ? runtimePhaseEdgeSet(nextPhase) : phase.end < timelineDuration ? new Set() : null;
       const localTime = timeSec - phase.start;
       const duration = phase.end - phase.start;
-      const envelope = getTimelineEnvelope(phase, timeSec);
-      const streams = phase.streams
-        .map(stream => ({
-          ...stream,
-          alpha: clamp(stream.intensity * envelope * getTimelineStreamModulation(stream, localTime, duration), 0, 1)
-        }))
+      const streams = (phase.streams || [])
+        .map(stream => {
+          const edgeFades = (stream.edges || []).map(edge =>
+            getRuntimeEdgeFade(edge, phase, previousEdges, nextEdges, timeSec)
+          );
+          const maxEdgeFade = edgeFades.length > 0 ? Math.max(...edgeFades) : 1;
+          return {
+            ...stream,
+            phaseId: phase.id,
+            edgeFades,
+            alpha: clamp(stream.intensity * maxEdgeFade * getTimelineStreamModulation(stream, localTime, duration), 0, 1)
+          };
+        })
         .filter(stream => stream.alpha > 0.08);
       return { phase, streams };
     }
@@ -1425,7 +1844,7 @@
       network.moveTo({
         position: { x: targetCenterX, y: targetCenterY },
         scale: safeScale,
-        animation: options.animation || { duration: 720, easingFunction: "easeInOutCubic" }
+        animation: options.animation || { duration: 420, easingFunction: "easeInOutCubic" }
       });
       return true;
     }
@@ -1436,6 +1855,8 @@
         if (item.kind === "group") return preset.group;
         return preset.support;
       }
+      if (item.kind === "external") return preset.mint || preset.support;
+      if (item.kind === "mongod") return preset.cool;
       const c = item.complexity;
       if (c >= 9) return preset.hot;
       if (c >= 7) return preset.warm;
@@ -1472,42 +1893,6 @@
               arrows: "to",
               width: pkg.name === "com.xgen.mongot.index" ? 2.7 : 1.1,
               color: { color: preset.edge, highlight: preset.warm }
-            });
-          }
-        });
-      });
-      return { nodes, edges };
-    }
-
-    function makeIndexGraph(searchTerm, minComplexity, preset) {
-      const kept = indexPackages.filter(pkg =>
-        pkg.complexity >= minComplexity &&
-        (searchTerm === "" ||
-          pkg.name.toLowerCase().includes(searchTerm) ||
-          pkg.description.toLowerCase().includes(searchTerm) ||
-          pkg.short.toLowerCase().includes(searchTerm))
-      );
-      const names = new Set(kept.map(pkg => pkg.name));
-      const nodes = kept.map(pkg => ({
-        id: pkg.id,
-        label: pkg.short,
-        title: pkg.name,
-        value: pkg.complexity * 8 + pkg.links.length * 2 + 12,
-        color: getNodeColor("index", pkg, preset),
-        item: pkg
-      }));
-      const nameToId = Object.fromEntries(kept.map(pkg => [pkg.name, pkg.id]));
-      const edges = [];
-      kept.forEach(pkg => {
-        pkg.links.forEach(link => {
-          if (names.has(link)) {
-            edges.push({
-              id: `${pkg.id}->${nameToId[link]}`,
-              from: pkg.id,
-              to: nameToId[link],
-              arrows: "to",
-              width: pkg.short === "lucene" ? 3.2 : 1.4,
-              color: { color: preset.edgeIndex, highlight: preset.hot }
             });
           }
         });
@@ -1578,9 +1963,6 @@
         if (view === "system") {
           return makeTopGraph(searchTerm.toLowerCase(), threshold, preset);
         }
-        if (view === "index") {
-          return makeIndexGraph(searchTerm.toLowerCase(), threshold, preset);
-        }
         return makeDependencyGraph(searchTerm.toLowerCase(), threshold, groupFilter, preset);
       }, [view, searchTerm, threshold, groupFilter, preset]);
     }
@@ -1592,11 +1974,16 @@
       const orbitFrameRef = React.useRef(null);
       const overlayFrameRef = React.useRef(null);
       const orbitModelRef = React.useRef(null);
+      const selectedIdRef = React.useRef(selectedId);
       const timelineStateRef = React.useRef({ view, motionMode, timelineClock, preset, runtimeTimelineDefinition });
 
       React.useEffect(() => {
         timelineStateRef.current = { view, motionMode, timelineClock, preset, runtimeTimelineDefinition };
       }, [motionMode, preset, runtimeTimelineDefinition, timelineClock, view]);
+
+      React.useEffect(() => {
+        selectedIdRef.current = selectedId;
+      }, [selectedId]);
 
       React.useEffect(() => {
         if (!graphRef.current) {
@@ -1611,6 +1998,7 @@
         };
 
         const isOrbitMode = layoutMode === "orbit";
+        const isStoryOrderedMode = layoutMode === "story" && view === "system";
         const isTimelineSystem = view === "system" && motionMode === "timeline";
         const safeSpacingScale = clamp(spacingScale || 1, 0.88, 1.6);
         const repulsionScale = 0.88 + safeSpacingScale * 0.24;
@@ -1621,7 +2009,7 @@
           : null;
         orbitModelRef.current = orbitModel;
 
-        const physicsOptions = isOrbitMode || layoutFrozen
+        const physicsOptions = isOrbitMode || isStoryOrderedMode || layoutFrozen
           ? false
           : view === "deps"
             ? layoutMode === "spread"
@@ -1656,6 +2044,7 @@
             const selectedGlow = hexToRgba(node.color, effects.selectedGlowAlpha);
             const isSvgNode = nodeStyle.kind === "svg";
             const labelBackground = compactLabels ? "rgba(8, 17, 29, 0.82)" : "rgba(8, 17, 29, 0.66)";
+            const storyPosition = isStoryOrderedMode ? getStoryOrderedNodePosition(node.id, safeSpacingScale) : null;
             return {
               id: node.id,
               label: formatNodeLabel(node.label, view, compactLabels),
@@ -1663,6 +2052,9 @@
               title: node.title || node.item?.name || node.label,
               shape: isSvgNode ? "image" : nodeStyle.shape,
               image: isSvgNode ? getNodeStyleImage(nodeStyle.id, node.color, preset) : undefined,
+              x: storyPosition?.x,
+              y: storyPosition?.y,
+              fixed: storyPosition ? { x: true, y: true } : undefined,
               borderWidth: 1.5 + effects.borderBoost,
               borderWidthSelected: 3 + effects.borderBoost,
               color: {
@@ -1713,7 +2105,11 @@
           data.edges.map(edge => ({
             ...edge,
             width: (edge.width || 1) + effects.edgeBoost,
-            smooth: { enabled: true, type: isOrbitMode ? "continuous" : "dynamic", roundness: isOrbitMode ? 0.22 : 0.38 }
+            smooth: {
+              enabled: true,
+              type: isOrbitMode || isStoryOrderedMode ? "continuous" : "dynamic",
+              roundness: isOrbitMode || isStoryOrderedMode ? 0.22 : 0.38
+            }
           }))
         );
 
@@ -1727,10 +2123,10 @@
               multiselect: false,
               navigationButtons: true,
               keyboard: !isTimelineSystem,
-              dragNodes: !isOrbitMode
+              dragNodes: !isOrbitMode && !isStoryOrderedMode
             },
             layout: {
-              improvedLayout: true
+              improvedLayout: !isStoryOrderedMode
             },
             physics: physicsOptions,
             nodes: {
@@ -1753,7 +2149,7 @@
 
         network.on("doubleClick", params => {
           if (params.nodes.length > 0) {
-            network.focus(params.nodes[0], { scale: 1.35, animation: { duration: 650, easingFunction: "easeInOutQuart" } });
+            network.focus(params.nodes[0], { scale: 1.35, animation: { duration: 420, easingFunction: "easeInOutQuart" } });
           }
         });
 
@@ -1761,7 +2157,25 @@
         window.__mongotNetwork = network;
         window.__mongotEffects = effects;
 
-        if (isTimelineSystem && !isOrbitMode) {
+        const focusLibrarySelection = duration => {
+          if (view !== "deps") {
+            return;
+          }
+          const id = selectedIdRef.current;
+          if (!id || !data.nodes.some(node => node.id === id)) {
+            return;
+          }
+          network.selectNodes([id], false);
+          network.focus(id, {
+            scale: id.startsWith("group:") ? 1 : 1.16,
+            animation: { duration, easingFunction: "easeInOutCubic" }
+          });
+        };
+        let libraryFocusTimerId = null;
+
+        if (isStoryOrderedMode) {
+          network.fit({ animation: { duration: 440, easingFunction: "easeInOutCubic" } });
+        } else if (isTimelineSystem && !isOrbitMode) {
           network.once("stabilizationIterationsDone", () => {
             network.setOptions({ physics: false });
             const focusId = selectedId && data.nodes.some(node => node.id === selectedId)
@@ -1776,7 +2190,7 @@
                 marginX: Math.max(88, (graphRef.current?.clientWidth || 0) * 0.12),
                 marginY: Math.max(84, (graphRef.current?.clientHeight || 0) * 0.13),
                 focusBias: 0.32,
-                animation: { duration: 620, easingFunction: "easeInOutCubic" }
+                animation: { duration: 420, easingFunction: "easeInOutCubic" }
               }
             );
           });
@@ -1829,14 +2243,25 @@
           network.moveTo({
             position: { x: 0, y: 0 },
             scale: orbitModel.fitScale,
-            animation: { duration: 700, easingFunction: "easeInOutCubic" }
+            animation: { duration: 440, easingFunction: "easeInOutCubic" }
           });
-        } else if (!layoutFrozen) {
+        } else if (!layoutFrozen && !isStoryOrderedMode) {
+          if (view === "deps") {
+            network.once("stabilizationIterationsDone", () => {
+              network.setOptions({ physics: false });
+              libraryFocusTimerId = window.setTimeout(() => {
+                focusLibrarySelection(520);
+              }, 120);
+            });
+          }
           network.stabilize(layoutMode === "spread" ? 240 : 180);
         }
 
         return () => {
           stopOrbit();
+          if (libraryFocusTimerId) {
+            window.clearTimeout(libraryFocusTimerId);
+          }
           networkRef.current = null;
           network.destroy();
         };
@@ -1878,6 +2303,12 @@
         const drawStream = (network, stream, clock, streamIndex, activePreset) => {
           const color = resolveTimelineColor(stream.colorKey, activePreset);
           stream.edges.forEach(([fromKey, toKey], edgeIndex) => {
+            const edgeFade = stream.edgeFades?.[edgeIndex] ?? 1;
+            const drawAlpha = stream.alpha * edgeFade;
+            if (drawAlpha <= 0.04) {
+              return;
+            }
+
             const fromId = getRuntimeNodeId(fromKey);
             const toId = getRuntimeNodeId(toKey);
             const from = getNetworkNodeDomPosition(network, fromId);
@@ -1889,16 +2320,16 @@
             const distance = Math.hypot(to.x - from.x, to.y - from.y);
             const bend = edgeCurveBias(fromId, toId, stream.id, edgeIndex) + distance * 0.03;
             const control = getCurveControlPoint(from, to, bend);
-            const width = stream.width + stream.alpha * 1.4;
+            const width = stream.width + drawAlpha * 1.4;
             const dashDrift = clock * (32 + stream.tempo * 38);
 
             context.save();
             context.lineCap = "round";
             context.lineJoin = "round";
-            context.shadowBlur = 18 + stream.alpha * 22;
-            context.shadowColor = hexToRgba(color, 0.22 + stream.alpha * 0.32);
+            context.shadowBlur = 18 + drawAlpha * 22;
+            context.shadowColor = hexToRgba(color, 0.22 + drawAlpha * 0.32);
             drawCurve(from, control, to);
-            context.strokeStyle = hexToRgba(color, 0.14 + stream.alpha * 0.12);
+            context.strokeStyle = hexToRgba(color, 0.14 + drawAlpha * 0.12);
             context.lineWidth = width + 5.5;
             context.stroke();
             context.restore();
@@ -1907,38 +2338,38 @@
             context.lineCap = "round";
             context.lineJoin = "round";
             drawCurve(from, control, to);
-            context.strokeStyle = hexToRgba(color, 0.22 + stream.alpha * 0.16);
+            context.strokeStyle = hexToRgba(color, 0.22 + drawAlpha * 0.16);
             context.lineWidth = width + 1.8;
             context.stroke();
 
             context.setLineDash([12 + width * 1.6, 10 + width * 1.25]);
             context.lineDashOffset = -dashDrift - edgeIndex * 18 - streamIndex * 9;
             drawCurve(from, control, to);
-            context.strokeStyle = hexToRgba(color, 0.84 * stream.alpha);
+            context.strokeStyle = hexToRgba(color, 0.84 * drawAlpha);
             context.lineWidth = width;
             context.stroke();
 
             context.setLineDash([2.5, 17 + width * 1.3]);
             context.lineDashOffset = -(dashDrift * 2.2) - edgeIndex * 11;
             drawCurve(from, control, to);
-            context.strokeStyle = hexToRgba("#f7fbff", 0.92 * stream.alpha);
+            context.strokeStyle = hexToRgba("#f7fbff", 0.92 * drawAlpha);
             context.lineWidth = Math.max(1.2, width * 0.28);
             context.stroke();
             context.restore();
 
-            const pulseCount = Math.max(1, Math.round(stream.particles + stream.alpha * 2));
+            const pulseCount = Math.max(1, Math.round(stream.particles + drawAlpha * 2));
             for (let pulseIndex = 0; pulseIndex < pulseCount; pulseIndex += 1) {
               const t = ((clock * stream.tempo * 0.13) + (pulseIndex / pulseCount) + edgeIndex * 0.17) % 1;
               const point = pointOnQuadraticBezier(from, control, to, t);
               context.save();
-              context.shadowBlur = 12 + stream.alpha * 8;
-              context.shadowColor = hexToRgba(color, 0.34 + stream.alpha * 0.32);
+              context.shadowBlur = 12 + drawAlpha * 8;
+              context.shadowColor = hexToRgba(color, 0.34 + drawAlpha * 0.32);
               context.beginPath();
-              context.fillStyle = hexToRgba("#f7fbff", 0.18 + stream.alpha * 0.22);
+              context.fillStyle = hexToRgba("#f7fbff", 0.18 + drawAlpha * 0.22);
               context.arc(point.x, point.y, width * 0.88 + 1.6, 0, Math.PI * 2);
               context.fill();
               context.beginPath();
-              context.fillStyle = hexToRgba(color, 0.56 + stream.alpha * 0.28);
+              context.fillStyle = hexToRgba(color, 0.56 + drawAlpha * 0.28);
               context.arc(point.x, point.y, width * 0.38 + 1, 0, Math.PI * 2);
               context.fill();
               context.restore();
@@ -1987,7 +2418,7 @@
 
         const network = networkRef.current;
         if (command.type === "fit") {
-          network.fit({ animation: { duration: 560, easingFunction: "easeInOutCubic" } });
+          network.fit({ animation: { duration: 360, easingFunction: "easeInOutCubic" } });
           return;
         }
 
@@ -2005,17 +2436,17 @@
             anchorId,
             {
               maxScale: layoutMode === "orbit" ? orbitModelRef.current?.fitScale || undefined : undefined,
-              animation: { duration: 680, easingFunction: "easeInOutCubic" }
+              animation: { duration: 420, easingFunction: "easeInOutCubic" }
             }
           )) {
-            network.fit({ animation: { duration: 560, easingFunction: "easeInOutCubic" } });
+            network.fit({ animation: { duration: 360, easingFunction: "easeInOutCubic" } });
           }
           return;
         }
 
-        if (command.type === "stabilize" && layoutMode !== "orbit" && !layoutFrozen) {
+        if (command.type === "stabilize" && layoutMode !== "orbit" && layoutMode !== "story" && !layoutFrozen) {
           network.stabilize(layoutMode === "spread" ? 240 : 180);
-          network.fit({ animation: { duration: 520, easingFunction: "easeInOutCubic" } });
+          network.fit({ animation: { duration: 340, easingFunction: "easeInOutCubic" } });
         }
       }, [command, data, layoutFrozen, layoutMode, onSelect, view]);
 
@@ -2036,11 +2467,18 @@
             ? { x: 0, y: 0 }
             : networkRef.current.getPositions([selectedId])[selectedId];
           if (position) {
-            networkRef.current.moveTo({ position, scale: selectedId === orbitModelRef.current?.anchorId ? orbitModelRef.current?.fitScale || 1 : 1.12, animation: { duration: 700, easingFunction: "easeInOutCubic" } });
+            networkRef.current.moveTo({ position, scale: selectedId === orbitModelRef.current?.anchorId ? orbitModelRef.current?.fitScale || 1 : 1.12, animation: { duration: 420, easingFunction: "easeInOutCubic" } });
           }
           return;
         }
-        networkRef.current.focus(selectedId, { scale: 1.25, animation: { duration: 700, easingFunction: "easeInOutCubic" } });
+        if (view === "deps") {
+          networkRef.current.focus(selectedId, {
+            scale: selectedId.startsWith("group:") ? 1 : 1.16,
+            animation: { duration: 520, easingFunction: "easeInOutCubic" }
+          });
+          return;
+        }
+        networkRef.current.focus(selectedId, { scale: 1.25, animation: { duration: 420, easingFunction: "easeInOutCubic" } });
       }, [selectedId, data.nodes, layoutMode, motionMode, view]);
 
       return (
@@ -2051,118 +2489,75 @@
       );
     }
 
-    function StatCard({ label, value, tone }) {
-      return (
-        <Paper className="glass metric-pulse" sx={{ p: 2, borderRadius: 4 }}>
-          <Typography sx={{ color: "rgba(236,244,255,0.72)", fontSize: 13 }}>{label}</Typography>
-          <Typography sx={{ color: tone, fontSize: 28, fontWeight: 700, lineHeight: 1.15 }}>{value}</Typography>
-        </Paper>
-      );
-    }
-
-    function PanelHeader({ eyebrow, title, subtitle, open, onToggle, action }) {
-      return (
-        <Stack direction="row" spacing={1.5} justifyContent="space-between" alignItems="flex-start">
-          <Box sx={{ minWidth: 0 }}>
-            {eyebrow && (
-              <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: title || subtitle ? 0.5 : 0 }}>
-                {eyebrow}
-              </Typography>
-            )}
-            {title && (
-              <Typography sx={{ fontWeight: 700, lineHeight: 1.1 }}>
-                {title}
-              </Typography>
-            )}
-            {subtitle && (
-              <Typography sx={{ color: "var(--muted)", fontSize: 13.5, mt: title ? 0.5 : 0 }}>
-                {subtitle}
-              </Typography>
-            )}
-          </Box>
-          <Stack direction="row" spacing={0.8} alignItems="center" sx={{ flexShrink: 0 }}>
-            {action}
-            {onToggle && (
-              <IconButton
-                size="small"
-                onClick={onToggle}
-                sx={{
-                  color: "var(--text)",
-                  border: "1px solid var(--line)",
-                  background: "rgba(255,255,255,0.04)",
-                  "&:hover": { background: "rgba(255,255,255,0.1)" }
-                }}
-              >
-                <span className="material-icons" style={{ fontSize: 18 }}>
-                  {open ? "expand_less" : "expand_more"}
-                </span>
-              </IconButton>
-            )}
-          </Stack>
-        </Stack>
-      );
-    }
-
     function App() {
       const [view, setView] = React.useState("system");
-      const [searchTerm, setSearchTerm] = React.useState("");
-      const [threshold, setThreshold] = React.useState(1);
-      const [groupFilter, setGroupFilter] = React.useState("All");
       const [selectedId, setSelectedId] = React.useState("top:index");
-      const [storyIndex, setStoryIndex] = React.useState(0);
       const [stylePresetId, setStylePresetId] = React.useState("plumRelay");
       const [nodeStyleId, setNodeStyleId] = React.useState("radarBloom");
       const [effectsId, setEffectsId] = React.useState("crisp");
-      const [layoutMode, setLayoutMode] = React.useState("flow");
-      const [spacingPresetId, setSpacingPresetId] = React.useState("balanced");
-      const [layoutFrozen, setLayoutFrozen] = React.useState(false);
-      const [compactLabels, setCompactLabels] = React.useState(true);
-      const [motionMode, setMotionMode] = React.useState("timeline");
       const [runtimeTimelineDefinition, setRuntimeTimelineDefinition] = React.useState(EMPTY_RUNTIME_TIMELINE);
       const [timelineClock, setTimelineClock] = React.useState(0);
-      const [timelinePlaying, setTimelinePlaying] = React.useState(false);
-      const [timelineSpeed, setTimelineSpeed] = React.useState(2);
-      const [timelineLoop, setTimelineLoop] = React.useState(false);
+      const [libraryClock, setLibraryClock] = React.useState(0);
+      const [timelinePlaying, setTimelinePlaying] = React.useState(true);
+      const [timelineSpeed, setTimelineSpeed] = React.useState(1);
+      const [timelineLoop, setTimelineLoop] = React.useState(true);
       const [viewerCommand, setViewerCommand] = React.useState(null);
+      const [storyDetailId, setStoryDetailId] = React.useState(null);
+      const [storyDetailMarkdown, setStoryDetailMarkdown] = React.useState("");
+      const [storyDetailStatus, setStoryDetailStatus] = React.useState("idle");
       const [settingsOpen, setSettingsOpen] = React.useState(false);
-      const [sidebarOpen, setSidebarOpen] = React.useState(true);
-      const [controlsOpen, setControlsOpen] = React.useState(true);
-      const [storyOpen, setStoryOpen] = React.useState(true);
-      const [focusOpen, setFocusOpen] = React.useState(true);
-      const [filtersOpen, setFiltersOpen] = React.useState(true);
-      const [guidedStopsOpen, setGuidedStopsOpen] = React.useState(true);
-      const [legendOpen, setLegendOpen] = React.useState(true);
-      const [viewerFullscreen, setViewerFullscreen] = React.useState(false);
       const lastTimelineFocusRef = React.useRef("");
-      const viewerShellRef = React.useRef(null);
+      const storyPanelRef = React.useRef(null);
+      const storyItemRefs = React.useRef({});
+      const libraryPanelRef = React.useRef(null);
+      const libraryItemRefs = React.useRef({});
       const stylePreset = STYLE_PRESETS[stylePresetId];
       const nodeStyle = NODE_STYLES[nodeStyleId];
       const effects = EFFECT_PRESETS[effectsId];
-      const spacingPreset = SPACING_PRESETS[spacingPresetId];
+      const layoutMode = "story";
+      const layoutFrozen = false;
+      const compactLabels = true;
+      const motionMode = view === "system" ? "timeline" : "ambient";
+      const spacingPreset = SPACING_PRESETS.balanced;
 
-      const data = useGraphData(view, searchTerm, threshold, groupFilter, stylePreset);
-
-      const currentStories = STORIES[view];
-      const selectedItem = React.useMemo(
-        () => data.nodes.find(node => node.id === selectedId)?.item || null,
-        [data.nodes, selectedId]
-      );
-      const orbitAnchorId = React.useMemo(() => getViewAnchorId(view, data), [view, data]);
-      const orbitAnchorLabel = React.useMemo(() => {
-        const anchorNode = data.nodes.find(node => node.id === orbitAnchorId);
-        return anchorNode?.item?.short || anchorNode?.label || "anchor";
-      }, [data.nodes, orbitAnchorId]);
+      const baseThreshold = view === "deps" ? 0 : 1;
+      const data = useGraphData(view, "", baseThreshold, "All", stylePreset);
       const runtimeTimelineDuration = runtimeTimelineDefinition.duration || DEFAULT_RUNTIME_TIMELINE_DURATION;
+      const effectiveTimelineClock = Math.min(timelineClock, runtimeTimelineDuration);
+      const effectiveLibraryClock = Math.min(libraryClock, libraryTimelineDuration);
+      const activeDuration = view === "deps" ? libraryTimelineDuration : runtimeTimelineDuration;
+      const activeClock = view === "deps" ? effectiveLibraryClock : effectiveTimelineClock;
+      const activeLoopPause = timelineLoop && timelinePlaying && (view === "deps" ? libraryClock >= libraryTimelineDuration : timelineClock >= runtimeTimelineDuration);
+      const activePlaybackLabel = activeLoopPause
+        ? "Restart pause"
+        : timelinePlaying
+          ? `Playing ${timelineSpeed}x`
+          : "Paused";
       const activeRuntimeTimeline = React.useMemo(
-        () => getActiveRuntimeStreams(runtimeTimelineDefinition, timelineClock),
-        [runtimeTimelineDefinition, timelineClock]
+        () => getActiveRuntimeStreams(runtimeTimelineDefinition, effectiveTimelineClock),
+        [runtimeTimelineDefinition, effectiveTimelineClock]
       );
       const currentTimelinePhase = activeRuntimeTimeline.phase;
       const timelineActiveStreams = activeRuntimeTimeline.streams;
+      const runtimeTimelinePhases = Array.isArray(runtimeTimelineDefinition.phases)
+        ? runtimeTimelineDefinition.phases
+        : EMPTY_RUNTIME_TIMELINE.phases;
+      const selectedStoryDetailPhase = storyDetailId
+        ? runtimeTimelinePhases.find(phase => phase.id === storyDetailId) || null
+        : null;
       const isTimelineView = view === "system" && motionMode === "timeline";
       const showStoryPanel = isTimelineView;
+      const showLibraryPanel = view === "deps";
+      const currentLibraryGroup = libraryGroups[Math.min(libraryGroups.length - 1, Math.floor(Math.min(effectiveLibraryClock, Math.max(0, libraryTimelineDuration - 0.001)) / LIBRARY_GROUP_SECONDS))] || libraryGroups[0];
       const issueViewerCommand = commandType => {
         setViewerCommand({ type: commandType, issuedAt: `${commandType}-${Date.now()}` });
+      };
+      const openStoryDetail = phase => {
+        if (!phase) {
+          return;
+        }
+        setStoryDetailId(phase.id);
+        jumpToRuntimePhase(phase);
       };
 
       React.useEffect(() => {
@@ -2195,27 +2590,51 @@
       }, []);
 
       React.useEffect(() => {
-        const fallback = view === "system" ? "top:index" : view === "index" ? "index:lucene" : "group:Cloud Integration";
+        const fallback = view === "system" ? "top:index" : currentLibraryGroup?.nodeId || "group:Cloud Integration";
         setSelectedId(fallback);
-        setThreshold(view === "deps" ? 0 : 1);
-        setGroupFilter("All");
-        setStoryIndex(0);
-        setLayoutFrozen(false);
-      }, [view]);
+        setStoryDetailId(null);
+      }, [currentLibraryGroup?.nodeId, view]);
 
       React.useEffect(() => {
-        if (view !== "system" && motionMode === "timeline") {
-          setMotionMode("ambient");
-          setTimelinePlaying(false);
+        if (!storyDetailId) {
+          setStoryDetailMarkdown("");
+          setStoryDetailStatus("idle");
+          return undefined;
         }
-      }, [motionMode, view]);
 
-      React.useEffect(() => {
-        const story = currentStories[storyIndex];
-        if (story) {
-          setSelectedId(story.key);
+        const detailPath = STORY_DETAIL_FILES[storyDetailId];
+        if (!detailPath) {
+          setStoryDetailMarkdown(`# Detail unavailable\n\nNo Markdown file is registered for story id \`${storyDetailId}\`.`);
+          setStoryDetailStatus("error");
+          return undefined;
         }
-      }, [storyIndex, currentStories]);
+
+        let cancelled = false;
+        setStoryDetailStatus("loading");
+        fetch(detailPath, { cache: "no-store" })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Failed to load ${detailPath} (${response.status})`);
+            }
+            return response.text();
+          })
+          .then(text => {
+            if (!cancelled) {
+              setStoryDetailMarkdown(text);
+              setStoryDetailStatus("ready");
+            }
+          })
+          .catch(error => {
+            if (!cancelled) {
+              setStoryDetailMarkdown(`# Detail unavailable\n\n${error?.message || "Unable to load story detail."}`);
+              setStoryDetailStatus("error");
+            }
+          });
+
+        return () => {
+          cancelled = true;
+        };
+      }, [storyDetailId]);
 
       React.useEffect(() => {
         if (data.nodes.length === 0) {
@@ -2223,21 +2642,30 @@
         }
         const hasSelected = data.nodes.some(node => node.id === selectedId);
         if (!hasSelected) {
-          setSelectedId(data.nodes[0].id);
+          setSelectedId(view === "deps" ? currentLibraryGroup?.nodeId || data.nodes[0].id : data.nodes[0].id);
         }
-      }, [data.nodes, selectedId]);
+      }, [currentLibraryGroup?.nodeId, data.nodes, selectedId, view]);
 
       React.useEffect(() => {
-        if (motionMode !== "timeline" || !timelinePlaying || view !== "system") {
+        const playbackDuration = view === "deps" ? libraryTimelineDuration : runtimeTimelineDuration;
+        const setPlaybackClock = view === "deps" ? setLibraryClock : setTimelineClock;
+        if ((view !== "system" && view !== "deps") || !timelinePlaying || playbackDuration <= 0) {
           return undefined;
         }
 
         const intervalId = window.setInterval(() => {
           React.startTransition(() => {
-            setTimelineClock(current => {
+            setPlaybackClock(current => {
               const next = current + (0.033 * timelineSpeed);
-              if (next >= runtimeTimelineDuration) {
-                return timelineLoop ? next % runtimeTimelineDuration : runtimeTimelineDuration;
+              if (timelineLoop) {
+                const loopCycleDuration = playbackDuration + LOOP_RESTART_PAUSE_SECONDS;
+                if (next >= loopCycleDuration) {
+                  return (next - loopCycleDuration) % playbackDuration;
+                }
+                return next;
+              }
+              if (next >= playbackDuration) {
+                return playbackDuration;
               }
               return next;
             });
@@ -2245,16 +2673,22 @@
         }, 33);
 
         return () => window.clearInterval(intervalId);
-      }, [motionMode, runtimeTimelineDuration, timelineLoop, timelinePlaying, timelineSpeed, view]);
+      }, [runtimeTimelineDuration, timelineLoop, timelinePlaying, timelineSpeed, view]);
 
       React.useEffect(() => {
-        if (!timelineLoop && timelinePlaying && view === "system" && motionMode === "timeline" && timelineClock >= runtimeTimelineDuration) {
+        if (timelineLoop || !timelinePlaying) {
+          return;
+        }
+        if (view === "system" && timelineClock >= runtimeTimelineDuration) {
           setTimelinePlaying(false);
         }
-      }, [motionMode, runtimeTimelineDuration, timelineClock, timelineLoop, timelinePlaying, view]);
+        if (view === "deps" && libraryClock >= libraryTimelineDuration) {
+          setTimelinePlaying(false);
+        }
+      }, [libraryClock, runtimeTimelineDuration, timelineClock, timelineLoop, timelinePlaying, view]);
 
       React.useEffect(() => {
-        if (view !== "system" || motionMode !== "timeline") {
+        if (!isTimelineView) {
           lastTimelineFocusRef.current = "";
           return;
         }
@@ -2267,34 +2701,68 @@
 
         lastTimelineFocusRef.current = focusToken;
         setSelectedId(focusId);
-      }, [currentTimelinePhase.focusKey, currentTimelinePhase.id, motionMode, view]);
+      }, [currentTimelinePhase.focusKey, currentTimelinePhase.id, isTimelineView]);
 
       React.useEffect(() => {
-        const syncFullscreen = () => {
-          setViewerFullscreen(Boolean(document.fullscreenElement || document.webkitFullscreenElement));
-        };
+        if (!showStoryPanel) {
+          return undefined;
+        }
 
-        document.addEventListener("fullscreenchange", syncFullscreen);
-        document.addEventListener("webkitfullscreenchange", syncFullscreen);
-        syncFullscreen();
+        const scrollFrame = window.requestAnimationFrame(() => {
+          const panel = storyPanelRef.current;
+          const storyItem = storyItemRefs.current[currentTimelinePhase.id];
+          if (!panel || !storyItem) {
+            return;
+          }
 
-        return () => {
-          document.removeEventListener("fullscreenchange", syncFullscreen);
-          document.removeEventListener("webkitfullscreenchange", syncFullscreen);
-        };
-      }, []);
+          const targetTop = storyItem.offsetTop - (panel.clientHeight / 2) + (storyItem.offsetHeight / 2);
+          panel.scrollTo({
+            top: Math.max(0, targetTop),
+            behavior: timelinePlaying ? "smooth" : "auto"
+          });
+        });
+
+        return () => window.cancelAnimationFrame(scrollFrame);
+      }, [currentTimelinePhase.id, showStoryPanel, timelinePlaying]);
 
       React.useEffect(() => {
+        if (!showLibraryPanel || !currentLibraryGroup) {
+          return undefined;
+        }
+
+        const scrollFrame = window.requestAnimationFrame(() => {
+          const panel = libraryPanelRef.current;
+          const item = libraryItemRefs.current[currentLibraryGroup.id];
+          if (!panel || !item) {
+            return;
+          }
+
+          const targetTop = item.offsetTop - (panel.clientHeight / 2) + (item.offsetHeight / 2);
+          panel.scrollTo({
+            top: Math.max(0, targetTop),
+            behavior: timelinePlaying ? "smooth" : "auto"
+          });
+        });
+
+        return () => window.cancelAnimationFrame(scrollFrame);
+      }, [currentLibraryGroup?.id, showLibraryPanel, timelinePlaying]);
+
+      React.useEffect(() => {
+        if (view === "deps") {
+          return undefined;
+        }
         const timerId = window.setTimeout(() => {
           issueViewerCommand("fit");
         }, 200);
         return () => window.clearTimeout(timerId);
-      }, [controlsOpen, showStoryPanel, sidebarOpen, spacingPresetId, storyOpen, viewerFullscreen]);
+      }, [showLibraryPanel, showStoryPanel, storyDetailId, view]);
 
       React.useEffect(() => {
-        if (!isTimelineView) {
+        if (view !== "system" && view !== "deps") {
           return undefined;
         }
+        const playbackDuration = view === "deps" ? libraryTimelineDuration : runtimeTimelineDuration;
+        const setPlaybackClock = view === "deps" ? setLibraryClock : setTimelineClock;
 
         const isEditableTarget = target => {
           if (!target || !(target instanceof HTMLElement)) {
@@ -2306,7 +2774,7 @@
 
         const scanTimeline = delta => {
           setTimelinePlaying(false);
-          setTimelineClock(current => Math.max(0, Math.min(runtimeTimelineDuration, current + delta)));
+          setPlaybackClock(current => Math.max(0, Math.min(playbackDuration, current + delta)));
         };
 
         const handleKeydown = event => {
@@ -2321,9 +2789,6 @@
               setTimelinePlaying(false);
               return;
             }
-            if (!timelineLoop && timelineClock >= runtimeTimelineDuration) {
-              setTimelineClock(0);
-            }
             setTimelinePlaying(true);
             return;
           }
@@ -2332,7 +2797,7 @@
             event.preventDefault();
             event.stopPropagation();
             setTimelinePlaying(false);
-            setTimelineClock(0);
+            setPlaybackClock(0);
             return;
           }
 
@@ -2354,850 +2819,539 @@
         return () => {
           window.removeEventListener("keydown", handleKeydown, true);
         };
-      }, [isTimelineView, runtimeTimelineDuration, settingsOpen, timelineClock, timelineLoop, timelinePlaying]);
+      }, [runtimeTimelineDuration, settingsOpen, timelinePlaying, view]);
 
-      const metrics = React.useMemo(() => {
-        if (view === "system") {
-          const central = [...topPackages].sort((a, b) => b.links.length - a.links.length)[0];
-          return {
-            one: { label: "Major Packages", value: topPackages.length, tone: stylePreset.support },
-            two: { label: "Highest Complexity", value: "10 / index", tone: stylePreset.hot },
-            three: { label: "Most Linked", value: central.short, tone: stylePreset.cool }
-          };
-        }
-        if (view === "index") {
-          return {
-            one: { label: "Index Subpackages", value: indexPackages.length, tone: stylePreset.warm },
-            two: { label: "Execution Peak", value: "lucene", tone: stylePreset.hot },
-            three: { label: "Query Layer", value: "query", tone: stylePreset.cool }
-          };
-        }
-        const biggestGroup = Object.entries(dependencyGroupTotals).sort((a, b) => b[1] - a[1])[0];
-        return {
-          one: { label: "Bundled Libraries", value: bundledDependencies.length, tone: stylePreset.cool },
-          two: { label: "Largest Group", value: biggestGroup[0], tone: stylePreset.support },
-          three: { label: "Largest Single Lib", value: "aws-crt", tone: stylePreset.warm }
-        };
-      }, [view, stylePreset]);
-
-      const detailConnections = React.useMemo(() => {
-        if (!selectedItem) return [];
+      const setActiveClock = nextClock => {
         if (view === "deps") {
-          if (selectedItem.kind === "root") {
-            return Object.keys(dependencyGroupTotals).sort((a, b) => dependencyGroupTotals[b] - dependencyGroupTotals[a]).map(group => ({
-              label: `${group} • ${titleCaseSize(dependencyGroupTotals[group])}`,
-              target: `group:${group}`
-            }));
-          }
-          if (selectedItem.kind === "group") {
-            return bundledDependencies
-              .filter(dep => dep.group === selectedItem.group)
-              .sort((a, b) => b.sizeMb - a.sizeMb)
-              .map(dep => ({ label: `${dep.name} • ${titleCaseSize(dep.sizeMb)}`, target: dep.id }));
-          }
-          return [{ label: `${selectedItem.group} cluster`, target: `group:${selectedItem.group}` }];
+          setLibraryClock(nextClock);
+        } else {
+          setTimelineClock(nextClock);
         }
-        return (selectedItem.links || []).map(link => {
-          const collection = view === "system" ? topPackages : indexPackages;
-          const match = collection.find(item => item.name === link);
-          return { label: link, target: match?.id };
-        });
-      }, [selectedItem, view]);
-
-      const autocompleteOptions = React.useMemo(() => data.nodes.map(node => ({
-        label: node.item?.name || node.label,
-        id: node.id
-      })), [data.nodes]);
-      const layoutSummary = layoutMode === "orbit"
-        ? `Orbit mode anchors the map around ${orbitAnchorLabel} and spins correlated nodes as satellites.`
-        : layoutMode === "spread"
-          ? "Spread mode adds more breathing room between labels and large nodes."
-          : "Flow mode keeps the graph loose and reactive so you can drag packages around freely.";
-      const spacingSummary = spacingPreset.summary;
-      const animationSummary = motionMode === "timeline"
-        ? `${currentTimelinePhase.label} at ${formatRuntimeClock(timelineClock)} of ${formatRuntimeClock(runtimeTimelineDuration)}.`
-        : "Ambient mode shows the architecture without a runtime story overlaid on top.";
+      };
       const toggleTimelinePlayback = () => {
         if (timelinePlaying) {
           setTimelinePlaying(false);
           return;
         }
-        if (!timelineLoop && timelineClock >= runtimeTimelineDuration) {
-          setTimelineClock(0);
+        if (!timelineLoop && activeClock >= activeDuration) {
+          setActiveClock(0);
         }
         setTimelinePlaying(true);
       };
-      const activateTimelineMode = () => {
-        if (view !== "system") {
-          setView("system");
-        }
-        setMotionMode("timeline");
-        if (!timelineLoop && timelineClock >= runtimeTimelineDuration) {
-          setTimelineClock(0);
-        }
-        setTimelinePlaying(true);
-        setSelectedId(getRuntimeNodeId(getRuntimePhaseAtTime(runtimeTimelineDefinition, timelineClock).focusKey || "index"));
-      };
-      const pauseTimeline = () => setTimelinePlaying(false);
-      const restartTimeline = () => {
-        setTimelineClock(0);
-        setTimelinePlaying(true);
-      };
-      const toggleViewerFullscreen = async () => {
-        const shell = viewerShellRef.current;
-        if (!shell) {
+      const jumpToRuntimePhase = phase => {
+        if (!phase) {
           return;
         }
-
-        try {
-          const activeFullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
-          if (activeFullscreenElement) {
-            if (document.exitFullscreen) {
-              await document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) {
-              document.webkitExitFullscreen();
-            }
-            return;
-          }
-
-          if (shell.requestFullscreen) {
-            await shell.requestFullscreen();
-          } else if (shell.webkitRequestFullscreen) {
-            shell.webkitRequestFullscreen();
-          }
-        } catch (error) {
-          console.error("Viewer fullscreen toggle failed", error);
-        }
+        setView("system");
+        setTimelineClock(Math.max(0, Math.min(runtimeTimelineDuration, Number(phase.start) || 0)));
+        setSelectedId(getRuntimeNodeId(phase.focusKey || "index"));
       };
-      const sidebarXl = sidebarOpen ? 4 : 2;
-      const viewerXl = sidebarOpen ? 8 : 10;
-
+      const jumpToLibraryGroup = group => {
+        if (!group) {
+          return;
+        }
+        setView("deps");
+        setLibraryClock(Math.max(0, Math.min(libraryTimelineDuration, Number(group.start) || 0)));
+        setSelectedId(group.nodeId);
+      };
+      const restartTimeline = () => {
+        setActiveClock(0);
+        setTimelinePlaying(true);
+      };
       return (
         <Box className="app-shell" sx={{ background: stylePreset.shellBackground, minHeight: "100vh" }}>
           <Paper className="glass hero" sx={{ background: stylePreset.panelBackground }}>
-            <Grid container spacing={3} alignItems="center">
-              <Grid item xs={12} lg={7}>
-                <Stack spacing={1.6}>
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1.1} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }}>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      <Chip
-                        label="Interactive Architecture Tour"
-                        sx={{
-                          color: "#08111d",
-                          background: `linear-gradient(90deg, ${stylePreset.warm}, ${stylePreset.cool})`
-                        }}
-                      />
-                      <Chip label={stylePreset.label} sx={{ ...chipStyles, borderColor: stylePreset.support }} />
-                      <Chip label={nodeStyle.label} sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
-                      <Chip label={effects.label} sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
-                    </Stack>
-                    <Button
-                      variant="outlined"
-                      onClick={() => setSettingsOpen(true)}
-                      sx={{
-                        borderRadius: 999,
-                        color: "var(--text)",
-                        borderColor: "var(--line)",
-                        whiteSpace: "nowrap"
-                      }}
-                      startIcon={<span className="material-icons" style={{ fontSize: 18 }}>tune</span>}
-                    >
-                      Settings
-                    </Button>
-                  </Stack>
-                  <Typography variant="h2" sx={{ fontWeight: 700, lineHeight: 1.04, letterSpacing: "-0.04em", fontSize: { xs: 34, md: 56 } }}>
-                    MongoT, as a living graph.
-                  </Typography>
-                  <Typography sx={{ color: "rgba(236,244,255,0.76)", maxWidth: 760, fontSize: 17 }}>
-                    Trace MongoT’s package graph, index engine, and shipped runtime as one animated system.
-                  </Typography>
-                </Stack>
-              </Grid>
-              <Grid item xs={12} lg={5}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>
-                    <StatCard {...metrics.one} />
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <StatCard {...metrics.two} />
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <StatCard {...metrics.three} />
-                  </Grid>
-                </Grid>
-              </Grid>
-            </Grid>
-          </Paper>
-
-          <Grid container spacing={2.5}>
-            <Grid item xs={12} xl={sidebarXl}>
-              <Paper className="glass" sx={{ borderRadius: 6, p: 2.2, height: "100%", background: stylePreset.panelBackground }}>
-                <Stack spacing={1.8}>
-                  <PanelHeader
-                    eyebrow="Navigator"
-                    title="Modes, focus, and graph filters"
-                    subtitle={sidebarOpen ? "Collapse the rail to give the graph more room." : null}
-                    open={sidebarOpen}
-                    onToggle={() => setSidebarOpen(current => !current)}
-                  />
-
-                  <Collapse in={sidebarOpen}>
-                    <Stack spacing={2.2}>
-                      <Box>
-                        <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.6 }}>
-                          Modes
-                        </Typography>
-                        <Tabs
-                          value={view}
-                          onChange={(event, next) => setView(next)}
-                          variant="fullWidth"
-                          sx={{
-                            minHeight: 44,
-                            "& .MuiTabs-indicator": { display: "none" },
-                            "& .MuiTab-root": {
-                              minHeight: 44,
-                              borderRadius: 999,
-                              color: "var(--muted)",
-                              textTransform: "none",
-                              fontWeight: 700
-                            },
-                            "& .Mui-selected": {
-                              color: "#08111d !important",
-                              background: stylePreset.warm
-                            }
-                          }}
-                        >
-                          <Tab value="system" label="System" />
-                          <Tab value="index" label="Index" />
-                          <Tab value="deps" label="Libraries" />
-                        </Tabs>
-                      </Box>
-
-                      <Paper sx={{ p: 1.8, borderRadius: 4, background: "rgba(255,255,255,0.04)", border: "1px solid var(--line)" }}>
-                        <Typography sx={{ fontWeight: 700, mb: 0.5 }}>{VIEW_META[view].label}</Typography>
-                        <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>{VIEW_META[view].blurb}</Typography>
-                      </Paper>
-
-                      <Box>
-                        <PanelHeader
-                          eyebrow="Focus"
-                          title={selectedItem ? selectedItem.name : "No node selected"}
-                          subtitle={selectedItem ? selectedItem.description : "Select a node to inspect it."}
-                          open={focusOpen}
-                          onToggle={() => setFocusOpen(current => !current)}
-                        />
-                        <Collapse in={focusOpen}>
-                          <Stack spacing={1.4} sx={{ mt: 1.2 }}>
-                            {selectedItem ? (
-                              <>
-                                {view !== "deps" ? (
-                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                    <Chip label={`Complexity ${selectedItem.complexity}/10`} sx={chipStyles} />
-                                    <Chip label={`${(selectedItem.links || []).length} outgoing links`} sx={chipStyles} />
-                                  </Stack>
-                                ) : (
-                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                    {selectedItem.totalSize && <Chip label={titleCaseSize(selectedItem.totalSize)} sx={chipStyles} />}
-                                    {selectedItem.sizeMb && <Chip label={titleCaseSize(selectedItem.sizeMb)} sx={chipStyles} />}
-                                    {selectedItem.group && <Chip label={selectedItem.group} sx={chipStyles} />}
-                                  </Stack>
-                                )}
-
-                                {view !== "deps" && (
-                                  <Box>
-                                    <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
-                                      Complexity Signal
-                                    </Typography>
-                                    <LinearProgress
-                                      variant="determinate"
-                                      value={(selectedItem.complexity / 10) * 100}
-                                      sx={{
-                                        height: 12,
-                                        borderRadius: 999,
-                                        backgroundColor: "rgba(255,255,255,0.08)",
-                                        "& .MuiLinearProgress-bar": {
-                                          background: `linear-gradient(90deg, ${stylePreset.support}, ${stylePreset.hot})`
-                                        }
-                                      }}
-                                    />
-                                  </Box>
-                                )}
-
-                                {selectedItem.website && (
-                                  <Alert severity="info" sx={{ borderRadius: 3, background: "rgba(105,192,255,0.08)", color: "var(--text)", border: "1px solid var(--line)" }}>
-                                    <Link href={selectedItem.website} target="_blank" rel="noreferrer" color="inherit" underline="hover">
-                                      Open upstream project
-                                    </Link>
-                                  </Alert>
-                                )}
-
-                                <Box>
-                                  <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 1 }}>
-                                    Connected Next Steps
-                                  </Typography>
-                                  {detailConnections.length > 0 ? (
-                                    <Box>
-                                      {detailConnections.map(connection => (
-                                        <Box
-                                          key={`${selectedId}-${connection.label}`}
-                                          className="node-pill"
-                                          onClick={() => connection.target && setSelectedId(connection.target)}
-                                          style={{ opacity: connection.target ? 1 : 0.74, cursor: connection.target ? "pointer" : "default" }}
-                                        >
-                                          <span className="material-icons" style={{ fontSize: 16, color: stylePreset.warm }}>north_east</span>
-                                          <span className="codeish" style={{ fontSize: 12 }}>{connection.label}</span>
-                                        </Box>
-                                      ))}
-                                    </Box>
-                                  ) : (
-                                    <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>This node is more terminal than connective in the selected view.</Typography>
-                                  )}
-                                </Box>
-                              </>
-                            ) : (
-                              <Typography sx={{ color: "var(--muted)", fontSize: 14 }}>Select a node to inspect it.</Typography>
-                            )}
-                          </Stack>
-                        </Collapse>
-                      </Box>
-
-                      <Divider sx={{ borderColor: "var(--line)" }} />
-
-                      <Box>
-                        <PanelHeader
-                          eyebrow="Filters"
-                          title="Search, jump, and threshold"
-                          subtitle="Trim the graph or jump directly to a package."
-                          open={filtersOpen}
-                          onToggle={() => setFiltersOpen(current => !current)}
-                        />
-                        <Collapse in={filtersOpen}>
-                          <Stack spacing={1.5} sx={{ mt: 1.2 }}>
-                            <TextField
-                              fullWidth
-                              value={searchTerm}
-                              onChange={event => setSearchTerm(event.target.value)}
-                              placeholder={view === "deps" ? "Search library, group, or detail" : "Search package or concept"}
-                              InputProps={{
-                                startAdornment: (
-                                  <InputAdornment position="start">
-                                    <span className="material-icons" style={{ fontSize: 20, color: "#9eb0c8" }}>search</span>
-                                  </InputAdornment>
-                                )
-                              }}
-                              sx={textFieldStyles}
-                            />
-
-                            <Autocomplete
-                              size="small"
-                              options={autocompleteOptions}
-                              value={autocompleteOptions.find(option => option.id === selectedId) || null}
-                              onChange={(event, option) => option && setSelectedId(option.id)}
-                              renderInput={(params) => (
-                                <TextField
-                                  {...params}
-                                  label="Jump To Node"
-                                  sx={textFieldStyles}
-                                />
-                              )}
-                              sx={{
-                                "& .MuiAutocomplete-popupIndicator, & .MuiAutocomplete-clearIndicator": { color: "#9eb0c8" }
-                              }}
-                            />
-
-                            <Box>
-                              <Typography sx={{ fontSize: 13, color: "var(--muted)", mb: 1 }}>
-                                {view === "deps" ? "Minimum library size" : "Minimum complexity"}
-                              </Typography>
-                              <Slider
-                                value={threshold}
-                                min={view === "deps" ? 0 : 1}
-                                max={view === "deps" ? 2 : 10}
-                                step={view === "deps" ? 0.05 : 1}
-                                onChange={(event, next) => setThreshold(next)}
-                                valueLabelDisplay="auto"
-                                valueLabelFormat={value => view === "deps" ? titleCaseSize(value) : value}
-                                sx={{
-                                  color: stylePreset.support,
-                                  "& .MuiSlider-thumb": { boxShadow: "0 0 0 6px rgba(255,255,255,0.08)" }
-                                }}
-                              />
-                            </Box>
-
-                            {view === "deps" && (
-                              <FormControl fullWidth>
-                                <InputLabel sx={{ color: "#9eb0c8" }}>Dependency Group</InputLabel>
-                                <Select
-                                  value={groupFilter}
-                                  label="Dependency Group"
-                                  onChange={event => setGroupFilter(event.target.value)}
-                                  sx={selectStyles}
-                                >
-                                  <MenuItem value="All">All groups</MenuItem>
-                                  {Object.keys(dependencyGroupTotals)
-                                    .sort((a, b) => dependencyGroupTotals[b] - dependencyGroupTotals[a])
-                                    .map(group => (
-                                      <MenuItem key={group} value={group}>{group}</MenuItem>
-                                    ))}
-                                </Select>
-                              </FormControl>
-                            )}
-                          </Stack>
-                        </Collapse>
-                      </Box>
-
-                      <Divider sx={{ borderColor: "var(--line)" }} />
-
-                      <Box>
-                        <PanelHeader
-                          eyebrow="Guided Stops"
-                          title="Curated path through this view"
-                          subtitle="Select a stop to focus the graph and narrative."
-                          open={guidedStopsOpen}
-                          onToggle={() => setGuidedStopsOpen(current => !current)}
-                        />
-                        <Collapse in={guidedStopsOpen}>
-                          <Stack spacing={1} sx={{ mt: 1.2 }}>
-                            {currentStories.map((story, index) => (
-                              <Box
-                                key={story.key}
-                                className={`tour-card ${storyIndex === index ? "active" : ""}`}
-                                onClick={() => {
-                                  setStoryIndex(index);
-                                  setSelectedId(story.key);
-                                }}
-                              >
-                                <Typography sx={{ fontWeight: 700 }}>{story.title}</Typography>
-                                <Typography sx={{ color: "var(--muted)", mt: 0.4, fontSize: 14 }}>{story.body}</Typography>
-                              </Box>
-                            ))}
-                          </Stack>
-                        </Collapse>
-                      </Box>
-
-                      <Divider sx={{ borderColor: "var(--line)" }} />
-
-                      <Box>
-                        <PanelHeader
-                          eyebrow="Legend"
-                          title="What the colours mean"
-                          subtitle="The palette shifts with the current preset, but the roles stay stable."
-                          open={legendOpen}
-                          onToggle={() => setLegendOpen(current => !current)}
-                        />
-                        <Collapse in={legendOpen}>
-                          <Box sx={{ mt: 1.2 }}>
-                            {view !== "deps" ? (
-                              <Stack spacing={0.8}>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.hot }} />hot path / high complexity</Typography>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.warm }} />broad coordination layer</Typography>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.cool }} />specialized subsystem</Typography>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.support }} />supporting package</Typography>
-                              </Stack>
-                            ) : (
-                              <Stack spacing={0.8}>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.root }} />runtime bundle root</Typography>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.group }} />dependency group hub</Typography>
-                                <Typography sx={{ fontSize: 14 }}><span className="legend-dot" style={{ background: stylePreset.support }} />individual bundled library</Typography>
-                              </Stack>
-                            )}
-                          </Box>
-                        </Collapse>
-                      </Box>
-                    </Stack>
-                  </Collapse>
-                </Stack>
-              </Paper>
-            </Grid>
-
-            <Grid item xs={12} xl={viewerXl}>
-              <Stack
-                ref={viewerShellRef}
-                className="viewer-shell"
-                spacing={1.5}
-                sx={{ minHeight: 0 }}
-              >
-                <Paper
-                  className="glass"
+            <Stack direction={{ xs: "column", xl: "row" }} spacing={1.4} alignItems={{ xs: "stretch", xl: "center" }}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.4} alignItems={{ xs: "stretch", md: "center" }} sx={{ minWidth: 0, flex: 1 }}>
+                <Typography
+                  variant="h2"
                   sx={{
-                    borderRadius: 6,
-                    p: 2,
-                    background: stylePreset.panelBackground
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    letterSpacing: "-0.04em",
+                    fontSize: { xs: 30, md: 40 },
+                    whiteSpace: { md: "nowrap" }
                   }}
                 >
-                  <Stack spacing={1.15}>
-                    <PanelHeader
-                      eyebrow="Viewer"
-                      title="Layout and playback controls"
-                      subtitle={controlsOpen ? "Keep this open while arranging the graph, or collapse it for more canvas." : null}
-                      open={controlsOpen}
-                      onToggle={() => setControlsOpen(current => !current)}
-                      action={(
-                        <Stack direction="row" spacing={0.8}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={toggleViewerFullscreen}
-                            sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                          >
-                            {viewerFullscreen ? "Exit Fullscreen" : "Fullscreen"}
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => setSettingsOpen(true)}
-                            sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                          >
-                            Settings
-                          </Button>
-                        </Stack>
-                      )}
+                  MongoT runtime, animated.
+                </Typography>
+                <Stack direction="row" spacing={0.8} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Tabs
+                    value={view}
+                    onChange={(event, next) => setView(next)}
+                    variant="scrollable"
+                    allowScrollButtonsMobile
+                    sx={{
+                      minHeight: 38,
+                      "& .MuiTabs-indicator": { display: "none" },
+                      "& .MuiTab-root": {
+                        minHeight: 38,
+                        borderRadius: 999,
+                        color: "var(--muted)",
+                        textTransform: "none",
+                        fontWeight: 700,
+                        px: 1.8
+                      },
+                      "& .Mui-selected": {
+                        color: "#08111d !important",
+                        background: stylePreset.warm
+                      }
+                    }}
+                  >
+                    <Tab value="system" label="Packages" />
+                    <Tab value="deps" label="Libraries" />
+                  </Tabs>
+                  <Button
+                    variant="contained"
+                    onClick={toggleTimelinePlayback}
+                    startIcon={<span className="material-icons" style={{ fontSize: 18 }}>{timelinePlaying ? "pause" : "play_arrow"}</span>}
+                    sx={{ minHeight: 38, borderRadius: 999, color: "#08111d", background: stylePreset.cool, "&:hover": { background: stylePreset.cool } }}
+                  >
+                    {timelinePlaying ? "Pause" : "Play"}
+                  </Button>
+                  <IconButton
+                    aria-label="Restart animation"
+                    title="Restart animation"
+                    onClick={restartTimeline}
+                    sx={{ width: 38, height: 38, color: "var(--text)", border: "1px solid var(--line)" }}
+                  >
+                    <span className="material-icons" style={{ fontSize: 18 }}>replay</span>
+                  </IconButton>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", md: 260, xl: 320 }, px: 0.5 }}>
+                    <Typography className="mini-note" sx={{ minWidth: 42 }}>
+                      {formatRuntimeClock(activeClock)}
+                    </Typography>
+                    <Slider
+                      aria-label="Playback position"
+                      value={activeClock}
+                      min={0}
+                      max={activeDuration}
+                      step={0.25}
+                      onChange={(event, next) => {
+                        setActiveClock(Array.isArray(next) ? next[0] : next);
+                        setTimelinePlaying(false);
+                      }}
+                      sx={{
+                        color: stylePreset.cool,
+                        flex: 1,
+                        minWidth: 110,
+                        "& .MuiSlider-thumb": { boxShadow: "0 0 0 6px rgba(255,255,255,0.08)" }
+                      }}
                     />
+                    <Typography className="mini-note" sx={{ minWidth: 42 }}>
+                      {formatRuntimeClock(activeDuration)}
+                    </Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    variant={timelineLoop ? "contained" : "outlined"}
+                    onClick={() => setTimelineLoop(current => !current)}
+                    startIcon={<span className="material-icons" style={{ fontSize: 17 }}>repeat</span>}
+                    sx={{
+                      minHeight: 38,
+                      borderRadius: 999,
+                      color: timelineLoop ? "#08111d" : "var(--text)",
+                      background: timelineLoop ? stylePreset.support : "transparent",
+                      borderColor: "var(--line)",
+                      "&:hover": { background: timelineLoop ? stylePreset.support : "rgba(255,255,255,0.08)" }
+                    }}
+                  >
+                    Loop
+                  </Button>
+                  <Stack direction="row" spacing={0.5} alignItems="center">
+                    {[0.5, 1, 2].map(speed => (
+                      <Button
+                        key={speed}
+                        size="small"
+                        variant={timelineSpeed === speed ? "contained" : "outlined"}
+                        onClick={() => setTimelineSpeed(speed)}
+                        sx={{
+                          minWidth: 0,
+                          minHeight: 34,
+                          px: 1.15,
+                          borderRadius: 999,
+                          color: timelineSpeed === speed ? "#08111d" : "var(--text)",
+                          background: timelineSpeed === speed ? stylePreset.hot : "transparent",
+                          borderColor: "var(--line)",
+                          "&:hover": { background: timelineSpeed === speed ? stylePreset.hot : "rgba(255,255,255,0.08)" }
+                        }}
+                      >
+                        {speed}x
+                      </Button>
+                    ))}
+                  </Stack>
+                </Stack>
+              </Stack>
 
-                    <Collapse in={controlsOpen}>
-                      <Stack spacing={1.15}>
-                        <Stack direction={{ xs: "column", md: "row" }} spacing={1.2} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
-                          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                            <Chip label={`${data.nodes.length} nodes`} size="small" sx={chipStyles} />
-                            <Chip label={`${data.edges.length} edges`} size="small" sx={chipStyles} />
-                            <Chip label={view === "deps" ? "grouped by bundle role" : "imports shown as arrows"} size="small" sx={chipStyles} />
-                            <Chip label={layoutMode === "orbit" ? `orbiting ${orbitAnchorLabel}` : layoutMode} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />
-                            <Chip label={`room ${spacingPreset.label.toLowerCase()}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
-                            <Chip label={motionMode === "timeline" ? "runtime timeline" : "ambient motion"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.cool }} />
+              <Stack direction="row" spacing={1} alignItems="center" justifyContent={{ xs: "flex-start", xl: "flex-end" }} flexWrap="wrap" useFlexGap>
+                <IconButton
+                  aria-label="Open settings"
+                  title="Settings"
+                  onClick={() => setSettingsOpen(true)}
+                  sx={{
+                    width: 38,
+                    height: 38,
+                    color: "var(--text)",
+                    border: "1px solid var(--line)",
+                    background: "rgba(255,255,255,0.04)",
+                    "&:hover": { background: "rgba(255,255,255,0.1)" }
+                  }}
+                >
+                  <span className="material-icons" style={{ fontSize: 18 }}>tune</span>
+                </IconButton>
+              </Stack>
+            </Stack>
+          </Paper>
+
+          <Grid container spacing={0} sx={{ flex: 1, minHeight: 0 }}>
+            <Grid item xs={12} sx={{ minWidth: 0, minHeight: 0, height: "100%", flexGrow: "1 !important" }}>
+              <Stack
+                className="viewer-shell"
+                sx={{ minHeight: 0 }}
+              >
+                <Box
+                  className="viewer-stage"
+                  sx={{ minHeight: 0 }}
+                >
+                  <Stack direction={{ xs: "column", lg: "row" }} spacing={1.5} alignItems="stretch" sx={{ flex: 1, minHeight: 0 }}>
+                    {showStoryPanel && (
+                      <Paper
+                        ref={storyPanelRef}
+                        className="glass hidden-scrollbar"
+                        sx={{
+                          borderRadius: 0,
+                          p: 1.4,
+                          width: { xs: "100%", lg: 360 },
+                          height: { xs: "auto", lg: "100%" },
+                          maxHeight: { xs: "none", lg: "100%" },
+                          overflow: "auto",
+                          background: stylePreset.panelBackground,
+                          borderColor: hexToRgba(stylePreset.cool, 0.26),
+                          flexShrink: 0
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                            <Box>
+                              <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.4 }}>
+                                Stories
+                              </Typography>
+                              <Typography sx={{ fontWeight: 700 }}>
+                                {activePlaybackLabel}
+                              </Typography>
+                            </Box>
+                            <Chip label={`${formatRuntimeClock(effectiveTimelineClock)} / ${formatRuntimeClock(runtimeTimelineDuration)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
                           </Stack>
-                          {layoutMode !== "flow" && (
-                            <Typography className="mini-note">{layoutSummary}</Typography>
-                          )}
-                        </Stack>
 
-                        <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
-                          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                            {[
-                              { id: "flow", label: "Flow" },
-                              { id: "spread", label: "Spread" },
-                              { id: "orbit", label: "Orbit" }
-                            ].map(option => (
-                              <Button
-                                key={option.id}
-                                size="small"
-                                variant={layoutMode === option.id ? "contained" : "outlined"}
-                                onClick={() => {
-                                  setLayoutMode(option.id);
-                                  setLayoutFrozen(false);
+                          {runtimeTimelinePhases.map((phase, index) => {
+                            const isActivePhase = phase.id === currentTimelinePhase.id;
+                            const phaseClasses = Array.isArray(phase.classes) ? phase.classes : [];
+                            const phaseActiveStreams = timelineActiveStreams.filter(stream => !stream.phaseId || stream.phaseId === phase.id);
+                            return (
+                              <Box
+                                ref={element => {
+                                  if (element) {
+                                    storyItemRefs.current[phase.id] = element;
+                                  } else {
+                                    delete storyItemRefs.current[phase.id];
+                                  }
+                                }}
+                                key={phase.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => jumpToRuntimePhase(phase)}
+                                onKeyDown={event => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    jumpToRuntimePhase(phase);
+                                  }
                                 }}
                                 sx={{
-                                  borderRadius: 999,
-                                  minWidth: 0,
-                                  color: layoutMode === option.id ? "#08111d" : "var(--text)",
-                                  background: layoutMode === option.id ? stylePreset.warm : "rgba(8, 17, 29, 0.28)",
-                                  borderColor: "var(--line)",
+                                  borderRadius: 3,
+                                  p: 1.15,
+                                  cursor: "pointer",
+                                  border: `1px solid ${isActivePhase ? stylePreset.warm : "var(--line)"}`,
+                                  background: isActivePhase
+                                    ? `linear-gradient(180deg, ${hexToRgba(stylePreset.warm, 0.18)}, ${hexToRgba(stylePreset.cool, 0.08)})`
+                                    : "rgba(255,255,255,0.035)",
+                                  boxShadow: isActivePhase ? `0 0 0 1px ${hexToRgba(stylePreset.warm, 0.2)}` : "none",
                                   "&:hover": {
                                     borderColor: stylePreset.warm,
-                                    background: layoutMode === option.id ? stylePreset.warm : "rgba(255,255,255,0.08)"
+                                    background: isActivePhase ? hexToRgba(stylePreset.warm, 0.18) : "rgba(255,255,255,0.07)"
                                   }
                                 }}
                               >
-                                {option.label}
-                              </Button>
-                            ))}
-                          </Stack>
-
-                          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => issueViewerCommand("fit")}
-                              sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                            >
-                              Fit View
-                            </Button>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => issueViewerCommand("anchor")}
-                              sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                            >
-                              Center {orbitAnchorLabel}
-                            </Button>
-                            {layoutMode !== "orbit" && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={() => issueViewerCommand("stabilize")}
-                                sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                              >
-                                Settle
-                              </Button>
-                            )}
-                            <Button
-                              size="small"
-                              variant={layoutFrozen ? "contained" : "outlined"}
-                              onClick={() => setLayoutFrozen(current => !current)}
-                              sx={{
-                                borderRadius: 999,
-                                color: layoutFrozen ? "#08111d" : "var(--text)",
-                                background: layoutFrozen ? stylePreset.cool : "transparent",
-                                borderColor: "var(--line)"
-                              }}
-                            >
-                              {layoutMode === "orbit" ? (layoutFrozen ? "Resume Orbit" : "Pause Orbit") : (layoutFrozen ? "Unfreeze" : "Freeze")}
-                            </Button>
-                            <Button
-                              size="small"
-                              variant={compactLabels ? "contained" : "outlined"}
-                              onClick={() => setCompactLabels(current => !current)}
-                              sx={{
-                                borderRadius: 999,
-                                color: compactLabels ? "#08111d" : "var(--text)",
-                                background: compactLabels ? stylePreset.support : "transparent",
-                                borderColor: "var(--line)"
-                              }}
-                            >
-                              {compactLabels ? "Labels: Compact" : "Labels: Full"}
-                            </Button>
-                          </Stack>
+                                <Stack spacing={0.75}>
+                                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                                    <Stack direction="row" spacing={0.6} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+                                      <Typography sx={{ fontWeight: 700, lineHeight: 1.15, minWidth: 0 }}>
+                                        {index + 1}. {phase.label}
+                                      </Typography>
+                                      <IconButton
+                                        size="small"
+                                        aria-label={`Open detailed notes for ${phase.label}`}
+                                        title={`Open detailed notes for ${phase.label}`}
+                                        onClick={event => {
+                                          event.stopPropagation();
+                                          openStoryDetail(phase);
+                                        }}
+                                        onKeyDown={event => {
+                                          event.stopPropagation();
+                                        }}
+                                        sx={{
+                                          width: 26,
+                                          height: 26,
+                                          color: storyDetailId === phase.id ? stylePreset.warm : "var(--muted)",
+                                          border: `1px solid ${storyDetailId === phase.id ? stylePreset.warm : "rgba(255,255,255,0.12)"}`,
+                                          background: storyDetailId === phase.id ? hexToRgba(stylePreset.warm, 0.12) : "rgba(255,255,255,0.035)",
+                                          flexShrink: 0,
+                                          "&:hover": {
+                                            color: "var(--text)",
+                                            borderColor: stylePreset.warm,
+                                            background: hexToRgba(stylePreset.warm, 0.14)
+                                          }
+                                        }}
+                                      >
+                                        <span className="material-icons" style={{ fontSize: 17 }}>
+                                          more_horiz
+                                        </span>
+                                      </IconButton>
+                                    </Stack>
+                                    <Chip
+                                      label={`${formatRuntimeClock(phase.start)}-${formatRuntimeClock(phase.end)}`}
+                                      size="small"
+                                      sx={{ ...chipStyles, borderColor: isActivePhase ? stylePreset.warm : "var(--line)", flexShrink: 0 }}
+                                    />
+                                  </Stack>
+                                  <Typography sx={{ color: isActivePhase ? "rgba(236,244,255,0.88)" : "var(--muted)", fontSize: 12.6, lineHeight: 1.45 }}>
+                                    {phase.description}
+                                  </Typography>
+                                  {phaseClasses.length > 0 && (
+                                    <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
+                                      {phaseClasses.slice(0, isActivePhase ? 4 : 2).map(className => (
+                                        <SourceChip key={`${phase.id}-${className}`} label={className} size="small" sx={classChipStyles} />
+                                      ))}
+                                    </Stack>
+                                  )}
+                                  {isActivePhase && phaseActiveStreams.length > 0 && (
+                                    <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
+                                      {phaseActiveStreams.map(stream => (
+                                        <SourceChip
+                                          key={stream.id}
+                                          label={stream.label}
+                                          size="small"
+                                          sx={{
+                                            ...chipStyles,
+                                            borderColor: resolveTimelineColor(stream.colorKey, stylePreset),
+                                            background: hexToRgba(resolveTimelineColor(stream.colorKey, stylePreset), 0.1)
+                                          }}
+                                        />
+                                      ))}
+                                    </Stack>
+                                  )}
+                                </Stack>
+                              </Box>
+                            );
+                          })}
                         </Stack>
+                      </Paper>
+                    )}
 
-                        <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
-                          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                            {Object.values(SPACING_PRESETS).map(option => (
-                              <Button
-                                key={option.id}
-                                size="small"
-                                variant={spacingPresetId === option.id ? "contained" : "outlined"}
-                                onClick={() => {
-                                  setSpacingPresetId(option.id);
-                                  setLayoutFrozen(false);
+                    {showLibraryPanel && currentLibraryGroup && (
+                      <Paper
+                        ref={libraryPanelRef}
+                        className="glass hidden-scrollbar"
+                        sx={{
+                          borderRadius: 0,
+                          p: 1.4,
+                          width: { xs: "100%", lg: 380 },
+                          height: { xs: "auto", lg: "100%" },
+                          maxHeight: { xs: "none", lg: "100%" },
+                          overflow: "auto",
+                          background: stylePreset.panelBackground,
+                          borderColor: hexToRgba(stylePreset.cool, 0.26),
+                          flexShrink: 0
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                            <Box>
+                              <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.4 }}>
+                                Library Groups
+                              </Typography>
+                              <Typography sx={{ fontWeight: 700 }}>
+                                {activePlaybackLabel}
+                              </Typography>
+                            </Box>
+                            <Chip label={`${formatRuntimeClock(effectiveLibraryClock)} / ${formatRuntimeClock(libraryTimelineDuration)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
+                          </Stack>
+
+                          {libraryGroups.map((group, index) => {
+                            const isActiveGroup = group.id === currentLibraryGroup.id;
+                            const topDependencies = group.dependencies.slice(0, isActiveGroup ? 4 : 2);
+                            return (
+                              <Box
+                                ref={element => {
+                                  if (element) {
+                                    libraryItemRefs.current[group.id] = element;
+                                  } else {
+                                    delete libraryItemRefs.current[group.id];
+                                  }
+                                }}
+                                key={group.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => jumpToLibraryGroup(group)}
+                                onKeyDown={event => {
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    jumpToLibraryGroup(group);
+                                  }
                                 }}
                                 sx={{
-                                  borderRadius: 999,
-                                  minWidth: 0,
-                                  color: spacingPresetId === option.id ? "#08111d" : "var(--text)",
-                                  background: spacingPresetId === option.id ? stylePreset.support : "transparent",
-                                  borderColor: "var(--line)"
+                                  borderRadius: 3,
+                                  p: 1.15,
+                                  cursor: "pointer",
+                                  border: `1px solid ${isActiveGroup ? stylePreset.warm : "var(--line)"}`,
+                                  background: isActiveGroup
+                                    ? `linear-gradient(180deg, ${hexToRgba(stylePreset.warm, 0.16)}, ${hexToRgba(stylePreset.cool, 0.07)})`
+                                    : "rgba(255,255,255,0.035)",
+                                  boxShadow: isActiveGroup ? `0 0 0 1px ${hexToRgba(stylePreset.warm, 0.18)}` : "none",
+                                  "&:hover": {
+                                    borderColor: stylePreset.warm,
+                                    background: isActiveGroup ? hexToRgba(stylePreset.warm, 0.17) : "rgba(255,255,255,0.07)"
+                                  }
                                 }}
                               >
-                                {option.label}
-                              </Button>
-                            ))}
-                          </Stack>
-                          <Typography className="mini-note">{spacingSummary}</Typography>
+                                <Stack spacing={0.75}>
+                                  <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                                    <Typography sx={{ fontWeight: 700, lineHeight: 1.15, minWidth: 0 }}>
+                                      {index + 1}. {group.name}
+                                    </Typography>
+                                    <Chip
+                                      label={`${formatRuntimeClock(group.start)}-${formatRuntimeClock(group.end)}`}
+                                      size="small"
+                                      sx={{ ...chipStyles, borderColor: isActiveGroup ? stylePreset.warm : "var(--line)", flexShrink: 0 }}
+                                    />
+                                  </Stack>
+                                  <Typography sx={{ color: isActiveGroup ? "rgba(236,244,255,0.88)" : "var(--muted)", fontSize: 12.6, lineHeight: 1.45 }}>
+                                    {group.description}
+                                  </Typography>
+                                  <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
+                                    <Chip label={`${group.count} libraries`} size="small" sx={chipStyles} />
+                                    <Chip label={titleCaseSize(group.totalSize)} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
+                                  </Stack>
+                                  {topDependencies.length > 0 && (
+                                    <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
+                                      {topDependencies.map(dep => (
+                                        <Chip
+                                          key={dep.id}
+                                          label={dep.name.split(":")[1] || dep.name}
+                                          size="small"
+                                          sx={classChipStyles}
+                                        />
+                                      ))}
+                                    </Stack>
+                                  )}
+                                </Stack>
+                              </Box>
+                            );
+                          })}
                         </Stack>
+                      </Paper>
+                    )}
 
-                        <Stack direction={{ xs: "column", lg: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", lg: "center" }}>
-                          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                            <Button
-                              size="small"
-                              variant={motionMode === "ambient" ? "contained" : "outlined"}
-                              onClick={() => {
-                                setMotionMode("ambient");
-                                setTimelinePlaying(false);
-                              }}
-                              sx={{
-                                borderRadius: 999,
-                                minWidth: 0,
-                                color: motionMode === "ambient" ? "#08111d" : "var(--text)",
-                                background: motionMode === "ambient" ? stylePreset.support : "rgba(8, 17, 29, 0.28)",
-                                borderColor: "var(--line)"
-                              }}
-                            >
-                              Ambient
-                            </Button>
-                            <Button
-                              size="small"
-                              variant={motionMode === "timeline" ? "contained" : "outlined"}
-                              onClick={activateTimelineMode}
-                              sx={{
-                                borderRadius: 999,
-                                minWidth: 0,
-                                color: motionMode === "timeline" ? "#08111d" : "var(--text)",
-                                background: motionMode === "timeline" ? stylePreset.cool : "rgba(8, 17, 29, 0.28)",
-                                borderColor: "var(--line)"
-                              }}
-                            >
-                              Timeline
-                            </Button>
-                          </Stack>
-
-                          {isTimelineView && (
-                            <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
-                              <Button
-                                size="small"
-                                variant={timelinePlaying ? "contained" : "outlined"}
-                                onClick={toggleTimelinePlayback}
-                                sx={{
-                                  borderRadius: 999,
-                                  color: timelinePlaying ? "#08111d" : "var(--text)",
-                                  background: timelinePlaying ? stylePreset.warm : "transparent",
-                                  borderColor: "var(--line)"
-                                }}
-                              >
-                                {timelinePlaying ? "Pause Timeline" : "Play Timeline"}
-                              </Button>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                onClick={restartTimeline}
-                                sx={{ borderRadius: 999, color: "var(--text)", borderColor: "var(--line)" }}
-                              >
-                                Restart
-                              </Button>
-                              {[
-                                { id: "once", label: "Once", active: !timelineLoop, onClick: () => setTimelineLoop(false) },
-                                { id: "loop", label: "Loop", active: timelineLoop, onClick: () => setTimelineLoop(true) }
-                              ].map(option => (
-                                <Button
-                                  key={option.id}
-                                  size="small"
-                                  variant={option.active ? "contained" : "outlined"}
-                                  onClick={option.onClick}
-                                  sx={{
-                                    borderRadius: 999,
-                                    minWidth: 0,
-                                    color: option.active ? "#08111d" : "var(--text)",
-                                    background: option.active ? stylePreset.support : "transparent",
-                                    borderColor: "var(--line)"
-                                  }}
-                                >
-                                  {option.label}
-                                </Button>
-                              ))}
-                              {[1, 2, 4].map(speed => (
-                                <Button
-                                  key={speed}
-                                  size="small"
-                                  variant={timelineSpeed === speed ? "contained" : "outlined"}
-                                  onClick={() => setTimelineSpeed(speed)}
-                                  sx={{
-                                    borderRadius: 999,
-                                    minWidth: 0,
-                                    color: timelineSpeed === speed ? "#08111d" : "var(--text)",
-                                    background: timelineSpeed === speed ? stylePreset.hot : "transparent",
-                                    borderColor: "var(--line)"
-                                  }}
-                                >
-                                  {speed}x
-                                </Button>
-                              ))}
-                            </Stack>
-                          )}
-                        </Stack>
-
-                        {isTimelineView && (
-                          <Stack spacing={0.7}>
-                            <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
-                              <Chip label={`${formatRuntimeClock(timelineClock)} / ${formatRuntimeClock(runtimeTimelineDuration)}`} size="small" sx={{ ...chipStyles, borderColor: stylePreset.hot }} />
-                              <Chip label={timelineLoop ? "Looping enabled" : "Stops at the end"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.support }} />
-                            </Stack>
-                            <Slider
-                              value={timelineClock}
-                              min={0}
-                              max={runtimeTimelineDuration}
-                              step={0.25}
-                              onChange={(event, next) => {
-                                setTimelineClock(Array.isArray(next) ? next[0] : next);
-                                pauseTimeline();
-                              }}
-                              sx={{
-                                color: stylePreset.cool,
-                                width: "100%",
-                                "& .MuiSlider-thumb": { boxShadow: "0 0 0 6px rgba(255,255,255,0.08)" }
-                              }}
-                            />
-                            <Typography className="mini-note">{animationSummary}</Typography>
-                          </Stack>
-                        )}
-                      </Stack>
-                    </Collapse>
-                  </Stack>
-                </Paper>
-
-                <Box
-                  className="viewer-stage"
-                  sx={{
-                    minHeight: viewerFullscreen ? "100%" : 0,
-                    height: viewerFullscreen ? "100%" : "auto"
-                  }}
-                >
-                  {showStoryPanel && (
-                    <Paper
-                      className="glass"
-                      sx={{
-                        borderRadius: 6,
-                        p: 2,
-                        height: storyOpen ? 184 : 84,
-                        overflow: "hidden",
-                        background: stylePreset.panelBackground,
-                        borderColor: hexToRgba(stylePreset.cool, 0.26),
-                        flexShrink: 0,
-                        transition: "height 220ms ease"
-                      }}
-                    >
-                      <Stack spacing={1.1} sx={{ height: "100%" }}>
-                        <PanelHeader
-                          eyebrow="Story"
-                          title={currentTimelinePhase.label}
-                          subtitle={null}
-                          open={storyOpen}
-                          onToggle={() => setStoryOpen(current => !current)}
-                          action={<Chip label={timelinePlaying ? `Playing ${timelineSpeed}x` : "Paused"} size="small" sx={{ ...chipStyles, borderColor: stylePreset.warm }} />}
-                        />
-                        <Collapse in={storyOpen}>
-                          <Stack spacing={1.1}>
-                            <Typography
-                              sx={{
-                                color: "var(--muted)",
-                                fontSize: 13.5,
-                                minHeight: 38,
-                                display: "-webkit-box",
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: "vertical",
-                                overflow: "hidden"
-                              }}
-                            >
-                              {currentTimelinePhase.description}
+                    {showStoryPanel && selectedStoryDetailPhase && (
+                      <Paper
+                        className="glass story-detail-panel"
+                        sx={{
+                          borderRadius: 0,
+                          width: { xs: "100%", lg: 520, xl: 560 },
+                          height: { xs: "auto", lg: "100%" },
+                          maxHeight: { xs: "none", lg: "100%" },
+                          overflow: "hidden",
+                          background: stylePreset.panelBackground,
+                          borderColor: hexToRgba(stylePreset.hot, 0.24),
+                          flexShrink: 0
+                        }}
+                      >
+                        <Stack
+                          direction="row"
+                          spacing={1.2}
+                          alignItems="flex-start"
+                          justifyContent="space-between"
+                          sx={{ p: 1.35, borderBottom: "1px solid rgba(155, 192, 255, 0.14)" }}
+                        >
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 12, letterSpacing: "0.16em", color: "var(--muted)", textTransform: "uppercase", mb: 0.45 }}>
+                              Story Detail
                             </Typography>
-                            <Typography className="mini-note">{animationSummary}</Typography>
-                            <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap sx={{ minHeight: 32, alignContent: "flex-start" }}>
-                              {timelineActiveStreams.map(stream => (
-                                <Chip
-                                  key={stream.id}
-                                  label={stream.label}
-                                  size="small"
-                                  sx={{
-                                    ...chipStyles,
-                                    borderColor: resolveTimelineColor(stream.colorKey, stylePreset),
-                                    background: hexToRgba(resolveTimelineColor(stream.colorKey, stylePreset), 0.1)
-                                  }}
-                                />
-                              ))}
-                            </Stack>
-                          </Stack>
-                        </Collapse>
-                      </Stack>
-                    </Paper>
-                  )}
+                            <Typography sx={{ fontWeight: 700, lineHeight: 1.18 }}>
+                              {selectedStoryDetailPhase.label}
+                            </Typography>
+                          </Box>
+                          <IconButton
+                            size="small"
+                            aria-label="Close story detail"
+                            title="Close story detail"
+                            onClick={() => setStoryDetailId(null)}
+                            sx={{
+                              color: "var(--text)",
+                              border: "1px solid var(--line)",
+                              background: "rgba(255,255,255,0.04)",
+                              flexShrink: 0,
+                              "&:hover": { background: "rgba(255,255,255,0.1)" }
+                            }}
+                          >
+                            <span className="material-icons" style={{ fontSize: 18 }}>
+                              close
+                            </span>
+                          </IconButton>
+                        </Stack>
 
-                  <Paper className="glass graph-frame">
-                    <Box sx={{ position: "absolute", inset: 0, background: stylePreset.graphBackground }} />
-                    <GraphView
-                      view={view}
-                      data={data}
-                      selectedId={selectedId}
-                      onSelect={setSelectedId}
-                      nodeStyle={nodeStyle}
-                      effects={effects}
-                      preset={stylePreset}
-                      layoutMode={layoutMode}
-                      layoutFrozen={layoutFrozen}
-                    compactLabels={compactLabels}
-                    command={viewerCommand}
-                    motionMode={motionMode}
-                    timelineClock={timelineClock}
-                    runtimeTimelineDefinition={runtimeTimelineDefinition}
-                    spacingScale={spacingPreset.scale}
-                  />
-                </Paper>
+                        {storyDetailStatus === "loading" && (
+                          <LinearProgress
+                            sx={{
+                              height: 2,
+                              background: "rgba(255,255,255,0.08)",
+                              "& .MuiLinearProgress-bar": { background: stylePreset.warm }
+                            }}
+                          />
+                        )}
+
+                        <Box className="hidden-scrollbar" sx={{ flex: 1, minHeight: 0, overflow: "auto", p: 1.6 }}>
+                          {storyDetailStatus === "loading" && !storyDetailMarkdown ? (
+                            <Typography sx={{ color: "var(--muted)", fontSize: 13.5 }}>
+                              Loading story detail...
+                            </Typography>
+                          ) : (
+                            <MarkdownView markdown={storyDetailMarkdown} />
+                          )}
+                        </Box>
+                      </Paper>
+                    )}
+
+                    <Paper className="glass graph-frame" sx={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+                      <Box sx={{ position: "absolute", inset: 0, background: stylePreset.graphBackground }} />
+                      <GraphView
+                        view={view}
+                        data={data}
+                        selectedId={selectedId}
+                        onSelect={setSelectedId}
+                        nodeStyle={nodeStyle}
+                        effects={effects}
+                        preset={stylePreset}
+                        layoutMode={layoutMode}
+                        layoutFrozen={layoutFrozen}
+                        compactLabels={compactLabels}
+                        command={viewerCommand}
+                        motionMode={motionMode}
+                        timelineClock={effectiveTimelineClock}
+                        runtimeTimelineDefinition={runtimeTimelineDefinition}
+                        spacingScale={spacingPreset.scale}
+                      />
+                    </Paper>
+                  </Stack>
               </Box>
               </Stack>
             </Grid>
@@ -3344,6 +3498,16 @@
       color: "#ecf4ff",
       background: "rgba(255,255,255,0.06)",
       border: "1px solid rgba(155, 192, 255, 0.18)"
+    };
+
+    const classChipStyles = {
+      ...chipStyles,
+      maxWidth: 230,
+      "& .MuiChip-label": {
+        display: "block",
+        overflow: "hidden",
+        textOverflow: "ellipsis"
+      }
     };
 
     ReactDOM.createRoot(document.getElementById("root")).render(

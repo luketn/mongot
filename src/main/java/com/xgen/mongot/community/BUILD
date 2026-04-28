@@ -20,6 +20,7 @@ java_library(
 
 java_binary(
     name = "MongotCommunity",
+    classpath_resources = ["//conf/mongot/production:conf"],
     main_class = "com.xgen.mongot.community.MongotCommunity",
     visibility = ["//visibility:public"],
     runtime_deps = [":community"],

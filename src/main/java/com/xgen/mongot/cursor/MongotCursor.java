@@ -89,8 +89,12 @@ class MongotCursor {
 
   private synchronized BsonArray getExplainDisabledNextBatch(
       Bytes resultSizeLimit, BatchCursorOptions queryCursorOptions) throws IOException {
-    this.batchProducer.execute(resultSizeLimit, queryCursorOptions);
-    return this.batchProducer.getNextBatch(resultSizeLimit);
+    try (var ignored = Tracing.detailedSpanGuard("mongot.cursor.advance_batch_producer")) {
+      this.batchProducer.execute(resultSizeLimit, queryCursorOptions);
+    }
+    try (var ignored = Tracing.detailedSpanGuard("mongot.cursor.read_batch_results")) {
+      return this.batchProducer.getNextBatch(resultSizeLimit);
+    }
   }
 
   private synchronized BsonArray getExplainEnabledNextBatch(
@@ -99,7 +103,9 @@ class MongotCursor {
     Check.checkState(getExplainQueryState().isPresent(), "Explain Query State must be present");
     Bytes previousExplainSize =
         BsonUtils.bsonValueSerializedBytes(getExplainQueryState().get().collect().toBson());
-    this.batchProducer.execute(resultSizeLimit.subtract(previousExplainSize), queryCursorOptions);
+    try (var ignored = Tracing.detailedSpanGuard("mongot.cursor.advance_batch_producer")) {
+      this.batchProducer.execute(resultSizeLimit.subtract(previousExplainSize), queryCursorOptions);
+    }
 
     Bytes newExplainSize = BsonUtils.bsonValueSerializedBytes(Explain.collect().get().toBson());
     if (resultSizeLimit.compareTo(newExplainSize) < 0) {
@@ -108,7 +114,9 @@ class MongotCursor {
     }
     Bytes nextBatchSizeLimit = resultSizeLimit.subtract(newExplainSize);
 
-    return this.batchProducer.getNextBatch(nextBatchSizeLimit);
+    try (var ignored = Tracing.detailedSpanGuard("mongot.cursor.read_batch_results")) {
+      return this.batchProducer.getNextBatch(nextBatchSizeLimit);
+    }
   }
 
   long getId() {
@@ -140,11 +148,11 @@ class MongotCursor {
   private synchronized SpanGuard getOrCreateSpan() {
     if (this.count == 1) {
       // place span underneath currently-running SearchCommand tree
-      return Tracing.simpleSpanGuard("MongotCursor.getNextBatch" + this.count);
+      return Tracing.simpleSpanGuard("mongot.cursor.get_next_batch.initial");
     } else {
       // place directly under saved parent context
       return Tracing.withTraceId(
-          "MongotCursor.getNextBatch" + this.count, this.traceId, this.traceFlags);
+          "mongot.cursor.get_next_batch.get_more", this.traceId, this.traceFlags);
     }
   }
 

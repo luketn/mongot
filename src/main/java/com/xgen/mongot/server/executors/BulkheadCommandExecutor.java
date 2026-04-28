@@ -1,11 +1,14 @@
 package com.xgen.mongot.server.executors;
 
 import com.xgen.mongot.server.command.Command;
+import com.xgen.mongot.trace.Tracing;
 import com.xgen.mongot.util.Runtime;
 import com.xgen.mongot.util.concurrent.Executors;
 import com.xgen.mongot.util.concurrent.NamedExecutorService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.Span;
 import java.io.Closeable;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -187,32 +190,96 @@ public class BulkheadCommandExecutor implements Closeable {
     return switch (command.getExecutionPolicy()) {
       case ASYNC -> {
         if (!command.maybeLoadShed()) {
-          yield CompletableFuture.supplyAsync(command::run, this.guaranteedBlockingCommandExecutor);
+          Optional<Span> queueWaitSpan =
+              startQueueWaitSpan(command, GUARANTEED_EXECUTOR_NAME, "guaranteed");
+          yield submitAsyncCommand(
+              command,
+              () -> false,
+              queueWaitSpan,
+              GUARANTEED_EXECUTOR_NAME,
+              this.guaranteedBlockingCommandExecutor);
         }
         recordWouldHaveRejectedIfNeeded();
-        yield CompletableFuture.supplyAsync(
-            () -> {
-              if (isCancelled.getAsBoolean()) {
-                this.skippedDueToCancelledStreamCounter.increment();
-                LOG.debug(
-                    "Skipping dequeued command '{}' because stream was cancelled", command.name());
-                throw new CancelledStreamSkipException(
-                    "Command '"
-                        + command.name()
-                        + "' skipped: stream was cancelled before execution");
-              }
-              return command.run();
-            },
+        Optional<Span> queueWaitSpan = startQueueWaitSpan(command, REGULAR_EXECUTOR_NAME, "regular");
+        yield submitAsyncCommand(
+            command,
+            isCancelled,
+            queueWaitSpan,
+            REGULAR_EXECUTOR_NAME,
             this.regularBlockingCommandExecutor);
       }
       case SYNC -> {
-        try {
-          yield CompletableFuture.completedFuture(command.run());
-        } catch (Throwable t) {
-          yield CompletableFuture.failedFuture(t);
+        try (var runSpan =
+            Tracing.detailedSpanGuard("mongot.executor.run_command", commandAttributes(command))) {
+          runSpan.getSpan().setAttribute("mongot.executor.name", "sync");
+          try {
+            yield CompletableFuture.completedFuture(command.run());
+          } catch (Throwable t) {
+            yield CompletableFuture.failedFuture(t);
+          }
         }
       }
     };
+  }
+
+  private BsonDocument runAsyncCommand(
+      Command command,
+      BooleanSupplier isCancelled,
+      Optional<Span> queueWaitSpan,
+      String executorName) {
+    endQueueWaitSpan(queueWaitSpan, "dequeued");
+    try (var runSpan =
+        Tracing.detailedSpanGuard("mongot.executor.run_command", commandAttributes(command))) {
+      runSpan.getSpan().setAttribute("mongot.executor.name", executorName);
+      if (isCancelled.getAsBoolean()) {
+        this.skippedDueToCancelledStreamCounter.increment();
+        LOG.debug("Skipping dequeued command '{}' because stream was cancelled", command.name());
+        throw new CancelledStreamSkipException(
+            "Command '" + command.name() + "' skipped: stream was cancelled before execution");
+      }
+      return command.run();
+    }
+  }
+
+  private CompletableFuture<BsonDocument> submitAsyncCommand(
+      Command command,
+      BooleanSupplier isCancelled,
+      Optional<Span> queueWaitSpan,
+      String executorName,
+      NamedExecutorService executor) {
+    try {
+      return CompletableFuture.supplyAsync(
+          () -> runAsyncCommand(command, isCancelled, queueWaitSpan, executorName), executor);
+    } catch (RuntimeException e) {
+      endQueueWaitSpan(queueWaitSpan, "submission_failed");
+      throw e;
+    }
+  }
+
+  private Optional<Span> startQueueWaitSpan(
+      Command command, String executorName, String executorKind) {
+    return Tracing.detailedUnguardedSpan(
+        "mongot.executor.queue_wait",
+        commandAttributes(command).toBuilder()
+            .put("mongot.executor.name", executorName)
+            .put("mongot.executor.kind", executorKind)
+            .build());
+  }
+
+  private static void endQueueWaitSpan(Optional<Span> queueWaitSpan, String endReason) {
+    queueWaitSpan.ifPresent(
+        span -> {
+          span.setAttribute("mongot.executor.queue_wait.end_reason", endReason);
+          span.end();
+        });
+  }
+
+  private static Attributes commandAttributes(Command command) {
+    return Attributes.builder()
+        .put("mongot.command.name", command.name())
+        .put("mongot.command.execution_policy", command.getExecutionPolicy().name())
+        .put("mongot.command.maybe_load_shed", command.maybeLoadShed())
+        .build();
   }
 
   @Override

@@ -14,6 +14,7 @@ import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.Query;
 import com.xgen.mongot.index.query.QueryOptimizationFlags;
 import com.xgen.mongot.index.query.SearchQuery;
+import com.xgen.mongot.trace.Tracing;
 import com.xgen.mongot.util.Bytes;
 import com.xgen.mongot.util.concurrent.LockGuard;
 import io.micrometer.core.instrument.Timer;
@@ -100,9 +101,11 @@ class IndexCursorManagerImpl implements IndexCursorManager {
       // because this cursor will only be visible after being inserted to this.cursorAndStats.
       // We might be registering empty cursors here as well (index in DOES_NOT_EXIST state), but
       // they will be killed after the one call to getNextBatch.
-      this.cursorAndStats.put(
-          cursorId,
-          new CursorAndStats(cursorInfo.cursor, new ActiveCursorStats(cursorQuery.getQuery())));
+      try (var registerSpan = Tracing.detailedSpanGuard("mongot.cursor.register_active_cursor")) {
+        this.cursorAndStats.put(
+            cursorId,
+            new CursorAndStats(cursorInfo.cursor, new ActiveCursorStats(cursorQuery.getQuery())));
+      }
       return new SearchCursorInfo(cursorId, cursorInfo.metaResults);
     }
   }

@@ -1,319 +1,961 @@
 {
-  "duration": 90,
+  "duration": 60,
   "phases": [
     {
       "id": "bootstrap",
-      "label": "Bootstrap",
+      "label": "MongoT Bootstrap",
       "focusKey": "config",
-      "start": 0,
-      "end": 6,
-      "description": "Community bootstrap fans out through config to assemble logging, metrics, monitors, metadata, cursors, and servers.",
+      "start": 2,
+      "end": 8,
+      "description": "MongoT startup wires local runtime services and opens MongoDB-facing metadata/sync-source clients. It refreshes server info and starts the metadata service before search traffic arrives.",
+      "classes": [
+        "CommunityMongotBootstrapper",
+        "MongoDbMetadataClient",
+        "DefaultMetadataService",
+        "DefaultConfigManager",
+        "GrpcStreamingServer"
+      ],
       "streams": [
         {
-          "id": "boot-core",
-          "label": "bootstrap fan-out",
+          "id": "bootstrap-core",
+          "label": "config fan-out",
           "colorKey": "support",
           "width": 2.6,
-          "intensity": 0.92,
-          "tempo": 0.95,
+          "intensity": 0.88,
+          "tempo": 1.05,
           "particles": 3,
           "modulation": "ramp",
           "edges": [
-            ["community", "config"],
-            ["config", "metrics"],
-            ["config", "monitor"],
-            ["config", "catalogservice"],
-            ["config", "cursor"],
-            ["config", "server"]
+            [
+              "community",
+              "config"
+            ],
+            [
+              "config",
+              "server"
+            ],
+            [
+              "config",
+              "cursor"
+            ],
+            [
+              "config",
+              "catalogservice"
+            ]
           ]
         },
         {
-          "id": "boot-support",
-          "label": "support wiring",
+          "id": "bootstrap-mongodb",
+          "label": "metadata MongoDB client",
           "colorKey": "cool",
-          "width": 2.1,
-          "intensity": 0.72,
-          "tempo": 0.8,
+          "width": 2.2,
+          "intensity": 0.64,
+          "tempo": 0.95,
           "particles": 2,
-          "modulation": "drift",
+          "modulation": "surge",
           "edges": [
-            ["config", "embedding"],
-            ["config", "lifecycle"],
-            ["community", "logging"]
+            [
+              "config",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "catalogservice"
+            ],
+            [
+              "mongod",
+              "server"
+            ]
+          ]
+        },
+        {
+          "id": "bootstrap-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "config",
+              "util"
+            ],
+            [
+              "config",
+              "featureflag"
+            ],
+            [
+              "config",
+              "logging"
+            ],
+            [
+              "config",
+              "metrics"
+            ],
+            [
+              "config",
+              "trace"
+            ]
           ]
         }
       ]
     },
     {
       "id": "initialize",
-      "label": "Initialize",
+      "label": "Index Ready",
       "focusKey": "index",
-      "start": 6,
-      "end": 18,
-      "description": "Config state starts lifecycle managers, initializes indexes, and hands those generations into replication.",
+      "start": 8,
+      "end": 14,
+      "description": "MongoT reads authoritative index metadata from MongoDB, initializes index generations, starts replication, and makes Lucene-backed readers available for command streams.",
+      "classes": [
+        "DefaultAuthoritativeIndexCatalog",
+        "DefaultLifecycleManager",
+        "IndexLifecycleManager",
+        "MongoDbReplicationManager",
+        "ChangeStreamMongoCursorClient"
+      ],
       "streams": [
         {
-          "id": "initialize-lifecycle",
-          "label": "initialize lifecycle",
+          "id": "initialize-index",
+          "label": "index lifecycle",
           "colorKey": "warm",
-          "width": 3.0,
-          "intensity": 0.88,
+          "width": 3,
+          "intensity": 0.9,
+          "tempo": 1.2,
+          "particles": 4,
+          "modulation": "surge",
+          "edges": [
+            [
+              "config",
+              "lifecycle"
+            ],
+            [
+              "lifecycle",
+              "index"
+            ],
+            [
+              "lifecycle",
+              "replication"
+            ],
+            [
+              "index",
+              "cursor"
+            ]
+          ]
+        },
+        {
+          "id": "initialize-catalog",
+          "label": "catalog definitions",
+          "colorKey": "support",
+          "width": 1.9,
+          "intensity": 0.54,
+          "tempo": 0.9,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "config",
+              "catalogservice"
+            ],
+            [
+              "catalogservice",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "initialize-metadata-read",
+          "label": "read index metadata",
+          "colorKey": "cool",
+          "width": 2.4,
+          "intensity": 0.72,
           "tempo": 1.05,
           "particles": 3,
           "modulation": "surge",
           "edges": [
-            ["config", "lifecycle"],
-            ["lifecycle", "index"],
-            ["lifecycle", "replication"]
+            [
+              "catalogservice",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "catalogservice"
+            ],
+            [
+              "catalogservice",
+              "lifecycle"
+            ],
+            [
+              "lifecycle",
+              "replication"
+            ]
           ]
         },
         {
-          "id": "initialize-control",
-          "label": "control-plane polling",
+          "id": "initialize-support-trickle",
+          "label": "support package trickle",
           "colorKey": "support",
-          "width": 1.8,
-          "intensity": 0.54,
-          "tempo": 0.7,
-          "particles": 2,
-          "modulation": "ping",
-          "edges": [
-            ["config", "catalogservice"],
-            ["catalogservice", "config"]
-          ]
-        }
-      ]
-    },
-    {
-      "id": "initialsync",
-      "label": "Initial Sync",
-      "focusKey": "index",
-      "start": 18,
-      "end": 34,
-      "description": "Replication dominates while collection scan, buffered change capture, and buffered replay all feed the index.",
-      "streams": [
-        {
-          "id": "initialsync-feed",
-          "label": "initial sync ingestion",
-          "colorKey": "hot",
-          "width": 3.5,
-          "intensity": 0.98,
-          "tempo": 1.35,
-          "particles": 4,
-          "modulation": "surge",
-          "edges": [
-            ["replication", "index"]
-          ]
-        },
-        {
-          "id": "initialsync-supervision",
-          "label": "status and lifecycle supervision",
-          "colorKey": "warm",
-          "width": 2.2,
-          "intensity": 0.62,
-          "tempo": 0.84,
-          "particles": 2,
-          "modulation": "drift",
-          "edges": [
-            ["lifecycle", "replication"],
-            ["config", "lifecycle"]
-          ]
-        }
-      ]
-    },
-    {
-      "id": "steady",
-      "label": "Stable State",
-      "focusKey": "index",
-      "start": 34,
-      "end": 44,
-      "description": "Change streams keep indexes current while config polling and metadata updates continue quietly beside serving.",
-      "streams": [
-        {
-          "id": "steady-repl",
-          "label": "steady-state replication",
-          "colorKey": "cool",
-          "width": 2.6,
-          "intensity": 0.68,
-          "tempo": 0.92,
-          "particles": 3,
-          "modulation": "drift",
-          "edges": [
-            ["replication", "index"]
-          ]
-        },
-        {
-          "id": "steady-config",
-          "label": "catalog polling",
-          "colorKey": "support",
-          "width": 1.8,
-          "intensity": 0.46,
-          "tempo": 0.66,
-          "particles": 2,
-          "modulation": "ping",
-          "edges": [
-            ["config", "catalogservice"],
-            ["catalogservice", "config"]
-          ]
-        },
-        {
-          "id": "steady-guardrails",
-          "label": "monitoring feedback",
-          "colorKey": "warm",
-          "width": 1.7,
-          "intensity": 0.34,
-          "tempo": 0.54,
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
           "particles": 1,
           "modulation": "ping",
           "edges": [
-            ["monitor", "config"]
+            [
+              "index",
+              "blobstore"
+            ],
+            [
+              "index",
+              "util"
+            ],
+            [
+              "lifecycle",
+              "monitor"
+            ],
+            [
+              "config",
+              "featureflag"
+            ]
+          ]
+        },
+        {
+          "id": "initialize-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "lifecycle",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
           ]
         }
       ]
     },
     {
-      "id": "atlasload",
-      "label": "Atlas Search Load",
-      "focusKey": "cursor",
-      "start": 44,
-      "end": 59,
-      "description": "A modeled Atlas Search surge lights up the Lucene-serving path through cursors while steady-state replication keeps running underneath.",
+      "id": "textsearch",
+      "label": "Text Search",
+      "focusKey": "server",
+      "start": 14,
+      "end": 24,
+      "description": "The client performs an aggregate $search query on MongoD through the driver. MongoD opens the gRPC stream to MongoT, and MongoT routes through Cursor into Lucene text execution.",
+      "classes": [
+        "ServerCallHandler",
+        "GrpcStreamingServer",
+        "SearchCommand",
+        "LuceneSearchIndexReader"
+      ],
       "streams": [
         {
-          "id": "atlas-load",
-          "label": "atlas search flow",
+          "id": "text-boundary",
+          "label": "aggregate + gRPC search",
           "colorKey": "warm",
-          "width": 3.9,
+          "width": 3.8,
           "intensity": 1,
-          "tempo": 2.15,
+          "tempo": 1.9,
           "particles": 5,
           "modulation": "burst",
           "edges": [
-            ["server", "cursor"],
-            ["cursor", "index"]
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ]
           ]
         },
         {
-          "id": "atlas-repl",
-          "label": "background replication",
-          "colorKey": "cool",
-          "width": 2.2,
-          "intensity": 0.52,
-          "tempo": 0.92,
-          "particles": 2,
-          "modulation": "drift",
+          "id": "text-lucene",
+          "label": "Lucene text collect",
+          "colorKey": "hot",
+          "width": 2.6,
+          "intensity": 0.78,
+          "tempo": 1.55,
+          "particles": 3,
+          "modulation": "surge",
           "edges": [
-            ["replication", "index"]
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
+        },
+        {
+          "id": "textsearch-replication-trickle",
+          "label": "change stream trickle",
+          "colorKey": "cool",
+          "width": 1.45,
+          "intensity": 0.34,
+          "tempo": 0.72,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "mongod",
+              "replication"
+            ],
+            [
+              "replication",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "textsearch-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "index",
+              "util"
+            ],
+            [
+              "index",
+              "featureflag"
+            ],
+            [
+              "cursor",
+              "catalog"
+            ],
+            [
+              "server",
+              "logging"
+            ]
+          ]
+        },
+        {
+          "id": "textsearch-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "server",
+              "metrics"
+            ],
+            [
+              "server",
+              "trace"
+            ],
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
           ]
         }
       ]
     },
     {
-      "id": "vectorload",
-      "label": "Vector Search Load",
-      "focusKey": "embedding",
-      "start": 59,
-      "end": 74,
-      "description": "A modeled Vector Search surge lights up the embedding path before the vector index reader while steady-state replication continues.",
+      "id": "vectorsearch",
+      "label": "Vector Search",
+      "focusKey": "index",
+      "start": 24,
+      "end": 32,
+      "description": "The Client performs vector embedding on the search text, then performs an aggregate $vectorSearch on MongoD. MongoT builds a vector query and performs the search on the Lucene index.",
+      "classes": [
+        "VectorSearchOperator",
+        "LuceneVectorSearchManager",
+        "LuceneVectorSearchBatchProducer",
+        "VectorSearchCommand"
+      ],
       "streams": [
         {
-          "id": "vector-load",
-          "label": "vector search flow",
-          "colorKey": "hot",
-          "width": 3.6,
-          "intensity": 0.94,
-          "tempo": 1.9,
+          "id": "vector-boundary",
+          "label": "vector aggregate path",
+          "colorKey": "warm",
+          "width": 3.4,
+          "intensity": 0.92,
+          "tempo": 1.75,
           "particles": 4,
           "modulation": "burst",
           "edges": [
-            ["server", "embedding"],
-            ["embedding", "index"]
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ]
           ]
         },
         {
-          "id": "vector-repl",
-          "label": "background replication",
-          "colorKey": "cool",
-          "width": 2.2,
-          "intensity": 0.52,
-          "tempo": 0.92,
-          "particles": 2,
-          "modulation": "drift",
-          "edges": [
-            ["replication", "index"]
-          ]
-        }
-      ]
-    },
-    {
-      "id": "atlastaper",
-      "label": "Atlas Search Taper",
-      "focusKey": "cursor",
-      "start": 74,
-      "end": 78,
-      "description": "Atlas Search traffic thins out, but the cursor-backed Lucene path is still active at lower intensity.",
-      "streams": [
-        {
-          "id": "atlas-taper",
-          "label": "atlas search tail",
-          "colorKey": "warm",
-          "width": 2.8,
-          "intensity": 0.54,
-          "tempo": 1.2,
-          "particles": 3,
-          "modulation": "fade",
-          "edges": [
-            ["server", "cursor"],
-            ["cursor", "index"]
-          ]
-        },
-        {
-          "id": "atlas-taper-repl",
-          "label": "steady-state replication",
-          "colorKey": "cool",
-          "width": 1.9,
-          "intensity": 0.34,
-          "tempo": 0.72,
-          "particles": 2,
-          "modulation": "fade",
-          "edges": [
-            ["replication", "index"]
-          ]
-        }
-      ]
-    },
-    {
-      "id": "vectortaper",
-      "label": "Vector Search Taper",
-      "focusKey": "embedding",
-      "start": 78,
-      "end": 82,
-      "description": "Vector traffic ebbs, leaving the embedding and vector-reader path active at reduced intensity.",
-      "streams": [
-        {
-          "id": "vector-taper",
-          "label": "vector search tail",
+          "id": "vector-lucene",
+          "label": "Lucene vector candidates",
           "colorKey": "hot",
-          "width": 2.5,
-          "intensity": 0.44,
-          "tempo": 1.05,
-          "particles": 2,
-          "modulation": "fade",
+          "width": 3.3,
+          "intensity": 0.96,
+          "tempo": 2.05,
+          "particles": 5,
+          "modulation": "burst",
           "edges": [
-            ["server", "embedding"],
-            ["embedding", "index"]
+            [
+              "index",
+              "trace"
+            ],
+            [
+              "index",
+              "metrics"
+            ]
           ]
         },
         {
-          "id": "vector-taper-repl",
-          "label": "steady-state replication",
+          "id": "vectorsearch-replication-trickle",
+          "label": "change stream trickle",
           "colorKey": "cool",
-          "width": 1.9,
+          "width": 1.45,
           "intensity": 0.34,
           "tempo": 0.72,
-          "particles": 2,
-          "modulation": "fade",
+          "particles": 1,
+          "modulation": "ping",
           "edges": [
-            ["replication", "index"]
+            [
+              "mongod",
+              "replication"
+            ],
+            [
+              "replication",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "vectorsearch-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "index",
+              "util"
+            ],
+            [
+              "index",
+              "featureflag"
+            ],
+            [
+              "index",
+              "embedding"
+            ],
+            [
+              "server",
+              "logging"
+            ]
+          ]
+        },
+        {
+          "id": "vectorsearch-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "server",
+              "metrics"
+            ],
+            [
+              "server",
+              "trace"
+            ],
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "combined",
+      "label": "Rank Fusion",
+      "focusKey": "mongod",
+      "start": 32,
+      "end": 40,
+      "description": "$rankFusion combines lexical text and vector semantic searches, combining the ranked score of the two resultsets. mongod runs the fusion and opens separate MongoT streams for the text/default and vector/vector_caption sub-pipelines.",
+      "classes": [
+        "GrpcStreamingServer",
+        "SearchCommand",
+        "VectorSearchCommand",
+        "LuceneVectorSearchManager"
+      ],
+      "streams": [
+        {
+          "id": "combined-text",
+          "label": "text sub-pipeline",
+          "colorKey": "warm",
+          "width": 2.9,
+          "intensity": 0.82,
+          "tempo": 1.65,
+          "particles": 3,
+          "modulation": "burst",
+          "edges": [
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "combined-vector",
+          "label": "vector sub-pipeline",
+          "colorKey": "hot",
+          "width": 3.2,
+          "intensity": 0.92,
+          "tempo": 1.95,
+          "particles": 4,
+          "modulation": "burst",
+          "edges": [
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
+        },
+        {
+          "id": "combined-replication-trickle",
+          "label": "change stream trickle",
+          "colorKey": "cool",
+          "width": 1.45,
+          "intensity": 0.34,
+          "tempo": 0.72,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "mongod",
+              "replication"
+            ],
+            [
+              "replication",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "combined-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "server",
+              "util"
+            ],
+            [
+              "index",
+              "featureflag"
+            ],
+            [
+              "index",
+              "embedding"
+            ],
+            [
+              "cursor",
+              "catalog"
+            ]
+          ]
+        },
+        {
+          "id": "combined-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "server",
+              "metrics"
+            ],
+            [
+              "server",
+              "trace"
+            ],
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "document-fetch-cursor",
+      "label": "Document Fetch",
+      "focusKey": "cursor",
+      "start": 40,
+      "end": 49,
+      "description": "If requested fields are not returned from Lucene Stored Source, MongoT returns hit ids and scores, mongod fetches the missing fields from matched MongoDB documents before returning the data to the client.",
+      "classes": [
+        "IdLookupFactory",
+        "ProjectFactory",
+        "SearchCommand",
+        "KillCursorsCommand",
+        "MongotCursorManagerImpl"
+      ],
+      "streams": [
+        {
+          "id": "document-fetch-search",
+          "label": "hit ids and scores",
+          "colorKey": "warm",
+          "width": 3.2,
+          "intensity": 0.88,
+          "tempo": 1.55,
+          "particles": 4,
+          "modulation": "surge",
+          "edges": [
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "document-fetch-materialize",
+          "label": "mongod fetches documents",
+          "colorKey": "cool",
+          "width": 2.4,
+          "intensity": 0.72,
+          "tempo": 1.15,
+          "particles": 3,
+          "modulation": "ping",
+          "edges": [
+            [
+              "index",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "server"
+            ],
+            [
+              "server",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "client"
+            ]
+          ]
+        },
+        {
+          "id": "document-fetch-cleanup",
+          "label": "cursor cleanup",
+          "colorKey": "support",
+          "width": 2.7,
+          "intensity": 0.76,
+          "tempo": 1.45,
+          "particles": 3,
+          "modulation": "surge",
+          "edges": [
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ]
+          ]
+        },
+        {
+          "id": "document-fetch-cursor-replication-trickle",
+          "label": "change stream trickle",
+          "colorKey": "cool",
+          "width": 1.45,
+          "intensity": 0.34,
+          "tempo": 0.72,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "mongod",
+              "replication"
+            ],
+            [
+              "replication",
+              "index"
+            ]
+          ]
+        },
+        {
+          "id": "document-fetch-cursor-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "cursor",
+              "catalog"
+            ],
+            [
+              "index",
+              "util"
+            ],
+            [
+              "server",
+              "logging"
+            ],
+            [
+              "server",
+              "featureflag"
+            ]
+          ]
+        },
+        {
+          "id": "document-fetch-cursor-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "server",
+              "metrics"
+            ],
+            [
+              "server",
+              "trace"
+            ],
+            [
+              "cursor",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mutations",
+      "label": "Writes + Change Streams",
+      "focusKey": "replication",
+      "start": 49,
+      "end": 55,
+      "description": "Insert, update, and delete requests write to mongod first. MongoT sees the changes in an eventually-consistent manner through change stream watchers on the indexed collections. Changes observed are reflected in the Lucene index.",
+      "classes": [
+        "ChangeStreamManager",
+        "DecodingWorkScheduler",
+        "IndexingWorkScheduler",
+        "SingleLuceneIndexWriter"
+      ],
+      "streams": [
+        {
+          "id": "mutation-write",
+          "label": "mongod change stream source",
+          "colorKey": "cool",
+          "width": 2.6,
+          "intensity": 0.72,
+          "tempo": 1.25,
+          "particles": 3,
+          "modulation": "surge",
+          "edges": [
+            [
+              "client",
+              "mongod"
+            ],
+            [
+              "mongod",
+              "replication"
+            ]
+          ]
+        },
+        {
+          "id": "mutation-lucene-writer",
+          "label": "change stream to Lucene",
+          "colorKey": "hot",
+          "width": 3.3,
+          "intensity": 0.94,
+          "tempo": 1.8,
+          "particles": 4,
+          "modulation": "burst",
+          "edges": [
+            [
+              "replication",
+              "index"
+            ],
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
+          ]
+        },
+        {
+          "id": "mutations-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "replication",
+              "util"
+            ],
+            [
+              "replication",
+              "featureflag"
+            ],
+            [
+              "replication",
+              "monitor"
+            ],
+            [
+              "index",
+              "blobstore"
+            ],
+            [
+              "replication",
+              "logging"
+            ]
+          ]
+        },
+        {
+          "id": "mutations-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "replication",
+              "metrics"
+            ],
+            [
+              "index",
+              "metrics"
+            ],
+            [
+              "index",
+              "trace"
+            ]
           ]
         }
       ]
@@ -321,40 +963,123 @@
     {
       "id": "shutdown",
       "label": "Shutdown",
-      "focusKey": "config",
-      "start": 82,
-      "end": 90,
-      "description": "Terminal health state triggers server stop, metrics stop, config close, lifecycle shutdown, and replication teardown.",
+      "focusKey": "lifecycle",
+      "start": 55,
+      "end": 58,
+      "description": "Shutdown reverses the startup shape: MongoT stops accepting new command streams, drains cursors and background work, closes Lucene/index lifecycle resources, and lets metrics/logging/tracing finish cleanly.",
+      "classes": [
+        "DefaultLifecycleManager",
+        "IndexLifecycleManager",
+        "MongotCursorManagerImpl",
+        "GrpcStreamingServer"
+      ],
       "streams": [
         {
-          "id": "shutdown-fanout",
-          "label": "controlled shutdown",
-          "colorKey": "support",
-          "width": 2.7,
+          "id": "shutdown-drain",
+          "label": "drain command streams",
+          "colorKey": "cool",
+          "width": 3,
           "intensity": 0.86,
-          "tempo": 1.05,
+          "tempo": 1.15,
           "particles": 3,
-          "modulation": "surge",
+          "modulation": "fade",
           "edges": [
-            ["community", "config"],
-            ["config", "server"],
-            ["config", "metrics"],
-            ["config", "catalogservice"]
+            [
+              "mongod",
+              "server"
+            ],
+            [
+              "server",
+              "cursor"
+            ],
+            [
+              "cursor",
+              "index"
+            ]
           ]
         },
         {
-          "id": "shutdown-core",
-          "label": "lifecycle and replication teardown",
-          "colorKey": "cool",
-          "width": 2.5,
-          "intensity": 0.78,
-          "tempo": 0.9,
-          "particles": 2,
-          "modulation": "surge",
+          "id": "shutdown-lifecycle",
+          "label": "lifecycle closes runtime",
+          "colorKey": "warm",
+          "width": 3.2,
+          "intensity": 0.92,
+          "tempo": 1.05,
+          "particles": 3,
+          "modulation": "fade",
           "edges": [
-            ["config", "lifecycle"],
-            ["lifecycle", "replication"],
-            ["community", "logging"]
+            [
+              "server",
+              "lifecycle"
+            ],
+            [
+              "lifecycle",
+              "index"
+            ],
+            [
+              "lifecycle",
+              "replication"
+            ],
+            [
+              "lifecycle",
+              "metrics"
+            ],
+            [
+              "trace",
+              "logging"
+            ]
+          ]
+        },
+        {
+          "id": "shutdown-support-trickle",
+          "label": "support package trickle",
+          "colorKey": "support",
+          "width": 1.35,
+          "intensity": 0.3,
+          "tempo": 0.68,
+          "particles": 1,
+          "modulation": "ping",
+          "edges": [
+            [
+              "lifecycle",
+              "logging"
+            ],
+            [
+              "lifecycle",
+              "monitor"
+            ],
+            [
+              "lifecycle",
+              "blobstore"
+            ],
+            [
+              "server",
+              "util"
+            ]
+          ]
+        },
+        {
+          "id": "shutdown-observability",
+          "label": "metrics + traces",
+          "colorKey": "support",
+          "width": 1.8,
+          "intensity": 0.48,
+          "tempo": 0.95,
+          "particles": 2,
+          "modulation": "ping",
+          "edges": [
+            [
+              "lifecycle",
+              "metrics"
+            ],
+            [
+              "server",
+              "trace"
+            ],
+            [
+              "trace",
+              "logging"
+            ]
           ]
         }
       ]

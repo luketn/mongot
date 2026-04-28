@@ -298,7 +298,8 @@ class LuceneSearchBatchProducer implements BatchProducer {
   @SuppressWarnings({"removal"})
   private BsonArray getSearchResultsFromIter(Bytes sizeLimit, SearchResultsIter iter)
       throws IOException {
-    try (var sp = Tracing.simpleSpanGuard("LuceneSearchBatchProducer.getSearchResults")) {
+    try (var sp = Tracing.detailedSpanGuard("mongot.lucene.materialize_bson_documents")) {
+      sp.getSpan().setAttribute("mongot.lucene.index.partition", this.indexPartitionId);
       var previousBatchLastValue = this.lastIterValue;
       var builder = BsonArrayBuilder.withLimit(sizeLimit);
       @Var boolean tieDetected = false;
@@ -353,6 +354,11 @@ class LuceneSearchBatchProducer implements BatchProducer {
       }
 
       BsonArray results = builder.build();
+      sp.getSpan().setAttribute("mongot.batch.result.count", results.size());
+      sp.getSpan().setAttribute("mongot.batch.data_size.bytes", builder.getDataSize().toBytes());
+      sp.getSpan().setAttribute("mongot.lucene.total_hits", topDocs.totalHits.value);
+      sp.getSpan().setAttribute("mongot.lucene.total_hits.relation", topDocs.totalHits.relation.name());
+      addResultSamples(sp.getSpan(), results);
 
       boolean allDocsFitInTheBatch = allDocsFitInTheBatch(topDocs, results, iter.skippedHead);
 
@@ -372,6 +378,27 @@ class LuceneSearchBatchProducer implements BatchProducer {
       FLOGGER.atFine().log("Prepared %s search results in %s", results.size(), sp.getSpan());
       sp.getSpan().setAttribute("num search results", results.size());
       return results;
+    }
+  }
+
+  private static void addResultSamples(io.opentelemetry.api.trace.Span span, BsonArray results) {
+    int sampleCount = Math.min(results.size(), Tracing.tracePayloadSampleDocs());
+    span.setAttribute("mongot.result.sample.count", sampleCount);
+    for (int i = 0; i < sampleCount; i++) {
+      BsonValue value = results.get(i);
+      String sample = value.isDocument() ? value.asDocument().toJson() : value.toString();
+      Tracing.setPayloadAttribute(span, "mongot.result.sample." + i, sample);
+      if (value.isDocument()) {
+        setSampleId(span, i, value.asDocument());
+      }
+    }
+  }
+
+  private static void setSampleId(
+      io.opentelemetry.api.trace.Span span, int sampleIndex, BsonDocument document) {
+    BsonValue id = document.get("_id");
+    if (id != null) {
+      Tracing.setPayloadAttribute(span, "mongot.result.sample." + sampleIndex + "._id", id.toString());
     }
   }
 

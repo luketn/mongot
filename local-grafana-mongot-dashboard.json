@@ -1,199 +1,374 @@
 {
   "uid": "mongot-local",
-  "title": "MongoT — Metrics & Traces",
+  "title": "MongoT \u2014 Metrics & Traces",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 10,
+  "version": 18,
   "refresh": "10s",
-  "tags": ["mongot", "prometheus", "jaeger"],
-  "time": { "from": "now-15m", "to": "now" },
+  "tags": [
+    "mongot",
+    "prometheus",
+    "jaeger"
+  ],
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
   "panels": [
     {
       "type": "stat",
       "title": "MongoT Target UP",
-      "gridPos": { "x": 0, "y": 18, "w": 6, "h": 4 },
+      "gridPos": {
+        "x": 0,
+        "y": 42,
+        "w": 6,
+        "h": 4
+      },
       "targets": [
-        { "expr": "up{job=\"mongot\"}", "refId": "A" }
+        {
+          "expr": "up{job=\"mongot\"}",
+          "refId": "A"
+        }
       ],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "type": "timeseries",
       "title": "Scrape Duration (s)",
-      "gridPos": { "x": 6, "y": 18, "w": 9, "h": 4 },
+      "gridPos": {
+        "x": 6,
+        "y": 42,
+        "w": 9,
+        "h": 4
+      },
       "targets": [
-        { "expr": "scrape_duration_seconds{job=\"mongot\"}", "refId": "A" }
+        {
+          "expr": "scrape_duration_seconds{job=\"mongot\"}",
+          "refId": "A"
+        }
       ]
     },
     {
       "type": "timeseries",
       "title": "Samples Scraped",
-      "gridPos": { "x": 15, "y": 18, "w": 9, "h": 4 },
+      "gridPos": {
+        "x": 15,
+        "y": 42,
+        "w": 9,
+        "h": 4
+      },
       "targets": [
-        { "expr": "scrape_samples_scraped{job=\"mongot\"}", "refId": "A" }
+        {
+          "expr": "scrape_samples_scraped{job=\"mongot\"}",
+          "refId": "A"
+        }
       ]
     },
-
     {
       "type": "timeseries",
       "title": "Replication Lag (ms)",
-      "gridPos": { "x": 0, "y": 22, "w": 12, "h": 6 },
+      "gridPos": {
+        "x": 0,
+        "y": 46,
+        "w": 12,
+        "h": 6
+      },
       "targets": [
-        { "expr": "mongot_index_stats_indexing_replicationLagMs", "refId": "A" }
+        {
+          "expr": "mongot_index_stats_indexing_replicationLagMs",
+          "refId": "A"
+        }
       ]
     },
     {
       "type": "stat",
       "title": "Index Status = STEADY (1 = healthy)",
-      "gridPos": { "x": 12, "y": 22, "w": 6, "h": 6 },
+      "gridPos": {
+        "x": 12,
+        "y": 46,
+        "w": 6,
+        "h": 6
+      },
       "targets": [
-        { "expr": "max(mongot_index_stats_indexStatusCode{status=\"STEADY\"})", "refId": "A" }
+        {
+          "expr": "max(mongot_index_stats_indexStatusCode{status=\"STEADY\"})",
+          "refId": "A"
+        }
       ],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "type": "timeseries",
       "title": "Index Size (bytes)",
-      "gridPos": { "x": 18, "y": 22, "w": 6, "h": 6 },
+      "gridPos": {
+        "x": 18,
+        "y": 46,
+        "w": 6,
+        "h": 6
+      },
       "targets": [
-        { "expr": "mongot_index_stats_indexSizeBytes", "refId": "A" }
+        {
+          "expr": "mongot_index_stats_indexSizeBytes",
+          "refId": "A"
+        }
       ]
     },
-
     {
       "type": "timeseries",
       "title": "Indexing Inserts / sec",
-      "gridPos": { "x": 0, "y": 28, "w": 12, "h": 7 },
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 12,
+        "h": 7
+      },
       "targets": [
-        { "expr": "sum(rate(mongot_index_stats_indexing_insert_total[5m]))", "refId": "A" }
+        {
+          "expr": "sum(rate(mongot_index_stats_indexing_insert_total[5m]))",
+          "refId": "A"
+        }
       ]
     },
     {
       "type": "timeseries",
       "title": "Bytes Processed / sec",
-      "gridPos": { "x": 12, "y": 28, "w": 12, "h": 7 },
+      "gridPos": {
+        "x": 12,
+        "y": 52,
+        "w": 12,
+        "h": 7
+      },
       "targets": [
-        { "expr": "sum(rate(mongot_index_stats_indexing_totalBytesProcessed_total[5m]))", "refId": "A" }
+        {
+          "expr": "sum(rate(mongot_index_stats_indexing_totalBytesProcessed_total[5m]))",
+          "refId": "A"
+        }
       ]
     },
-
     {
       "type": "stat",
-      "title": "Search Latency (mean)",
-      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "title": "Search Stream Latency (mean)",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
       "targets": [
         {
-          "expr": "increase(mongot_command_searchCommandTotalLatency_seconds_sum{timeUnit=\"seconds\"}[$__range]) / clamp_min(increase(mongot_command_searchCommandTotalLatency_seconds_count{timeUnit=\"seconds\"}[$__range]), 1e-9)",
+          "expr": "increase(mongot_command_searchCommandStreamLatency_seconds_sum{timeUnit=\"seconds\"}[$__range]) / clamp_min(increase(mongot_command_searchCommandStreamLatency_seconds_count{timeUnit=\"seconds\"}[$__range]), 1e-9)",
           "instant": true,
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" } },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "type": "stat",
-      "title": "Search Latency (max)",
-      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "title": "Search Stream Latency (max)",
+      "gridPos": {
+        "x": 4,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
       "targets": [
         {
-          "expr": "max_over_time(mongot_command_searchCommandTotalLatency_seconds_max{timeUnit=\"seconds\"}[$__range])",
+          "expr": "max_over_time(mongot_command_searchCommandStreamLatency_seconds_max{timeUnit=\"seconds\"}[$__range])",
           "instant": true,
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" } },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "type": "stat",
-      "title": "Search Latency (med)",
-      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "title": "Search Stream Latency (med)",
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
       "targets": [
         {
-          "expr": "histogram_quantile(0.5, sum by (le) (increase(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__range])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (increase(mongot_command_searchCommandStreamLatency_seconds_bucket{timeUnit=\"seconds\"}[$__range])))",
           "instant": true,
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" } },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "type": "stat",
-      "title": "Search Latency (p75)",
-      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "title": "Search Stream Latency (p75)",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
       "targets": [
         {
-          "expr": "histogram_quantile(0.75, sum by (le) (increase(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__range])))",
+          "expr": "histogram_quantile(0.75, sum by (le) (increase(mongot_command_searchCommandStreamLatency_seconds_bucket{timeUnit=\"seconds\"}[$__range])))",
           "instant": true,
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" } },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "type": "stat",
-      "title": "Search Latency (p90)",
-      "gridPos": { "x": 16, "y": 0, "w": 4, "h": 4 },
+      "title": "Search Stream Latency (p90)",
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
       "targets": [
         {
-          "expr": "histogram_quantile(0.9, sum by (le) (increase(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__range])))",
+          "expr": "histogram_quantile(0.9, sum by (le) (increase(mongot_command_searchCommandStreamLatency_seconds_bucket{timeUnit=\"seconds\"}[$__range])))",
           "instant": true,
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" } },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "type": "stat",
-      "title": "Search Latency (p99)",
-      "gridPos": { "x": 20, "y": 0, "w": 4, "h": 4 },
+      "title": "Search Stream Latency (p99)",
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
       "targets": [
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (increase(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__range])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (increase(mongot_command_searchCommandStreamLatency_seconds_bucket{timeUnit=\"seconds\"}[$__range])))",
           "instant": true,
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" } },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "type": "timeseries",
-      "title": "Search Latency (over time)",
-      "description": "Histogram-backed search latency percentiles and max over time.",
-      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "title": "Search Stream Latency (over time)",
+      "description": "Histogram-backed server-side gRPC stream latency for search requests. This is closer to the end-to-end trace duration than the in-command search timer.",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
-          "expr": "mongot_command_searchCommandTotalLatency_seconds_max{timeUnit=\"seconds\"}",
+          "expr": "mongot_command_searchCommandStreamLatency_seconds_max{timeUnit=\"seconds\"}",
           "legendFormat": "max",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(mongot_command_searchCommandStreamLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval])))",
           "legendFormat": "p99",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.9, sum by (le) (rate(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.9, sum by (le) (rate(mongot_command_searchCommandStreamLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval])))",
           "legendFormat": "p90",
           "refId": "C"
         },
         {
-          "expr": "histogram_quantile(0.75, sum by (le) (rate(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.75, sum by (le) (rate(mongot_command_searchCommandStreamLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval])))",
           "legendFormat": "p75",
           "refId": "D"
         },
         {
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(mongot_command_searchCommandStreamLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval])))",
           "legendFormat": "p50",
           "refId": "E"
         },
         {
-          "expr": "rate(mongot_command_searchCommandTotalLatency_seconds_sum{timeUnit=\"seconds\"}[$__rate_interval]) / clamp_min(rate(mongot_command_searchCommandTotalLatency_seconds_count{timeUnit=\"seconds\"}[$__rate_interval]), 1e-9)",
+          "expr": "rate(mongot_command_searchCommandStreamLatency_seconds_sum{timeUnit=\"seconds\"}[$__rate_interval]) / clamp_min(rate(mongot_command_searchCommandStreamLatency_seconds_count{timeUnit=\"seconds\"}[$__rate_interval]), 1e-9)",
           "legendFormat": "mean",
           "refId": "F"
         }
@@ -206,9 +381,14 @@
     },
     {
       "type": "heatmap",
-      "title": "Search Latency (heatmap)",
-      "description": "Built from Prometheus histogram buckets emitted by searchCommandTotalLatency, using Grafana's rate interval so bucket counts align with the 15s scrape cadence.",
-      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "title": "Search Stream Latency (heatmap)",
+      "description": "Built from Prometheus histogram buckets emitted by searchCommandStreamLatency, using Grafana's rate interval so bucket counts align with the 15s scrape cadence.",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
       "fieldConfig": {
         "defaults": {
           "displayName": "Count",
@@ -232,7 +412,7 @@
       "highlightCards": true,
       "targets": [
         {
-          "expr": "sum by (le) (increase(mongot_command_searchCommandTotalLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval]))",
+          "expr": "sum by (le) (increase(mongot_command_searchCommandStreamLatency_seconds_bucket{timeUnit=\"seconds\"}[$__rate_interval]))",
           "format": "heatmap",
           "legendFormat": "{{le}}",
           "refId": "A"
@@ -255,7 +435,12 @@
       "type": "timeseries",
       "title": "Search Requests / sec",
       "description": "Success is derived from total search commands minus invalid queries, internal search failures, and command failures.",
-      "gridPos": { "x": 0, "y": 12, "w": 24, "h": 6 },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 24,
+        "h": 6
+      },
       "targets": [
         {
           "expr": "clamp_min((sum(rate(mongot_search_metrics_searchCommandTotalCount_total[$__rate_interval])) or vector(0)) - ((sum(rate(mongot_search_metrics_searchCommandInvalidQueries_total[$__rate_interval])) or vector(0)) + (sum(rate(mongot_search_metrics_searchCommandInternalFailures_total[$__rate_interval])) or vector(0)) + (sum(rate(mongot_command_searchCommandFailure_total[$__rate_interval])) or vector(0))), 0)",
@@ -275,30 +460,992 @@
             "drawStyle": "bars",
             "lineWidth": 0,
             "fillOpacity": 80,
-            "stacking": { "mode": "normal", "group": "A" }
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
           }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "success" },
+            "matcher": {
+              "id": "byName",
+              "options": "success"
+            },
             "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#299c46" } }
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#299c46"
+                }
+              }
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "failure" },
+            "matcher": {
+              "id": "byName",
+              "options": "failure"
+            },
             "properties": [
-              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d44a3a" } }
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d44a3a"
+                }
+              }
             ]
           }
         ]
       }
     },
-
     {
       "type": "timeseries",
-      "title": "Executor Queues — Top 10",
-      "gridPos": { "x": 0, "y": 35, "w": 12, "h": 7 },
+      "title": "Search Stream Breakdown (mean)",
+      "description": "Stacked mean latency for the MongoT search stream. Child spans are shown with non-overlapping residual buckets, and the stream lifecycle bucket is the measured stream latency minus the MongoT command span. Queries explicitly add the corrected metric and the earlier accidental double-prefixed metric so Prometheus range queries do not create duplicate labelsets.",
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "query context",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "parse BSON",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "index lookup",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "cursor options",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "validate",
+          "range": true,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "response mode",
+          "range": true,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0))), 1e-9)))",
+          "legendFormat": "cursor setup",
+          "range": true,
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "clamp_min((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0))), 1e-9))) - (((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0))), 1e-9)))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0))), 1e-9)))), 0)",
+          "legendFormat": "cursor orchestration",
+          "range": true,
+          "refId": "H"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "Lucene open searcher",
+          "range": true,
+          "refId": "I"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "clamp_min((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0))), 1e-9))) - ((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0))), 1e-9)))), 0)",
+          "legendFormat": "reader orchestration",
+          "range": true,
+          "refId": "J"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "build query",
+          "range": true,
+          "refId": "K"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "Lucene highlights",
+          "range": true,
+          "refId": "L"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "score details",
+          "range": true,
+          "refId": "M"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "Lucene page/sort context",
+          "range": true,
+          "refId": "N"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "Lucene build sort",
+          "range": true,
+          "refId": "O"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "search manager",
+          "range": true,
+          "refId": "P"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "Lucene collect hits",
+          "range": true,
+          "refId": "Q"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "result producer",
+          "range": true,
+          "refId": "R"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "Lucene advance batch",
+          "range": true,
+          "refId": "S"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "clamp_min((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0))), 1e-9))) - ((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0))), 1e-9)))), 0)",
+          "legendFormat": "batch orchestration",
+          "range": true,
+          "refId": "T"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "materialize BSON",
+          "range": true,
+          "refId": "U"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "response doc",
+          "range": true,
+          "refId": "V"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0))), 1e-9))",
+          "legendFormat": "encode BSON",
+          "range": true,
+          "refId": "W"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "clamp_min((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.command\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.command\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.command\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.command\"}[$__rate_interval]))) or vector(0))), 1e-9))) - ((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0))), 1e-9)))), 0)",
+          "legendFormat": "command orchestration",
+          "range": true,
+          "refId": "X"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "clamp_min((sum(rate(mongot_command_searchCommandStreamLatency_seconds_sum{timeUnit=\"seconds\"}[$__rate_interval])) / clamp_min(sum(rate(mongot_command_searchCommandStreamLatency_seconds_count{timeUnit=\"seconds\"}[$__rate_interval])), 1e-9)) - ((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.command\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.command\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.command\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.command\"}[$__rate_interval]))) or vector(0))), 1e-9)))), 0)",
+          "legendFormat": "stream lifecycle",
+          "range": true,
+          "refId": "Y"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 65,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "parse BSON"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "index lookup"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "validate"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "build query"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lucene highlights"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lucene build sort"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "dark-green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lucene collect hits"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "materialize BSON"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "encode BSON"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "dark-red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "command orchestration"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stream lifecycle"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "super-light-green"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Search Command Phase Breakdown (mean, us)",
+      "description": "Microsecond-scale, non-overlapping mean latency inside the MongoT search command. The gRPC stream lifecycle is intentionally excluded so Lucene, cursor, and response assembly work remain visible.",
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "query context",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "parse BSON",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "index lookup",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "cursor options",
+          "range": true,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "validate",
+          "range": true,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "response mode",
+          "range": true,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0))), 1e-9)))) * 1000000",
+          "legendFormat": "cursor setup",
+          "range": true,
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(clamp_min((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0))), 1e-9))) - (((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.select_index_manager\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.choose_batch_size\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.instantiate_cursor\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_active_cursor\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.register_index_mapping\"}[$__rate_interval]))) or vector(0))), 1e-9)))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0))), 1e-9)))), 0)) * 1000000",
+          "legendFormat": "cursor orchestration",
+          "range": true,
+          "refId": "H"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "Lucene open searcher",
+          "range": true,
+          "refId": "I"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(clamp_min((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_search_reader_query|mongot\\\\.lucene\\\\.search_index_reader\\\\.query\"}[$__rate_interval]))) or vector(0))), 1e-9))) - ((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.open_index_searcher\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0))), 1e-9)))), 0)) * 1000000",
+          "legendFormat": "reader orchestration",
+          "range": true,
+          "refId": "J"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_query|mongot\\\\.lucene\\\\.create_search_query\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "build query",
+          "range": true,
+          "refId": "K"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_highlights|mongot\\\\.lucene\\\\.prepare_highlighter\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "Lucene highlights",
+          "range": true,
+          "refId": "L"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_score_details\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "score details",
+          "range": true,
+          "refId": "M"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.prepare_pagination_sort_context\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "Lucene page/sort context",
+          "range": true,
+          "refId": "N"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.build_sort|mongot\\\\.lucene\\\\.create_sort\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "Lucene build sort",
+          "range": true,
+          "refId": "O"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_search_manager\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "search manager",
+          "range": true,
+          "refId": "P"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.collect_initial_top_docs|mongot\\\\.lucene\\\\.initial_top_docs\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "Lucene collect hits",
+          "range": true,
+          "refId": "Q"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.create_result_producer\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "result producer",
+          "range": true,
+          "refId": "R"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "Lucene advance batch",
+          "range": true,
+          "refId": "S"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(clamp_min((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0))), 1e-9))) - ((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.cursor\\\\.advance_batch_producer\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0))), 1e-9)))), 0)) * 1000000",
+          "legendFormat": "batch orchestration",
+          "range": true,
+          "refId": "T"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.lucene\\\\.materialize_bson_documents|mongot\\\\.lucene\\\\.materialize_results\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "materialize BSON",
+          "range": true,
+          "refId": "U"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "response doc",
+          "range": true,
+          "refId": "V"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0))), 1e-9))) * 1000000",
+          "legendFormat": "encode BSON",
+          "range": true,
+          "refId": "W"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "(clamp_min((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.command\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.command\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.command\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.command\"}[$__rate_interval]))) or vector(0))), 1e-9))) - ((((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_query_context\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_query_bson|mongot\\\\.search\\\\.parse_query\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.lookup_index_catalog|mongot\\\\.search\\\\.resolve_index\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.parse_cursor_options\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.validate_query_options|mongot\\\\.search\\\\.validate_query\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_mode\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.create_and_register_cursor|mongot\\\\.search\\\\.create_cursor\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.load_first_cursor_batch|mongot\\\\.search\\\\.cursor_next_batch\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.prepare_response_document\"}[$__rate_interval]))) or vector(0))), 1e-9))) + (((((sum(rate(mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_sum{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0))) / clamp_min((((sum(rate(mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0)) + ((sum(rate(mongot_mongot_trace_detailed_span_duration_seconds_count{span=~\"mongot\\\\.search\\\\.encode_response_bson|mongot\\\\.search\\\\.serialize_batch\"}[$__rate_interval]))) or vector(0))), 1e-9)))), 0)) * 1000000",
+          "legendFormat": "command orchestration",
+          "range": true,
+          "refId": "X"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "\u00b5s",
+          "decimals": 2,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 65,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "parse BSON"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "index lookup"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "validate"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "build query"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lucene highlights"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lucene build sort"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "dark-green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lucene collect hits"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "materialize BSON"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "encode BSON"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "dark-red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "command orchestration"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "palette-classic",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        },
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Executor Queues \u2014 Top 10",
+      "gridPos": {
+        "x": 0,
+        "y": 59,
+        "w": 12,
+        "h": 7
+      },
       "targets": [
         {
           "expr": "topk(10, {job=\"mongot\", __name__=~\"mongot_.*_executor_queued_tasks\"})",
@@ -308,8 +1455,13 @@
     },
     {
       "type": "timeseries",
-      "title": "Active Threads — Top 10 Executors",
-      "gridPos": { "x": 12, "y": 35, "w": 12, "h": 7 },
+      "title": "Active Threads \u2014 Top 10 Executors",
+      "gridPos": {
+        "x": 12,
+        "y": 59,
+        "w": 12,
+        "h": 7
+      },
       "targets": [
         {
           "expr": "topk(10, {job=\"mongot\", __name__=~\"mongot_.*_executor_active_threads\"})",
@@ -317,22 +1469,37 @@
         }
       ]
     },
-
     {
       "type": "row",
       "title": "Distributed Tracing (Jaeger)",
-      "gridPos": { "x": 0, "y": 42, "w": 24, "h": 1 },
+      "gridPos": {
+        "x": 0,
+        "y": 66,
+        "w": 24,
+        "h": 1
+      },
       "collapsed": false
     },
     {
       "type": "table",
-      "title": "Recent Traces — mongot",
-      "gridPos": { "x": 0, "y": 43, "w": 24, "h": 10 },
-      "datasource": { "type": "jaeger", "uid": "jaeger" },
+      "title": "Recent Traces \u2014 mongot",
+      "gridPos": {
+        "x": 0,
+        "y": 67,
+        "w": 24,
+        "h": 10
+      },
+      "datasource": {
+        "type": "jaeger",
+        "uid": "jaeger"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "jaeger", "uid": "jaeger" },
+          "datasource": {
+            "type": "jaeger",
+            "uid": "jaeger"
+          },
           "queryType": "search",
           "service": "mongot",
           "limit": 200

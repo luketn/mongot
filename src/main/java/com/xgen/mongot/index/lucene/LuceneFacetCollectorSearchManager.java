@@ -6,6 +6,7 @@ import com.xgen.mongot.index.lucene.explain.timing.ExplainTimings;
 import com.xgen.mongot.index.lucene.explain.tracing.Explain;
 import com.xgen.mongot.index.lucene.searcher.LuceneIndexSearcher;
 import com.xgen.mongot.index.query.sort.SequenceToken;
+import io.opentelemetry.api.trace.Span;
 import java.io.IOException;
 import java.util.Optional;
 import org.apache.lucene.facet.FacetsCollector;
@@ -53,6 +54,9 @@ class LuceneFacetCollectorSearchManager
     var searchLimit = Math.min(readerLimit, batchSize);
 
     var searchCollectorManager = createCollectorManager(searchLimit, Integer.MAX_VALUE);
+    Span.current().setAttribute("mongot.lucene.collector_manager.class", searchCollectorManager.getClass().getName());
+    Span.current().setAttribute("mongot.lucene.hit_threshold", Integer.MAX_VALUE);
+    Span.current().setAttribute("mongot.lucene.facet_collector.enabled", true);
 
     var results =
         searcher.search(

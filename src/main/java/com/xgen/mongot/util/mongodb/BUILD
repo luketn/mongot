@@ -24,6 +24,7 @@ java_library(
         "InstrumentedConnectionPoolListenerFactory.java",
         "KillCursorsCommand.java",
         "MongoClientBuilder.java",
+        "MongodMongotMessageLogger.java",
         "MongoCredentials.java",
         "MongoDbDatabase.java",
         "MongoDbFsync.java",

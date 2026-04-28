@@ -17,6 +17,7 @@ import com.xgen.mongot.server.command.search.SearchCommandsRegister.Registration
 import com.xgen.mongot.server.executors.ExecutorManager;
 import com.xgen.mongot.server.message.MessageMessage;
 import com.xgen.mongot.server.util.NettyUtil;
+import com.xgen.mongot.trace.Tracing;
 import com.xgen.mongot.util.Bytes;
 import com.xgen.mongot.util.Crash;
 import io.grpc.Server;
@@ -149,31 +150,46 @@ public class GrpcStreamingServer implements CommandServer {
     var wireMessageCallHandler =
         ServerCalls.<MessageMessage, MessageMessage>asyncBidiStreamingCall(
             responseStream -> {
-              // If we receive a gRPC stream when unhealthy, throws an
-              // UNAVAILABLE error so that envoy can retry.
-              if (!healthManager.isHealthy()) {
-                throw new StatusRuntimeException(Status.UNAVAILABLE);
+              try (var streamHandlerSpan =
+                  Tracing.detailedSpanGuard("mongot.grpc.create_stream_handler")) {
+                streamHandlerSpan
+                    .getSpan()
+                    .setAttribute(
+                        "rpc.method",
+                        CommandStreamMethods.unauthenticatedCommandStream.getFullMethodName());
+                // If we receive a gRPC stream when unhealthy, throws an
+                // UNAVAILABLE error so that envoy can retry.
+                if (!healthManager.isHealthy()) {
+                  throw new StatusRuntimeException(Status.UNAVAILABLE);
+                }
+                return new WireMessageCallHandler(
+                    commandRegistry,
+                    executorManager.commandExecutor,
+                    cursorManager,
+                    GrpcContext.SEARCH_ENVOY_METADATA_KEY.get(),
+                    responseStream);
               }
-              return new WireMessageCallHandler(
-                  commandRegistry,
-                  executorManager.commandExecutor,
-                  cursorManager,
-                  GrpcContext.SEARCH_ENVOY_METADATA_KEY.get(),
-                  responseStream);
             });
 
     var bsonMessageCallHandler =
         ServerCalls.<RawBsonDocument, RawBsonDocument>asyncBidiStreamingCall(
             responseStream -> {
-              if (!healthManager.isHealthy()) {
-                throw new StatusRuntimeException(Status.UNAVAILABLE);
+              try (var streamHandlerSpan =
+                  Tracing.detailedSpanGuard("mongot.grpc.create_stream_handler")) {
+                streamHandlerSpan
+                    .getSpan()
+                    .setAttribute(
+                        "rpc.method", CommandStreamMethods.searchCommandStream.getFullMethodName());
+                if (!healthManager.isHealthy()) {
+                  throw new StatusRuntimeException(Status.UNAVAILABLE);
+                }
+                return new BsonMessageCallHandler(
+                    commandRegistry,
+                    executorManager.commandExecutor,
+                    cursorManager,
+                    GrpcContext.SEARCH_ENVOY_METADATA_KEY.get(),
+                    responseStream);
               }
-              return new BsonMessageCallHandler(
-                  commandRegistry,
-                  executorManager.commandExecutor,
-                  cursorManager,
-                  GrpcContext.SEARCH_ENVOY_METADATA_KEY.get(),
-                  responseStream);
             });
 
     TlsMode tlsMode =

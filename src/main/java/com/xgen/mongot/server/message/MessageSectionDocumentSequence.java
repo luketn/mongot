@@ -37,6 +37,14 @@ public final class MessageSectionDocumentSequence implements MessageSection {
     return this.size;
   }
 
+  public String id() {
+    return this.id;
+  }
+
+  public List<RawBsonDocument> objects() {
+    return List.copyOf(this.objects);
+  }
+
   @Override
   public void append(ByteBuf out) {
     int actualSize = this.size + 4;

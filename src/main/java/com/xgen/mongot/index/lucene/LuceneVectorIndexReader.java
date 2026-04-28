@@ -143,7 +143,15 @@ public class LuceneVectorIndexReader implements VectorIndexReader {
   @Override
   public BsonArray query(MaterializedVectorSearchQuery materializedVectorQuery)
       throws ReaderClosedException, IOException, InvalidQueryException {
-    return getBsonArray(queryResults(materializedVectorQuery), this.metricsUpdater);
+    try (var span = Tracing.detailedSpanGuard("mongot.lucene.vector_index_reader.query")) {
+      span
+          .getSpan()
+          .setAttribute("mongot.search.index.name", materializedVectorQuery.vectorSearchQuery().index());
+      span.getSpan().setAttribute("mongot.vector.path", materializedVectorQuery.internalPath().toString());
+      BsonArray results = getBsonArray(queryResults(materializedVectorQuery), this.metricsUpdater);
+      span.getSpan().setAttribute("mongot.vector.result.count", results.size());
+      return results;
+    }
   }
 
   @Override
@@ -156,8 +164,10 @@ public class LuceneVectorIndexReader implements VectorIndexReader {
     try (LockGuard ignored = LockGuard.with(this.shutdownSharedLock)) {
       ensureOpen("query");
       List<VectorSearchResult> allResults;
-      try (var searcherReference = createSearcherReference(query.concurrent())) {
+      try (var span = Tracing.detailedSpanGuard("mongot.lucene.vector_index_reader.query_results");
+          var searcherReference = createSearcherReference(query.concurrent())) {
         allResults = queryResults(query, searcherReference);
+        span.getSpan().setAttribute("mongot.vector.result.count", allResults.size());
       }
       return new VectorProducerAndMetaResults(
           new LuceneVectorSearchBatchProducer(
@@ -170,10 +180,13 @@ public class LuceneVectorIndexReader implements VectorIndexReader {
   public List<VectorSearchResult> queryResults(
       MaterializedVectorSearchQuery materializedVectorQuery)
       throws ReaderClosedException, IOException, InvalidQueryException {
-    try (LockGuard ignored = LockGuard.with(this.shutdownSharedLock)) {
+    try (var span = Tracing.detailedSpanGuard("mongot.lucene.vector_index_reader.query_results");
+        LockGuard ignored = LockGuard.with(this.shutdownSharedLock)) {
       ensureOpen("query");
       try (var searcherReference = createSearcherReference(materializedVectorQuery.concurrent())) {
-        return queryResults(materializedVectorQuery, searcherReference);
+        List<VectorSearchResult> results = queryResults(materializedVectorQuery, searcherReference);
+        span.getSpan().setAttribute("mongot.vector.result.count", results.size());
+        return results;
       }
     }
   }
@@ -184,12 +197,18 @@ public class LuceneVectorIndexReader implements VectorIndexReader {
       LuceneIndexSearcherReference searcherReference)
       throws ReaderClosedException, IOException, InvalidQueryException {
     var indexSearcher = searcherReference.getIndexSearcher();
-    var luceneQuery =
-        Explain.isEnabled()
-            ? this.queryFactory.createExplainQuery(
-                materializedVectorQuery, indexSearcher.getIndexReader())
-            : this.queryFactory.createQuery(
-                materializedVectorQuery, indexSearcher.getIndexReader());
+    org.apache.lucene.search.Query luceneQuery;
+    try (var span = Tracing.detailedSpanGuard("mongot.lucene.create_vector_query")) {
+      luceneQuery =
+          Explain.isEnabled()
+              ? this.queryFactory.createExplainQuery(
+                  materializedVectorQuery, indexSearcher.getIndexReader())
+              : this.queryFactory.createQuery(
+                  materializedVectorQuery, indexSearcher.getIndexReader());
+      span.getSpan().setAttribute("mongot.lucene.query.class", luceneQuery.getClass().getName());
+      Tracing.setPayloadAttribute(
+          span.getSpan(), "mongot.lucene.query", luceneQuery.toString());
+    }
 
     LuceneSearchManager<QueryInfo> searchManager =
         this.luceneSearchManagerFactory.newVectorQueryManager(
@@ -197,7 +216,11 @@ public class LuceneVectorIndexReader implements VectorIndexReader {
 
     QueryInfo queryInfo = searchManager.initialSearch(searcherReference, VECTOR_SEARCH_BATCH_SIZE);
 
-    return getResults(queryInfo.topDocs, indexSearcher, materializedVectorQuery);
+    try (var span = Tracing.detailedSpanGuard("mongot.lucene.vector_materialize_results")) {
+      List<VectorSearchResult> results = getResults(queryInfo.topDocs, indexSearcher, materializedVectorQuery);
+      span.getSpan().setAttribute("mongot.vector.result.count", results.size());
+      return results;
+    }
   }
 
   public static BsonArray getBsonArray(

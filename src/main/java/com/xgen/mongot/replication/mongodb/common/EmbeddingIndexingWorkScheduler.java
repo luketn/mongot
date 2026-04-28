@@ -40,6 +40,8 @@ import com.xgen.mongot.util.FieldPath;
 import com.xgen.mongot.util.FutureUtils;
 import com.xgen.mongot.util.bson.Vector;
 import com.xgen.mongot.util.concurrent.NamedExecutorService;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -200,6 +202,7 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
 
   @Override
   CompletableFuture<Void> getBatchTasksFuture(IndexingSchedulerBatch batch) {
+    Context parentContext = Context.current();
     // Replace text fields in event documents with embedded vectors for auto-embedding indexes.
     IndexDefinition indexDefinition = batch.indexer.getIndexDefinition();
 
@@ -296,7 +299,12 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
                                             .map(
                                                 (task) ->
                                                     FutureUtils.checkedRunAsync(
-                                                        task,
+                                                        () -> {
+                                                          try (Scope ignored =
+                                                              parentContext.makeCurrent()) {
+                                                            task.run();
+                                                          }
+                                                        },
                                                         this.executor,
                                                         FieldExceededLimitsException.class))
                                             .collect(Collectors.toList())),
@@ -326,6 +334,7 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
       ImmutableMap<FieldPath, EmbedConfigurationForBatch> embedBatchKeyPerPath,
       Optional<MaterializedViewSchemaMetadata> matViewSchemaMetadata,
       int subBatchSize) {
+    Context parentContext = Context.current();
     List<EmbedBundle> bundles;
     try {
       bundles =
@@ -389,7 +398,13 @@ final class EmbeddingIndexingWorkScheduler extends IndexingWorkScheduler {
                               .map(
                                   task ->
                                       FutureUtils.checkedRunAsync(
-                                          task, this.executor, FieldExceededLimitsException.class))
+                                          () -> {
+                                            try (Scope ignored = parentContext.makeCurrent()) {
+                                              task.run();
+                                            }
+                                          },
+                                          this.executor,
+                                          FieldExceededLimitsException.class))
                               .collect(Collectors.toList())),
                   this.executor)
               // Flush this sub-batch to MongoDB before processing the next one.

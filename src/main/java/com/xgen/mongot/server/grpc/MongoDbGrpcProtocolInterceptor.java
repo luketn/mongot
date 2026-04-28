@@ -1,5 +1,6 @@
 package com.xgen.mongot.server.grpc;
 
+import com.xgen.mongot.trace.Tracing;
 import io.grpc.ForwardingServerCall;
 import io.grpc.Metadata;
 import io.grpc.ServerCall;
@@ -31,32 +32,49 @@ public class MongoDbGrpcProtocolInterceptor implements ServerInterceptor {
   @Override
   public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
       ServerCall<ReqT, RespT> call, Metadata requestHeaders, ServerCallHandler<ReqT, RespT> next) {
-    if (!call.getMethodDescriptor()
-        .getServiceName()
-        .equals(CommandStreamMethods.MONGODB_WIRE_SERVICE_NAME)) {
-      // This interceptor won't do anything on non-mongodb service. (e.g. Health checks)
-      return next.startCall(call, requestHeaders);
-    }
+    try (var interceptorSpan =
+        Tracing.detailedSpanGuard("mongot.grpc.mongodb_protocol_interceptor")) {
+      interceptorSpan
+          .getSpan()
+          .setAttribute("rpc.method", fullMethodName(call));
+      if (!CommandStreamMethods.MONGODB_WIRE_SERVICE_NAME.equals(serviceName(call))) {
+        // This interceptor won't do anything on non-mongodb service. (e.g. Health checks)
+        interceptorSpan.getSpan().setAttribute("mongot.grpc.interceptor.applied", false);
+        return next.startCall(call, requestHeaders);
+      }
+      interceptorSpan.getSpan().setAttribute("mongot.grpc.interceptor.applied", true);
 
-    Status status = checkRequestHeaders(requestHeaders);
-    if (!status.isOk()) {
-      // We always need to provide the max wire version in the header.
-      Metadata responseHeaders = new Metadata();
-      populateResponseHeaders(responseHeaders);
-      call.sendHeaders(responseHeaders);
-      call.close(status, new Metadata());
-      return new ServerCall.Listener<>() {};
-    }
+      Status status = checkRequestHeaders(requestHeaders);
+      interceptorSpan.getSpan().setAttribute("mongot.grpc.request_headers.valid", status.isOk());
+      if (!status.isOk()) {
+        // We always need to provide the max wire version in the header.
+        Metadata responseHeaders = new Metadata();
+        populateResponseHeaders(responseHeaders);
+        call.sendHeaders(responseHeaders);
+        call.close(status, new Metadata());
+        return new ServerCall.Listener<>() {};
+      }
 
-    return next.startCall(
-        new ForwardingServerCall.SimpleForwardingServerCall<>(call) {
-          @Override
-          public void sendHeaders(Metadata responseHeaders) {
-            populateResponseHeaders(responseHeaders);
-            super.sendHeaders(responseHeaders);
-          }
-        },
-        requestHeaders);
+      return next.startCall(
+          new ForwardingServerCall.SimpleForwardingServerCall<>(call) {
+            @Override
+            public void sendHeaders(Metadata responseHeaders) {
+              populateResponseHeaders(responseHeaders);
+              super.sendHeaders(responseHeaders);
+            }
+          },
+          requestHeaders);
+    }
+  }
+
+  private static <ReqT, RespT> String fullMethodName(ServerCall<ReqT, RespT> call) {
+    return call.getMethodDescriptor() == null
+        ? "unknown"
+        : call.getMethodDescriptor().getFullMethodName();
+  }
+
+  private static <ReqT, RespT> String serviceName(ServerCall<ReqT, RespT> call) {
+    return call.getMethodDescriptor() == null ? "" : call.getMethodDescriptor().getServiceName();
   }
 
   private static Status checkRequestHeaders(Metadata requestHeaders) {

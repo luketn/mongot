@@ -3,6 +3,7 @@ package com.xgen.mongot.index.lucene;
 import com.xgen.mongot.index.lucene.searcher.LuceneIndexSearcher;
 import com.xgen.mongot.index.query.InvalidQueryException;
 import com.xgen.mongot.index.query.sort.SequenceToken;
+import io.opentelemetry.api.trace.Span;
 import java.io.IOException;
 import java.util.Optional;
 import org.apache.lucene.facet.DrillSideways.DrillSidewaysResult;
@@ -56,6 +57,9 @@ class LuceneFacetOptimizedDrillSidewaysSearchManager
     var searchLimit = Math.min(readerLimit, batchSize);
 
     var searchCollectorManager = createCollectorManager(searchLimit, Integer.MAX_VALUE);
+    Span.current().setAttribute("mongot.lucene.collector_manager.class", searchCollectorManager.getClass().getName());
+    Span.current().setAttribute("mongot.lucene.hit_threshold", Integer.MAX_VALUE);
+    Span.current().setAttribute("mongot.lucene.drill_sideways.optimized", true);
 
     var drillSidewaysResult =
         this.luceneDrillSideways

@@ -2,6 +2,7 @@ package com.xgen.mongot.index.lucene;
 
 import com.xgen.mongot.index.query.counts.Count;
 import com.xgen.mongot.index.query.sort.SequenceToken;
+import io.opentelemetry.api.trace.Span;
 import java.io.IOException;
 import java.util.Optional;
 import org.apache.lucene.search.Query;
@@ -41,6 +42,8 @@ class LuceneOperatorSearchManager
     // properly. Similarly, our FieldDoc may come from other shards and contain doc IDs that are
     // out of range. By using the collectors directly, we bypass checks on docID range.
     var collectorManager = createCollectorManager(batchSize, hitsThreshold);
+    Span.current().setAttribute("mongot.lucene.collector_manager.class", collectorManager.getClass().getName());
+    Span.current().setAttribute("mongot.lucene.hit_threshold", hitsThreshold);
     var topDocs =
         searcherReference.getIndexSearcher().search(this.getLuceneQuery(), collectorManager);
 
