@@ -3,7 +3,7 @@ name: Publish mongot app tour
 on:
   push:
     branches:
-      - main
+      - feat/add-detailed-tracing
     paths:
       - "mongot-app-tour/**"
       - ".github/workflows/publish-mongot-app-tour.yml"
