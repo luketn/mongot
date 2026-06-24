@@ -25,3 +25,6 @@ jobs:
 
       - name: Sync mongot app tour to S3
         run: aws s3 sync mongot-app-tour/ s3://luketn.com/mongot-app-tour/ --region ap-southeast-2
+
+      - name: Invalidate mongot app tour cache
+        run: aws cloudfront create-invalidation --distribution-id E17XFD5V4GYOYT --paths "/mongot-app-tour/*"
